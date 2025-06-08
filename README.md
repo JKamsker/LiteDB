@@ -1,4 +1,5 @@
 # LiteDB.Vector – Embedded Vector Search Enhanced Version of LiteDB
+=======
 
 **LiteDB.Vector** is an open-source enhancement to the [LiteDB](https://github.com/mbdavid/LiteDB) embedded NoSQL database that adds native support for vector similarity search. It enables efficient *in-process* top-k and range-based similarity queries using cosine distance over `float[]`-based `BsonVector` values.
 
