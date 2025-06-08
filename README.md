@@ -1,74 +1,160 @@
+# LiteDB.Vector – Embedded Vector Search Extension for LiteDB
 
-# SynthetikDelusion.MemoryEngine – A Hybrid Cognitive Memory Store for AI Agents
+**LiteDB.Vector** is an open-source enhancement to the [LiteDB](https://github.com/mbdavid/LiteDB) embedded NoSQL database that adds native support for vector similarity search. It enables efficient *in-process* top-k and range-based similarity queries using cosine distance over `float[]`-based `BsonVector` values.
 
-This repository is a customized fork of the original [LiteDB](https://github.com/mbdavid/LiteDB) by Maurício David. It serves as the memory backbone for the [Synthetik Delusion](https://github.com/hurley451/synthetikdelusion) framework—a brain-inspired cognitive architecture for autonomous agents written in C#.
-
-This enhanced fork adds **hybrid vector + graph memory**, **emotionally weighted recall**, and **context-aware memory scoping**, while preserving the full document-based NoSQL functionality of LiteDB.
-
-> **Credit:** Full credit for the embedded NoSQL database foundation goes to [LiteDB by mbdavid](https://github.com/mbdavid/LiteDB). This fork is respectful of the original MIT license and extends the system to support synthetic cognition.
+> ✅ MIT Licensed and fully independent of the LiteDB core project. This is a community-driven extension built with deep respect for the original work by [@mbdavid](https://github.com/mbdavid).
 
 ---
 
-## ✨ Enhancements Over Base LiteDB
+## ✨ Key Features
 
-- 🔗 **Graph Memory Model** with embedded semantic edge relationships
-- 📐 **BsonVector**: native support for `float[]` embeddings
-- 🧠 **MemoryNode + MemoryEdge** constructs for storing and linking insights
-- ⚖️ **Weighted Memory Recall**: recall based on similarity, recency, emotional charge, frequency, and context
-- 🧳 **Scoped Memory Stores**: working memory (TTL-based), long-term memory, and cognitive unit-local memory
-- 🔁 **Memory Consolidator**: promotes meaningful memories based on relevance and usage patterns
-- 🧮 **Similarity and relevance queries**: cosine similarity and relevance-weighted scoring for top-K recall
-
----
-
-## 📦 Project Status
-
-This memory engine is actively used in Synthetik Delusion as the core of the agent's cognitive memory loop.
-
-It is not a general-purpose database fork—but rather a **foundational cognitive substrate** tailored for AI reasoning, experience encoding, and adaptive behavior.
+- 🧮 **BsonVector**: Native vector embedding support (`float[]`)
+- 📏 **Cosine Similarity**: Efficient similarity filtering and ranking via `VECTOR_SIM()`
+- 🔍 **Top-K & Distance-Based Queries**:
+  - `.WhereNear(field, target, maxDistance)`
+  - `.TopKNear(field, target, k)`
+- 🧪 **Fluent and SQL Support**: Both LINQ-like and SQL-style queries supported
+- ⚡ **In-Process Performance**: Sub-millisecond filtering on thousands of records
+- 🔒 Fully compatible with secured + encrypted LiteDB files
+- ✅ **Works anywhere LiteDB works** – no server, no extra dependencies
 
 ---
 
-## 💡 Example Use Case
+## 🧠 Use Cases
+
+- Local semantic search for small/medium knowledgebases
+- In-process Retrieval-Augmented Generation (RAG)
+- Cognitive memory modeling in AI agents
+- Lightweight alternatives to vector databases like Pinecone or Qdrant
+
+---
+
+## 💡 Examples
+
+### Quick Example
 
 ```csharp
-var memory = new WorkingMemoryStore("working.db", TimeSpan.FromMinutes(30));
-await memory.StoreNodeAsync(new MemoryNode {
-    Id = Guid.NewGuid(),
-    Label = "stimulus:file:report.docx",
-    Embedding = Vector.FromText("financial document"),
-    EmotionalCharge = 0.4f
+using var db = new LiteDatabase("mem.db");
+var col = db.GetCollection("vectors");
+
+// Insert some vectorized documents
+col.Insert(new BsonDocument {
+    ["_id"] = 1,
+    ["Embedding"] = new BsonVector(new float[] { 1.0f, 0.0f })
 });
 
-var relevant = await memory.QueryRelevantNodesAsync(queryEmbedding, new DefaultRelevanceScorer());
-foreach (var match in relevant)
+// Query for nearby embeddings
+var queryEmbedding = new float[] { 1.0f, 0.0f };
+var results = col.Query()
+    .WhereNear(doc => doc["Embedding"], queryEmbedding, maxDistance: 0.3)
+    .ToList();
+```
+
+
+### Vector Search with POCO Class
+
+You can use vector similarity search with your own classes, enabling strongly typed access to documents with embedded float arrays.
+
+```csharp
+using LiteDB;
+
+// Your POCO model
+public class MyDocument
 {
-    Console.WriteLine($"Found related: {match.Node.Label} with weight {match.FinalWeight}");
+    [BsonId]
+    public int Id { get; set; }
+
+    public float[] Embedding { get; set; }
 }
+
+// Open a LiteDB instance (in-memory or file-backed)
+using var db = new LiteDatabase("MyData.db");
+
+// Get typed collection
+var col = db.GetCollection<MyDocument>("mydocs");
+
+// Insert some example vectorized documents
+col.Insert(new MyDocument { Id = 1, Embedding = new float[] { 1.0f, 0.0f } });
+col.Insert(new MyDocument { Id = 2, Embedding = new float[] { 0.0f, 1.0f } });
+col.Insert(new MyDocument { Id = 3, Embedding = new float[] { 1.0f, 1.0f } });
+
+// Query for documents near the target vector
+var target = new float[] { 1.0f, 0.0f };
+
+var results = col
+    .Query()
+    .WhereNear(x => x.Embedding, target, maxDistance: 0.5)
+    .ToList();
+
+// or TopK
+var topResults = col
+    .Query()
+    .TopKNear(x => x.Embedding, target, 2)
+    .ToList();
+```
+
+### Or in SQL:
+
+```sql
+SELECT *
+FROM vectors
+WHERE VECTOR_SIM($.Embedding, [1.0, 0.0]) < 0.3
 ```
 
 ---
 
-## 🔍 Original LiteDB Features Preserved
+## 📊 Performance
 
-Everything great about LiteDB still applies:
-- Single-file NoSQL embedded storage
-- Full ACID transactions
-- LINQ and SQL-like queries
-- BSON document mapping and POCO support
-- Thread-safe and compact (~450KB)
+Benchmarks show microsecond-level response times for Top-K and filtered nearest vector queries:
 
----
+| Dataset Size | Method           | Mean Time (μs) |
+|--------------|------------------|----------------|
+| 100          | `WhereNear`      | ~270 μs        |
+| 1000         | `TopKNearLimit`  | ~7 ms          |
+| 10,000       | `TopKNearLimit`  | ~84 ms         |
 
-## 🧬 Project License
-
-Synthetik.LiteDB.MemoryEngine inherits the [MIT License](http://opensource.org/licenses/MIT) from LiteDB. All cognitive extensions are offered under the same license, with attribution.
+> See full benchmark results [here](docs/benchmarks.md)
 
 ---
 
-## 📚 Learn More
+## 🧩 Integration Notes
 
-- [Synthetik Delusion Framework Overview](https://github.com/hurley451/synthetikdelusion)
-- [LiteDB Original Project](https://github.com/mbdavid/LiteDB)
-- [LiteDB Studio UI](https://github.com/mbdavid/LiteDB.Studio)
+- No background indexing or ANN required
+- Works with `float[]`, `BsonVector`, or JSON `[1.0, 2.0, 3.0]`
+- Embeddings can be stored in any document field
+- Compatible with LINQ and SQL
 
+---
+
+## 🧬 License & Attribution
+
+This extension is based on [LiteDB](https://github.com/mbdavid/LiteDB), licensed under the [MIT License](https://opensource.org/licenses/MIT). We extend it under the same license and acknowledge the foundational work of [Maurício David (@mbdavid)](https://github.com/mbdavid).
+
+---
+
+## 🛠️ Future Roadmap (Optional)
+
+The following features are **experimental** or under development in downstream use:
+
+- 🔗 Semantic edge-based graph memory
+- 🧠 Emotion + context-aware memory prioritization
+- 🪢 Multi-store scoped memory architecture (Working, LTM, Local)
+- 🌀 Integration into [SynthetikDelusion](https://github.com/hurley451/synthetikdelusion), an open cognitive agent platform
+
+---
+
+## 🧪 Getting Started
+
+```bash
+dotnet add package LiteDB.Vector
+```
+
+Or clone this repo and reference the project locally.
+
+---
+
+## 🔍 See Also
+
+- [LiteDB – Original Project](https://github.com/mbdavid/LiteDB)
+- [LiteDB Studio](https://github.com/mbdavid/LiteDB.Studio)
+- [SynthetikDelusion Cognitive Agent Framework](https://github.com/hurley451/synthetikdelusion)
