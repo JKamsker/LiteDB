@@ -1,0 +1,358 @@
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 184.066 μs, StdErr = 0.298 μs (0.16%), N = 14, StdDev = 1.115 μs
+Min = 181.472 μs, Q1 = 183.647 μs, Median = 184.212 μs, Q3 = 184.737 μs, Max = 185.497 μs
+IQR = 1.090 μs, LowerFence = 182.013 μs, UpperFence = 186.372 μs
+ConfidenceInterval = [182.808 μs; 185.324 μs] (CI 99.9%), Margin = 1.258 μs (0.68% of Mean)
+Skewness = -0.8, Kurtosis = 2.88, MValue = 2
+-------------------- Histogram --------------------
+[180.865 μs ; 186.104 μs) | @@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 272.369 μs, StdErr = 0.691 μs (0.25%), N = 15, StdDev = 2.675 μs
+Min = 267.024 μs, Q1 = 270.809 μs, Median = 271.207 μs, Q3 = 274.306 μs, Max = 276.740 μs
+IQR = 3.498 μs, LowerFence = 265.562 μs, UpperFence = 279.553 μs
+ConfidenceInterval = [269.510 μs; 275.228 μs] (CI 99.9%), Margin = 2.859 μs (1.05% of Mean)
+Skewness = 0.11, Kurtosis = 2.15, MValue = 2
+-------------------- Histogram --------------------
+[265.601 μs ; 278.163 μs) | @@@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 184.788 μs, StdErr = 0.430 μs (0.23%), N = 15, StdDev = 1.665 μs
+Min = 182.512 μs, Q1 = 183.397 μs, Median = 184.429 μs, Q3 = 186.450 μs, Max = 187.258 μs
+IQR = 3.053 μs, LowerFence = 178.818 μs, UpperFence = 191.029 μs
+ConfidenceInterval = [183.008 μs; 186.568 μs] (CI 99.9%), Margin = 1.780 μs (0.96% of Mean)
+Skewness = 0.2, Kurtosis = 1.37, MValue = 2
+-------------------- Histogram --------------------
+[182.132 μs ; 188.144 μs) | @@@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 276.227 μs, StdErr = 1.477 μs (0.53%), N = 26, StdDev = 7.530 μs
+Min = 262.731 μs, Q1 = 267.924 μs, Median = 280.280 μs, Q3 = 281.998 μs, Max = 286.642 μs
+IQR = 14.074 μs, LowerFence = 246.813 μs, UpperFence = 303.108 μs
+ConfidenceInterval = [270.725 μs; 281.728 μs] (CI 99.9%), Margin = 5.501 μs (1.99% of Mean)
+Skewness = -0.32, Kurtosis = 1.37, MValue = 3.33
+-------------------- Histogram --------------------
+[259.395 μs ; 266.202 μs) | @
+[266.202 μs ; 272.874 μs) | @@@@@@@@@@
+[272.874 μs ; 278.739 μs) | 
+[278.739 μs ; 289.978 μs) | @@@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 661.124 μs, StdErr = 1.607 μs (0.24%), N = 15, StdDev = 6.222 μs
+Min = 652.176 μs, Q1 = 655.390 μs, Median = 662.580 μs, Q3 = 665.009 μs, Max = 672.702 μs
+IQR = 9.619 μs, LowerFence = 640.962 μs, UpperFence = 679.437 μs
+ConfidenceInterval = [654.472 μs; 667.775 μs] (CI 99.9%), Margin = 6.652 μs (1.01% of Mean)
+Skewness = -0.01, Kurtosis = 1.77, MValue = 2
+-------------------- Histogram --------------------
+[648.865 μs ; 676.013 μs) | @@@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 550.259 μs, StdErr = 0.966 μs (0.18%), N = 13, StdDev = 3.484 μs
+Min = 546.904 μs, Q1 = 548.479 μs, Median = 549.071 μs, Q3 = 550.331 μs, Max = 559.129 μs
+IQR = 1.852 μs, LowerFence = 545.702 μs, UpperFence = 553.108 μs
+ConfidenceInterval = [546.086 μs; 554.431 μs] (CI 99.9%), Margin = 4.172 μs (0.76% of Mean)
+Skewness = 1.4, Kurtosis = 3.84, MValue = 2
+-------------------- Histogram --------------------
+[544.959 μs ; 561.073 μs) | @@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 663.283 μs, StdErr = 2.222 μs (0.34%), N = 14, StdDev = 8.315 μs
+Min = 651.423 μs, Q1 = 655.237 μs, Median = 666.388 μs, Q3 = 669.214 μs, Max = 673.319 μs
+IQR = 13.976 μs, LowerFence = 634.273 μs, UpperFence = 690.178 μs
+ConfidenceInterval = [653.903 μs; 672.664 μs] (CI 99.9%), Margin = 9.380 μs (1.41% of Mean)
+Skewness = -0.35, Kurtosis = 1.33, MValue = 2
+-------------------- Histogram --------------------
+[646.895 μs ; 660.397 μs) | @@@@@
+[660.397 μs ; 676.134 μs) | @@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 557.279 μs, StdErr = 0.941 μs (0.17%), N = 14, StdDev = 3.521 μs
+Min = 552.645 μs, Q1 = 554.271 μs, Median = 557.721 μs, Q3 = 559.345 μs, Max = 563.605 μs
+IQR = 5.074 μs, LowerFence = 546.660 μs, UpperFence = 566.956 μs
+ConfidenceInterval = [553.306 μs; 561.251 μs] (CI 99.9%), Margin = 3.972 μs (0.71% of Mean)
+Skewness = 0.22, Kurtosis = 1.61, MValue = 2
+-------------------- Histogram --------------------
+[550.727 μs ; 565.522 μs) | @@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.246 ms, StdErr = 0.003 ms (0.22%), N = 15, StdDev = 0.011 ms
+Min = 1.230 ms, Q1 = 1.240 ms, Median = 1.247 ms, Q3 = 1.252 ms, Max = 1.263 ms
+IQR = 0.012 ms, LowerFence = 1.221 ms, UpperFence = 1.271 ms
+ConfidenceInterval = [1.235 ms; 1.257 ms] (CI 99.9%), Margin = 0.011 ms (0.91% of Mean)
+Skewness = -0.08, Kurtosis = 1.75, MValue = 2
+-------------------- Histogram --------------------
+[1.224 ms ; 1.269 ms) | @@@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 901.979 μs, StdErr = 3.643 μs (0.40%), N = 15, StdDev = 14.110 μs
+Min = 884.540 μs, Q1 = 892.225 μs, Median = 897.098 μs, Q3 = 908.750 μs, Max = 927.800 μs
+IQR = 16.525 μs, LowerFence = 867.438 μs, UpperFence = 933.537 μs
+ConfidenceInterval = [886.894 μs; 917.063 μs] (CI 99.9%), Margin = 15.085 μs (1.67% of Mean)
+Skewness = 0.71, Kurtosis = 1.98, MValue = 2
+-------------------- Histogram --------------------
+[877.031 μs ; 904.703 μs) | @@@@@@@@@@@
+[904.703 μs ; 930.389 μs) | @@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.239 ms, StdErr = 0.003 ms (0.25%), N = 15, StdDev = 0.012 ms
+Min = 1.221 ms, Q1 = 1.230 ms, Median = 1.236 ms, Q3 = 1.246 ms, Max = 1.259 ms
+IQR = 0.015 ms, LowerFence = 1.207 ms, UpperFence = 1.269 ms
+ConfidenceInterval = [1.226 ms; 1.252 ms] (CI 99.9%), Margin = 0.013 ms (1.03% of Mean)
+Skewness = 0.33, Kurtosis = 1.77, MValue = 2
+-------------------- Histogram --------------------
+[1.218 ms ; 1.266 ms) | @@@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 855.216 μs, StdErr = 2.157 μs (0.25%), N = 12, StdDev = 7.472 μs
+Min = 845.810 μs, Q1 = 849.642 μs, Median = 853.629 μs, Q3 = 861.643 μs, Max = 867.891 μs
+IQR = 12.001 μs, LowerFence = 831.640 μs, UpperFence = 879.645 μs
+ConfidenceInterval = [845.646 μs; 864.787 μs] (CI 99.9%), Margin = 9.570 μs (1.12% of Mean)
+Skewness = 0.2, Kurtosis = 1.41, MValue = 2
+-------------------- Histogram --------------------
+[841.527 μs ; 872.174 μs) | @@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 6.366 ms, StdErr = 0.015 ms (0.23%), N = 14, StdDev = 0.055 ms
+Min = 6.264 ms, Q1 = 6.332 ms, Median = 6.371 ms, Q3 = 6.404 ms, Max = 6.447 ms
+IQR = 0.072 ms, LowerFence = 6.224 ms, UpperFence = 6.512 ms
+ConfidenceInterval = [6.304 ms; 6.429 ms] (CI 99.9%), Margin = 0.062 ms (0.98% of Mean)
+Skewness = -0.21, Kurtosis = 1.87, MValue = 2
+-------------------- Histogram --------------------
+[6.234 ms ; 6.477 ms) | @@@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 4.475 ms, StdErr = 0.024 ms (0.54%), N = 66, StdDev = 0.196 ms
+Min = 4.103 ms, Q1 = 4.348 ms, Median = 4.416 ms, Q3 = 4.579 ms, Max = 5.011 ms
+IQR = 0.231 ms, LowerFence = 4.001 ms, UpperFence = 4.927 ms
+ConfidenceInterval = [4.392 ms; 4.558 ms] (CI 99.9%), Margin = 0.083 ms (1.86% of Mean)
+Skewness = 0.6, Kurtosis = 3.34, MValue = 2.44
+-------------------- Histogram --------------------
+[4.078 ms ; 4.206 ms) | @@@@@@
+[4.206 ms ; 4.300 ms) | 
+[4.300 ms ; 4.428 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[4.428 ms ; 4.619 ms) | @@@@@@@@@@@@@@@@@@@@@@
+[4.619 ms ; 4.787 ms) | @@@@@@
+[4.787 ms ; 4.895 ms) | 
+[4.895 ms ; 5.022 ms) | @@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 6.470 ms, StdErr = 0.027 ms (0.42%), N = 17, StdDev = 0.111 ms
+Min = 6.302 ms, Q1 = 6.397 ms, Median = 6.443 ms, Q3 = 6.501 ms, Max = 6.762 ms
+IQR = 0.104 ms, LowerFence = 6.240 ms, UpperFence = 6.657 ms
+ConfidenceInterval = [6.362 ms; 6.578 ms] (CI 99.9%), Margin = 0.108 ms (1.67% of Mean)
+Skewness = 1.06, Kurtosis = 3.59, MValue = 2
+-------------------- Histogram --------------------
+[6.245 ms ; 6.509 ms) | @@@@@@@@@@@@@
+[6.509 ms ; 6.646 ms) | @@@
+[6.646 ms ; 6.819 ms) | @
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 4.539 ms, StdErr = 0.025 ms (0.56%), N = 45, StdDev = 0.170 ms
+Min = 3.933 ms, Q1 = 4.386 ms, Median = 4.575 ms, Q3 = 4.617 ms, Max = 4.854 ms
+IQR = 0.230 ms, LowerFence = 4.041 ms, UpperFence = 4.962 ms
+ConfidenceInterval = [4.449 ms; 4.628 ms] (CI 99.9%), Margin = 0.089 ms (1.97% of Mean)
+Skewness = -0.93, Kurtosis = 4.86, MValue = 2.88
+-------------------- Histogram --------------------
+[3.870 ms ; 3.995 ms) | @
+[3.995 ms ; 4.121 ms) | 
+[4.121 ms ; 4.281 ms) | @
+[4.281 ms ; 4.406 ms) | @@@@@@@@@@@
+[4.406 ms ; 4.539 ms) | 
+[4.539 ms ; 4.665 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@
+[4.665 ms ; 4.767 ms) | @
+[4.767 ms ; 4.917 ms) | @@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 13.010 ms, StdErr = 0.049 ms (0.38%), N = 13, StdDev = 0.178 ms
+Min = 12.672 ms, Q1 = 12.893 ms, Median = 13.045 ms, Q3 = 13.081 ms, Max = 13.372 ms
+IQR = 0.188 ms, LowerFence = 12.610 ms, UpperFence = 13.364 ms
+ConfidenceInterval = [12.797 ms; 13.224 ms] (CI 99.9%), Margin = 0.214 ms (1.64% of Mean)
+Skewness = 0.01, Kurtosis = 2.61, MValue = 2
+-------------------- Histogram --------------------
+[12.572 ms ; 12.964 ms) | @@@@
+[12.964 ms ; 13.472 ms) | @@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 7.150 ms, StdErr = 0.040 ms (0.55%), N = 69, StdDev = 0.328 ms
+Min = 6.835 ms, Q1 = 6.912 ms, Median = 7.023 ms, Q3 = 7.302 ms, Max = 8.032 ms
+IQR = 0.390 ms, LowerFence = 6.327 ms, UpperFence = 7.887 ms
+ConfidenceInterval = [7.014 ms; 7.286 ms] (CI 99.9%), Margin = 0.136 ms (1.90% of Mean)
+Skewness = 1.25, Kurtosis = 3.39, MValue = 2
+-------------------- Histogram --------------------
+[6.835 ms ; 7.045 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[7.045 ms ; 7.244 ms) | @@@@@@@@@@@
+[7.244 ms ; 7.476 ms) | @@@@@@
+[7.476 ms ; 7.686 ms) | @@@@@@
+[7.686 ms ; 8.046 ms) | @@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 13.066 ms, StdErr = 0.036 ms (0.27%), N = 15, StdDev = 0.138 ms
+Min = 12.737 ms, Q1 = 13.031 ms, Median = 13.099 ms, Q3 = 13.159 ms, Max = 13.229 ms
+IQR = 0.127 ms, LowerFence = 12.840 ms, UpperFence = 13.350 ms
+ConfidenceInterval = [12.919 ms; 13.214 ms] (CI 99.9%), Margin = 0.148 ms (1.13% of Mean)
+Skewness = -0.94, Kurtosis = 2.96, MValue = 2
+-------------------- Histogram --------------------
+[12.663 ms ; 12.964 ms) | @@@
+[12.964 ms ; 13.302 ms) | @@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 7.056 ms, StdErr = 0.033 ms (0.47%), N = 15, StdDev = 0.130 ms
+Min = 6.873 ms, Q1 = 6.993 ms, Median = 7.058 ms, Q3 = 7.132 ms, Max = 7.361 ms
+IQR = 0.139 ms, LowerFence = 6.785 ms, UpperFence = 7.340 ms
+ConfidenceInterval = [6.917 ms; 7.194 ms] (CI 99.9%), Margin = 0.138 ms (1.96% of Mean)
+Skewness = 0.47, Kurtosis = 2.82, MValue = 2
+-------------------- Histogram --------------------
+[6.804 ms ; 6.952 ms) | @@@
+[6.952 ms ; 7.123 ms) | @@@@@@@@
+[7.123 ms ; 7.430 ms) | @@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 69.462 ms, StdErr = 0.267 ms (0.38%), N = 13, StdDev = 0.962 ms
+Min = 67.947 ms, Q1 = 68.455 ms, Median = 69.771 ms, Q3 = 70.249 ms, Max = 70.412 ms
+IQR = 1.794 ms, LowerFence = 65.764 ms, UpperFence = 72.941 ms
+ConfidenceInterval = [68.311 ms; 70.614 ms] (CI 99.9%), Margin = 1.152 ms (1.66% of Mean)
+Skewness = -0.56, Kurtosis = 1.49, MValue = 2
+-------------------- Histogram --------------------
+[67.519 ms ; 70.676 ms) | @@@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 40.310 ms, StdErr = 0.214 ms (0.53%), N = 26, StdDev = 1.091 ms
+Min = 38.159 ms, Q1 = 39.354 ms, Median = 40.255 ms, Q3 = 41.223 ms, Max = 42.874 ms
+IQR = 1.869 ms, LowerFence = 36.551 ms, UpperFence = 44.027 ms
+ConfidenceInterval = [39.514 ms; 41.107 ms] (CI 99.9%), Margin = 0.797 ms (1.98% of Mean)
+Skewness = 0.27, Kurtosis = 2.34, MValue = 2.8
+-------------------- Histogram --------------------
+[37.676 ms ; 38.642 ms) | @
+[38.642 ms ; 39.907 ms) | @@@@@@@@@@
+[39.907 ms ; 40.736 ms) | @@@@@
+[40.736 ms ; 42.391 ms) | @@@@@@@@@
+[42.391 ms ; 43.357 ms) | @
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 66.311 ms, StdErr = 0.249 ms (0.38%), N = 14, StdDev = 0.931 ms
+Min = 63.912 ms, Q1 = 65.918 ms, Median = 66.658 ms, Q3 = 66.958 ms, Max = 67.183 ms
+IQR = 1.040 ms, LowerFence = 64.357 ms, UpperFence = 68.519 ms
+ConfidenceInterval = [65.261 ms; 67.361 ms] (CI 99.9%), Margin = 1.050 ms (1.58% of Mean)
+Skewness = -1.27, Kurtosis = 3.65, MValue = 2
+-------------------- Histogram --------------------
+[63.405 ms ; 65.275 ms) | @@
+[65.275 ms ; 67.494 ms) | @@@@@@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 39.841 ms, StdErr = 0.207 ms (0.52%), N = 25, StdDev = 1.036 ms
+Min = 37.656 ms, Q1 = 39.267 ms, Median = 39.543 ms, Q3 = 40.430 ms, Max = 41.959 ms
+IQR = 1.163 ms, LowerFence = 37.522 ms, UpperFence = 42.175 ms
+ConfidenceInterval = [39.065 ms; 40.617 ms] (CI 99.9%), Margin = 0.776 ms (1.95% of Mean)
+Skewness = 0.26, Kurtosis = 2.72, MValue = 2
+-------------------- Histogram --------------------
+[37.505 ms ; 38.667 ms) | @@
+[38.667 ms ; 39.597 ms) | @@@@@@@@@@@@
+[39.597 ms ; 40.979 ms) | @@@@@@@@
+[40.979 ms ; 42.197 ms) | @@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 149.902 ms, StdErr = 0.805 ms (0.54%), N = 32, StdDev = 4.554 ms
+Min = 136.475 ms, Q1 = 149.051 ms, Median = 150.615 ms, Q3 = 152.286 ms, Max = 156.138 ms
+IQR = 3.235 ms, LowerFence = 144.199 ms, UpperFence = 157.138 ms
+ConfidenceInterval = [146.977 ms; 152.827 ms] (CI 99.9%), Margin = 2.925 ms (1.95% of Mean)
+Skewness = -1.63, Kurtosis = 5.33, MValue = 2
+-------------------- Histogram --------------------
+[135.522 ms ; 139.287 ms) | @@@
+[139.287 ms ; 143.052 ms) | 
+[143.052 ms ; 148.540 ms) | @@
+[148.540 ms ; 152.305 ms) | @@@@@@@@@@@@@@@@@@@
+[152.305 ms ; 156.364 ms) | @@@@@@@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 83.582 ms, StdErr = 0.452 ms (0.54%), N = 33, StdDev = 2.599 ms
+Min = 78.288 ms, Q1 = 81.848 ms, Median = 82.981 ms, Q3 = 85.969 ms, Max = 90.150 ms
+IQR = 4.122 ms, LowerFence = 75.665 ms, UpperFence = 92.152 ms
+ConfidenceInterval = [81.944 ms; 85.221 ms] (CI 99.9%), Margin = 1.639 ms (1.96% of Mean)
+Skewness = 0.26, Kurtosis = 2.49, MValue = 3.14
+-------------------- Histogram --------------------
+[78.127 ms ; 80.254 ms) | @@@
+[80.254 ms ; 82.985 ms) | @@@@@@@@@@@@@@
+[82.985 ms ; 85.005 ms) | @@@@
+[85.005 ms ; 87.132 ms) | @@@@@@@@@@@
+[87.132 ms ; 89.087 ms) | 
+[89.087 ms ; 91.214 ms) | @
+---------------------------------------------------
+
+QueryWithVectorSimilarity.WhereNear_Filter: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 148.423 ms, StdErr = 0.853 ms (0.57%), N = 57, StdDev = 6.439 ms
+Min = 135.838 ms, Q1 = 147.975 ms, Median = 151.316 ms, Q3 = 152.509 ms, Max = 156.702 ms
+IQR = 4.533 ms, LowerFence = 141.175 ms, UpperFence = 159.309 ms
+ConfidenceInterval = [145.461 ms; 151.385 ms] (CI 99.9%), Margin = 2.962 ms (2.00% of Mean)
+Skewness = -0.99, Kurtosis = 2.29, MValue = 2
+-------------------- Histogram --------------------
+[135.722 ms ; 140.114 ms) | @@@@@@@@@@@@@@
+[140.114 ms ; 144.506 ms) | 
+[144.506 ms ; 149.869 ms) | @@@
+[149.869 ms ; 154.261 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[154.261 ms ; 158.898 ms) | @@@
+---------------------------------------------------
+
+QueryWithVectorSimilarity.TopKNear_OrderLimit: Job-XACTVD(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 83.902 ms, StdErr = 0.289 ms (0.34%), N = 13, StdDev = 1.040 ms
+Min = 82.586 ms, Q1 = 83.245 ms, Median = 83.645 ms, Q3 = 84.239 ms, Max = 86.589 ms
+IQR = 0.994 ms, LowerFence = 81.755 ms, UpperFence = 85.729 ms
+ConfidenceInterval = [82.656 ms; 85.148 ms] (CI 99.9%), Margin = 1.246 ms (1.49% of Mean)
+Skewness = 1.2, Kurtosis = 3.83, MValue = 2
+-------------------- Histogram --------------------
+[82.006 ms ; 84.309 ms) | @@@@@@@@@@
+[84.309 ms ; 87.169 ms) | @@@
+---------------------------------------------------
+
