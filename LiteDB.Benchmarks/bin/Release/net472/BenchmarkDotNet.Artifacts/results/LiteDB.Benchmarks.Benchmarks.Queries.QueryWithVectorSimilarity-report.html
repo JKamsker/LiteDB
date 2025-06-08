@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>LiteDB.Benchmarks.Benchmarks.Queries.QueryWithVectorSimilarity-20250608-000039</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.13.12, Windows 11 (10.0.26100.4061)
+AMD Ryzen 9 7900X, 1 CPU, 24 logical and 12 physical cores
+  [Host]     : .NET Framework 4.8.1 (4.8.9300.0), X64 RyuJIT VectorSize=256
+  Job-XACTVD : .NET 8.0.15 (8.0.1525.16413), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI
+</code></pre>
+<pre><code>Jit=RyuJit  Runtime=.NET 8.0  Force=True  
+Toolchain=.NET 8.0  
+</code></pre>
+
+<table>
+<thead><tr><th>Method       </th><th>DatasetSize</th><th>ConnectionType</th><th>Password</th><th>Mean  </th><th>Error</th><th>StdDev</th><th>Median</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>WhereNear_Filter</td><td>10</td><td>Direct</td><td>?</td><td>184.1 &mu;s</td><td>1.26 &mu;s</td><td>1.12 &mu;s</td><td>184.2 &mu;s</td><td>24.4141</td><td>3.9063</td><td>-</td><td>408.74 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>10</td><td>Direct</td><td>?</td><td>272.4 &mu;s</td><td>2.86 &mu;s</td><td>2.67 &mu;s</td><td>271.2 &mu;s</td><td>248.0469</td><td>248.0469</td><td>248.0469</td><td>1200.37 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>10</td><td>Direct</td><td>SecurePassword</td><td>184.8 &mu;s</td><td>1.78 &mu;s</td><td>1.67 &mu;s</td><td>184.4 &mu;s</td><td>24.4141</td><td>3.9063</td><td>-</td><td>408.88 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>10</td><td>Direct</td><td>SecurePassword</td><td>276.2 &mu;s</td><td>5.50 &mu;s</td><td>7.53 &mu;s</td><td>280.3 &mu;s</td><td>249.0234</td><td>249.0234</td><td>249.0234</td><td>1200.46 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>50</td><td>Direct</td><td>?</td><td>661.1 &mu;s</td><td>6.65 &mu;s</td><td>6.22 &mu;s</td><td>662.6 &mu;s</td><td>78.1250</td><td>19.5313</td><td>-</td><td>1338.95 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>50</td><td>Direct</td><td>?</td><td>550.3 &mu;s</td><td>4.17 &mu;s</td><td>3.48 &mu;s</td><td>549.1 &mu;s</td><td>248.0469</td><td>248.0469</td><td>248.0469</td><td>1885.73 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>50</td><td>Direct</td><td>SecurePassword</td><td>663.3 &mu;s</td><td>9.38 &mu;s</td><td>8.32 &mu;s</td><td>666.4 &mu;s</td><td>78.1250</td><td>19.5313</td><td>-</td><td>1339 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>50</td><td>Direct</td><td>SecurePassword</td><td>557.3 &mu;s</td><td>3.97 &mu;s</td><td>3.52 &mu;s</td><td>557.7 &mu;s</td><td>246.0938</td><td>246.0938</td><td>246.0938</td><td>1885.66 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>100</td><td>Direct</td><td>?</td><td>1,246.0 &mu;s</td><td>11.28 &mu;s</td><td>10.55 &mu;s</td><td>1,247.0 &mu;s</td><td>148.4375</td><td>54.6875</td><td>-</td><td>2502.18 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>100</td><td>Direct</td><td>?</td><td>902.0 &mu;s</td><td>15.08 &mu;s</td><td>14.11 &mu;s</td><td>897.1 &mu;s</td><td>246.0938</td><td>246.0938</td><td>246.0938</td><td>2744.15 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>100</td><td>Direct</td><td>SecurePassword</td><td>1,238.8 &mu;s</td><td>12.80 &mu;s</td><td>11.97 &mu;s</td><td>1,235.9 &mu;s</td><td>148.4375</td><td>54.6875</td><td>-</td><td>2502.01 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>100</td><td>Direct</td><td>SecurePassword</td><td>855.2 &mu;s</td><td>9.57 &mu;s</td><td>7.47 &mu;s</td><td>853.6 &mu;s</td><td>246.0938</td><td>246.0938</td><td>246.0938</td><td>2743.8 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>500</td><td>Direct</td><td>?</td><td>6,366.2 &mu;s</td><td>62.39 &mu;s</td><td>55.31 &mu;s</td><td>6,371.3 &mu;s</td><td>718.7500</td><td>421.8750</td><td>-</td><td>11795.79 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>500</td><td>Direct</td><td>?</td><td>4,475.2 &mu;s</td><td>83.11 &mu;s</td><td>195.89 &mu;s</td><td>4,416.0 &mu;s</td><td>750.0000</td><td>437.5000</td><td>218.7500</td><td>9595.47 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>500</td><td>Direct</td><td>SecurePassword</td><td>6,469.9 &mu;s</td><td>108.25 &mu;s</td><td>111.16 &mu;s</td><td>6,443.3 &mu;s</td><td>718.7500</td><td>421.8750</td><td>-</td><td>11795.87 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>500</td><td>Direct</td><td>SecurePassword</td><td>4,538.6 &mu;s</td><td>89.48 &mu;s</td><td>170.24 &mu;s</td><td>4,574.9 &mu;s</td><td>750.0000</td><td>437.5000</td><td>218.7500</td><td>9595.17 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>1000</td><td>Direct</td><td>?</td><td>13,010.1 &mu;s</td><td>213.59 &mu;s</td><td>178.36 &mu;s</td><td>13,044.6 &mu;s</td><td>1453.1250</td><td>296.8750</td><td>31.2500</td><td>23419.32 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>1000</td><td>Direct</td><td>?</td><td>7,149.8 &mu;s</td><td>135.90 &mu;s</td><td>328.21 &mu;s</td><td>7,022.9 &mu;s</td><td>1171.8750</td><td>601.5625</td><td>109.3750</td><td>18165.96 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>1000</td><td>Direct</td><td>SecurePassword</td><td>13,066.4 &mu;s</td><td>147.56 &mu;s</td><td>138.02 &mu;s</td><td>13,098.5 &mu;s</td><td>1453.1250</td><td>296.8750</td><td>31.2500</td><td>23419.29 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>1000</td><td>Direct</td><td>SecurePassword</td><td>7,055.7 &mu;s</td><td>138.46 &mu;s</td><td>129.52 &mu;s</td><td>7,058.1 &mu;s</td><td>1171.8750</td><td>601.5625</td><td>109.3750</td><td>18166.21 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>5000</td><td>Direct</td><td>?</td><td>69,462.2 &mu;s</td><td>1,151.60 &mu;s</td><td>961.64 &mu;s</td><td>69,771.1 &mu;s</td><td>7500.0000</td><td>1500.0000</td><td>500.0000</td><td>116395.55 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>5000</td><td>Direct</td><td>?</td><td>40,310.4 &mu;s</td><td>796.81 &mu;s</td><td>1,090.69 &mu;s</td><td>40,255.3 &mu;s</td><td>5615.3846</td><td>1461.5385</td><td>384.6154</td><td>86767.49 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>5000</td><td>Direct</td><td>SecurePassword</td><td>66,310.9 &mu;s</td><td>1,049.77 &mu;s</td><td>930.59 &mu;s</td><td>66,657.6 &mu;s</td><td>7000.0000</td><td>1000.0000</td><td>-</td><td>116392.94 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>5000</td><td>Direct</td><td>SecurePassword</td><td>39,841.2 &mu;s</td><td>776.10 &mu;s</td><td>1,036.08 &mu;s</td><td>39,542.9 &mu;s</td><td>5615.3846</td><td>1461.5385</td><td>384.6154</td><td>86766.83 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>10000</td><td>Direct</td><td>?</td><td>149,902.0 &mu;s</td><td>2,924.80 &mu;s</td><td>4,553.56 &mu;s</td><td>150,614.5 &mu;s</td><td>15000.0000</td><td>4000.0000</td><td>1000.0000</td><td>232646.2 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>10000</td><td>Direct</td><td>?</td><td>83,582.3 &mu;s</td><td>1,638.54 &mu;s</td><td>2,598.91 &mu;s</td><td>82,980.9 &mu;s</td><td>11428.5714</td><td>3857.1429</td><td>1000.0000</td><td>172539.52 KB</td>
+</tr><tr><td>WhereNear_Filter</td><td>10000</td><td>Direct</td><td>SecurePassword</td><td>148,423.3 &mu;s</td><td>2,962.06 &mu;s</td><td>6,439.28 &mu;s</td><td>151,316.1 &mu;s</td><td>15000.0000</td><td>4000.0000</td><td>1000.0000</td><td>232646.73 KB</td>
+</tr><tr><td>TopKNear_OrderLimit</td><td>10000</td><td>Direct</td><td>SecurePassword</td><td>83,902.0 &mu;s</td><td>1,245.98 &mu;s</td><td>1,040.45 &mu;s</td><td>83,644.7 &mu;s</td><td>11285.7143</td><td>3857.1429</td><td>857.1429</td><td>172541.51 KB</td>
+</tr></tbody></table>
+</body>
+</html>
