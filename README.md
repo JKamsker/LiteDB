@@ -113,7 +113,7 @@ Benchmarks show microsecond-level response times for Top-K and filtered nearest 
 | 1000         | `TopKNearLimit`  | ~7 ms          |
 | 10,000       | `TopKNearLimit`  | ~84 ms         |
 
-> See full benchmark results [here](docs/benchmarks.md)
+> See full benchmark results [here](docs/performance)
 
 ---
 
