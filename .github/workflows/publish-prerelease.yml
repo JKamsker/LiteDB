@@ -30,7 +30,7 @@ jobs:
 
       # - name: Test
       #   timeout-minutes: 5
-      #   run: dotnet test LiteDB.sln --configuration Release --no-build --verbosity normal --settings tests.runsettings --logger "trx;LogFileName=TestResults.trx" --logger "console;verbosity=detailed" 
+      #   run: dotnet test LiteDB.sln --configuration Release --no-build --verbosity normal --settings tests.runsettings --logger "trx;LogFileName=TestResults.trx" --logger "console;verbosity=detailed"  
 
       - name: Set version with build number
         id: version
