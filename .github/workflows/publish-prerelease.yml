@@ -44,8 +44,16 @@ jobs:
           PACKAGE_VERSION=${PACKAGE_FILENAME#LiteDB.}
           PACKAGE_VERSION=${PACKAGE_VERSION%.nupkg}
           echo "package_version=${PACKAGE_VERSION}" >> "$GITHUB_OUTPUT"
+          
+          # Check if this is a "clean" prerelease version (doesn't have extra height suffix)
+          if [[ "$PACKAGE_VERSION" =~ ^6\.0\.0-prerelease\.[0-9]+$ ]]; then
+            echo "is_clean_version=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_clean_version=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish GitHub prerelease
+        if: steps.version.outputs.is_clean_version == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.package_version }}
