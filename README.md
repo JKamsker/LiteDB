@@ -162,14 +162,6 @@ using(var db = new LiteDatabase("MyOrderDatafile.db"))
 
 Change details for each release are documented in the [release notes](https://github.com/mbdavid/LiteDB/releases).
 
-## Code Signing
-
-LiteDB is digitally signed courtesy of [SignPath](https://www.signpath.io)
-
-<a href="https://www.signpath.io">
-    <img src="https://about.signpath.io/assets/signpath-logo.svg" width="150">
-</a>
-
 ## License
 
 [MIT](http://opensource.org/licenses/MIT)
