@@ -28,20 +28,22 @@ jobs:
       - name: Build
         run: dotnet build LiteDB.sln --configuration Release --no-restore
 
-      # - name: Test
-      #   timeout-minutes: 5
-      #   run: dotnet test LiteDB.sln --configuration Release --no-build --verbosity normal --settings tests.runsettings --logger "trx;LogFileName=TestResults.trx" --logger "console;verbosity=detailed"
+      - name: Test
+        timeout-minutes: 5
+        run: dotnet test LiteDB.sln --configuration Release --no-build --verbosity normal --settings tests.runsettings --logger "trx;LogFileName=TestResults.trx" --logger "console;verbosity=detailed"
 
-      - name: Set version with build number
+      - name: Set version with padded build number
         id: version
         run: |
-          PACKAGE_VERSION="6.0.0-prerelease.${{ github.run_number }}"
+          # Pad the run number with leading zeros (4 digits)
+          PADDED_BUILD_NUMBER=$(printf "%04d" ${{ github.run_number }})
+          PACKAGE_VERSION="6.0.0-prerelease.${PADDED_BUILD_NUMBER}"
           echo "package_version=${PACKAGE_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Pack
         run: |
           dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts -p:PackageVersion=${{ steps.version.outputs.package_version }} -p:Version=${{ steps.version.outputs.package_version }}
-
+          
       - name: Publish GitHub prerelease
         uses: softprops/action-gh-release@v2
         with:
