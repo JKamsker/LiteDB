@@ -32,28 +32,17 @@ jobs:
       #   timeout-minutes: 5
       #   run: dotnet test LiteDB.sln --configuration Release --no-build --verbosity normal --settings tests.runsettings --logger "trx;LogFileName=TestResults.trx" --logger "console;verbosity=detailed" 
 
-      - name: Pack
-        run: |
-          dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts
-
-      - name: Capture package version
+      - name: Set version with build number
         id: version
         run: |
-          PACKAGE_PATH=$(ls artifacts/LiteDB.*.nupkg | head -n 1)
-          PACKAGE_FILENAME=$(basename "$PACKAGE_PATH")
-          PACKAGE_VERSION=${PACKAGE_FILENAME#LiteDB.}
-          PACKAGE_VERSION=${PACKAGE_VERSION%.nupkg}
+          PACKAGE_VERSION="6.0.0-prerelease.${{ github.run_number }}"
           echo "package_version=${PACKAGE_VERSION}" >> "$GITHUB_OUTPUT"
-          
-          # Check if this is a "clean" prerelease version (doesn't have extra height suffix)
-          if [[ "$PACKAGE_VERSION" =~ ^6\.0\.0-prerelease\.[0-9]+$ ]]; then
-            echo "is_clean_version=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_clean_version=false" >> "$GITHUB_OUTPUT"
-          fi
+
+      - name: Pack
+        run: |
+          dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts -p:PackageVersion=${{ steps.version.outputs.package_version }} -p:Version=${{ steps.version.outputs.package_version }}
 
       - name: Publish GitHub prerelease
-        if: steps.version.outputs.is_clean_version == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.package_version }}
