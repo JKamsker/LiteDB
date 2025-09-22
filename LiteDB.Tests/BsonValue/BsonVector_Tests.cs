@@ -127,6 +127,102 @@ public class BsonVector_Tests
     }
 
     [Fact]
+    public void VectorSim_Query_WhereNear_ExcludesInvalidEmbeddings()
+    {
+        using var db = new LiteDatabase(":memory:");
+        var col = db.GetCollection("vectors");
+
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 1,
+            ["Embedding"] = new BsonVector(new float[] { 1.0f, 0.0f })
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 2,
+            ["Embedding"] = BsonValue.Null
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 3,
+            ["Embedding"] = new BsonArray { 1.0 }
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 4,
+            ["Embedding"] = new BsonArray { 0.0, "oops" }
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 5,
+            ["Embedding"] = new BsonArray { 0.0, 0.0 }
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 6,
+            ["Embedding"] = new BsonVector(new float[] { 1.0f, 0.1f })
+        });
+
+        var target = new float[] { 1.0f, 0.0f };
+        var field = BsonExpression.Create("$.Embedding");
+
+        var results = col.Query()
+            .WhereNear(field, target, maxDistance: 0.001)
+            .ToList();
+
+        results.Select(x => x["_id"].AsInt32)
+            .Should().Equal(1);
+    }
+
+    [Fact]
+    public void VectorSim_Query_TopKNear_ExcludesInvalidEmbeddings()
+    {
+        using var db = new LiteDatabase(":memory:");
+        var col = db.GetCollection("vectors");
+
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 1,
+            ["Embedding"] = new BsonVector(new float[] { 1.0f, 0.0f })
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 2,
+            ["Embedding"] = BsonValue.Null
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 3,
+            ["Embedding"] = new BsonArray { 1.0 }
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 4,
+            ["Embedding"] = new BsonArray { 0.0, "oops" }
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 5,
+            ["Embedding"] = new BsonArray { 0.0, 0.0 }
+        });
+        col.Insert(new BsonDocument
+        {
+            ["_id"] = 6,
+            ["Embedding"] = new BsonVector(new float[] { 0.8f, 0.2f })
+        });
+
+        var target = new float[] { 1.0f, 0.0f };
+        var field = BsonExpression.Create("$.Embedding");
+
+        var results = col.Query()
+            .TopKNear(field, target, 2)
+            .ToList();
+
+        results.Select(x => x["_id"].AsInt32)
+            .Should().Equal(1, 6);
+    }
+
+    [Fact]
     public void VectorSim_ExpressionQuery_WorksViaSQL()
     {
         using var db = new LiteDatabase(":memory:");
@@ -235,25 +331,25 @@ public class BsonVector_Tests
     }
 
     [Fact]
-    public void VectorSim_ReturnsNull_ForInvalidInput()
+    public void VectorSim_ReturnsMaxValue_ForInvalidInput()
     {
         var left = new BsonArray { "a", "b" };
         var right = new BsonVector(new float[] { 1.0f, 0.0f });
 
         var result = BsonExpressionMethods.VECTOR_SIM(left, right);
 
-        Assert.True(result.IsNull);
+        Assert.True(result.IsMaxValue);
     }
 
     [Fact]
-    public void VectorSim_ReturnsNull_ForMismatchedLengths()
+    public void VectorSim_ReturnsMaxValue_ForMismatchedLengths()
     {
         var left = new BsonArray { 1.0, 2.0, 3.0 };
         var right = new BsonVector(new float[] { 1.0f, 2.0f });
 
         var result = BsonExpressionMethods.VECTOR_SIM(left, right);
 
-        Assert.True(result.IsNull);
+        Assert.True(result.IsMaxValue);
     }
 
 

@@ -8,7 +8,7 @@ internal partial class BsonExpressionMethods
     public static BsonValue VECTOR_SIM(BsonValue left, BsonValue right)
     {
         if (!(left.IsArray || left.Type == BsonType.Vector) || !(right.IsArray || right.Type == BsonType.Vector))
-            return BsonValue.Null;
+            return BsonValue.MaxValue;
 
         var query = left.IsArray
             ? left.AsArray
@@ -22,7 +22,7 @@ internal partial class BsonExpressionMethods
                 catch { return float.NaN; }
             }).ToArray();
 
-        if (query.Count != candidate.Length) return BsonValue.Null;
+        if (query.Count != candidate.Length) return BsonValue.MaxValue;
 
         double dot = 0, magQ = 0, magC = 0;
 
@@ -35,21 +35,21 @@ internal partial class BsonExpressionMethods
             }
             catch
             {
-                return BsonValue.Null;
+                return BsonValue.MaxValue;
             }
 
             var c = (double)candidate[i];
 
-            if (double.IsNaN(c)) return BsonValue.Null;
+            if (double.IsNaN(c)) return BsonValue.MaxValue;
 
             dot += q * c;
             magQ += q * q;
             magC += c * c;
         }
 
-        if (magQ == 0 || magC == 0) return BsonValue.Null;
+        if (magQ == 0 || magC == 0) return BsonValue.MaxValue;
 
         var cosine = 1.0 - (dot / (Math.Sqrt(magQ) * Math.Sqrt(magC)));
-        return double.IsNaN(cosine) ? BsonValue.Null : cosine;
+        return double.IsNaN(cosine) ? BsonValue.MaxValue : cosine;
     }
 }
