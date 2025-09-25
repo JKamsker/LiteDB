@@ -652,6 +652,109 @@ namespace LiteDB.Engine
             _transPages.DeletedPages++;
         }
 
+        private void TrimTrailingEmptyPages()
+        {
+            if (_transPages.FirstDeletedPageID == uint.MaxValue)
+            {
+                return;
+            }
+
+            var deletedPages = new List<uint>();
+            var current = _transPages.FirstDeletedPageID;
+
+            while (current != uint.MaxValue)
+            {
+                deletedPages.Add(current);
+
+                var page = this.GetPage<BasePage>(current);
+                current = page.NextPageID;
+            }
+
+            if (deletedPages.Count == 0)
+            {
+                return;
+            }
+
+            var deletedLookup = new HashSet<uint>(deletedPages);
+            var trimmed = new HashSet<uint>();
+            var lastPageID = _header.LastPageID;
+
+            while (lastPageID > 0 && deletedLookup.Contains(lastPageID))
+            {
+                trimmed.Add(lastPageID);
+                deletedLookup.Remove(lastPageID);
+                lastPageID--;
+            }
+
+            if (trimmed.Count == 0)
+            {
+                return;
+            }
+
+            var kept = new List<uint>(deletedPages.Count - trimmed.Count);
+
+            foreach (var pageID in deletedPages)
+            {
+                if (!trimmed.Contains(pageID))
+                {
+                    kept.Add(pageID);
+                }
+            }
+
+            var discarded = new List<PageBuffer>();
+
+            foreach (var pageID in trimmed)
+            {
+                if (_localPages.TryGetValue(pageID, out var removed))
+                {
+                    discarded.Add(removed.Buffer);
+                    _localPages.Remove(pageID);
+                }
+            }
+
+            if (discarded.Count > 0)
+            {
+                _disk.DiscardDirtyPages(discarded);
+            }
+
+            _transPages.FirstDeletedPageID = uint.MaxValue;
+            _transPages.LastDeletedPageID = uint.MaxValue;
+            _transPages.DeletedPages -= Math.Min(_transPages.DeletedPages, trimmed.Count);
+
+            for (var i = kept.Count - 1; i >= 0; i--)
+            {
+                var pageID = kept[i];
+                var page = this.GetPage<BasePage>(pageID);
+
+                page.PrevPageID = uint.MaxValue;
+                page.NextPageID = _transPages.FirstDeletedPageID;
+                page.IsDirty = true;
+
+                _transPages.FirstDeletedPageID = pageID;
+
+                if (_transPages.LastDeletedPageID == uint.MaxValue)
+                {
+                    _transPages.LastDeletedPageID = pageID;
+                }
+            }
+
+            var newLastPageID = lastPageID;
+            var newLength = BasePage.GetPagePosition(newLastPageID + 1);
+
+            _header.LastPageID = newLastPageID;
+            _header.IsDirty = true;
+
+            _transPages.Commit += (header) =>
+            {
+                if (header.LastPageID > newLastPageID)
+                {
+                    header.LastPageID = newLastPageID;
+                }
+            };
+
+            _disk.SetLength(newLength, FileOrigin.Data);
+        }
+
         #endregion
 
         #region DropCollection
@@ -746,6 +849,8 @@ namespace LiteDB.Engine
 
             // remove collection name (in header) at commit time
             _transPages.Commit += (h) => h.DeleteCollection(_collectionName);
+
+            this.TrimTrailingEmptyPages();
         }
 
         #endregion

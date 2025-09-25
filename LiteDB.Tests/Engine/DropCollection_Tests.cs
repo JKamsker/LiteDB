@@ -376,8 +376,15 @@ namespace LiteDB.Tests.Engine
 
                 foreach (var pageID in pageIds.Distinct())
                 {
-                    var page = snapshot.GetPage<BasePage>(pageID);
-                    map[pageID] = page.PageType;
+                    try
+                    {
+                        var page = snapshot.GetPage<BasePage>(pageID);
+                        map[pageID] = page.PageType;
+                    }
+                    catch (LiteException ex) when (ex.Message.Contains("request page must be less or equals lastest page", StringComparison.Ordinal))
+                    {
+                        map[pageID] = PageType.Empty;
+                    }
                 }
 
                 return map;
