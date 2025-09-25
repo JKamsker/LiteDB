@@ -21,6 +21,8 @@ namespace LiteDB.Engine
         private readonly ReaderWriterLockSlim _indexLock = new ReaderWriterLockSlim();
 
         private readonly HashSet<uint> _confirmTransactions = new HashSet<uint>();
+        private readonly object _pendingShrinkSync = new object();
+        private long? _pendingDataShrinkLength;
 
         private int _currentReadVersion = 0;
 
@@ -59,6 +61,21 @@ namespace LiteDB.Engine
         /// Get current counter for transaction ID
         /// </summary>
         public int LastTransactionID => _lastTransactionID;
+
+        public void ScheduleDataShrink(long length)
+        {
+            lock (_pendingShrinkSync)
+            {
+                if (_pendingDataShrinkLength.HasValue)
+                {
+                    _pendingDataShrinkLength = Math.Min(_pendingDataShrinkLength.Value, length);
+                }
+                else
+                {
+                    _pendingDataShrinkLength = length;
+                }
+            }
+        }
 
         /// <summary>
         /// Clear WAL index links and cache memory. Used after checkpoint and rebuild rollback
@@ -347,6 +364,19 @@ namespace LiteDB.Engine
 
             // write all log pages into data file (sync)
             _disk.WriteDataDisk(source());
+
+            long? shrinkLength = null;
+
+            lock (_pendingShrinkSync)
+            {
+                shrinkLength = _pendingDataShrinkLength;
+                _pendingDataShrinkLength = null;
+            }
+
+            if (shrinkLength.HasValue)
+            {
+                _disk.SetLength(shrinkLength.Value, FileOrigin.Data);
+            }
 
             // clear log file, clear wal index, memory cache,
             this.Clear();

@@ -376,8 +376,15 @@ namespace LiteDB.Tests.Engine
 
                 foreach (var pageID in pageIds.Distinct())
                 {
-                    var page = snapshot.GetPage<BasePage>(pageID);
-                    map[pageID] = page.PageType;
+                    try
+                    {
+                        var page = snapshot.GetPage<BasePage>(pageID);
+                        map[pageID] = page.PageType;
+                    }
+                    catch (LiteException ex) when (ex.ErrorCode == LiteException.INVALID_DATAFILE_STATE)
+                    {
+                        map[pageID] = PageType.Empty;
+                    }
                 }
 
                 return map;

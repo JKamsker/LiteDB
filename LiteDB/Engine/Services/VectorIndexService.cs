@@ -174,6 +174,8 @@ namespace LiteDB.Engine
         {
             this.ClearTree(metadata);
 
+            this.ReleaseReservedPages(metadata);
+
             metadata.Root = PageAddress.Empty;
             metadata.Reserved = uint.MaxValue;
             _snapshot.CollectionPage.IsDirty = true;
@@ -608,6 +610,16 @@ namespace LiteDB.Engine
                 }
 
                 var node = this.GetNode(address);
+                var page = node.Page;
+
+                foreach (var pageNode in page.GetNodes())
+                {
+                    var position = pageNode.Position;
+                    if (!visited.Contains(position))
+                    {
+                        stack.Push(position);
+                    }
+                }
 
                 for (var level = 0; level < node.LevelCount; level++)
                 {
@@ -768,6 +780,23 @@ namespace LiteDB.Engine
             }
 
             this.GetVectorDataService().Delete(address);
+        }
+
+        private void ReleaseReservedPages(VectorIndexMetadata metadata)
+        {
+            var current = metadata.Reserved;
+
+            while (current != uint.MaxValue)
+            {
+                var page = _snapshot.GetPage<VectorIndexPage>(current);
+                var next = page.NextPageID;
+
+                var freeList = metadata.Reserved;
+                _snapshot.AddOrRemoveFreeVectorList(page, ref freeList);
+                metadata.Reserved = freeList;
+
+                current = next;
+            }
         }
 
         private DataService GetVectorDataService()

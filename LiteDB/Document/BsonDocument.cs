@@ -52,10 +52,35 @@ namespace LiteDB
         {
             get
             {
-                return this.RawValue.GetOrDefault(key, BsonValue.Null);
+                if (key == null)
+                {
+                    throw new ArgumentNullException(nameof(key));
+                }
+
+                if (this.RawValue.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+
+                if (IsIdAlias(key) && this.RawValue.TryGetValue("_id", out value))
+                {
+                    return value;
+                }
+
+                if (IsRawIdKey(key) && this.RawValue.TryGetValue("Id", out value))
+                {
+                    return value;
+                }
+
+                return BsonValue.Null;
             }
             set
             {
+                if (key == null)
+                {
+                    throw new ArgumentNullException(nameof(key));
+                }
+
                 this.RawValue[key] = value ?? BsonValue.Null;
             }
         }
@@ -102,7 +127,30 @@ namespace LiteDB
 
         public bool IsReadOnly => false;
 
-        public bool ContainsKey(string key) => this.RawValue.ContainsKey(key);
+        public bool ContainsKey(string key)
+        {
+            if (key == null)
+            {
+                throw new ArgumentNullException(nameof(key));
+            }
+
+            if (this.RawValue.ContainsKey(key))
+            {
+                return true;
+            }
+
+            if (IsIdAlias(key))
+            {
+                return this.RawValue.ContainsKey("_id");
+            }
+
+            if (IsRawIdKey(key))
+            {
+                return this.RawValue.ContainsKey("Id");
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// Get all document elements - Return "_id" as first of all (if exists)
@@ -126,7 +174,31 @@ namespace LiteDB
 
         public void Clear() => this.RawValue.Clear();
 
-        public bool TryGetValue(string key, out BsonValue value) => this.RawValue.TryGetValue(key, out value);
+        public bool TryGetValue(string key, out BsonValue value)
+        {
+            if (key == null)
+            {
+                throw new ArgumentNullException(nameof(key));
+            }
+
+            if (this.RawValue.TryGetValue(key, out value))
+            {
+                return true;
+            }
+
+            if (IsIdAlias(key) && this.RawValue.TryGetValue("_id", out value))
+            {
+                return true;
+            }
+
+            if (IsRawIdKey(key) && this.RawValue.TryGetValue("Id", out value))
+            {
+                return true;
+            }
+
+            value = null;
+            return false;
+        }
 
         public void Add(KeyValuePair<string, BsonValue> item) => this.Add(item.Key, item.Value);
 
@@ -152,6 +224,16 @@ namespace LiteDB
         }
 
         #endregion
+
+        private static bool IsIdAlias(string key)
+        {
+            return string.Equals(key, "Id", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsRawIdKey(string key)
+        {
+            return string.Equals(key, "_id", StringComparison.OrdinalIgnoreCase);
+        }
 
         private int _length = 0;
 
