@@ -174,6 +174,36 @@ namespace LiteDB.Engine
         {
             this.ClearTree(metadata);
 
+            var freeList = metadata.Reserved;
+
+            while (freeList != uint.MaxValue)
+            {
+                var page = _snapshot.GetPage<VectorIndexPage>(freeList);
+                var next = page.NextPageID;
+
+                var nodes = page.GetNodes().ToList();
+
+                foreach (var node in nodes)
+                {
+                    this.ReleaseNode(metadata, node);
+                }
+
+                freeList = next;
+            }
+
+            freeList = metadata.Reserved;
+
+            while (freeList != uint.MaxValue)
+            {
+                var page = _snapshot.GetPage<VectorIndexPage>(freeList);
+                var next = page.NextPageID;
+
+                _snapshot.AddOrRemoveFreeVectorList(page, ref freeList);
+
+                metadata.Reserved = freeList;
+                freeList = next;
+            }
+
             metadata.Root = PageAddress.Empty;
             metadata.Reserved = uint.MaxValue;
             _snapshot.CollectionPage.IsDirty = true;

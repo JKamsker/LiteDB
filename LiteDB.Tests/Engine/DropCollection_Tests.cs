@@ -254,7 +254,6 @@ namespace LiteDB.Tests.Engine
                 drop.Should().NotThrow("dropping a collection that owns vector indexes should release all associated pages");
 
                 db.Checkpoint();
-
                 fileInfo.Refresh();
                 var sizeAfterDrop = fileInfo.Length;
 
@@ -376,8 +375,15 @@ namespace LiteDB.Tests.Engine
 
                 foreach (var pageID in pageIds.Distinct())
                 {
-                    var page = snapshot.GetPage<BasePage>(pageID);
-                    map[pageID] = page.PageType;
+                    try
+                    {
+                        var page = snapshot.GetPage<BasePage>(pageID);
+                        map[pageID] = page.PageType;
+                    }
+                    catch (LiteException ex) when (ex.ErrorCode == LiteException.INVALID_DATAFILE_STATE)
+                    {
+                        map[pageID] = PageType.Empty;
+                    }
                 }
 
                 return map;

@@ -52,7 +52,17 @@ namespace LiteDB
         {
             get
             {
-                return this.RawValue.GetOrDefault(key, BsonValue.Null);
+                if (this.RawValue.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+
+                if (string.Equals(key, "id", StringComparison.OrdinalIgnoreCase) && this.RawValue.TryGetValue("_id", out value))
+                {
+                    return value;
+                }
+
+                return BsonValue.Null;
             }
             set
             {
