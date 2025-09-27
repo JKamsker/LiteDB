@@ -45,21 +45,24 @@ jobs:
           JSON=$(dotnet tool run dotnet-gitversion /output json)
           echo "$JSON"
 
+          NUGET_VERSION=$(echo "$JSON" | jq -r '.NuGetVersion')
+          FULL_SEMVER=$(echo "$JSON" | jq -r '.FullSemVer')
+          SHORT_SHA=$(echo "$JSON" | jq -r '.ShortSha')
           MAJOR_MINOR_PATCH=$(echo "$JSON" | jq -r '.MajorMinorPatch')
           PR_LABEL=$(echo "$JSON" | jq -r '.PreReleaseLabel')
           PR_NUMBER=$(echo "$JSON" | jq -r '.PreReleaseNumber')
-          SHORT_SHA=$(echo "$JSON" | jq -r '.ShortSha')
 
           if [[ "$PR_LABEL" != "" && "$PR_LABEL" != "null" ]]; then
             printf -v PR_PADDED '%04d' "$PR_NUMBER"
-            SEMVER="${MAJOR_MINOR_PATCH}-${PR_LABEL}.${PR_PADDED}"
+            RELEASE_VERSION_PADDED="${MAJOR_MINOR_PATCH}-${PR_LABEL}.${PR_PADDED}"
           else
-            SEMVER="$MAJOR_MINOR_PATCH"
+            RELEASE_VERSION_PADDED="$MAJOR_MINOR_PATCH"
           fi
 
-          echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
-          echo "nugetVersion=$SEMVER" >> "$GITHUB_OUTPUT"
-          echo "informational=${SEMVER}+${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "nugetVersion=$NUGET_VERSION" >> "$GITHUB_OUTPUT"
+          echo "fullSemVer=$FULL_SEMVER" >> "$GITHUB_OUTPUT"
+          echo "releaseVersionPadded=$RELEASE_VERSION_PADDED" >> "$GITHUB_OUTPUT"
+          echo "informational=${NUGET_VERSION}+${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Restore
         run: dotnet restore LiteDB.sln
@@ -95,8 +98,8 @@ jobs:
         if: ${{ inputs.publish_github }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.gitversion.outputs.nugetVersion }}
-          name: LiteDB ${{ steps.gitversion.outputs.semver }}
+          tag_name: v${{ steps.gitversion.outputs.releaseVersionPadded }}
+          name: LiteDB ${{ steps.gitversion.outputs.releaseVersionPadded }}
           generate_release_notes: true
           files: artifacts/*.nupkg
           target_commitish: ${{ github.sha }}
