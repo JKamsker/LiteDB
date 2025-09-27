@@ -25,12 +25,32 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Set prerelease version
-        id: version
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
+      - name: Compute semantic version
+        id: gitversion
+        shell: bash
         run: |
-          # Use SemVer-compliant prerelease without leading zeros
-          echo "package_version=6.0.0-prerelease.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-          echo "Version set to 6.0.0-prerelease.${{ github.run_number }}"
+          set -euo pipefail
+          JSON=$(dotnet tool run dotnet-gitversion /output json)
+          echo "$JSON"
+
+          MAJOR_MINOR_PATCH=$(echo "$JSON" | jq -r '.MajorMinorPatch')
+          PR_LABEL=$(echo "$JSON" | jq -r '.PreReleaseLabel')
+          PR_NUMBER=$(echo "$JSON" | jq -r '.PreReleaseNumber')
+          SHORT_SHA=$(echo "$JSON" | jq -r '.ShortSha')
+
+          if [[ "$PR_LABEL" != "" && "$PR_LABEL" != "null" ]]; then
+            printf -v PR_PADDED '%04d' "$PR_NUMBER"
+            SEMVER="${MAJOR_MINOR_PATCH}-${PR_LABEL}.${PR_PADDED}"
+          else
+            SEMVER="$MAJOR_MINOR_PATCH"
+          fi
+
+          echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
+          echo "nugetVersion=$SEMVER" >> "$GITHUB_OUTPUT"
+          echo "informational=${SEMVER}+${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Restore
         run: dotnet restore LiteDB.sln
@@ -59,7 +79,7 @@ jobs:
         with:
           name: test-results
           path: "**/*TestResults*.trx"
-      
+
       - name: Upload hang dumps (if any)
         uses: actions/upload-artifact@v4
         if: always()
@@ -72,24 +92,11 @@ jobs:
 
       - name: Build
         if: success()
-        run: dotnet build LiteDB/LiteDB.csproj --configuration Release --no-restore -p:Version=${{ steps.version.outputs.package_version }} -p:PackageVersion=${{ steps.version.outputs.package_version }} -p:MinVerSkip=true
+        run: dotnet build LiteDB/LiteDB.csproj --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
 
       - name: Pack
         if: success()
-        run: dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts -p:PackageVersion=${{ steps.version.outputs.package_version }} -p:Version=${{ steps.version.outputs.package_version }} -p:MinVerSkip=true
-
-      - name: Publish GitHub prerelease
-        if: success()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.package_version }}
-          name: LiteDB ${{ steps.version.outputs.package_version }}
-          generate_release_notes: true
-          prerelease: true
-          files: artifacts/*.nupkg
-          target_commitish: ${{ github.sha }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
 
       - name: Retrieve secrets from Bitwarden
         if: success()
@@ -102,6 +109,8 @@ jobs:
 
       - name: Push package to NuGet
         if: success()
+        env:
+          PACKAGE_VERSION: ${{ steps.gitversion.outputs.nugetVersion }}
         run: |
+          echo "Pushing LiteDB version $PACKAGE_VERSION"
           dotnet nuget push "artifacts/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
-
