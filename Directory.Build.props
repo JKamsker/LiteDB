@@ -1,12 +1,21 @@
 <Project>
   <PropertyGroup>
-    <MinVerTagPrefix Condition="'$(MinVerTagPrefix)' == ''">v</MinVerTagPrefix>
-  <!-- Use single prerelease identifier so resulting versions are like 6.0.0-prerelease.3 instead of 6.0.0-prerelease.0.3 when using MinVerMinimumMajorMinor baseline -->
-  <MinVerDefaultPreReleaseIdentifiers Condition="'$(MinVerDefaultPreReleaseIdentifiers)' == ''">prerelease</MinVerDefaultPreReleaseIdentifiers>
-    <MinVerMinimumMajorMinor Condition="'$(MinVerMinimumMajorMinor)' == ''">6.0</MinVerMinimumMajorMinor>
+    <GitVersion_NoFetch Condition="'$(GitVersion_NoFetch)' == ''">true</GitVersion_NoFetch>
+    <GitVersion_UpdateAssemblyInfo>false</GitVersion_UpdateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <_GitVersionPreReleaseNumberPadded Condition="'$(GitVersion_PreReleaseNumber)' != ''">$([System.String]::Format("{0:0000}", $(GitVersion_PreReleaseNumber)))</_GitVersionPreReleaseNumberPadded>
+    <_GitVersionCalculatedSemVer Condition="'$(GitVersion_PreReleaseLabel)' != ''">$(GitVersion_MajorMinorPatch)-$(GitVersion_PreReleaseLabel).$(_GitVersionPreReleaseNumberPadded)</_GitVersionCalculatedSemVer>
+    <_GitVersionCalculatedSemVer Condition="'$(GitVersion_PreReleaseLabel)' == ''">$(GitVersion_MajorMinorPatch)</_GitVersionCalculatedSemVer>
+    <Version Condition="'$(GitVersion_Major)' != ''">$(_GitVersionCalculatedSemVer)</Version>
+    <PackageVersion Condition="'$(GitVersion_Major)' != ''">$(_GitVersionCalculatedSemVer)</PackageVersion>
+    <AssemblyVersion Condition="'$(GitVersion_AssemblySemVer)' != ''">$(GitVersion_AssemblySemVer)</AssemblyVersion>
+    <FileVersion Condition="'$(GitVersion_AssemblySemFileVer)' != ''">$(GitVersion_AssemblySemFileVer)</FileVersion>
+    <InformationalVersion Condition="'$(GitVersion_Major)' != ''">$(_GitVersionCalculatedSemVer)+$(GitVersion_ShortSha)</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MinVer" Version="4.3.0" PrivateAssets="all" />
+    <PackageReference Include="GitVersion.MsBuild" Version="6.4.0" PrivateAssets="all" />
   </ItemGroup>
 </Project>
