@@ -53,6 +53,7 @@ internal sealed class ManifestValidator
             "sharedDatabaseKey",
             "args",
             "tags",
+            "requiredOperatingSystem",
             "state",
             "expectedOutcomes"
         };
@@ -291,6 +292,27 @@ internal sealed class ManifestValidator
             }
         }
 
+        var requiredOperatingSystem = ReproOperatingSystem.Any;
+        if (map.TryGetValue("requiredOperatingSystem", out var osElement))
+        {
+            if (osElement.ValueKind == JsonValueKind.String)
+            {
+                var value = osElement.GetString()?.Trim();
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    validation.AddError("$.requiredOperatingSystem: value must not be empty.");
+                }
+                else if (!TryParseOperatingSystem(value, out requiredOperatingSystem))
+                {
+                    validation.AddError("$.requiredOperatingSystem: expected one of any, windows, linux.");
+                }
+            }
+            else
+            {
+                validation.AddError($"$.requiredOperatingSystem: expected string (got: {DescribeKind(osElement.ValueKind)}).");
+            }
+        }
+
         var tags = new List<string>();
         if (map.TryGetValue("tags", out var tagsElement))
         {
@@ -390,8 +412,28 @@ internal sealed class ManifestValidator
             sharedDatabaseKey,
             argsArray,
             tagsArray,
+            requiredOperatingSystem,
             state.Value,
             expectedOutcomes);
+    }
+
+    private static bool TryParseOperatingSystem(string value, out ReproOperatingSystem operatingSystem)
+    {
+        switch (value.ToLowerInvariant())
+        {
+            case "windows":
+                operatingSystem = ReproOperatingSystem.Windows;
+                return true;
+            case "linux":
+                operatingSystem = ReproOperatingSystem.Linux;
+                return true;
+            case "any":
+                operatingSystem = ReproOperatingSystem.Any;
+                return true;
+            default:
+                operatingSystem = ReproOperatingSystem.Any;
+                return false;
+        }
     }
 
     private static string DescribeKind(JsonValueKind kind)

@@ -7,6 +7,10 @@ using System.Text.Json;
 using LiteDB.ReproRunner.Cli.Manifests;
 using LiteDB.ReproRunner.Shared;
 using LiteDB.ReproRunner.Shared.Messaging;
+using System.Globalization;
+using System.Runtime.InteropServices;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Containers;
 
 namespace LiteDB.ReproRunner.Cli.Execution;
 
@@ -16,6 +20,10 @@ namespace LiteDB.ReproRunner.Cli.Execution;
 internal sealed class ReproExecutor
 {
     private const int CapturedOutputLimit = 200;
+    private const string DefaultLinuxSdkImage = "mcr.microsoft.com/dotnet/sdk:8.0";
+
+    private readonly object _dockerProbeLock = new();
+    private bool? _dockerCliAvailable;
 
     private readonly TextWriter _standardOut;
     private readonly TextWriter _standardError;
@@ -87,17 +95,29 @@ internal sealed class ReproExecutor
 
         if (!build.Succeeded || string.IsNullOrWhiteSpace(build.AssemblyPath))
         {
-            return new ReproExecutionResult(build.Plan.UseProjectReference, false, build.ExitCode, TimeSpan.Zero, Array.Empty<ReproExecutionCapturedLine>());
+            return new ReproExecutionResult(build.Plan.UseProjectReference, false, build.ExitCode, TimeSpan.Zero, Array.Empty<ReproExecutionCapturedLine>(), null);
         }
 
         var repro = build.Plan.Repro;
 
         if (repro.ProjectPath is null)
         {
-            return new ReproExecutionResult(build.Plan.UseProjectReference, false, build.ExitCode, TimeSpan.Zero, Array.Empty<ReproExecutionCapturedLine>());
+            return new ReproExecutionResult(build.Plan.UseProjectReference, false, build.ExitCode, TimeSpan.Zero, Array.Empty<ReproExecutionCapturedLine>(), null);
         }
 
         var manifest = repro.Manifest ?? throw new InvalidOperationException("Manifest is required to execute a repro.");
+        var environment = await ResolveExecutionEnvironmentAsync(manifest, cancellationToken).ConfigureAwait(false);
+
+        if (!environment.Supported)
+        {
+            if (!string.IsNullOrWhiteSpace(environment.FailureReason))
+            {
+                WriteErrorLine(environment.FailureReason);
+            }
+
+            return CreateSkippedResult(build.Plan.UseProjectReference, environment.FailureReason);
+        }
+
         ConfigureExpectedConfiguration(build.Plan.UseProjectReference, build.Plan.LiteDBPackageVersion, instances);
         var projectDirectory = Path.GetDirectoryName(repro.ProjectPath)!;
         var stopwatch = Stopwatch.StartNew();
@@ -114,12 +134,14 @@ internal sealed class ReproExecutor
 
         try
         {
-            var exitCode = await RunInstancesAsync(
+            var runResult = await RunInstancesAsync(
+                environment,
                 manifest,
                 projectDirectory,
                 build.AssemblyPath,
                 instances,
                 timeoutSeconds,
+                build.Plan.ExecutionRootDirectory,
                 sharedRoot,
                 runIdentifier,
                 capturedOutput,
@@ -127,6 +149,8 @@ internal sealed class ReproExecutor
 
             FinalizeConfigurationValidation();
             var configurationMismatch = HasConfigurationMismatch();
+
+            var exitCode = runResult.ExitCode;
 
             if (configurationMismatch && exitCode == 0)
             {
@@ -139,7 +163,8 @@ internal sealed class ReproExecutor
                 exitCode == 0 && !configurationMismatch,
                 exitCode,
                 stopwatch.Elapsed,
-                capturedOutput.ToSnapshot());
+                capturedOutput.ToSnapshot(),
+                runResult.FailureReason);
         }
         finally
         {
@@ -147,7 +172,59 @@ internal sealed class ReproExecutor
         }
     }
 
-    private async Task<int> RunInstancesAsync(
+
+    private Task<ExecutionRunResult> RunInstancesAsync(
+        ExecutionEnvironmentResolution environment,
+        ReproManifest manifest,
+        string projectDirectory,
+        string assemblyPath,
+        int instances,
+        int timeoutSeconds,
+        string executionRoot,
+        string sharedRoot,
+        string runIdentifier,
+        BoundedLogBuffer capturedOutput,
+        CancellationToken cancellationToken)
+    {
+        return environment.Kind switch
+        {
+            ExecutionEnvironmentKind.Local => RunInstancesLocallyAsync(
+                manifest,
+                projectDirectory,
+                assemblyPath,
+                instances,
+                timeoutSeconds,
+                sharedRoot,
+                runIdentifier,
+                capturedOutput,
+                cancellationToken),
+            ExecutionEnvironmentKind.LinuxContainer => RunInstancesInDockerAsync(
+                environment,
+                manifest,
+                projectDirectory,
+                assemblyPath,
+                instances,
+                timeoutSeconds,
+                executionRoot,
+                sharedRoot,
+                runIdentifier,
+                capturedOutput,
+                cancellationToken),
+            _ => RunInstancesLocallyAsync(
+                manifest,
+                projectDirectory,
+                assemblyPath,
+                instances,
+                timeoutSeconds,
+                sharedRoot,
+                runIdentifier,
+                capturedOutput,
+                cancellationToken)
+        };
+    }
+
+
+    private async Task<ExecutionRunResult> RunInstancesLocallyAsync(
         ReproManifest manifest,
         string projectDirectory,
         string assemblyPath,
@@ -206,7 +283,7 @@ internal sealed class ReproExecutor
                     TryKill(process);
                 }
 
-                return 1;
+                return new ExecutionRunResult(1, null);
             }
 
             await allProcessesTask.ConfigureAwait(false);
@@ -222,7 +299,7 @@ internal sealed class ReproExecutor
                 }
             }
 
-            return exitCode;
+            return new ExecutionRunResult(exitCode, null);
         }
         finally
         {
@@ -236,6 +313,361 @@ internal sealed class ReproExecutor
                 process.Dispose();
             }
         }
+    }
+
+    private async Task<ExecutionRunResult> RunInstancesInDockerAsync(
+        ExecutionEnvironmentResolution environment,
+        ReproManifest manifest,
+        string projectDirectory,
+        string assemblyPath,
+        int instances,
+        int timeoutSeconds,
+        string executionRoot,
+        string sharedRoot,
+        string runIdentifier,
+        BoundedLogBuffer capturedOutput,
+        CancellationToken cancellationToken)
+    {
+        var hostProjectDirectory = Path.GetFullPath(projectDirectory);
+        var hostBuildDirectory = Path.GetFullPath(Path.GetDirectoryName(assemblyPath)!);
+        var hostExecutionRoot = Path.GetFullPath(executionRoot);
+
+        var containerProjectDirectory = "/workspace/project";
+        var containerBuildDirectory = "/workspace/build";
+        var containerRunDirectory = "/workspace/run";
+
+        var assemblyFileName = Path.GetFileName(assemblyPath);
+        var containerAssemblyPath = CombinePosixPaths(containerBuildDirectory, assemblyFileName);
+
+        var relativeSharedRoot = Path.GetRelativePath(executionRoot, sharedRoot);
+        if (string.Equals(relativeSharedRoot, ".", StringComparison.Ordinal))
+        {
+            relativeSharedRoot = string.Empty;
+        }
+
+        var normalizedSharedRoot = NormalizeToPosix(relativeSharedRoot);
+        var containerSharedRoot = string.IsNullOrEmpty(normalizedSharedRoot)
+            ? containerRunDirectory
+            : CombinePosixPaths(containerRunDirectory, normalizedSharedRoot);
+
+        var image = string.IsNullOrWhiteSpace(environment.DockerImage)
+            ? DefaultLinuxSdkImage
+            : environment.DockerImage!;
+
+        var manifestArgs = manifest.Args;
+
+        using var runtimeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var runtimeToken = runtimeCts.Token;
+
+        var tasks = new List<Task<ContainerInstanceResult>>(instances);
+
+        for (var index = 0; index < instances; index++)
+        {
+            tasks.Add(RunInstanceAsync(index, runtimeToken));
+        }
+
+        var timeout = TimeSpan.FromSeconds(timeoutSeconds);
+        var timeoutTask = Task.Delay(timeout, runtimeToken);
+        var allTask = Task.WhenAll(tasks);
+
+        var completed = await Task.WhenAny(allTask, timeoutTask).ConfigureAwait(false);
+
+        if (completed == timeoutTask)
+        {
+            runtimeCts.Cancel();
+
+            try
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+
+            return new ExecutionRunResult(1, $"Docker execution exceeded the timeout of {timeoutSeconds} seconds.");
+        }
+
+        var results = await allTask.ConfigureAwait(false);
+
+        var failureReason = results.Select(result => result.FailureReason).FirstOrDefault(reason => !string.IsNullOrWhiteSpace(reason));
+        var exitCode = 0;
+
+        foreach (var result in results)
+        {
+            if (result.ExitCode != 0 && exitCode == 0)
+            {
+                exitCode = result.ExitCode;
+            }
+        }
+
+        return new ExecutionRunResult(exitCode, failureReason);
+
+        async Task<ContainerInstanceResult> RunInstanceAsync(int index, CancellationToken ct)
+        {
+            var stdout = new MemoryStream();
+            var stderr = new MemoryStream();
+            var outputConsumer = Consume.RedirectStdoutAndStderrToStream(stdout, stderr);
+            TestcontainersContainer? container = null;
+
+            try
+            {
+                var command = new List<string> { "dotnet", containerAssemblyPath };
+                foreach (var argument in manifestArgs)
+                {
+                    command.Add(argument);
+                }
+
+                container = new TestcontainersBuilder<TestcontainersContainer>()
+                    .WithImage(image)
+                    .WithWorkingDirectory(containerProjectDirectory)
+                    .WithCommand(command.ToArray())
+                    .WithBindMount(hostProjectDirectory, containerProjectDirectory)
+                    .WithBindMount(hostBuildDirectory, containerBuildDirectory)
+                    .WithBindMount(hostExecutionRoot, containerRunDirectory)
+                    .WithEnvironment("LITEDB_RR_SHARED_DB", containerSharedRoot)
+                    .WithEnvironment("LITEDB_RR_INSTANCE_INDEX", index.ToString(CultureInfo.InvariantCulture))
+                    .WithEnvironment("LITEDB_RR_TOTAL_INSTANCES", instances.ToString(CultureInfo.InvariantCulture))
+                    .WithEnvironment("LITEDB_RR_RUN_IDENTIFIER", runIdentifier)
+                    .WithOutputConsumer(outputConsumer)
+                    .WithCleanUp(true)
+                    .Build();
+
+                await container.StartAsync(ct).ConfigureAwait(false);
+                var exitCodeValue = await container.GetExitCode(ct).ConfigureAwait(false);
+                var exitCode = (int)exitCodeValue;
+
+                ProcessContainerOutput(index, stdout, ReproExecutionStream.StandardOutput, capturedOutput);
+                ProcessContainerOutput(index, stderr, ReproExecutionStream.StandardError, capturedOutput);
+
+                return new ContainerInstanceResult(exitCode, null);
+            }
+            catch (OperationCanceledException)
+            {
+                return new ContainerInstanceResult(1, "Docker execution cancelled.");
+            }
+            catch (Exception ex)
+            {
+                ProcessContainerOutput(index, stdout, ReproExecutionStream.StandardOutput, capturedOutput);
+                ProcessContainerOutput(index, stderr, ReproExecutionStream.StandardError, capturedOutput);
+                return new ContainerInstanceResult(1, $"Docker execution failed: {ex.Message}");
+            }
+            finally
+            {
+                if (container is not null)
+                {
+                    try
+                    {
+                        await container.DisposeAsync().ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                stdout.Dispose();
+                stderr.Dispose();
+            }
+        }
+    }
+
+    private static string NormalizeToPosix(string path)
+    {
+        return string.IsNullOrEmpty(path)
+            ? path
+            : path.Replace('\\', '/');
+    }
+
+    private static string CombinePosixPaths(string left, string right)
+    {
+        if (string.IsNullOrEmpty(left))
+        {
+            return NormalizeToPosix(right);
+        }
+
+        if (string.IsNullOrEmpty(right))
+        {
+            return NormalizeToPosix(left);
+        }
+
+        var normalizedLeft = NormalizeToPosix(left).TrimEnd('/');
+        var normalizedRight = NormalizeToPosix(right).TrimStart('/');
+        if (normalizedLeft.Length == 0)
+        {
+            return "/" + normalizedRight;
+        }
+
+        return normalizedLeft + "/" + normalizedRight;
+    }
+
+    private void ProcessContainerOutput(int instanceIndex, Stream source, ReproExecutionStream stream, BoundedLogBuffer capturedOutput)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        if (source.CanSeek)
+        {
+            source.Position = 0;
+        }
+
+        using var reader = new StreamReader(source, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
+        while (true)
+        {
+            var line = reader.ReadLine();
+            if (line is null)
+            {
+                break;
+            }
+
+            capturedOutput.Add(stream, line);
+            if (stream == ReproExecutionStream.StandardOutput)
+            {
+                if (!TryProcessStructuredLine(line, instanceIndex))
+                {
+                    WriteOutputLine($"[{instanceIndex}] {line}");
+                }
+            }
+            else
+            {
+                WriteErrorLine($"[{instanceIndex}] {line}");
+            }
+        }
+    }
+
+    private static ReproExecutionResult CreateSkippedResult(bool useProjectReference, string? failureReason)
+    {
+        return new ReproExecutionResult(
+            useProjectReference,
+            false,
+            int.MinValue,
+            TimeSpan.Zero,
+            Array.Empty<ReproExecutionCapturedLine>(),
+            failureReason ?? "Required operating system is not available.");
+    }
+
+    private async Task<ExecutionEnvironmentResolution> ResolveExecutionEnvironmentAsync(ReproManifest manifest, CancellationToken cancellationToken)
+    {
+        return manifest.RequiredOperatingSystem switch
+        {
+            ReproOperatingSystem.Any => new ExecutionEnvironmentResolution(true, ExecutionEnvironmentKind.Local, null, null),
+            ReproOperatingSystem.Windows => OperatingSystem.IsWindows()
+                ? new ExecutionEnvironmentResolution(true, ExecutionEnvironmentKind.Local, null, null)
+                : new ExecutionEnvironmentResolution(false, ExecutionEnvironmentKind.Local, null, $"Repro requires Windows but the current platform is {GetCurrentPlatformName()}."),
+            ReproOperatingSystem.Linux => await ResolveLinuxRequirementAsync(cancellationToken).ConfigureAwait(false),
+            _ => new ExecutionEnvironmentResolution(true, ExecutionEnvironmentKind.Local, null, null)
+        };
+    }
+
+    private async Task<ExecutionEnvironmentResolution> ResolveLinuxRequirementAsync(CancellationToken cancellationToken)
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            return new ExecutionEnvironmentResolution(true, ExecutionEnvironmentKind.Local, null, null);
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            var available = await IsDockerCliAvailableAsync(cancellationToken).ConfigureAwait(false);
+            if (available)
+            {
+                return new ExecutionEnvironmentResolution(true, ExecutionEnvironmentKind.LinuxContainer, null, null);
+            }
+
+            return new ExecutionEnvironmentResolution(false, ExecutionEnvironmentKind.LinuxContainer, null, "Docker is not available. Install and start Docker Desktop to run Linux repros.");
+        }
+
+        return new ExecutionEnvironmentResolution(false, ExecutionEnvironmentKind.LinuxContainer, null, $"Repro requires Linux but the current platform is {GetCurrentPlatformName()}.");
+    }
+
+    private async Task<bool> IsDockerCliAvailableAsync(CancellationToken cancellationToken)
+    {
+        lock (_dockerProbeLock)
+        {
+            if (_dockerCliAvailable.HasValue)
+            {
+                return _dockerCliAvailable.Value;
+            }
+        }
+
+        var available = await ProbeDockerCliAsync(cancellationToken).ConfigureAwait(false);
+
+        lock (_dockerProbeLock)
+        {
+            _dockerCliAvailable = available;
+        }
+
+        return available;
+    }
+
+    private static async Task<bool> ProbeDockerCliAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo("docker")
+            {
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("info");
+
+            using var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return false;
+            }
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
+
+            try
+            {
+                await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(true);
+                    }
+                }
+                catch
+                {
+                }
+
+                return false;
+            }
+
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string GetCurrentPlatformName()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return "Windows";
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return "Linux";
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return "macOS";
+        }
+
+        return RuntimeInformation.OSDescription;
     }
 
     private static ProcessStartInfo CreateStartInfo(string workingDirectory, string assemblyPath, IEnumerable<string> arguments)
@@ -695,6 +1127,18 @@ internal sealed class ReproExecutor
         return builder.Length == 0 ? "shared" : builder.ToString();
     }
 
+    private enum ExecutionEnvironmentKind
+    {
+        Local,
+        LinuxContainer
+    }
+
+    private readonly record struct ExecutionEnvironmentResolution(bool Supported, ExecutionEnvironmentKind Kind, string? DockerImage, string? FailureReason);
+
+    private readonly record struct ExecutionRunResult(int ExitCode, string? FailureReason);
+
+    private readonly record struct ContainerInstanceResult(int ExitCode, string? FailureReason);
+
     private sealed class ConfigurationState
     {
         public bool Received { get; set; }
@@ -713,7 +1157,7 @@ internal sealed class ReproExecutor
 /// <param name="ExitCode">The exit code reported by the repro host.</param>
 /// <param name="Duration">The elapsed time for the execution.</param>
 /// <param name="CapturedOutput">The captured standard output and error lines.</param>
-internal readonly record struct ReproExecutionResult(bool UseProjectReference, bool Reproduced, int ExitCode, TimeSpan Duration, IReadOnlyList<ReproExecutionCapturedLine> CapturedOutput);
+internal readonly record struct ReproExecutionResult(bool UseProjectReference, bool Reproduced, int ExitCode, TimeSpan Duration, IReadOnlyList<ReproExecutionCapturedLine> CapturedOutput, string? FailureReason);
 
 /// <summary>
 /// Represents a structured log entry emitted during repro execution.

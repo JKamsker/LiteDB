@@ -45,6 +45,7 @@ internal static class CliOutput
         table.AddRow("SharedDatabaseKey", Markup.Escape(manifest.SharedDatabaseKey ?? "-"));
         table.AddRow("FailingSince", Markup.Escape(manifest.FailingSince ?? "-"));
         table.AddRow("Tags", Markup.Escape(manifest.Tags.Count > 0 ? string.Join(", ", manifest.Tags) : "-"));
+        table.AddRow("RequiredOperatingSystem", Markup.Escape(manifest.RequiredOperatingSystem.ToString().ToLowerInvariant()));
         table.AddRow("Args", Markup.Escape(manifest.Args.Count > 0 ? string.Join(" ", manifest.Args) : "-"));
 
         if (manifest.Issues.Count > 0)

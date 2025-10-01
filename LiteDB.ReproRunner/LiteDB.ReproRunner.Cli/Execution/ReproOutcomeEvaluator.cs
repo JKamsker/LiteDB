@@ -66,6 +66,11 @@ internal sealed class ReproOutcomeEvaluator
             return (false, "Variant did not execute.");
         }
 
+        if (!string.IsNullOrWhiteSpace(result.Value.FailureReason))
+        {
+            return (false, result.Value.FailureReason);
+        }
+
         var exitCode = result.Value.ExitCode;
 
         switch (expectation.Kind)
@@ -121,6 +126,11 @@ internal sealed class ReproOutcomeEvaluator
     private static ReproOutcomeKind ComputeActualKind(ReproExecutionResult? result)
     {
         if (result is null)
+        {
+            return ReproOutcomeKind.NoRepro;
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Value.FailureReason))
         {
             return ReproOutcomeKind.NoRepro;
         }

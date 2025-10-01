@@ -96,6 +96,7 @@ public sealed class ReproOutcomeEvaluatorTests
             null,
             Array.Empty<string>(),
             Array.Empty<string>(),
+            ReproOperatingSystem.Any,
             state,
             expectations ?? ReproVariantOutcomeExpectations.Empty);
     }
@@ -114,6 +115,7 @@ public sealed class ReproOutcomeEvaluatorTests
             exitCode == 0,
             exitCode,
             TimeSpan.FromSeconds(1),
-            captured);
+            captured,
+            null);
     }
 }

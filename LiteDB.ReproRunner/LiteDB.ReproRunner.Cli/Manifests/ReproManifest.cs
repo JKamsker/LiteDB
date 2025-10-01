@@ -18,7 +18,8 @@ internal sealed class ReproManifest
     /// <param name="sharedDatabaseKey">The key used to share database state between instances.</param>
     /// <param name="args">Additional command-line arguments passed to the repro host.</param>
     /// <param name="tags">Tags describing the repro characteristics.</param>
-    /// <param name="state">The current state of the repro (e.g., red, green).</param>
+    /// <param name="requiredOperatingSystem">The operating system required to execute the repro.</param>
+    /// <param name="state">The current state of the repro (for example, <see cref="ReproState.Red"/>).</param>
     /// <param name="expectedOutcomes">The optional expected outcomes per variant.</param>
     public ReproManifest(
         string id,
@@ -31,6 +32,7 @@ internal sealed class ReproManifest
         string? sharedDatabaseKey,
         IReadOnlyList<string> args,
         IReadOnlyList<string> tags,
+        ReproOperatingSystem requiredOperatingSystem,
         ReproState state,
         ReproVariantOutcomeExpectations expectedOutcomes)
     {
@@ -44,6 +46,7 @@ internal sealed class ReproManifest
         SharedDatabaseKey = sharedDatabaseKey;
         Args = args;
         Tags = tags;
+        RequiredOperatingSystem = requiredOperatingSystem;
         State = state;
         ExpectedOutcomes = expectedOutcomes ?? ReproVariantOutcomeExpectations.Empty;
     }
@@ -97,6 +100,11 @@ internal sealed class ReproManifest
     /// Gets the descriptive tags applied to the repro.
     /// </summary>
     public IReadOnlyList<string> Tags { get; }
+
+    /// <summary>
+    /// Gets the operating system required to execute the repro.
+    /// </summary>
+    public ReproOperatingSystem RequiredOperatingSystem { get; }
 
     /// <summary>
     /// Gets the declared state of the repro (for example, <see cref="ReproState.Red"/>).
