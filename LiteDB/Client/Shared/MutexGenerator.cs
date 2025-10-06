@@ -22,8 +22,12 @@ internal static class MutexGenerator
             return new Mutex(false, "Global\\" + name + ".Mutex");
         }
 
-        var allowEveryoneRule = new MutexAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null),
-                   MutexRights.FullControl, AccessControlType.Allow);
+        var allowEveryoneRule = new MutexAccessRule
+        (
+            new SecurityIdentifier(WellKnownSidType.WorldSid, null),
+            MutexRights.FullControl, 
+            AccessControlType.Allow
+        );
 
         var securitySettings = new MutexSecurity();
         securitySettings.AddAccessRule(allowEveryoneRule);
