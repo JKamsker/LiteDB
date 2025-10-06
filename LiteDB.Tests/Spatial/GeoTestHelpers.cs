@@ -8,18 +8,18 @@ internal static class GeoTestHelpers
 
     public static double NormalizeLon(double lon)
     {
-        if (double.IsNaN(lon))
+        if (double.IsNaN(lon) || double.IsInfinity(lon))
         {
             return lon;
         }
 
         var result = lon % 360d;
 
-        if (result <= -180d)
+        if (result < -180d)
         {
             result += 360d;
         }
-        else if (result > 180d)
+        else if (result >= 180d)
         {
             result -= 360d;
         }
@@ -38,7 +38,7 @@ internal static class GeoTestHelpers
         var minLon = NormalizeLon(box.MinLon);
         var maxLon = NormalizeLon(box.MaxLon);
 
-        if (minLon <= maxLon)
+        if (minLon <= maxLon + Epsilon)
         {
             return normalizedLon >= minLon - Epsilon && normalizedLon <= maxLon + Epsilon;
         }

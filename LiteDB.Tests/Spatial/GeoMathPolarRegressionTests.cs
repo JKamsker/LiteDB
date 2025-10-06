@@ -8,57 +8,80 @@ namespace LiteDB.Tests.Spatial;
 
 public class GeoMathPolarRegressionTests
 {
-    public static IEnumerable<object[]> BoundingBoxCases()
+    public static IEnumerable<object[]> HighLatitudeCircleCases()
     {
-        yield return new object[] { new GeoPoint(89.0, 0.0), 100_000d, false, "High-latitude north, 100 km" };
-        yield return new object[] { new GeoPoint(-89.0, 30.0), 100_000d, false, "High-latitude south, 100 km" };
-        yield return new object[] { new GeoPoint(70.0, 10.0), 200_000d, false, "Mid-high north, 200 km" };
-        yield return new object[] { new GeoPoint(-70.0, -120.0), 200_000d, false, "Mid-high south, 200 km" };
-        yield return new object[] { new GeoPoint(89.8, 0.0), 50_000d, true, "Pole-touching north, 50 km" };
-        yield return new object[] { new GeoPoint(-89.8, 0.0), 50_000d, true, "Pole-touching south, 50 km" };
+        yield return new object[] { new GeoPoint(89.0, 0.0), 100_000d, "High-latitude north, 100 km" };
+        yield return new object[] { new GeoPoint(-89.0, 30.0), 100_000d, "High-latitude south, 100 km" };
+        yield return new object[] { new GeoPoint(70.0, 10.0), 200_000d, "Mid-high north, 200 km" };
+        yield return new object[] { new GeoPoint(-70.0, -120.0), 200_000d, "Mid-high south, 200 km" };
+    }
+
+    public static IEnumerable<object[]> PoleTouchingCircleCases()
+    {
+        yield return new object[] { new GeoPoint(89.8, 0.0), 50_000d, "Pole-touching north, 50 km" };
+        yield return new object[] { new GeoPoint(-89.8, 0.0), 50_000d, "Pole-touching south, 50 km" };
     }
 
     [Theory]
-    [MemberData(nameof(BoundingBoxCases))]
-    public void BoundingBoxForCircle_ShouldContainGeographicLibSamples(GeoPoint center, double radiusMeters, bool touchesPole, string description)
+    [MemberData(nameof(HighLatitudeCircleCases))]
+    public void BoundingBoxForCircle_ShouldContainGeographicLibSamples(GeoPoint center, double radiusMeters, string description)
     {
         var bbox = GeoMath.BoundingBoxForCircle(center, radiusMeters);
-        var minLon = GeoTestHelpers.NormalizeLon(bbox.MinLon);
-        var maxLon = GeoTestHelpers.NormalizeLon(bbox.MaxLon);
+        var normalizedMinLon = GeoTestHelpers.NormalizeLon(bbox.MinLon);
+        var normalizedMaxLon = GeoTestHelpers.NormalizeLon(bbox.MaxLon);
 
-        var geodesic = Geodesic.WGS84;
-
-        for (var az = 0; az < 360; az += 2)
+        for (var azimuth = 0; azimuth < 360; azimuth += 2)
         {
-            var result = geodesic.Direct(center.Lat, center.Lon, az, radiusMeters);
-            var plat = result.Latitude;
-            var plon = GeoTestHelpers.NormalizeLon(result.Longitude);
+            var boundary = Geodesic.WGS84.Direct(center.Lat, center.Lon, azimuth, radiusMeters);
+            var boundaryLon = GeoTestHelpers.NormalizeLon(boundary.Longitude);
 
-            GeoTestHelpers.ContainsWrapAware(bbox, plat, plon)
+            GeoTestHelpers.ContainsWrapAware(bbox, boundary.Latitude, boundaryLon)
                 .Should().BeTrue(
                     "Boundary point at azimuth {0}° ({1:F6},{2:F6}) lies outside bbox [{3:F6},{4:F6}]..[{5:F6},{6:F6}] (GeographicLib circle for {7})",
-                    az,
-                    plat,
-                    plon,
+                    azimuth,
+                    boundary.Latitude,
+                    boundaryLon,
                     bbox.MinLat,
-                    minLon,
+                    normalizedMinLon,
                     bbox.MaxLat,
-                    maxLon,
+                    normalizedMaxLon,
                     description);
         }
+    }
 
-        if (touchesPole)
+    [Theory]
+    [MemberData(nameof(PoleTouchingCircleCases))]
+    public void BoundingBoxForCircle_PoleTouchingCircleShouldSpanAllLongitudes(GeoPoint center, double radiusMeters, string description)
+    {
+        var bbox = GeoMath.BoundingBoxForCircle(center, radiusMeters);
+        var normalizedMinLon = GeoTestHelpers.NormalizeLon(bbox.MinLon);
+        var normalizedMaxLon = GeoTestHelpers.NormalizeLon(bbox.MaxLon);
+
+        for (var azimuth = 0; azimuth < 360; azimuth += 2)
         {
-            GeoTestHelpers.NormalizeLon(bbox.MinLon)
-                .Should().BeApproximately(-180d, 1e-6,
-                    "Circles touching a pole should span all longitudes: expected -180° min lon (GeographicLib circle for {0})",
-                    description);
+            var boundary = Geodesic.WGS84.Direct(center.Lat, center.Lon, azimuth, radiusMeters);
+            var boundaryLon = GeoTestHelpers.NormalizeLon(boundary.Longitude);
 
-            GeoTestHelpers.NormalizeLon(bbox.MaxLon)
-                .Should().BeApproximately(180d, 1e-6,
-                    "Circles touching a pole should span all longitudes: expected 180° max lon (GeographicLib circle for {0})",
+            GeoTestHelpers.ContainsWrapAware(bbox, boundary.Latitude, boundaryLon)
+                .Should().BeTrue(
+                    "Pole-touching boundary point at azimuth {0}° ({1:F6},{2:F6}) lies outside bbox [{3:F6},{4:F6}]..[{5:F6},{6:F6}] (GeographicLib circle for {7})",
+                    azimuth,
+                    boundary.Latitude,
+                    boundaryLon,
+                    bbox.MinLat,
+                    normalizedMinLon,
+                    bbox.MaxLat,
+                    normalizedMaxLon,
                     description);
         }
+
+        normalizedMinLon.Should().BeApproximately(-180d, 1e-6,
+            "Circles touching a pole should span all longitudes: expected -180° min lon (GeographicLib circle for {0})",
+            description);
+
+        normalizedMaxLon.Should().BeApproximately(180d, 1e-6,
+            "Circles touching a pole should span all longitudes: expected 180° max lon (GeographicLib circle for {0})",
+            description);
     }
 
     public static IEnumerable<object[]> PolarDistanceCases()
@@ -69,7 +92,7 @@ public class GeoMathPolarRegressionTests
 
     [Theory]
     [MemberData(nameof(PolarDistanceCases))]
-    public void Haversine_ShouldMatchGeographicLibNearPoles(GeoPoint a, GeoPoint b, string description)
+    public void DistanceMeters_ShouldMatchGeographicLibNearPoles(GeoPoint a, GeoPoint b, string description)
     {
         var expected = Geodesic.WGS84.Inverse(a.Lat, a.Lon, b.Lat, b.Lon).Distance;
         var haversine = GeoMath.DistanceMeters(a, b, DistanceFormula.Haversine);
