@@ -26,7 +26,19 @@ namespace LiteDB.Spatial
         {
             if (box.MaxLon < box.MinLon)
             {
-                return null;
+                var segments = SpatialIndexing.SplitBoundingBox(box);
+                var expressions = new List<BsonExpression>(segments.Count);
+
+                foreach (var segment in segments)
+                {
+                    var expression = BuildBoundingBoxPredicate(segment);
+                    if (expression != null)
+                    {
+                        expressions.Add(expression);
+                    }
+                }
+
+                return CombineOr(expressions);
             }
 
             var parameters = new[]
