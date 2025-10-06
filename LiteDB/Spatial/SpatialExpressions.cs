@@ -1,0 +1,100 @@
+using System;
+using System.Linq;
+using LiteDB.Spatial;
+
+namespace LiteDB
+{
+    public static class SpatialExpressions
+    {
+        public static bool Near(GeoPoint point, GeoPoint center, double radiusMeters)
+        {
+            return Near(point, center, radiusMeters, Spatial.Spatial.Options.Distance);
+        }
+
+        public static bool Near(GeoPoint point, GeoPoint center, double radiusMeters, DistanceFormula formula)
+        {
+            if (point == null || center == null)
+            {
+                return false;
+            }
+
+            var distance = GeoMath.DistanceMeters(point, center, formula);
+            var allowance = Spatial.Spatial.Options.DistanceToleranceMeters;
+            var toleranceDegrees = Spatial.Spatial.Options.NumericToleranceDegrees;
+
+            if (toleranceDegrees > 0d)
+            {
+                var angularMeters = GeoMath.EarthRadiusMeters * toleranceDegrees * (Math.PI / 180d);
+                allowance = Math.Max(allowance, angularMeters);
+            }
+
+            return distance <= radiusMeters + allowance;
+        }
+
+        public static bool Within(GeoShape shape, GeoPolygon polygon)
+        {
+            if (shape == null || polygon == null)
+            {
+                return false;
+            }
+
+            return shape switch
+            {
+                GeoPoint point => Geometry.ContainsPoint(polygon, point),
+                GeoPolygon other => Geometry.Intersects(polygon, other) && other.Outer.All(p => Geometry.ContainsPoint(polygon, p)),
+                GeoLineString line => line.Points.All(p => Geometry.ContainsPoint(polygon, p)),
+                _ => false
+            };
+        }
+
+        public static bool Intersects(GeoShape shape, GeoShape other)
+        {
+            if (shape == null || other == null)
+            {
+                return false;
+            }
+
+            return shape switch
+            {
+                GeoPolygon polygon when other is GeoPolygon polygonOther => Geometry.Intersects(polygon, polygonOther),
+                GeoLineString line when other is GeoPolygon polygon => Geometry.Intersects(line, polygon),
+                GeoPolygon polygon when other is GeoLineString line => Geometry.Intersects(line, polygon),
+                GeoLineString line when other is GeoLineString otherLine => Geometry.Intersects(line, otherLine),
+                GeoPoint point when other is GeoPolygon polygon => Geometry.ContainsPoint(polygon, point),
+                GeoPoint point when other is GeoLineString line => Geometry.LineContainsPoint(line, point),
+                GeoPoint point when other is GeoPoint otherPoint =>
+                    Math.Abs(point.Lat - otherPoint.Lat) < GeoMath.EpsilonDegrees &&
+                    Math.Abs(point.Lon - otherPoint.Lon) < GeoMath.EpsilonDegrees,
+                GeoLineString line when other is GeoPoint point => Geometry.LineContainsPoint(line, point),
+                GeoPolygon polygon when other is GeoPoint point => Geometry.ContainsPoint(polygon, point),
+                _ => false
+            };
+        }
+
+        public static bool Contains(GeoShape shape, GeoPoint point)
+        {
+            if (shape == null || point == null)
+            {
+                return false;
+            }
+
+            return shape switch
+            {
+                GeoPolygon polygon => Geometry.ContainsPoint(polygon, point),
+                GeoLineString line => Geometry.LineContainsPoint(line, point),
+                GeoPoint candidate => Math.Abs(candidate.Lat - point.Lat) < GeoMath.EpsilonDegrees && Math.Abs(candidate.Lon - point.Lon) < GeoMath.EpsilonDegrees,
+                _ => false
+            };
+        }
+
+        public static bool WithinBoundingBox(GeoPoint point, GeoBoundingBox box)
+        {
+            if (point == null)
+            {
+                return false;
+            }
+
+            return box.Contains(point);
+        }
+    }
+}

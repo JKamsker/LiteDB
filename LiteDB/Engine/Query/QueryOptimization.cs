@@ -125,9 +125,12 @@ namespace LiteDB.Engine
             {
                 case "SPATIAL_INTERSECTS":
                 case "SPATIAL_INTERSECTS_MBB":
+                case "SPATIAL_MBB_INTERSECTS":
                 case "SPATIAL_CONTAINS_POINT":
+                case "SPATIAL_CONTAINS":
                 case "SPATIAL_NEAR":
                 case "SPATIAL_WITHIN":
+                case "SPATIAL_WITHIN_BOX":
                     return true;
                 default:
                     return false;

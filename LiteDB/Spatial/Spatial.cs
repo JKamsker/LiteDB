@@ -26,7 +26,7 @@ namespace LiteDB.Spatial
 
             if (precisionBits <= 0)
             {
-                precisionBits = Options.IndexPrecisionBits;
+                precisionBits = Options.DefaultIndexPrecisionBits;
             }
 
             var getter = selector.Compile();
@@ -88,7 +88,7 @@ namespace LiteDB.Spatial
             }
 
             var distance = GeoMath.DistanceMeters(center, candidate, Options.Distance);
-            return distance <= radiusMeters;
+            return distance <= radiusMeters + GetDistanceAllowanceMeters();
         }
 
         public static bool Within(GeoShape candidate, GeoPolygon area)
@@ -156,25 +156,28 @@ namespace LiteDB.Spatial
             EnsureMapperRegistration(mapper);
 
             var precisionBits = SpatialMetadataStore.GetPointIndexPrecision(lite);
-            var boundingBox = GeoMath.BoundingBoxForCircle(center, radiusMeters);
-            var ranges = SpatialIndexing.CoverBoundingBox(boundingBox, precisionBits, Options.MaxCoveringCells);
+            var normalizedCenter = center.Normalize();
+            var boundingBox = GeoMath.BoundingBoxForCircle(normalizedCenter, radiusMeters);
+            var expandedBoundingBox = ExpandForQuery(boundingBox);
+            var ranges = SpatialIndexing.CoverBoundingBox(expandedBoundingBox, precisionBits, Options.MaxCoveringCells);
             var rangePredicate = SpatialQueryBuilder.BuildRangePredicate(ranges);
-            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(boundingBox);
+            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(expandedBoundingBox);
             var predicate = SpatialQueryBuilder.CombineSpatialPredicates(rangePredicate, boundingPredicate);
 
             var source = predicate != null ? lite.Find(predicate) : lite.FindAll();
             var matches = new List<(T item, double distance)>();
+            var distanceAllowance = GetDistanceAllowanceMeters();
 
             foreach (var item in source)
             {
                 var point = selector(item);
-                if (point == null || !boundingBox.Contains(point))
+                if (point == null || !expandedBoundingBox.Contains(point))
                 {
                     continue;
                 }
 
-                var distance = GeoMath.DistanceMeters(center, point, Options.Distance);
-                if (distance <= radiusMeters)
+                var distance = GeoMath.DistanceMeters(normalizedCenter, point, Options.Distance);
+                if (distance <= radiusMeters + distanceAllowance)
                 {
                     matches.Add((item, distance));
                 }
@@ -205,10 +208,11 @@ namespace LiteDB.Spatial
             EnsureMapperRegistration(mapper);
 
             var boundingBox = new GeoBoundingBox(minLat, minLon, maxLat, maxLon);
+            var expandedBoundingBox = ExpandForQuery(boundingBox);
             var precisionBits = SpatialMetadataStore.GetPointIndexPrecision(lite);
-            var ranges = SpatialIndexing.CoverBoundingBox(boundingBox, precisionBits, Options.MaxCoveringCells);
+            var ranges = SpatialIndexing.CoverBoundingBox(expandedBoundingBox, precisionBits, Options.MaxCoveringCells);
             var rangePredicate = SpatialQueryBuilder.BuildRangePredicate(ranges);
-            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(boundingBox);
+            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(expandedBoundingBox);
             var predicate = SpatialQueryBuilder.CombineSpatialPredicates(rangePredicate, boundingPredicate);
 
             var source = predicate != null ? lite.Find(predicate) : lite.FindAll();
@@ -217,7 +221,12 @@ namespace LiteDB.Spatial
                 .Where(entity =>
                 {
                     var point = selector(entity);
-                    return point != null && boundingBox.Contains(point);
+                    if (point == null || !expandedBoundingBox.Contains(point))
+                    {
+                        return false;
+                    }
+
+                    return boundingBox.Contains(point);
                 })
                 .ToList();
         }
@@ -233,13 +242,24 @@ namespace LiteDB.Spatial
             EnsureMapperRegistration(mapper);
 
             var boundingBox = area.GetBoundingBox();
-            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(boundingBox);
+            var expandedBoundingBox = ExpandForQuery(boundingBox);
+            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(expandedBoundingBox);
             var source = boundingPredicate != null ? lite.Find(boundingPredicate) : lite.FindAll();
 
             return source.Where(entity =>
             {
                 var shape = selector(entity);
-                return shape != null && Within(shape, area);
+                if (shape == null)
+                {
+                    return false;
+                }
+
+                if (!expandedBoundingBox.Intersects(shape.GetBoundingBox()))
+                {
+                    return false;
+                }
+
+                return Within(shape, area);
             }).ToList();
         }
 
@@ -254,13 +274,24 @@ namespace LiteDB.Spatial
             EnsureMapperRegistration(mapper);
 
             var boundingBox = query.GetBoundingBox();
-            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(boundingBox);
+            var expandedBoundingBox = ExpandForQuery(boundingBox);
+            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(expandedBoundingBox);
             var source = boundingPredicate != null ? lite.Find(boundingPredicate) : lite.FindAll();
 
             return source.Where(entity =>
             {
                 var shape = selector(entity);
-                return shape != null && Intersects(shape, query);
+                if (shape == null)
+                {
+                    return false;
+                }
+
+                if (!expandedBoundingBox.Intersects(shape.GetBoundingBox()))
+                {
+                    return false;
+                }
+
+                return Intersects(shape, query);
             }).ToList();
         }
 
@@ -275,14 +306,58 @@ namespace LiteDB.Spatial
             EnsureMapperRegistration(mapper);
 
             var boundingBox = new GeoBoundingBox(point.Lat, point.Lon, point.Lat, point.Lon);
-            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(boundingBox);
+            var expandedBoundingBox = ExpandForQuery(boundingBox);
+            var boundingPredicate = SpatialQueryBuilder.BuildBoundingBoxPredicate(expandedBoundingBox);
             var source = boundingPredicate != null ? lite.Find(boundingPredicate) : lite.FindAll();
 
             return source.Where(entity =>
             {
                 var shape = selector(entity);
-                return shape != null && Contains(shape, point);
+                if (shape == null)
+                {
+                    return false;
+                }
+
+                if (!expandedBoundingBox.Intersects(shape.GetBoundingBox()))
+                {
+                    return false;
+                }
+
+                return Contains(shape, point);
             }).ToList();
+        }
+
+        private static GeoBoundingBox ExpandForQuery(GeoBoundingBox boundingBox)
+        {
+            var padding = GetTotalBoundingPaddingMeters();
+            if (padding <= 0d)
+            {
+                return boundingBox;
+            }
+
+            return boundingBox.Expand(padding);
+        }
+
+        private static double GetDistanceAllowanceMeters()
+        {
+            var angularTolerance = GetCoordinateToleranceMeters();
+            return Math.Max(Options.DistanceToleranceMeters, angularTolerance);
+        }
+
+        private static double GetTotalBoundingPaddingMeters()
+        {
+            return Options.BoundingBoxPaddingMeters + GetCoordinateToleranceMeters();
+        }
+
+        private static double GetCoordinateToleranceMeters()
+        {
+            var toleranceDegrees = Options.NumericToleranceDegrees;
+            if (toleranceDegrees <= 0d)
+            {
+                return 0d;
+            }
+
+            return GeoMath.EarthRadiusMeters * toleranceDegrees * (Math.PI / 180d);
         }
 
         private static LiteCollection<T> GetLiteCollection<T>(ILiteCollection<T> collection)
