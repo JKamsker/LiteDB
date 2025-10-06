@@ -98,7 +98,8 @@ namespace LiteDB
             "LIKE",
             "IN",
             "AND",
-            "OR"
+            "OR",
+            "VECTOR_SIM"
         };
 
         public Token(TokenType tokenType, string value, long position)
@@ -208,7 +209,7 @@ namespace LiteDB
     /// </summary>
     internal class Tokenizer
     {
-        private TextReader _reader;
+        private readonly TextReader _reader;
         private char _char = '\0';
         private Token _ahead = null;
         private bool _eof = false;

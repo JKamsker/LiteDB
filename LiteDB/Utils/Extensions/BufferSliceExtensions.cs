@@ -40,6 +40,11 @@ namespace LiteDB
             return BitConverter.ToUInt32(buffer.Array, buffer.Offset + offset);
         }
 
+        public static float ReadSingle(this BufferSlice buffer, int offset)
+        {
+            return BitConverter.ToSingle(buffer.Array, buffer.Offset + offset);
+        }
+
         public static Int64 ReadInt64(this BufferSlice buffer, int offset)
         {
             return BitConverter.ToInt64(buffer.Array, buffer.Offset + offset);
@@ -88,6 +93,18 @@ namespace LiteDB
             return new DateTime(ticks, DateTimeKind.Utc);
         }
 
+        public static float[] ReadVector(this BufferSlice buffer, int offset)
+        {
+            var count = buffer.ReadUInt16(offset); 
+            offset += 2; // move offset to first float
+            var vector = new float[count];
+            for (var i = 0; i < count; i++)
+            {
+                vector[i] = BitConverter.ToSingle(buffer.Array, buffer.Offset + offset + (i * 4));
+            }
+            return vector;
+        }
+
         public static PageAddress ReadPageAddress(this BufferSlice buffer, int offset)
         {
             return new PageAddress(buffer.ReadUInt32(offset), buffer[offset + 4]);
@@ -96,6 +113,25 @@ namespace LiteDB
         public static string ReadString(this BufferSlice buffer, int offset, int count)
         {
             return Encoding.UTF8.GetString(buffer.Array, buffer.Offset + offset, count);
+        }
+
+        /// <summary>
+        /// Read string with \0 on end. Returns full string length (including \0 char)
+        /// </summary>
+        public static string ReadCString(this BufferSlice buffer, int offset, out int length)
+        {
+            length = buffer.Count - buffer.Offset - offset;
+
+            for (var i = offset + buffer.Offset; i < buffer.Count; i++)
+            {
+                if (buffer[i] == '\0')
+                {
+                    length = i - buffer.Offset - offset + 1; // +1 for \0
+                    break;
+                }
+            }
+
+            return Encoding.UTF8.GetString(buffer.Array, buffer.Offset + offset, length - 1);
         }
 
         /// <summary>
@@ -123,13 +159,13 @@ namespace LiteDB
                     using (var r = new BufferReader(buffer))
                     {
                         r.Skip(offset); // skip first byte for value.Type
-                        return r.ReadDocument();
+                        return r.ReadDocument().GetValue();
                     }
                 case BsonType.Array:
                     using (var r = new BufferReader(buffer))
                     {
                         r.Skip(offset); // skip first byte for value.Type
-                        return r.ReadArray();
+                        return r.ReadArray().GetValue();
                     }
 
                 case BsonType.Binary:
@@ -143,6 +179,7 @@ namespace LiteDB
 
                 case BsonType.MinValue: return BsonValue.MinValue;
                 case BsonType.MaxValue: return BsonValue.MaxValue;
+                case BsonType.Vector: return buffer.ReadVector(offset);
 
                 default: throw new NotImplementedException();
             }
@@ -182,6 +219,11 @@ namespace LiteDB
             value.ToBytes(buffer.Array, buffer.Offset + offset);
         }
 
+        public static void Write(this BufferSlice buffer, float value, int offset)
+        {
+            BitConverter.GetBytes(value).CopyTo(buffer.Array, buffer.Offset + offset);
+        }
+
         public static void Write(this BufferSlice buffer, Int64 value, int offset)
         {
             value.ToBytes(buffer.Array, buffer.Offset + offset);
@@ -215,6 +257,17 @@ namespace LiteDB
         public static void Write(this BufferSlice buffer, Guid value, int offset)
         {
             buffer.Write(value.ToByteArray(), offset);
+        }
+
+        public static void Write(this BufferSlice buffer, float[] value, int offset)
+        {
+            buffer.Write((ushort)value.Length, offset);
+            offset += 2;
+            foreach (var v in value)
+            {
+                BitConverter.GetBytes(v).CopyTo(buffer.Array, buffer.Offset + offset);
+                offset += 4;
+            }
         }
 
         public static void Write(this BufferSlice buffer, ObjectId value, int offset)
@@ -297,6 +350,7 @@ namespace LiteDB
 
                     case BsonType.Boolean: buffer[offset] = (value.AsBoolean) ? (byte)1 : (byte)0; break;
                     case BsonType.DateTime: buffer.Write(value.AsDateTime, offset); break;
+                    case BsonType.Vector: buffer.Write(value.AsVector, offset); break;
 
                     default: throw new NotImplementedException();
                 }

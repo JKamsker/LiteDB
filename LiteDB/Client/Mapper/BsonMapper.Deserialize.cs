@@ -1,18 +1,36 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using static LiteDB.Constants;
+using System.ComponentModel;
 
 namespace LiteDB
 {
     public partial class BsonMapper
     {
+        #region Deserialization Hooks
+
+        /// <summary>
+        /// Delegate for deserialization callback.
+        /// </summary>
+        /// <param name="sender">The BsonMapper instance that triggered the deserialization.</param>
+        /// <param name="target">The target type for deserialization.</param>
+        /// <param name="value">The BsonValue to be deserialized.</param>
+        /// <returns>The deserialized BsonValue.</returns>
+        public delegate BsonValue DeserializationCallback(BsonMapper sender, Type target, BsonValue value);
+
+        /// <summary>
+        /// Gets called before deserialization of a value
+        /// </summary>
+        public DeserializationCallback? OnDeserialization { get; set; }
+
+        #endregion Deserialization Hooks
+
         #region Basic direct .NET convert types
 
         // direct bson types
-        private HashSet<Type> _bsonTypes = new HashSet<Type>
+        private readonly HashSet<Type> _bsonTypes = new HashSet<Type>
         {
             typeof(String),
             typeof(Int32),
@@ -27,7 +45,7 @@ namespace LiteDB
         };
 
         // simple convert types
-        private HashSet<Type> _basicTypes = new HashSet<Type>
+        private readonly HashSet<Type> _basicTypes = new HashSet<Type>
         {
             typeof(Int16),
             typeof(UInt16),
@@ -78,6 +96,15 @@ namespace LiteDB
         /// </summary>
         public object Deserialize(Type type, BsonValue value)
         {
+            if (OnDeserialization is not null)
+            {
+                var result = OnDeserialization(this, type, value);
+                if (result is not null)
+                {
+                    value = result;
+                }
+            }
+
             // null value - null returns
             if (value.IsNull) return null;
 
@@ -167,9 +194,17 @@ namespace LiteDB
                 // test if value is object and has _type
                 if (doc.TryGetValue("_type", out var typeField) && typeField.IsString)
                 {
-                    type = _typeNameBinder.GetType(typeField.AsString);
+                    var actualType = _typeNameBinder.GetType(typeField.AsString);
 
-                    if (type == null) throw LiteException.InvalidTypedName(typeField.AsString);
+                    if (actualType == null) throw LiteException.InvalidTypedName(typeField.AsString);
+
+                    // avoid initialize class that are not assignable 
+                    if (!type.IsAssignableFrom(actualType))
+                    {
+                        throw LiteException.DataTypeNotAssignable(type.FullName, actualType.FullName);
+                    }
+
+                    type = actualType;
                 }
                 // when complex type has no definition (== typeof(object)) use Dictionary<string, object> to better set values
                 else if (type == typeof(object))
@@ -178,37 +213,36 @@ namespace LiteDB
                 }
 
                 var entity = this.GetEntityMapper(type);
+                entity.WaitForInitialization();
 
                 // initialize CreateInstance
-                if (entity.CreateInstance == null)
+                entity.CreateInstance = entity.CreateInstance
+                    ?? GetTypeCtor(entity) 
+                    ?? ((BsonDocument _) => Reflection.CreateInstance(entity.ForType));
+
+                object instance = _typeInstantiator(type) 
+                    ?? entity.CreateInstance(doc);
+
+                if (instance is IDictionary dict)
                 {
-                    entity.CreateInstance =
-                        this.GetTypeCtor(entity) ??
-                        ((BsonDocument v) => Reflection.CreateInstance(entity.ForType));
-                }
+                    Type keyType = typeof(object);
+                    Type valueType = typeof(object);
 
-                var o = _typeInstantiator(type) ?? entity.CreateInstance(doc);
-
-                if (o is IDictionary dict)
-                {
-                    if (o.GetType().GetTypeInfo().IsGenericType)
+                    if (instance.GetType().GetTypeInfo().IsGenericType)
                     {
-                        var k = type.GetGenericArguments()[0];
-                        var t = type.GetGenericArguments()[1];
+                        Type[] generics = type.GetGenericArguments();
+                        keyType = generics[0];
+                        valueType = generics[1];
+                    }
 
-                        this.DeserializeDictionary(k, t, dict, value.AsDocument);
-                    }
-                    else
-                    {
-                        this.DeserializeDictionary(typeof(object), typeof(object), dict, value.AsDocument);
-                    }
+                    DeserializeDictionary(keyType, valueType, dict, value.AsDocument);
                 }
                 else
                 {
-                    this.DeserializeObject(entity, o, doc);
+                    DeserializeObject(entity, instance, doc);
                 }
 
-                return o;
+                return instance;
             }
 
             // in last case, return value as-is - can cause "cast error"
@@ -243,7 +277,7 @@ namespace LiteDB
             }
             else
             {
-                var addMethod = type.GetMethod("Add");
+                var addMethod = type.GetMethod("Add", new Type[] { itemType });
 
                 foreach (BsonValue item in value)
                 {
@@ -254,15 +288,29 @@ namespace LiteDB
             return enumerable;
         }
 
-        private void DeserializeDictionary(Type K, Type T, IDictionary dict, BsonDocument value)
+        private void DeserializeDictionary(Type keyType, Type valueType, IDictionary dict, BsonDocument value)
         {
-            var isKEnum = K.GetTypeInfo().IsEnum;
-            foreach (var el in value.GetElements())
+            foreach (KeyValuePair<string, BsonValue> element in value.GetElements())
             {
-                var k = isKEnum ? Enum.Parse(K, el.Key) : K == typeof(Uri) ? new Uri(el.Key) : Convert.ChangeType(el.Key, K);
-                var v = this.Deserialize(T, el.Value);
+                object dictKey;
+                TypeConverter keyConverter = TypeDescriptor.GetConverter(keyType);
+                if (keyConverter.CanConvertFrom(typeof(string)))
+                {
+                    // Here, we deserialize the key based on its type, even though it's a string. This is because
+                    // BsonDocuments only support string keys (not BsonValue).
+                    // However, if we deserialize the string representation, we can have pseudo-support for key types like GUID.
+                    // See https://github.com/litedb-org/LiteDB/issues/546
+                    dictKey = keyConverter.ConvertFromInvariantString(element.Key);
+                }
+                else
+                {
+                    // Some types (e.g. System.Collections.Hashtable) can't be converted using TypeDescriptor
+                    dictKey = Convert.ChangeType(element.Key, keyType);
+                }
 
-                dict.Add(k, v);
+                object dictValue = Deserialize(valueType, element.Value);
+
+                dict[dictKey] = dictValue;
             }
         }
 
@@ -293,6 +341,12 @@ namespace LiteDB
             foreach (var par in ctor.GetParameters())
             {
                 var arg = this.Deserialize(par.ParameterType, value[par.Name]);
+
+                //  if name is Id and arg is null, look for _id
+                if (arg == null && StringComparer.OrdinalIgnoreCase.Equals(par.Name, "Id") && value.TryGetValue("_id", out var id))
+                {
+                    arg = this.Deserialize(par.ParameterType, id);
+                }
 
                 args.Add(arg);
             }

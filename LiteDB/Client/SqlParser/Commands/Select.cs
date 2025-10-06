@@ -49,8 +49,9 @@ namespace LiteDB
                 var result = query.Select.Execute(_collation.Value);
 
                 var defaultName = "expr";
+                var data = result.Select(x => x.IsDocument ? x.AsDocument : new BsonDocument { [defaultName] = x }).FirstOrDefault();
 
-                return new BsonDataReader(result.Select(x => x.IsDocument ? x.AsDocument : new BsonDocument { [defaultName] = x }), null);
+                return new BsonDataReader(data, null);
             }
             else if (from.Is("INTO"))
             {
@@ -125,18 +126,30 @@ namespace LiteDB
                 _tokenizer.ReadToken();
                 _tokenizer.ReadToken().Expect("BY");
 
-                var orderBy = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters);
-
-                var orderByOrder = Query.Ascending;
-                var orderByToken = _tokenizer.LookAhead();
-
-                if (orderByToken.Is("ASC") || orderByToken.Is("DESC"))
+                while (true)
                 {
-                    orderByOrder = _tokenizer.ReadToken().Is("ASC") ? Query.Ascending : Query.Descending;
-                }
+                    var orderBy = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters);
 
-                query.OrderBy = orderBy;
-                query.Order = orderByOrder;
+                    var orderByOrder = Query.Ascending;
+                    var orderByToken = _tokenizer.LookAhead();
+
+                    if (orderByToken.Is("ASC") || orderByToken.Is("DESC"))
+                    {
+                        orderByOrder = _tokenizer.ReadToken().Is("ASC") ? Query.Ascending : Query.Descending;
+                    }
+
+                    query.OrderBy.Add(new QueryOrder(orderBy, orderByOrder));
+
+                    var next = _tokenizer.LookAhead();
+
+                    if (next.Type == TokenType.Comma)
+                    {
+                        _tokenizer.ReadToken();
+                        continue;
+                    }
+
+                    break;
+                }
             }
 
             ahead = _tokenizer.LookAhead().Expect(TokenType.Word, TokenType.EOF, TokenType.SemiColon);

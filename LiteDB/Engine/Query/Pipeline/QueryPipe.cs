@@ -10,8 +10,8 @@ namespace LiteDB.Engine
     /// </summary>
     internal class QueryPipe : BasePipe
     {
-        public QueryPipe(TransactionService transaction, IDocumentLookup loader, SortDisk tempDisk, EnginePragmas pragmas)
-            : base(transaction, loader, tempDisk, pragmas)
+        public QueryPipe(TransactionService transaction, IDocumentLookup loader, SortDisk tempDisk, EnginePragmas pragmas, uint maxItemsCount)
+            : base(transaction, loader, tempDisk, pragmas, maxItemsCount)
         {
         }
 
@@ -46,7 +46,7 @@ namespace LiteDB.Engine
             if (query.OrderBy != null)
             {
                 // pipe: orderby with offset+limit
-                source = this.OrderBy(source, query.OrderBy.Expression, query.OrderBy.Order, query.Offset, query.Limit);
+                source = this.OrderBy(source, query.OrderBy, query.Offset, query.Limit);
             }
             else
             {

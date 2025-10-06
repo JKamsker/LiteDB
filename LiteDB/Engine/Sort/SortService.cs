@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -25,10 +26,12 @@ namespace LiteDB.Engine
         private readonly int _containerSize;
         private readonly Done _done = new Done { Running = true };
 
-        private readonly int _order;
+        private readonly int[] _orders;
         private readonly EnginePragmas _pragmas;
         private readonly BufferSlice _buffer;
         private readonly Lazy<Stream> _reader;
+
+        private static readonly ArrayPool<byte> _bufferPool = ArrayPool<byte>.Shared;
 
         /// <summary>
         /// Get how many documents was inserted by Insert method
@@ -40,16 +43,19 @@ namespace LiteDB.Engine
         /// </summary>
         public IReadOnlyCollection<SortContainer> Containers => _containers;
 
-        public SortService(SortDisk disk, int order, EnginePragmas pragmas)
+        public SortService(SortDisk disk, IReadOnlyList<int> orders, EnginePragmas pragmas)
         {
             _disk = disk;
-            _order = order;
+            if (orders == null) throw new ArgumentNullException(nameof(orders));
+            if (orders.Count == 0) throw new ArgumentException("Orders must contain at least one segment", nameof(orders));
+
+            _orders = orders as int[] ?? orders.ToArray();
             _pragmas = pragmas;
             _containerSize = disk.ContainerSize;
 
             _reader = new Lazy<Stream>(() => _disk.GetReader());
 
-            var bytes = BufferPool.Rent(disk.ContainerSize);
+            var bytes = new byte [disk.ContainerSize];
 
             _buffer = new BufferSlice(bytes, 0, _containerSize);
         }
@@ -68,9 +74,6 @@ namespace LiteDB.Engine
                 }
             }
 
-            // return array buffer into pool
-            BufferPool.Return(_buffer.Array);
-
             // return open strem into disk
             if (_reader.IsValueCreated)
             {
@@ -86,10 +89,12 @@ namespace LiteDB.Engine
             // slit all items in sorted containers
             foreach (var containerItems in this.SliptValues(items, _done))
             {
-                var container = new SortContainer(_pragmas.Collation, _containerSize);
+                var container = new SortContainer(_pragmas.Collation, _containerSize, _orders);
 
                 // insert segmented items inside a container - reuse same buffer slice
-                container.Insert(containerItems, _order, _buffer);
+                var order = _orders.Length == 1 ? _orders[0] : Query.Ascending;
+
+                container.Insert(containerItems, order, _buffer);
 
                 _containers.Add(container);
 
@@ -133,7 +138,7 @@ namespace LiteDB.Engine
             }
             else
             {
-                var diffOrder = _order * -1;
+                var diffOrder = _orders.Length == 1 ? _orders[0] * -1 : -1;
 
                 // merge sort with all containers
                 while (_containers.Any(x => !x.IsEOF))

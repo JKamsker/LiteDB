@@ -3,17 +3,18 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using FluentAssertions;
+using LiteDB.Tests.Utils;
 using Xunit;
 
 namespace LiteDB.Tests.Database
 {
     public class Storage_Tests
     {
-        private Random _rnd = new Random();
-        private byte[] _smallFile;
-        private byte[] _bigFile;
-        private string _smallHash;
-        private string _bigHash;
+        private readonly Random _rnd = new Random();
+        private readonly byte[] _smallFile;
+        private readonly byte[] _bigFile;
+        private readonly string _smallHash;
+        private readonly string _bigHash;
 
         public Storage_Tests()
         {
@@ -30,8 +31,7 @@ namespace LiteDB.Tests.Database
         [Fact]
         public void Storage_Upload_Download()
         {
-            using (var f = new TempFile())
-            using (var db = new LiteDatabase(f.Filename))
+            using (var db = DatabaseFactory.Create())
                 //using (var db = new LiteDatabase(@"c:\temp\file.db"))
             {
                 var fs = db.GetStorage<int>("_files", "_chunks");

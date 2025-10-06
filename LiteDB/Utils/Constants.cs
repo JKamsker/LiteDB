@@ -1,15 +1,19 @@
 ﻿using LiteDB.Engine;
+
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
-#if DEBUG
 [assembly: InternalsVisibleTo("LiteDB.Tests")]
+#if DEBUG || TESTING
+[assembly: InternalsVisibleTo("ConsoleApp1")]
 #endif
 
 namespace LiteDB
 {
+    using System.Globalization;
+
     /// <summary>
     /// Class with all constants used in LiteDB + Debbuger HELPER
     /// </summary>
@@ -94,7 +98,16 @@ namespace LiteDB
         /// Define how many bytes each merge sort container will be created
         /// </summary>
         public const int CONTAINER_SORT_SIZE = 100 * PAGE_SIZE;
-        
+
+        /// <summary>
+        /// Initial seed for Random
+        /// </summary>
+#if DEBUG || TESTING
+        public const int RANDOMIZER_SEED = 3131;
+#else
+        public const int RANDOMIZER_SEED = 0;
+#endif
+
         /// <summary>
         /// Log a message using Debug.WriteLine
         /// </summary>
@@ -127,10 +140,26 @@ namespace LiteDB
             {
                 if (Debugger.IsAttached)
                 {
-                    Debug.Fail(message);
+                    Debugger.Break();
                 }
-                
-                throw new Exception("LiteDB ENSURE: " + message);
+
+                throw LiteException.InvalidDatafileState(message);
+            }
+        }
+
+        [DebuggerHidden]
+        public static void ENSURE(bool conditional, string format, params object[] args)
+        {
+            if (conditional == false)
+            {
+                if (Debugger.IsAttached)
+                {
+                    Debugger.Break();
+                }
+
+                var message = string.Format(CultureInfo.InvariantCulture, format, args);
+
+                throw LiteException.InvalidDatafileState(format);
             }
         }
 
@@ -144,10 +173,10 @@ namespace LiteDB
             {
                 if (Debugger.IsAttached)
                 {
-                    Debug.Fail(message);
+                    Debugger.Break();
                 }
-                
-                throw new Exception("LiteDB ENSURE: " + message);
+
+                throw LiteException.InvalidDatafileState(message);
             }
         }
 
@@ -162,10 +191,10 @@ namespace LiteDB
             {
                 if (Debugger.IsAttached)
                 {
-                    Debug.Fail(message);
+                    Debugger.Break();
                 }
-                
-                throw new Exception("LiteDB DEBUG: " + message);
+
+                throw LiteException.InvalidDatafileState(message);
             }
         }
     }

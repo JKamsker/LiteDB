@@ -17,6 +17,7 @@ namespace LiteDB.Engine
         private readonly HeaderPage _header;
         private readonly LockService _locker;
         private readonly DiskReader _reader;
+        private readonly DiskService _disk;
         private readonly WalIndexService _walIndex;
 
         // instances from transaction
@@ -32,6 +33,8 @@ namespace LiteDB.Engine
         // local page cache - contains only pages about this collection (but do not contains CollectionPage - use this.CollectionPage)
         private readonly Dictionary<uint, BasePage> _localPages = new Dictionary<uint, BasePage>();
 
+        private bool _disposed;
+
         // expose
         public LockMode Mode => _mode;
         public string CollectionName => _collectionName;
@@ -39,7 +42,17 @@ namespace LiteDB.Engine
         public ICollection<BasePage> LocalPages => _localPages.Values;
         public int ReadVersion => _readVersion;
 
-        public Snapshot(LockMode mode, string collectionName, HeaderPage header, uint transactionID, TransactionPages transPages, LockService locker, WalIndexService walIndex, DiskReader reader, bool addIfNotExists)
+        public Snapshot(
+            LockMode mode, 
+            string collectionName, 
+            HeaderPage header, 
+            uint transactionID, 
+            TransactionPages transPages, 
+            LockService locker, 
+            WalIndexService walIndex, 
+            DiskReader reader, 
+            DiskService disk,
+            bool addIfNotExists)
         {
             _mode = mode;
             _collectionName = collectionName;
@@ -49,6 +62,7 @@ namespace LiteDB.Engine
             _locker = locker;
             _walIndex = walIndex;
             _reader = reader;
+            _disk = disk;
 
             // enter in lock mode according initial mode
             if (mode == LockMode.Write)
@@ -59,7 +73,7 @@ namespace LiteDB.Engine
             // get lastest read version from wal-index
             _readVersion = _walIndex.CurrentReadVersion;
 
-            var srv = new CollectionService(_header, this, _transPages);
+            var srv = new CollectionService(_header, _disk, this, _transPages);
 
             // read collection (create if new - load virtual too)
             srv.Get(_collectionName, addIfNotExists, ref _collectionPage);
@@ -77,6 +91,8 @@ namespace LiteDB.Engine
         /// </summary>
         public IEnumerable<BasePage> GetWritablePages(bool dirty, bool includeCollectionPage)
         {
+            ENSURE(!_disposed, "the snapshot is disposed");
+
             // if snapshot is read only, just exit
             if (_mode == LockMode.Read) yield break;
 
@@ -98,6 +114,8 @@ namespace LiteDB.Engine
         /// </summary>
         public void Clear()
         {
+            ENSURE(!_disposed, "the snapshot is disposed");
+
             // release pages only if snapshot are read only
             if (_mode == LockMode.Read)
             {
@@ -116,8 +134,15 @@ namespace LiteDB.Engine
         /// </summary>
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             // release all data/index pages
             this.Clear();
+
+            _disposed = true;
 
             // release collection page (in read mode)
             if (_mode == LockMode.Read && _collectionPage != null)
@@ -134,20 +159,21 @@ namespace LiteDB.Engine
         #region Page Version functions
 
         /// <summary>
-        /// Get a a valid page for this snapshot (must consider local-index and wal-index)
+        /// Get a valid page for this snapshot (must consider local-index and wal-index)
         /// </summary>
-        public T GetPage<T>(uint pageID)
+        public T GetPage<T>(uint pageID, bool useLatestVersion = false)
             where T : BasePage
         {
-            return this.GetPage<T>(pageID, out var origin, out var position, out var walVersion);
+            return this.GetPage<T>(pageID, out var origin, out var position, out var walVersion, useLatestVersion);
         }
 
         /// <summary>
-        /// Get a a valid page for this snapshot (must consider local-index and wal-index)
+        /// Get a valid page for this snapshot (must consider local-index and wal-index)
         /// </summary>
-        public T GetPage<T>(uint pageID, out FileOrigin origin, out long position, out int walVersion)
+        public T GetPage<T>(uint pageID, out FileOrigin origin, out long position, out int walVersion, bool useLatestVersion = false)
             where T : BasePage
         {
+            ENSURE(!_disposed, "the snapshot is disposed");
             ENSURE(pageID <= _header.LastPageID, "request page must be less or equals lastest page in data file");
 
             // check for header page (return header single instance)
@@ -172,7 +198,7 @@ namespace LiteDB.Engine
             }
 
             // if page is not in local cache, get from disk (log/wal/data)
-            page = this.ReadPage<T>(pageID, out origin, out position, out walVersion);
+            page = this.ReadPage<T>(pageID, out origin, out position, out walVersion, useLatestVersion);
 
             // add into local pages
             _localPages[pageID] = page;
@@ -186,7 +212,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Read page from disk (dirty, wal or data)
         /// </summary>
-        private T ReadPage<T>(uint pageID, out FileOrigin origin, out long position, out int walVersion)
+        private T ReadPage<T>(uint pageID, out FileOrigin origin, out long position, out int walVersion, bool useLatestVersion = false)
             where T : BasePage
         {
             // if not inside local pages can be a dirty page saved in log file
@@ -206,7 +232,7 @@ namespace LiteDB.Engine
             }
 
             // now, look inside wal-index
-            var pos = _walIndex.GetPageIndex(pageID, _readVersion, out walVersion);
+            var pos = _walIndex.GetPageIndex(pageID, useLatestVersion ? int.MaxValue : _readVersion, out walVersion);
 
             if (pos != long.MaxValue)
             {
@@ -247,6 +273,8 @@ namespace LiteDB.Engine
         /// </summary>
         public DataPage GetFreeDataPage(int bytesLength)
         {
+            ENSURE(!_disposed, "the snapshot is disposed");
+
             var length = bytesLength + BasePage.SLOT_SIZE; // add +4 bytes for footer slot
 
             // get minimum slot to check for free page. Returns -1 if need NewPage
@@ -280,6 +308,8 @@ namespace LiteDB.Engine
         /// </summary>
         public IndexPage GetFreeIndexPage(int bytesLength, ref uint freeIndexPageList)
         {
+            ENSURE(!_disposed, "the snapshot is disposed");
+
             IndexPage page;
 
             // if there is not page in list pages, create new page
@@ -300,12 +330,37 @@ namespace LiteDB.Engine
         }
 
         /// <summary>
+        /// Get a vector index page with enough free space for a new node.
+        /// </summary>
+        public VectorIndexPage GetFreeVectorPage(int bytesLength, ref uint freeVectorPageList)
+        {
+            ENSURE(!_disposed, "the snapshot is disposed");
+
+            VectorIndexPage page;
+
+            if (freeVectorPageList == uint.MaxValue)
+            {
+                page = this.NewPage<VectorIndexPage>();
+            }
+            else
+            {
+                page = this.GetPage<VectorIndexPage>(freeVectorPageList);
+
+                ENSURE(page.FreeBytes > bytesLength, "this page shout be space enouth for this new vector node");
+                ENSURE(page.PageListSlot == 0, "this page should be in slot #0");
+            }
+
+            return page;
+        }
+
+        /// <summary>
         /// Get a new empty page from disk: can be a reused page (from header free list) or file extend
         /// Never re-use page from same transaction
         /// </summary>
         public T NewPage<T>()
             where T : BasePage
         {
+            ENSURE(!_disposed, "the snapshot is disposed");
             ENSURE(_collectionPage == null, typeof(T) == typeof(CollectionPage), "if no collection page defined yet, must be first request");
             ENSURE(typeof(T) == typeof(CollectionPage), _collectionPage == null, "there is no new collection page if page already exists");
 
@@ -321,7 +376,7 @@ namespace LiteDB.Engine
                 // try get page from Empty free list
                 if (_header.FreeEmptyPageList != uint.MaxValue)
                 {
-                    var free = this.GetPage<BasePage>(_header.FreeEmptyPageList);
+                    var free = this.GetPage<BasePage>(_header.FreeEmptyPageList, useLatestVersion: true);
 
                     ENSURE(free.PageType == PageType.Empty, "empty page must be defined as empty type");
 
@@ -344,11 +399,21 @@ namespace LiteDB.Engine
 
                     if (newLength > _header.Pragmas.LimitSize) throw new LiteException(0, $"Maximum data file size has been reached: {FileHelper.FormatFileSize(_header.Pragmas.LimitSize)}");
 
-                    // increase LastPageID from shared page
-                    pageID = ++_header.LastPageID;
+                    var savepoint = _header.Savepoint();
+                    try
+                    {
+                        // increase LastPageID from shared page
+                        pageID = ++_header.LastPageID;
 
-                    // request for a new buffer
-                    buffer = _reader.NewPage();
+                        // request for a new buffer
+                        buffer = _reader.NewPage();
+                    }
+                    catch
+                    {
+                        // must revert all header content if any error occurs during header change
+                        _header.Restore(savepoint);
+                        throw;
+                    }
                 }
 
                 // retain a list of created pages to, in a rollback situation, back pages to empty list
@@ -380,6 +445,8 @@ namespace LiteDB.Engine
         /// </summary>
         public void AddOrRemoveFreeDataList(DataPage page)
         {
+            ENSURE(!_disposed, "the snapshot is disposed");
+
             var newSlot = DataPage.FreeIndexSlot(page.FreeBytes);
             var initialSlot = page.PageListSlot;
 
@@ -411,6 +478,8 @@ namespace LiteDB.Engine
         /// </summary>
         public void AddOrRemoveFreeIndexList(IndexPage page, ref uint startPageID)
         {
+            ENSURE(!_disposed, "the snapshot is disposed");
+
             var newSlot = IndexPage.FreeIndexSlot(page.FreeBytes);
             var isOnList = page.PageListSlot == 0;
             var mustKeep = newSlot == 0;
@@ -444,6 +513,42 @@ namespace LiteDB.Engine
         }
 
         /// <summary>
+        /// Add/Remove a vector index page from single free list
+        /// </summary>
+        public void AddOrRemoveFreeVectorList(VectorIndexPage page, ref uint startPageID)
+        {
+            ENSURE(!_disposed, "the snapshot is disposed");
+
+            var newSlot = VectorIndexPage.FreeListSlot(page.FreeBytes);
+            var isOnList = page.PageListSlot == 0;
+            var mustKeep = newSlot == 0;
+
+            if (page.ItemsCount == 0)
+            {
+                if (isOnList)
+                {
+                    this.RemoveFreeList(page, ref startPageID);
+                }
+
+                this.DeletePage(page);
+            }
+            else
+            {
+                if (isOnList && !mustKeep)
+                {
+                    this.RemoveFreeList(page, ref startPageID);
+                }
+                else if (!isOnList && mustKeep)
+                {
+                    this.AddFreeList(page, ref startPageID);
+                }
+
+                page.PageListSlot = newSlot;
+                page.IsDirty = true;
+            }
+        }
+
+        /// <summary>
         /// Add page into double linked-list (always add as first element)
         /// </summary>
         private void AddFreeList<T>(T page, ref uint startPageID) where T : BasePage
@@ -462,7 +567,7 @@ namespace LiteDB.Engine
             page.NextPageID = startPageID;
             page.IsDirty = true;
 
-            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index, "only data/index pages must be first on free stack");
+            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index pages must be first on free stack");
 
             startPageID = page.PageID;
 
@@ -515,9 +620,10 @@ namespace LiteDB.Engine
         {
             ENSURE(page.PrevPageID == uint.MaxValue && page.NextPageID == uint.MaxValue, "before delete a page, no linked list with any another page");
             ENSURE(page.ItemsCount == 0 && page.UsedBytes == 0 && page.HighestIndex == byte.MaxValue && page.FragmentedBytes == 0, "no items on page when delete this page");
-            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index, "only data/index page can be deleted");
+            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index page can be deleted");
             DEBUG(!_collectionPage.FreeDataPageList.Any(x => x == page.PageID), "this page cann't be deleted because free data list page is linked o this page");
             DEBUG(!_collectionPage.GetCollectionIndexes().Any(x => x.FreeIndexPageList == page.PageID), "this page cann't be deleted because free index list page is linked o this page");
+            DEBUG(!_collectionPage.GetVectorIndexes().Any(x => x.Metadata.Reserved == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
             DEBUG(page.Buffer.Slice(PAGE_HEADER_SIZE, PAGE_SIZE - PAGE_HEADER_SIZE - 1).All(0), "page content shloud be empty");
 
             // mark page as empty and dirty
@@ -555,8 +661,11 @@ namespace LiteDB.Engine
         /// </summary>
         public void DropCollection(Action safePoint)
         {
-            var indexer = new IndexService(this, _header.Pragmas.Collation);
+            ENSURE(!_disposed, "the snapshot is disposed");
 
+            var indexer = new IndexService(this, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
+            VectorIndexService vectorIndexer = null;
+            
             // CollectionPage will be last deleted page (there is no NextPageID from CollectionPage)
             _transPages.FirstDeletedPageID = _collectionPage.PageID;
             _transPages.LastDeletedPageID = _collectionPage.PageID;
@@ -571,6 +680,11 @@ namespace LiteDB.Engine
             // getting all indexes pages from all indexes
             foreach(var index in _collectionPage.GetCollectionIndexes())
             {
+                if (index.IndexType == 1)
+                {
+                    continue;
+                }
+                
                 // add head/tail (same page) to be deleted
                 indexPages.Add(index.Head.PageID);
 
@@ -580,6 +694,15 @@ namespace LiteDB.Engine
 
                     safePoint();
                 }
+            }
+            
+            
+            foreach (var (_, metadata) in _collectionPage.GetVectorIndexes())
+            {
+                vectorIndexer ??= new VectorIndexService(this, _header.Pragmas.Collation);
+                vectorIndexer.Drop(metadata);
+
+                safePoint();
             }
 
             // now, mark all pages as deleted

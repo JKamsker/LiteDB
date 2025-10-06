@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -9,7 +9,7 @@ namespace LiteDB.Engine
     /// <summary>
     /// Read multiple array segment as a single linear segment - Forward Only
     /// </summary>
-    internal class BufferReader : IDisposable
+    internal partial class BufferReader : IDisposable
     {
         private readonly IEnumerator<BufferSlice> _source;
         private readonly bool _utcDate;
@@ -19,6 +19,8 @@ namespace LiteDB.Engine
         private int _position = 0; // global position
 
         private bool _isEOF = false;
+
+        private static readonly ArrayPool<byte> _bufferPool = ArrayPool<byte>.Shared;
 
         /// <summary>
         /// Current global cursor position
@@ -102,10 +104,10 @@ namespace LiteDB.Engine
                 // fill buffer
                 if (buffer != null)
                 {
-                    Buffer.BlockCopy(_current.Array, 
-                        _current.Offset + _currentPosition, 
-                        buffer, 
-                        offset + bufferPosition, 
+                    Buffer.BlockCopy(_current.Array,
+                        _current.Offset + _currentPosition,
+                        buffer,
+                        offset + bufferPosition,
                         bytesToCopy);
                 }
 
@@ -143,72 +145,7 @@ namespace LiteDB.Engine
         #endregion
 
         #region Read String
-
-        /// <summary>
-        /// Read string with fixed size
-        /// </summary>
-        public string ReadString(int count)
-        {
-            string value;
-
-            // if fits in current segment, use inner array - otherwise copy from multiples segments
-            if (_currentPosition + count <= _current.Count)
-            {
-                value = Encoding.UTF8.GetString(_current.Array, _current.Offset + _currentPosition, count);
-
-                this.MoveForward(count);
-            }
-            else
-            {
-                // rent a buffer to be re-usable
-                var buffer = BufferPool.Rent(count);
-
-                this.Read(buffer, 0, count);
-
-                value = Encoding.UTF8.GetString(buffer, 0, count);
-
-                BufferPool.Return(buffer);
-            }
-
-            return value;
-        }
-
-        /// <summary>
-        /// Reading string until find \0 at end
-        /// </summary>
-        public string ReadCString()
-        {
-            // first try read CString in current segment
-            if (this.TryReadCStringCurrentSegment(out var value))
-            {
-                return value;
-            }
-            else
-            {
-                using (var mem = new MemoryStream())
-                {
-                    // copy all first segment 
-                    var initialCount = _current.Count - _currentPosition;
-
-                    mem.Write(_current.Array, _current.Offset + _currentPosition, initialCount);
-
-                    this.MoveForward(initialCount);
-
-                    // and go to next segment
-                    while (_current[_currentPosition] != 0x00 && _isEOF == false)
-                    {
-                        mem.WriteByte(_current[_currentPosition]);
-
-                        this.MoveForward(1);
-                    }
-
-                    this.MoveForward(1); // +1 to '\0'
-
-                    return Encoding.UTF8.GetString(mem.ToArray());
-                }
-            }
-        }
-
+        
         /// <summary>	
         /// Try read CString in current segment avoind read byte-to-byte over segments	
         /// </summary>	
@@ -220,7 +157,7 @@ namespace LiteDB.Engine
             {
                 if (_current[pos] == 0x00)
                 {
-                    value = Encoding.UTF8.GetString(_current.Array, _current.Offset + _currentPosition, count);
+                    value = StringEncoding.UTF8.GetString(_current.Array, _current.Offset + _currentPosition, count);
                     this.MoveForward(count + 1); // +1 means '\0'	
                     return true;
                 }
@@ -237,7 +174,7 @@ namespace LiteDB.Engine
         #endregion
 
         #region Read Numbers
-
+        
         private T ReadNumber<T>(Func<byte[], int, T> convert, int size)
         {
             T value;
@@ -251,13 +188,13 @@ namespace LiteDB.Engine
             }
             else
             {
-                var buffer = BufferPool.Rent(size);
+                var buffer = _bufferPool.Rent(size);
 
                 this.Read(buffer, 0, size);
 
                 value = convert(buffer, 0);
 
-                BufferPool.Return(buffer);
+                _bufferPool.Return(buffer, true);
             }
 
             return value;
@@ -265,7 +202,9 @@ namespace LiteDB.Engine
 
         public Int32 ReadInt32() => this.ReadNumber(BitConverter.ToInt32, 4);
         public Int64 ReadInt64() => this.ReadNumber(BitConverter.ToInt64, 8);
+        public UInt16 ReadUInt16() => this.ReadNumber(BitConverter.ToUInt16, 2);
         public UInt32 ReadUInt32() => this.ReadNumber(BitConverter.ToUInt32, 4);
+        public Single ReadSingle() => this.ReadNumber(BitConverter.ToSingle, 4);
         public Double ReadDouble() => this.ReadNumber(BitConverter.ToDouble, 8);
 
         public Decimal ReadDecimal()
@@ -328,13 +267,13 @@ namespace LiteDB.Engine
             }
             else
             {
-                var buffer = BufferPool.Rent(12);
+                var buffer = _bufferPool.Rent(12);
 
                 this.Read(buffer, 0, 12);
 
                 value = new ObjectId(buffer, 0);
 
-                BufferPool.Return(buffer);
+                _bufferPool.Return(buffer, true);
             }
 
             return value;
@@ -349,6 +288,20 @@ namespace LiteDB.Engine
             this.MoveForward(1);
             return value;
         }
+
+        private BsonValue ReadVector()
+        {
+            var length = this.ReadUInt16();
+            var values = new float[length];
+
+            for (var i = 0; i < length; i++)
+            {
+                values[i] = this.ReadSingle();
+            }
+
+            return new BsonVector(values);
+        }
+
 
         /// <summary>
         /// Write single byte
@@ -393,12 +346,12 @@ namespace LiteDB.Engine
                 case BsonType.Int64: return this.ReadInt64();
                 case BsonType.Double: return this.ReadDouble();
                 case BsonType.Decimal: return this.ReadDecimal();
-                
+
                 // Use +1 byte only for length
                 case BsonType.String: return this.ReadString(this.ReadByte());
 
-                case BsonType.Document: return this.ReadDocument(null);
-                case BsonType.Array: return this.ReadArray();
+                case BsonType.Document: return this.ReadDocument(null).GetValue();
+                case BsonType.Array: return this.ReadArray().GetValue();
 
                 // Use +1 byte only for length
                 case BsonType.Binary: return this.ReadBytes(this.ReadByte());
@@ -411,9 +364,13 @@ namespace LiteDB.Engine
                 case BsonType.MinValue: return BsonValue.MinValue;
                 case BsonType.MaxValue: return BsonValue.MaxValue;
 
+                case BsonType.Vector: return this.ReadVector();
+
                 default: throw new NotImplementedException();
             }
         }
+
+        
 
         #endregion
 
@@ -422,51 +379,66 @@ namespace LiteDB.Engine
         /// <summary>
         /// Read a BsonDocument from reader
         /// </summary>
-        public BsonDocument ReadDocument(HashSet<string> fields = null)
+        public Result<BsonDocument> ReadDocument(HashSet<string> fields = null)
         {
-            var length = this.ReadInt32();
-            var end = _position + length - 5;
-            var remaining = fields == null || fields.Count == 0 ? null : new HashSet<string>(fields, StringComparer.OrdinalIgnoreCase);
-
             var doc = new BsonDocument();
 
-            while (_position < end && (remaining == null || remaining?.Count > 0))
+            try
             {
-                var value = this.ReadElement(remaining, out string name);
+                var length = this.ReadInt32();
+                var end = _position + length - 5;
+                var remaining = fields == null || fields.Count == 0 ? null : new HashSet<string>(fields, StringComparer.OrdinalIgnoreCase);
 
-                // null value means are not selected field
-                if (value != null)
+                while (_position < end && (remaining == null || remaining?.Count > 0))
                 {
-                    doc[name] = value;
+                    var value = this.ReadElement(remaining, out string name);
 
-                    // remove from remaining fields
-                    remaining?.Remove(name);
+                    // null value means are not selected field
+                    if (value != null)
+                    {
+                        doc[name] = value;
+
+                        // remove from remaining fields
+                        remaining?.Remove(name);
+                    }
                 }
+
+                this.MoveForward(1); // skip \0 ** can read disk here!
+
+                return doc;
             }
-
-            this.MoveForward(1); // skip \0
-
-            return doc;
+            catch (Exception ex)
+            {
+                return new Result<BsonDocument>(doc, ex);
+            }
         }
 
         /// <summary>
         /// Read an BsonArray from reader
         /// </summary>
-        public BsonArray ReadArray()
+        public Result<BsonArray> ReadArray()
         {
-            var length = this.ReadInt32();
-            var end = _position + length - 5;
             var arr = new BsonArray();
 
-            while (_position < end)
+            try
             {
-                var value = this.ReadElement(null, out string name);
-                arr.Add(value);
+                var length = this.ReadInt32();
+                var end = _position + length - 5;
+
+                while (_position < end)
+                {
+                    var value = this.ReadElement(null, out string name);
+                    arr.Add(value);
+                }
+
+                this.MoveForward(1); // skip \0
+
+                return arr;
             }
-
-            this.MoveForward(1); // skip \0
-
-            return arr;
+            catch (Exception ex)
+            {
+                return new Result<BsonArray>(arr, ex);
+            }
         }
 
         /// <summary>
@@ -513,11 +485,11 @@ namespace LiteDB.Engine
             }
             else if (type == 0x03) // Document
             {
-                return this.ReadDocument();
+                return this.ReadDocument().GetValue();
             }
             else if (type == 0x04) // Array
             {
-                return this.ReadArray();
+                return this.ReadArray().GetValue();
             }
             else if (type == 0x05) // Binary
             {
@@ -575,8 +547,12 @@ namespace LiteDB.Engine
             {
                 return BsonValue.MaxValue;
             }
+            else if (type == 0x64) // Vector
+            {
+                return this.ReadVector();
+            }
 
-            throw new NotSupportedException("BSON type not supported");
+                throw new NotSupportedException("BSON type not supported");
         }
 
         #endregion
