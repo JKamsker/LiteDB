@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace LiteDB.Spatial
 {
-    internal readonly struct GeoBoundingBox
+    public readonly struct GeoBoundingBox
     {
         public double MinLat { get; }
         public double MinLon { get; }
@@ -48,17 +48,48 @@ namespace LiteDB.Spatial
 
         public bool Contains(GeoPoint point)
         {
+            return Contains(point, 0d);
+        }
+
+        public bool Contains(GeoPoint point, double toleranceDegrees)
+        {
             if (point == null)
             {
                 return false;
             }
 
-            return point.Lat >= MinLat && point.Lat <= MaxLat && IsLongitudeWithin(point.Lon);
+            var minLat = MinLat - toleranceDegrees;
+            var maxLat = MaxLat + toleranceDegrees;
+
+            if (point.Lat < minLat || point.Lat > maxLat)
+            {
+                return false;
+            }
+
+            return IsLongitudeWithin(point.Lon, toleranceDegrees);
         }
 
         public bool Intersects(GeoBoundingBox other)
         {
             return !(other.MinLat > MaxLat || other.MaxLat < MinLat) && LongitudesOverlap(other);
+        }
+
+        public GeoBoundingBox Expand(double meters)
+        {
+            if (meters <= 0d)
+            {
+                return this;
+            }
+
+            var angularDistance = meters / GeoMath.EarthRadiusMeters;
+            var deltaDegrees = angularDistance * (180d / Math.PI);
+
+            var minLat = GeoMath.ClampLatitude(MinLat - deltaDegrees);
+            var maxLat = GeoMath.ClampLatitude(MaxLat + deltaDegrees);
+            var minLon = GeoMath.NormalizeLongitude(MinLon - deltaDegrees);
+            var maxLon = GeoMath.NormalizeLongitude(MaxLon + deltaDegrees);
+
+            return new GeoBoundingBox(minLat, minLon, maxLat, maxLon);
         }
 
         private bool LongitudesOverlap(GeoBoundingBox other)
@@ -70,7 +101,14 @@ namespace LiteDB.Spatial
 
         private bool IsLongitudeWithin(double lon)
         {
-            var lonRange = new LongitudeRange(MinLon, MaxLon);
+            return IsLongitudeWithin(lon, 0d);
+        }
+
+        private bool IsLongitudeWithin(double lon, double toleranceDegrees)
+        {
+            var lonRange = toleranceDegrees > 0d
+                ? new LongitudeRange(MinLon - toleranceDegrees, MaxLon + toleranceDegrees)
+                : new LongitudeRange(MinLon, MaxLon);
             return lonRange.Contains(lon);
         }
     }
