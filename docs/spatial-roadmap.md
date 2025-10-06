@@ -54,7 +54,7 @@ dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter FullyQualifiedNa
 ### 4. Precision & Options
 - Surface defaults via SpatialOptions (index precision, tolerance, distance formula).
 - Persist precision metadata alongside index definitions for smarter range calculations.
-- ✅ `SpatialOptions` now exposes `IndexPrecisionBits` and `NumericToleranceDegrees`; `EnsurePointIndex` writes metadata into `_spatial_meta` and reuses it during query planning.
+- ✅ `SpatialOptions` now exposes `DefaultIndexPrecisionBits`, `ToleranceDegrees`, `BoundingBoxPaddingMeters`, and `DistanceToleranceMeters`; `EnsurePointIndex` writes metadata into `_spatial_meta` and reuses it during query planning.
 
 ### 5. Migration & Tooling
 - Offer shell commands or utility APIs to backfill `_gh`/`_mbb` for existing datasets.

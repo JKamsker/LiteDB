@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace LiteDB.Spatial
 {
@@ -62,6 +63,29 @@ namespace LiteDB.Spatial
             }
 
             return false;
+        }
+
+        public IEnumerable<(double start, double end)> GetSegments()
+        {
+            if (!_wraps)
+            {
+                yield return (_start, _end);
+                yield break;
+            }
+
+            yield return (_start, 180d);
+            yield return (-180d, _end);
+        }
+
+        public bool ContainsWithTolerance(double lon, double toleranceDegrees)
+        {
+            if (toleranceDegrees <= 0d)
+            {
+                return Contains(lon);
+            }
+
+            var expanded = new LongitudeRange(_start - toleranceDegrees, _end + toleranceDegrees);
+            return expanded.Contains(lon);
         }
     }
 }
