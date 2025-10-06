@@ -24,22 +24,22 @@ namespace LiteDB.Spatial
 
         public static BsonExpression BuildBoundingBoxPredicate(GeoBoundingBox box)
         {
-            if (box.MaxLon < box.MinLon)
+            var range = new LongitudeRange(box.MinLon, box.MaxLon);
+            var expressions = new List<BsonExpression>();
+
+            foreach (var (start, end) in range.GetSegments())
             {
-                return null;
+                var segmentBox = new GeoBoundingBox(box.MinLat, start, box.MaxLat, end);
+
+                expressions.Add(BsonExpression.Create(
+                    "SPATIAL_MBB_INTERSECTS($._mbb, @0, @1, @2, @3)",
+                    segmentBox.MinLat,
+                    segmentBox.MinLon,
+                    segmentBox.MaxLat,
+                    segmentBox.MaxLon));
             }
 
-            var parameters = new[]
-            {
-                new BsonValue(box.MaxLat),
-                new BsonValue(box.MinLat),
-                new BsonValue(box.MaxLon),
-                new BsonValue(box.MinLon)
-            };
-
-            const string predicate = "($._mbb != null) AND $._mbb[0] <= @0 AND $._mbb[2] >= @1 AND $._mbb[1] <= @2 AND $._mbb[3] >= @3";
-
-            return BsonExpression.Create(predicate, parameters);
+            return CombineOr(expressions);
         }
 
         public static BsonExpression CombineSpatialPredicates(BsonExpression rangeExpression, BsonExpression boundingExpression)

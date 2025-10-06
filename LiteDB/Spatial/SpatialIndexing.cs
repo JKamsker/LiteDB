@@ -119,6 +119,80 @@ namespace LiteDB.Spatial
             return new[] { first, second };
         }
 
+        public static IReadOnlyList<(long Min, long Max)> GetMortonRanges(GeoBoundingBox box, int precisionBits)
+        {
+            if (precisionBits <= 0 || precisionBits > 60)
+            {
+                throw new ArgumentOutOfRangeException(nameof(precisionBits), "Precision must be between 1 and 60 bits");
+            }
+
+            var splits = SplitBoundingBox(box);
+            var ranges = new List<(long Min, long Max)>(splits.Count);
+
+            foreach (var split in splits)
+            {
+                var corners = new[]
+                {
+                    new GeoPoint(split.MinLat, split.MinLon),
+                    new GeoPoint(split.MinLat, split.MaxLon),
+                    new GeoPoint(split.MaxLat, split.MinLon),
+                    new GeoPoint(split.MaxLat, split.MaxLon)
+                };
+
+                long min = long.MaxValue;
+                long max = long.MinValue;
+
+                foreach (var corner in corners)
+                {
+                    var morton = ComputeMorton(corner, precisionBits);
+
+                    if (morton < min)
+                    {
+                        min = morton;
+                    }
+
+                    if (morton > max)
+                    {
+                        max = morton;
+                    }
+                }
+
+                if (min > max)
+                {
+                    (min, max) = (max, min);
+                }
+
+                ranges.Add((min, max));
+            }
+
+            if (ranges.Count <= 1)
+            {
+                return ranges;
+            }
+
+            ranges.Sort((a, b) => a.Min.CompareTo(b.Min));
+
+            var merged = new List<(long Min, long Max)> { ranges[0] };
+
+            for (var i = 1; i < ranges.Count; i++)
+            {
+                var current = ranges[i];
+                var lastIndex = merged.Count - 1;
+                var last = merged[lastIndex];
+
+                if (current.Min <= last.Max + 1)
+                {
+                    merged[lastIndex] = (last.Min, Math.Max(last.Max, current.Max));
+                }
+                else
+                {
+                    merged.Add(current);
+                }
+            }
+
+            return merged;
+        }
+
         private static IReadOnlyList<(long Start, long End)> MergeRanges(List<(long Start, long End)> ranges)
         {
             if (ranges.Count == 0)
