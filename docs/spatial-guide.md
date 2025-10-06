@@ -119,11 +119,13 @@ The endpoint reuses the shared helpers, ensuring metadata is created automatical
 ```csharp
 Spatial.Options = new SpatialOptions
 {
-    IndexPrecisionBits = 48,
-    NumericToleranceDegrees = 1e-8,
+    DefaultIndexPrecisionBits = 48,
+    ToleranceDegrees = 1e-8,
+    DistanceToleranceMeters = 0.05,
+    BoundingBoxPaddingMeters = 2,
     MaxCoveringCells = 64,
     Distance = DistanceFormula.Vincenty
 };
 ```
 
-Changing `IndexPrecisionBits` updates persisted metadata the next time `EnsurePointIndex` runs, so the engine always knows how to slice query ranges. Adjust `NumericToleranceDegrees` if your datasets require more relaxed comparisons for noisy coordinates.
+Changing `DefaultIndexPrecisionBits` updates persisted metadata the next time `EnsurePointIndex` runs, so the engine always knows how to slice query ranges. Adjust `ToleranceDegrees`, `BoundingBoxPaddingMeters`, and `DistanceToleranceMeters` if your datasets require more relaxed comparisons for noisy coordinates or you need to pad index lookups around the query window.

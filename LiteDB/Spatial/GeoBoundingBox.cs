@@ -48,17 +48,55 @@ namespace LiteDB.Spatial
 
         public bool Contains(GeoPoint point)
         {
+            return Contains(point, 0d);
+        }
+
+        public bool Contains(GeoPoint point, double toleranceDegrees)
+        {
             if (point == null)
             {
                 return false;
             }
 
-            return point.Lat >= MinLat && point.Lat <= MaxLat && IsLongitudeWithin(point.Lon);
+            var minLat = MinLat - toleranceDegrees;
+            var maxLat = MaxLat + toleranceDegrees;
+
+            if (point.Lat < minLat || point.Lat > maxLat)
+            {
+                return false;
+            }
+
+            var lonRange = new LongitudeRange(MinLon, MaxLon);
+
+            if (toleranceDegrees <= 0d)
+            {
+                return lonRange.Contains(point.Lon);
+            }
+
+            return lonRange.ContainsWithTolerance(point.Lon, toleranceDegrees);
         }
 
         public bool Intersects(GeoBoundingBox other)
         {
             return !(other.MinLat > MaxLat || other.MaxLat < MinLat) && LongitudesOverlap(other);
+        }
+
+        public GeoBoundingBox Expand(double meters)
+        {
+            if (meters <= 0d)
+            {
+                return this;
+            }
+
+            var angularDistance = meters / GeoMath.EarthRadiusMeters;
+            var deltaDegrees = angularDistance * (180d / Math.PI);
+
+            var minLat = GeoMath.ClampLatitude(MinLat - deltaDegrees);
+            var maxLat = GeoMath.ClampLatitude(MaxLat + deltaDegrees);
+            var minLon = GeoMath.NormalizeLongitude(MinLon - deltaDegrees);
+            var maxLon = GeoMath.NormalizeLongitude(MaxLon + deltaDegrees);
+
+            return new GeoBoundingBox(minLat, minLon, maxLat, maxLon);
         }
 
         private bool LongitudesOverlap(GeoBoundingBox other)
@@ -68,10 +106,5 @@ namespace LiteDB.Spatial
             return lonRange.Intersects(otherRange);
         }
 
-        private bool IsLongitudeWithin(double lon)
-        {
-            var lonRange = new LongitudeRange(MinLon, MaxLon);
-            return lonRange.Contains(lon);
-        }
     }
 }
