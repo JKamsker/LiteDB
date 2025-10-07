@@ -6,21 +6,11 @@ namespace LiteDB
     {
         public string ResolveMethod(MethodInfo method)
         {
-            if (method.Name != nameof(System.MemoryExtensions.Contains))
-                return null;
-            var parameters = method.GetParameters();
-
-            if (parameters.Length == 2)
+            if (method.Name == nameof(System.MemoryExtensions.Contains))
             {
-                return "@0 ANY = @1";
-            }
+                var parameters = method.GetParameters();
 
-            // Support the 3-parameter overload only when comparer defaults to null.
-            if (parameters.Length == 3)
-            {
-                var third = parameters[2];
-
-                if (third.HasDefaultValue && third.DefaultValue == null)
+                if (parameters.Length == 2)
                 {
                     return "@0 ANY = @1";
                 }

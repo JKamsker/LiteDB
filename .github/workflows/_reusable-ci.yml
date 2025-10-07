@@ -10,7 +10,7 @@ on:
           [
             { "display": ".NET 8",  "sdk": "8.0.x",           "framework": "net8.0", "includePrerelease": false },
             { "display": ".NET 9",  "sdk": "9.0.x\n8.0.x",    "framework": "net8.0", "includePrerelease": true  },
-            { "display": ".NET 10", "sdk": "10.0.x\n8.0.x",   "framework": "net8.0", "includePrerelease": true  }
+            { "display": ".NET 10", "sdk": "10.0.x\n8.0.x",   "framework": "net10.0", "includePrerelease": true  }
           ]
 
 jobs:
@@ -30,10 +30,10 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore LiteDB.sln
+        run: dotnet restore LiteDB.sln -p:LiteDBTestsEnableNet10=false
 
       - name: Build
-        run: dotnet build LiteDB.sln --configuration Release --no-restore /p:DefineConstants=TESTING
+        run: dotnet build LiteDB.sln --configuration Release --no-restore /p:DefineConstants=TESTING /p:LiteDBTestsEnableNet10=false
 
       - name: Package build outputs
         run: tar -czf tests-build-linux.tar.gz LiteDB/bin/Release LiteDB/obj/Release LiteDB.Tests/bin/Release LiteDB.Tests/obj/Release
