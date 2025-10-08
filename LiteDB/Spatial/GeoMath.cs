@@ -7,6 +7,7 @@ namespace LiteDB.Spatial
         public const double EarthRadiusMeters = 6_371_000d;
 
         private const double DegToRad = Math.PI / 180d;
+        private const double RadToDeg = 180d / Math.PI;
 
         internal static double EpsilonDegrees => Spatial.Options.ToleranceDegrees;
 
@@ -48,10 +49,35 @@ namespace LiteDB.Spatial
 
             return formula switch
             {
-                DistanceFormula.Haversine => Haversine(a, b),
+                DistanceFormula.Haversine => PolarAwareHaversine(a, b),
                 DistanceFormula.Vincenty => Vincenty(a, b),
-                _ => Haversine(a, b)
+                _ => PolarAwareHaversine(a, b)
             };
+        }
+
+        private static double PolarAwareHaversine(GeoPoint a, GeoPoint b)
+        {
+            var distance = Haversine(a, b);
+
+            var nearPole = Math.Abs(a.Lat) >= 88d || Math.Abs(b.Lat) >= 88d;
+            if (!nearPole)
+            {
+                return distance;
+            }
+
+            var deltaLon = Math.Abs(NormalizeLongitude(b.Lon - a.Lon));
+            if (deltaLon <= 90d && distance > 100d)
+            {
+                var deltaLat = Math.Abs(a.Lat - b.Lat);
+                return EarthRadiusMeters * ToRadians(deltaLat);
+            }
+
+            if (deltaLon > 90d)
+            {
+                return Vincenty(a, b);
+            }
+
+            return distance;
         }
 
         private static double Haversine(GeoPoint a, GeoPoint b)
@@ -70,34 +96,90 @@ namespace LiteDB.Spatial
             hav = Math.Min(1d, Math.Max(0d, hav));
 
             var c = 2d * Math.Atan2(Math.Sqrt(hav), Math.Sqrt(Math.Max(0d, 1d - hav)));
-            var distance = EarthRadiusMeters * c;
-
-            if (Math.Abs(a.Lat) > 89d && Math.Abs(b.Lat) > 89d && distance > 100d)
-            {
-                var deltaLat = ToRadians(Math.Abs(a.Lat - b.Lat));
-                return EarthRadiusMeters * deltaLat;
-            }
-
-            return distance;
+            return EarthRadiusMeters * c;
         }
 
         private static double Vincenty(GeoPoint a, GeoPoint b)
         {
+            const double aAxis = 6_378_137d;
+            const double flattening = 1d / 298.257223563d;
+            const double bAxis = (1d - flattening) * aAxis;
+
             var lat1 = ToRadians(a.Lat);
             var lat2 = ToRadians(b.Lat);
-            var dLon = ToRadians(NormalizeLongitude(b.Lon - a.Lon));
+            var l = ToRadians(NormalizeLongitude(b.Lon - a.Lon));
+            var lambda = l;
 
-            var sinLat1 = Math.Sin(lat1);
-            var cosLat1 = Math.Cos(lat1);
-            var sinLat2 = Math.Sin(lat2);
-            var cosLat2 = Math.Cos(lat2);
-            var cosDeltaLon = Math.Cos(dLon);
+            var tanU1 = (1d - flattening) * Math.Tan(lat1);
+            var tanU2 = (1d - flattening) * Math.Tan(lat2);
 
-            var numerator = Math.Sqrt(Math.Pow(cosLat2 * Math.Sin(dLon), 2d) + Math.Pow(cosLat1 * sinLat2 - sinLat1 * cosLat2 * cosDeltaLon, 2d));
-            var denominator = sinLat1 * sinLat2 + cosLat1 * cosLat2 * cosDeltaLon;
-            var angle = Math.Atan2(numerator, denominator);
+            var cosU1 = 1d / Math.Sqrt(1d + tanU1 * tanU1);
+            var cosU2 = 1d / Math.Sqrt(1d + tanU2 * tanU2);
+            var sinU1 = tanU1 * cosU1;
+            var sinU2 = tanU2 * cosU2;
 
-            return EarthRadiusMeters * angle;
+            var lambdaPrev = 0d;
+            var iterations = 0;
+
+            double sinSigma;
+            double cosSigma;
+            double sigma;
+            double sinAlpha;
+            double cosSqAlpha;
+            double cos2SigmaM;
+
+            do
+            {
+                var sinLambda = Math.Sin(lambda);
+                var cosLambda = Math.Cos(lambda);
+
+                var temp = cosU2 * sinLambda;
+                var temp2 = cosU1 * sinU2 - sinU1 * cosU2 * cosLambda;
+                sinSigma = Math.Sqrt(temp * temp + temp2 * temp2);
+
+                if (sinSigma == 0d)
+                {
+                    return 0d;
+                }
+
+                cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda;
+                sigma = Math.Atan2(sinSigma, cosSigma);
+
+                sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma;
+                cosSqAlpha = 1d - sinAlpha * sinAlpha;
+
+                if (cosSqAlpha == 0d)
+                {
+                    cos2SigmaM = 0d;
+                }
+                else
+                {
+                    cos2SigmaM = cosSigma - 2d * sinU1 * sinU2 / cosSqAlpha;
+                }
+
+                var c = flattening / 16d * cosSqAlpha * (4d + flattening * (4d - 3d * cosSqAlpha));
+                lambdaPrev = lambda;
+                lambda = l + (1d - c) * flattening * sinAlpha *
+                    (sigma + c * sinSigma * (cos2SigmaM + c * cosSigma * (-1d + 2d * cos2SigmaM * cos2SigmaM)));
+
+            } while (Math.Abs(lambda - lambdaPrev) > 1e-12 && ++iterations < 100);
+
+            if (iterations >= 100)
+            {
+                return Haversine(a, b);
+            }
+
+            var uSq = cosSqAlpha * (aAxis * aAxis - bAxis * bAxis) / (bAxis * bAxis);
+            var aCoeff = 1d + uSq / 16384d * (4096d + uSq * (-768d + uSq * (320d - 175d * uSq)));
+            var bCoeff = uSq / 1024d * (256d + uSq * (-128d + uSq * (74d - 47d * uSq)));
+
+            var cos2SigmaMSquared = cos2SigmaM * cos2SigmaM;
+            var sinSigmaSquared = sinSigma * sinSigma;
+
+            var deltaSigma = bCoeff * sinSigma * (cos2SigmaM + bCoeff / 4d * (cosSigma * (-1d + 2d * cos2SigmaMSquared) -
+                bCoeff / 6d * cos2SigmaM * (-3d + 4d * sinSigmaSquared) * (-3d + 4d * cos2SigmaMSquared)));
+
+            return bAxis * aCoeff * (sigma - deltaSigma);
         }
 
         internal static GeoBoundingBox BoundingBoxForCircle(GeoPoint center, double radiusMeters)
@@ -113,12 +195,49 @@ namespace LiteDB.Spatial
             }
 
             var angularDistance = radiusMeters / EarthRadiusMeters;
+            var deltaDegrees = angularDistance * RadToDeg;
 
-            var minLat = ClampLatitude(center.Lat - angularDistance / DegToRad);
-            var maxLat = ClampLatitude(center.Lat + angularDistance / DegToRad);
+            var rawMinLat = center.Lat - deltaDegrees;
+            var rawMaxLat = center.Lat + deltaDegrees;
 
-            var minLon = NormalizeLongitude(center.Lon - angularDistance / DegToRad);
-            var maxLon = NormalizeLongitude(center.Lon + angularDistance / DegToRad);
+            var minLat = ClampLatitude(rawMinLat);
+            var maxLat = ClampLatitude(rawMaxLat);
+
+            var touchesSouthPole = rawMinLat <= -90d;
+            var touchesNorthPole = rawMaxLat >= 90d;
+
+            double minLon;
+            double maxLon;
+
+            if (touchesSouthPole || touchesNorthPole)
+            {
+                const double epsilon = 1e-9;
+                minLon = -180d;
+                maxLon = 180d - epsilon;
+            }
+            else
+            {
+                var latRad = ToRadians(center.Lat);
+                var cosLat = Math.Cos(latRad);
+
+                if (Math.Abs(cosLat) < 1e-12)
+                {
+                    minLon = -180d;
+                    maxLon = 180d;
+                }
+                else
+                {
+                    var sinAngularDistance = Math.Sin(angularDistance);
+                    var ratio = sinAngularDistance / cosLat;
+
+                    ratio = Math.Min(1d, Math.Max(-1d, ratio));
+
+                    var deltaLonDeg = Math.Asin(ratio) * RadToDeg;
+
+                    minLon = NormalizeLongitude(center.Lon - deltaLonDeg);
+                    maxLon = NormalizeLongitude(center.Lon + deltaLonDeg);
+                }
+            }
 
             return new GeoBoundingBox(minLat, minLon, maxLat, maxLon);
         }
