@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.IO;
 using System.Linq;
 using static LiteDB.Constants;
@@ -20,7 +21,8 @@ namespace LiteDB
 
         private long _streamPosition = 0;
         private int _currentChunkIndex = 0;
-        private byte[] _currentChunkData = null;
+        private ReadOnlyMemory<byte> _currentChunkData = ReadOnlyMemory<byte>.Empty;
+        private IMemoryOwner<byte> _currentChunkOwner = null;
         private int _positionInChunk = 0;
         private MemoryStream _buffer;
 
@@ -32,10 +34,17 @@ namespace LiteDB
             _fileId = fileId;
             _mode = mode;
 
+            _chunkIdFilter = mode == FileAccess.Read
+                ? new BsonDocument
+                {
+                    ["f"] = _fileId,
+                    ["n"] = 0
+                }
+                : null;
+
             if (mode == FileAccess.Read)
             {
-                // initialize first data block
-                _currentChunkData = this.GetChunkData(_currentChunkIndex);
+                this.LoadChunkIntoState(_currentChunkIndex);
             }
             else if(mode == FileAccess.Write)
             {
@@ -111,8 +120,18 @@ namespace LiteDB
                 this.Flush();
                 _buffer?.Dispose();
             }
+            else if (disposing)
+            {
+                this.DisposeCurrentChunkOwner();
+            }
 
             _disposed = true;
+        }
+
+        private void DisposeCurrentChunkOwner()
+        {
+            _currentChunkOwner?.Dispose();
+            _currentChunkOwner = null;
         }
 
         #endregion

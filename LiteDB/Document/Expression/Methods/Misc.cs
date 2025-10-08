@@ -161,7 +161,7 @@ namespace LiteDB
         public static BsonValue LENGTH(BsonValue value)
         {
             if (value.IsString) return value.AsString.Length;
-            else if (value.IsBinary) return value.AsBinary.Length;
+            else if (value.IsBinary) return value.BinaryLength;
             else if (value.IsArray) return value.AsArray.Count;
             else if (value.IsDocument) return value.AsDocument.Keys.Count;
             else if (value.IsNull) return 0;

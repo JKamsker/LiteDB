@@ -1,5 +1,6 @@
 ﻿using LiteDB.Engine;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -86,7 +87,21 @@ namespace LiteDB
         public BsonValue(Byte[] value)
         {
             this.Type = value == null ? BsonType.Null : BsonType.Binary;
-            this.RawValue = value;
+            this.RawValue = value == null ? null : new BsonBinaryData(value);
+        }
+
+        public BsonValue(IMemoryOwner<byte> owner, int length)
+        {
+            if (owner == null)
+            {
+                this.Type = BsonType.Null;
+                this.RawValue = null;
+            }
+            else
+            {
+                this.Type = BsonType.Binary;
+                this.RawValue = new BsonBinaryData(owner, length);
+            }
         }
 
         public BsonValue(ObjectId value)
@@ -127,62 +142,114 @@ namespace LiteDB
 
         public BsonValue(object value)
         {
-            this.RawValue = value;
-
-            if (value == null) this.Type = BsonType.Null;
-            else if (value is Int32) this.Type = BsonType.Int32;
-            else if (value is Int64) this.Type = BsonType.Int64;
-            else if (value is Double) this.Type = BsonType.Double;
-            else if (value is Decimal) this.Type = BsonType.Decimal;
-            else if (value is String) this.Type = BsonType.String;
-            else if (value is IDictionary<string, BsonValue>) this.Type = BsonType.Document;
-            else if (value is IList<BsonValue>) this.Type = BsonType.Array;
-            else if (value is Byte[]) this.Type = BsonType.Binary;
-            else if (value is ObjectId) this.Type = BsonType.ObjectId;
-            else if (value is Guid) this.Type = BsonType.Guid;
-            else if (value is Boolean) this.Type = BsonType.Boolean;
-            else if (value is float[]) this.Type = BsonType.Vector;
-            else if (value is DateTime)
+            if (value == null)
+            {
+                this.Type = BsonType.Null;
+                this.RawValue = null;
+            }
+            else if (value is Int32 i32)
+            {
+                this.Type = BsonType.Int32;
+                this.RawValue = i32;
+            }
+            else if (value is Int64 i64)
+            {
+                this.Type = BsonType.Int64;
+                this.RawValue = i64;
+            }
+            else if (value is Double dbl)
+            {
+                this.Type = BsonType.Double;
+                this.RawValue = dbl;
+            }
+            else if (value is Decimal dec)
+            {
+                this.Type = BsonType.Decimal;
+                this.RawValue = dec;
+            }
+            else if (value is String str)
+            {
+                this.Type = BsonType.String;
+                this.RawValue = str;
+            }
+            else if (value is IDictionary<string, BsonValue> dict)
+            {
+                this.Type = BsonType.Document;
+                this.RawValue = dict;
+            }
+            else if (value is IList<BsonValue> list)
+            {
+                this.Type = BsonType.Array;
+                this.RawValue = list;
+            }
+            else if (value is Byte[] bytes)
+            {
+                this.Type = BsonType.Binary;
+                this.RawValue = new BsonBinaryData(bytes);
+            }
+            else if (value is IMemoryOwner<byte> owner)
+            {
+                this.Type = BsonType.Binary;
+                this.RawValue = new BsonBinaryData(owner, owner.Memory.Length);
+            }
+            else if (value is ObjectId objectId)
+            {
+                this.Type = objectId == null ? BsonType.Null : BsonType.ObjectId;
+                this.RawValue = objectId;
+            }
+            else if (value is Guid guid)
+            {
+                this.Type = BsonType.Guid;
+                this.RawValue = guid;
+            }
+            else if (value is Boolean boolean)
+            {
+                this.Type = BsonType.Boolean;
+                this.RawValue = boolean;
+            }
+            else if (value is float[] vector)
+            {
+                this.Type = BsonType.Vector;
+                this.RawValue = vector;
+            }
+            else if (value is DateTime dateTime)
             {
                 this.Type = BsonType.DateTime;
-                this.RawValue = ((DateTime)value).Truncate();
+                this.RawValue = dateTime.Truncate();
             }
-            else if (value is BsonValue)
+            else if (value is BsonValue bsonValue)
             {
-                var v = (BsonValue)value;
-                this.Type = v.Type;
-                this.RawValue = v.RawValue;
+                this.Type = bsonValue.Type;
+                this.RawValue = bsonValue.RawValue;
             }
             else
             {
-                // test for array or dictionary (document)
                 var enumerable = value as System.Collections.IEnumerable;
                 var dictionary = value as System.Collections.IDictionary;
 
-                // test first for dictionary (because IDictionary implements IEnumerable)
                 if (dictionary != null)
                 {
-                    var dict = new Dictionary<string, BsonValue>();
+                    var converted = new Dictionary<string, BsonValue>();
 
                     foreach (var key in dictionary.Keys)
                     {
-                        dict.Add(key.ToString(), new BsonValue(dictionary[key]));
+                        converted.Add(key.ToString(), new BsonValue(dictionary[key]));
                     }
 
                     this.Type = BsonType.Document;
-                    this.RawValue = dict;
+                    this.RawValue = converted;
                 }
                 else if (enumerable != null)
                 {
-                    var list = new List<BsonValue>();
+                    var converted = new List<BsonValue>();
 
-                    foreach (var x in enumerable)
+                    foreach (var item in enumerable)
                     {
-                        list.Add(new BsonValue(x));
+                        converted.Add(new BsonValue(item));
                     }
 
                     this.Type = BsonType.Array;
-                    this.RawValue = list;
+                    this.RawValue = converted;
                 }
                 else
                 {
@@ -224,7 +291,50 @@ namespace LiteDB
         public BsonDocument AsDocument => this as BsonDocument;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public Byte[] AsBinary => this.RawValue as Byte[];
+        public Byte[] AsBinary
+        {
+            get
+            {
+                if (this.RawValue is BsonBinaryData binary)
+                {
+                    return binary.GetBuffer();
+                }
+
+                return this.RawValue as Byte[];
+            }
+        }
+
+        public ReadOnlyMemory<byte> AsBinaryMemory
+        {
+            get
+            {
+                if (this.RawValue is BsonBinaryData binary)
+                {
+                    return binary.Memory;
+                }
+
+                return this.RawValue is byte[] bytes ? (ReadOnlyMemory<byte>)bytes : ReadOnlyMemory<byte>.Empty;
+            }
+        }
+
+        public ReadOnlySpan<byte> AsBinarySpan => this.AsBinaryMemory.Span;
+
+        public int BinaryLength
+        {
+            get
+            {
+                if (this.RawValue is BsonBinaryData binary)
+                {
+                    return binary.Length;
+                }
+
+                return this.RawValue is byte[] bytes ? bytes.Length : 0;
+            }
+        }
+
+        public IMemoryOwner<byte> DetachBinaryOwner() => (this.RawValue as BsonBinaryData)?.DetachOwner();
+
+        public void DisposeBinaryOwner() => (this.RawValue as BsonBinaryData)?.Dispose();
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public bool AsBoolean => (bool)this.RawValue;
@@ -588,7 +698,7 @@ namespace LiteDB
                 case BsonType.Document: return this.AsDocument.CompareTo(other);
                 case BsonType.Array: return this.AsArray.CompareTo(other);
 
-                case BsonType.Binary: return this.AsBinary.BinaryCompareTo(other.AsBinary);
+                case BsonType.Binary: return this.AsBinarySpan.BinaryCompareTo(other.AsBinarySpan);
                 case BsonType.ObjectId: return this.AsObjectId.CompareTo(other.AsObjectId);
                 case BsonType.Guid: return this.AsGuid.CompareTo(other.AsGuid);
 
@@ -706,7 +816,7 @@ namespace LiteDB
 
                 case BsonType.String: return StringEncoding.UTF8.GetByteCount(this.AsString);
 
-                case BsonType.Binary: return this.AsBinary.Length;
+                case BsonType.Binary: return this.BinaryLength;
                 case BsonType.ObjectId: return 12;
                 case BsonType.Guid: return 16;
 

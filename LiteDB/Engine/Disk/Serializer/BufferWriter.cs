@@ -120,6 +120,32 @@ namespace LiteDB.Engine
             return bufferPosition;
         }
 
+        public int Write(ReadOnlySpan<byte> source)
+        {
+            var written = 0;
+
+            while (written < source.Length)
+            {
+                var bytesLeft = _current.Count - _currentPosition;
+                var bytesToCopy = Math.Min(source.Length - written, bytesLeft);
+
+                if (bytesToCopy > 0)
+                {
+                    source.Slice(written, bytesToCopy).CopyTo(new Span<byte>(_current.Array, _current.Offset + _currentPosition, bytesToCopy));
+                }
+
+                written += bytesToCopy;
+
+                this.MoveForward(bytesToCopy);
+
+                if (_isEOF) break;
+            }
+
+            ENSURE(source.Length == written, "current value must fit inside defined buffer");
+
+            return written;
+        }
+
         /// <summary>
         /// Write bytes from buffer into segmentsr. Return how many bytes was write
         /// </summary>
@@ -359,10 +385,10 @@ namespace LiteDB.Engine
                 case BsonType.Binary:
                     this.Write((byte)0x05);
                     this.WriteCString(key);
-                    var bytes = value.AsBinary;
-                    this.Write(bytes.Length);
+                    var binary = value.AsBinarySpan;
+                    this.Write(binary.Length);
                     this.Write((byte)0x00); // subtype 00 - Generic binary subtype
-                    this.Write(bytes, 0, bytes.Length);
+                    this.Write(binary);
                     break;
 
                 case BsonType.Guid:
