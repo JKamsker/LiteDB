@@ -38,6 +38,11 @@ internal static class GeoTestHelpers
         var minLon = NormalizeLon(box.MinLon);
         var maxLon = NormalizeLon(box.MaxLon);
 
+        if (box.SpansAllLongitudes)
+        {
+            return true;
+        }
+
         if (minLon <= maxLon + Epsilon)
         {
             return normalizedLon >= minLon - Epsilon && normalizedLon <= maxLon + Epsilon;
