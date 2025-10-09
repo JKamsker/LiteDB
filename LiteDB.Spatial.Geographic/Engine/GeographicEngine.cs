@@ -94,14 +94,25 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
     private SpatialQueryPlan BuildPlanFromSegments(IReadOnlyList<GeographicBoundsSegment> segments, double radius, string predicateUnit)
     {
         var ranges = new List<SpatialIndexRange>();
+        ulong cellCountEstimate = 0;
+        var clipped = false;
 
         foreach (var segment in segments)
         {
-            var coverings = _encoder.Cover(segment.Normalized, _options.MaxCoveringCells);
-            ranges.AddRange(coverings);
+            var covering = _encoder.Cover(segment.Normalized, _options.MaxCoveringCells);
+            ranges.AddRange(covering.Ranges);
+            cellCountEstimate = SaturatingAdd(cellCountEstimate, covering.CellCountEstimate);
+            clipped |= covering.WasClippedByMaxCells;
         }
 
         var mergedRanges = MortonIndexEncoder.UnionAdjacentRanges(ranges);
+        var metrics = mergedRanges.Count == 0 && segments.Count == 0
+            ? SpatialCoveringMetrics.Empty
+            : new SpatialCoveringMetrics(
+                cellCountEstimate,
+                _options.MaxCoveringCells,
+                mergedRanges.Count,
+                clipped);
         var predicate = predicateUnit == "within"
             ? "Within bounding box"
             : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} distance <= {1:0.##} {2}", _distanceMode, radius, predicateUnit);
@@ -113,7 +124,13 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
             _ => BoundingBox.From2D(-180d, segments.Min(s => s.MinLatitude), 180d, segments.Max(s => s.MaxLatitude))
         };
 
-        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, mergedRanges, predicate);
+        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, mergedRanges, predicate, metrics);
+    }
+
+    private static ulong SaturatingAdd(ulong left, ulong right)
+    {
+        var remaining = ulong.MaxValue - left;
+        return right > remaining ? ulong.MaxValue : left + right;
     }
 
     private static void ValidateGeoPoint(GeoPoint point)

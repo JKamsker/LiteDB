@@ -45,7 +45,8 @@ public sealed class MortonIndexEncoderTests
         var encoder = new LiteDB.Spatial.MortonIndexEncoder(2, precisionBits: 3);
         var bounds = LiteDB.Spatial.BoundingBox.From2D(0.25, 0.25, 0.5, 0.5);
 
-        var ranges = encoder.Cover(bounds, maxCells: 16);
+        var covering = encoder.Cover(bounds, maxCells: 16);
+        var ranges = covering.Ranges;
         ranges.Should().NotBeEmpty();
 
         var codes = ranges.SelectMany(range => Enumerable.Range(0, (int)(range.End - range.Start + 1)).Select(offset => range.Start + (ulong)offset));

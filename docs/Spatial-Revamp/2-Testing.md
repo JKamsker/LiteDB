@@ -120,11 +120,13 @@
   * Compare distances vs **MathNet.Spatial** oracle.
   * AABB queries parity with manual inequalities.
 * Grids & long/thin AABBs to pressure-test **range cover explosion**; ensure fallback to coarser covers obeys results correctness.
+* Capture covering metrics (cell counts, range counts, fallback flags) so logs highlight when `MaxCoveringCells` triggers.
 
 **Acceptance**
 
 * Exact match on membership; distance deltas within tolerance.
 * Log “cover cells used” ≤ `MaxCoveringCells`; if capped, correctness still holds.
+* Fixtures under `tests/fixtures/cartesian3d` regenerate via `dotnet run --project scripts/Cartesian3DFixtureGenerator` without external downloads.
 
 ---
 
