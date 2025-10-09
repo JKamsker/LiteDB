@@ -1,0 +1,35 @@
+[
+  {
+    "id": "aleutian_wrap",
+    "mode": "membership",
+    "bounds": [170.0, 50.0, 200.0, 55.0],
+    "points": [
+      { "id": "attu", "longitude": 173.1969, "latitude": 52.8410 },
+      { "id": "nikolski", "longitude": -168.8670, "latitude": 52.9380 },
+      { "id": "anchorage", "longitude": -149.9003, "latitude": 61.2181 },
+      { "id": "petropavlovsk", "longitude": 158.6483, "latitude": 53.0500 }
+    ]
+  },
+  {
+    "id": "fiji_wrap",
+    "mode": "membership",
+    "bounds": [170.0, -25.0, 205.0, -15.0],
+    "points": [
+      { "id": "suva", "longitude": 178.4501, "latitude": -18.1248 },
+      { "id": "nukualofa", "longitude": -175.1982, "latitude": -21.1394 },
+      { "id": "apia", "longitude": -171.7510, "latitude": -13.8333 },
+      { "id": "noumea", "longitude": 166.4572, "latitude": -22.2730 }
+    ]
+  },
+  {
+    "id": "arctic_band",
+    "mode": "membership",
+    "bounds": [-200.0, 70.0, 200.0, 76.0],
+    "points": [
+      { "id": "alert", "longitude": -62.3080, "latitude": 82.5018 },
+      { "id": "north_pole", "longitude": 0.0, "latitude": 90.0 },
+      { "id": "longyearbyen", "longitude": 15.6330, "latitude": 78.2230 },
+      { "id": "utqiagvik", "longitude": -156.7880, "latitude": 71.2906 }
+    ]
+  }
+]

@@ -172,7 +172,14 @@ internal static class GeographicBoundsBuilder
 
     private static double NormalizeLongitudeToUnit(double longitude)
     {
-        return (NormalizeLongitude(longitude) + 180d) / 360d;
+        var normalized = NormalizeLongitude(longitude);
+
+        if (normalized >= 180d - 1e-12 && longitude <= 0d)
+        {
+            normalized = -180d;
+        }
+
+        return (normalized + 180d) / 360d;
     }
 
     private static double NormalizeLatitudeToUnit(double latitude)
