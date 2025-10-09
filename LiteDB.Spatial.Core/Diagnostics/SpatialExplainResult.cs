@@ -22,12 +22,16 @@ public sealed class SpatialExplainResult
     /// <param name="coveringBounds">The optional coarse bounding box evaluated prior to exact predicates.</param>
     /// <param name="ranges">The index ranges that will be scanned.</param>
     /// <param name="exactPredicate">The human readable exact predicate description.</param>
+    /// <param name="indexFieldName">Optional name of the index field used during scanning.</param>
+    /// <param name="boundingBoxFieldName">Optional name of the bounding box field storing coarse bounds.</param>
     public SpatialExplainResult(
         string engineName,
         int dimensions,
         BoundingBox? coveringBounds,
         IReadOnlyList<SpatialIndexRange> ranges,
-        string? exactPredicate)
+        string? exactPredicate,
+        string? indexFieldName = null,
+        string? boundingBoxFieldName = null)
     {
         if (string.IsNullOrWhiteSpace(engineName))
         {
@@ -44,6 +48,8 @@ public sealed class SpatialExplainResult
         CoveringBounds = coveringBounds;
         _ranges = ranges ?? throw new ArgumentNullException(nameof(ranges));
         ExactPredicate = exactPredicate;
+        IndexFieldName = string.IsNullOrWhiteSpace(indexFieldName) ? null : indexFieldName;
+        BoundingBoxFieldName = string.IsNullOrWhiteSpace(boundingBoxFieldName) ? null : boundingBoxFieldName;
     }
 
     /// <summary>
@@ -72,6 +78,16 @@ public sealed class SpatialExplainResult
     public string? ExactPredicate { get; }
 
     /// <summary>
+    /// Gets the document field that stores encoded index values when known.
+    /// </summary>
+    public string? IndexFieldName { get; }
+
+    /// <summary>
+    /// Gets the document field that stores bounding box values when known.
+    /// </summary>
+    public string? BoundingBoxFieldName { get; }
+
+    /// <summary>
     /// Gets the number of index ranges described by the plan.
     /// </summary>
     public int RangeCount => _ranges.Count;
@@ -91,19 +107,39 @@ public sealed class SpatialExplainResult
             .Append("D)")
             .AppendLine();
 
+        builder.Append("Index field: ")
+            .Append(string.IsNullOrWhiteSpace(IndexFieldName) ? "n/a" : IndexFieldName)
+            .AppendLine();
+
+        builder.Append("Bounding box field: ")
+            .Append(string.IsNullOrWhiteSpace(BoundingBoxFieldName) ? "n/a" : BoundingBoxFieldName)
+            .AppendLine();
+
         builder.Append("Index ranges (")
             .Append(_ranges.Count.ToString(CultureInfo.InvariantCulture))
-            .Append(')')
-            .AppendLine();
+            .Append(')');
+
+        if (!string.IsNullOrWhiteSpace(IndexFieldName))
+        {
+            builder.Append(" via ").Append(IndexFieldName);
+        }
+
+        builder.AppendLine();
 
         foreach (var range in _ranges)
         {
             builder.Append("  - ")
-                .Append(range.ToString())
+                .Append(FormatRange(range))
                 .AppendLine();
         }
 
-        builder.Append("Covering bounds: ");
+        builder.Append("Covering bounds");
+        if (!string.IsNullOrWhiteSpace(BoundingBoxFieldName))
+        {
+            builder.Append(" via ").Append(BoundingBoxFieldName);
+        }
+
+        builder.Append(": ");
         builder.Append(CoveringBounds.HasValue ? CoveringBounds.Value.ToString() : "none");
         builder.AppendLine();
 
@@ -111,5 +147,12 @@ public sealed class SpatialExplainResult
         builder.Append(string.IsNullOrWhiteSpace(ExactPredicate) ? "none" : ExactPredicate);
 
         return builder.ToString();
+    }
+
+    private static string FormatRange(SpatialIndexRange range)
+    {
+        static string Hex(ulong value) => "0x" + value.ToString("X16", CultureInfo.InvariantCulture);
+
+        return $"[{range.Start}, {range.End}] ({Hex(range.Start)} - {Hex(range.End)})";
     }
 }

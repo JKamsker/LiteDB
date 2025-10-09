@@ -84,8 +84,13 @@ public static class SpatialCartesian2D
             throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' must be two-dimensional for Cartesian2D queries.");
         }
 
-        if (descriptor.HasEngine && descriptor.Engine is Cartesian2DEngine cartesian)
+        if (descriptor.TryGetEngine(out var runtimeEngine))
         {
+            if (runtimeEngine is not Cartesian2DEngine cartesian)
+            {
+                throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is configured for engine '{descriptor.EngineName}' but a Cartesian2D engine is required.");
+            }
+
             return cartesian;
         }
 

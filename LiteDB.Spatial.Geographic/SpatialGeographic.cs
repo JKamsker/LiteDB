@@ -94,8 +94,13 @@ public static class SpatialGeographic
 
         var effectiveMode = requestedMode ?? configuredMode;
 
-        if (descriptor.HasEngine && descriptor.Engine is GeographicEngine geographic)
+        if (descriptor.TryGetEngine(out var runtimeEngine))
         {
+            if (runtimeEngine is not GeographicEngine geographic)
+            {
+                throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is configured for engine '{descriptor.EngineName}' but a geographic engine is required.");
+            }
+
             if (geographic.DistanceMode == effectiveMode)
             {
                 return geographic;

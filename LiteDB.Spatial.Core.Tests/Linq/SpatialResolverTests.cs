@@ -31,6 +31,27 @@ public sealed class SpatialResolverTests
     }
 
     [Fact]
+    public void TryResolveNear2DMaterializesEngineFactory()
+    {
+        var descriptor = new SpatialCollectionDescriptor("points", StubEngine.EngineName2D, 2, "location", new SpatialIndexOptions(precisionBits: 4));
+        var engine = StubEngine.Create2D(descriptor.Options);
+        var descriptorWithFactory = descriptor.WithEngineFactory(() => engine);
+        var resolver = new SpatialResolver();
+        resolver.RegisterDescriptor(descriptorWithFactory, nameof(TestDocument.Location));
+
+        Expression<Func<TestDocument, bool>> predicate = doc => SpatialExpressions.Near(doc.Location, new GeoPoint(2, -3), 7);
+        var methodCall = (MethodCallExpression)predicate.Body;
+
+        resolver.TryResolve(methodCall, out var plan).Should().BeTrue();
+
+        engine.Last2DCenter.Should().Be(new GeoPoint(2, -3));
+        engine.LastRadius.Should().Be(7);
+        plan.Should().NotBeNull();
+        plan!.EngineName.Should().Be(engine.Name);
+        descriptorWithFactory.HasEngine.Should().BeTrue();
+    }
+
+    [Fact]
     public void TryResolveNear3DUsesDescriptorEngine()
     {
         var descriptor = new SpatialCollectionDescriptor("points3d", StubEngine.EngineName3D, 3, "position", new SpatialIndexOptions(precisionBits: 4));

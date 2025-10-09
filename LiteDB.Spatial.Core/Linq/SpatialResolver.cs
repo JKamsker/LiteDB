@@ -248,11 +248,11 @@ public sealed class SpatialResolver
 
     private static ISpatialEngine ResolveEngine(SpatialCollectionDescriptor descriptor)
     {
-        if (descriptor.HasEngine && descriptor.Engine is { } engine)
+        if (descriptor.TryGetEngine(out var engine))
         {
             return engine;
         }
 
-        throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is configured for engine '{descriptor.EngineName}' but no runtime engine instance was registered. Attach an engine via descriptor.WithEngine before composing LINQ queries.");
+        throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is configured for engine '{descriptor.EngineName}' but no runtime engine instance was registered. Attach an engine via descriptor.WithEngine or descriptor.WithEngineFactory before composing LINQ queries.");
     }
 }
