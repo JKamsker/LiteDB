@@ -81,7 +81,7 @@ LiteDB.Spatial
 
 **Notes**
 
-- Implemented `SpatialCollectionDescriptor` equality semantics and persisted geometry field metadata, plus a metadata store with caching, round-trip persistence, and friendly error messages when metadata is missing or incompatible with stored documents.
+- Implemented `SpatialCollectionDescriptor` equality semantics, persisted geometry field metadata, and introduced `SpatialEngineSettings` so descriptors round-trip per-engine configuration like Cartesian domains and geographic distance modes.
 - Added schema validation helpers to flag mismatched bounding box lengths and non-numeric index/bounding box values, easing diagnosis of dimensional errors.
 
 ### S4 — Backfill utility
@@ -96,16 +96,49 @@ LiteDB.Spatial
 
 ### S5 — Geographic engine (2D)
 
-- [ ] Deliver `GeographicEngine` with near/box planners, mapper, and facade helpers.
-- [ ] Handle wraparound and polar helpers with tests for real-world coordinates.
+- [x] Deliver `GeographicEngine` with near/box planners, mapper, and facade helpers.
+  - `PlanNear2D` must expose both Haversine and Vincenty distance modes with range coalescing tuned for meter-based tolerances.
+  - `PlanWithinBox2D` needs explicit anti-meridian handling so bounding boxes that cross ±180° still emit coherent `_mbb` filters.
+  - Mapper should quantize lon/lat into Morton2D codes, normalize bounding boxes for the encoder, and persist world-space `_mbb` values for diagnostics.
+- [x] Handle wraparound and polar helpers with tests for real-world coordinates.
+  - Introduce helpers for longitude wrapping and polar clamping to avoid discontinuities around the poles.
+  - Guard rails for invalid latitude/longitude inputs with actionable error messages surfaced through the facade.
+- [x] Ship `SpatialGeographic` facade utilities (`EnsurePointIndex`, `Near`, `WithinBoundingBox`) delegating to the engine, wiring common options, and invoking backfill automatically.
+
+**Testing outline**
+
+- Regression tests for Berlin vicinity distances and tolerance envelopes vs GeographicLib samples.
+- Anti-meridian fixtures (e.g., Aleutian Islands) verifying bounding box queries prune correctly.
+- Polar bounding boxes proving wrap helpers maintain deterministic Morton codes.
+- Facade integration tests ensuring friendly errors when metadata or indexes are missing.
 
 ### S6 — Cartesian 2D engine
 
-- [ ] Provide `Cartesian2DEngine` and facade with Euclidean planning and mapping.
+- [x] Provide `Cartesian2DEngine` and facade with Euclidean planning and mapping.
+  - `PlanNear2D` should compute Euclidean radii, fall back to bounding-box approximations when `MaxCoveringCells` is exceeded, and reuse Morton2D coverings.
+  - `PlanWithinBox2D` maps axis-aligned bounding boxes directly to `_mbb` predicates while keeping coverings in the same coordinate space.
+- [x] Implement mapper to encode points with Morton2D and persist `_mbb` spans without geographic-specific logic.
+- [x] Ship `SpatialCartesian2D` facade mirroring the geographic API surface for flat-coordinate callers and triggering backfill on configuration.
+
+**Testing outline**
+
+- Synthetic grid suites confirming near/box queries leverage the index and return precise Euclidean distances.
+- Property-based tests covering randomized bounding boxes to ensure deterministic Morton ordering and pruning.
+- Facade smoke tests validating options propagation and descriptive errors when the index is absent.
 
 ### S7 — Cartesian 3D engine (points)
 
-- [ ] Implement `Cartesian3DEngine` and facade for point-based 3D queries.
+- [x] Implement `Cartesian3DEngine` and facade for point-based 3D queries.
+  - `PlanNear3D` forms spherical shells via Morton3D coverings, adds `_mbb` pruning, and applies exact Euclidean3D distance filtering.
+  - `PlanWithinBox3D` translates 3D axis-aligned bounding boxes into `_mbb` spans and Morton3D range plans.
+- [x] Implement mapper to normalize XYZ coordinates, emit Morton3D keys, and maintain six-value `_mbb` arrays respecting descriptor precision.
+- [x] Ship `SpatialCartesian3D` facade with helpers for ensuring indexes, running near queries, and bulk backfills for point clouds.
+
+**Testing outline**
+
+- 3D lattice fixtures validating near-query shells, range coalescing, and respect for `MaxCoveringCells` fallbacks.
+- Randomized AABB suites checking mapper output and `_mbb` normalization for varied coordinate scales.
+- Euclidean3D parity checks vs MathNet.Spatial (or similar oracle) to guarantee floating-point tolerance targets.
 
 ### S8 — LINQ resolver
 

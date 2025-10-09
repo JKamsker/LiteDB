@@ -167,6 +167,33 @@ public sealed class SpatialMetadataStore
             ["updatedUtc"] = DateTime.UtcNow
         };
 
+        if (!descriptor.Settings.IsEmpty)
+        {
+            var engineDoc = new BaseLiteDB.BsonDocument();
+
+            if (descriptor.Settings.Domain is { } domain)
+            {
+                var values = domain.GetValues();
+                var domainArray = new BaseLiteDB.BsonArray();
+                for (var i = 0; i < values.Length; i++)
+                {
+                    domainArray.Add(new BaseLiteDB.BsonValue(values[i]));
+                }
+
+                engineDoc["domain"] = domainArray;
+            }
+
+            if (descriptor.Settings.DistanceMode is { } mode)
+            {
+                engineDoc["distanceMode"] = mode.ToString();
+            }
+
+            if (engineDoc.Count > 0)
+            {
+                document["engineSettings"] = engineDoc;
+            }
+        }
+
         return document;
     }
 
@@ -186,7 +213,47 @@ public sealed class SpatialMetadataStore
             optionsDoc["indexFieldName"].AsString,
             optionsDoc["boundingBoxFieldName"].AsString);
 
+        SpatialEngineSettings settings = SpatialEngineSettings.Empty;
+
+        if (document.TryGetValue("engineSettings", out var engineSettingsValue) && engineSettingsValue.IsDocument)
+        {
+            var engineDoc = engineSettingsValue.AsDocument;
+            BoundingBox? domain = null;
+
+            if (engineDoc.TryGetValue("domain", out var domainValue) && domainValue.IsArray)
+            {
+                var domainArray = domainValue.AsArray;
+                Span<double> values = domainArray.Count switch
+                {
+                    4 => stackalloc double[4],
+                    6 => stackalloc double[6],
+                    _ => Span<double>.Empty
+                };
+
+                if (!values.IsEmpty)
+                {
+                    for (var i = 0; i < values.Length; i++)
+                    {
+                        values[i] = domainArray[i].AsDouble;
+                    }
+
+                    domain = BoundingBox.Create(values);
+                }
+            }
+
+            GeographicDistanceMode? distanceMode = null;
+            if (engineDoc.TryGetValue("distanceMode", out var modeValue) && modeValue.IsString)
+            {
+                if (Enum.TryParse<GeographicDistanceMode>(modeValue.AsString, ignoreCase: true, out var parsed))
+                {
+                    distanceMode = parsed;
+                }
+            }
+
+            settings = SpatialEngineSettings.Create(domain, distanceMode);
+        }
+
         var collectionName = document["collection"].AsString;
-        return new SpatialCollectionDescriptor(collectionName, engine, dimensions, geometryField, options);
+        return new SpatialCollectionDescriptor(collectionName, engine, dimensions, geometryField, options, settings);
     }
 }
