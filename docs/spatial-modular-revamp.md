@@ -96,16 +96,29 @@ LiteDB.Spatial
 
 ### S5 — Geographic engine (2D)
 
-- [ ] Deliver `GeographicEngine` with near/box planners, mapper, and facade helpers.
-- [ ] Handle wraparound and polar helpers with tests for real-world coordinates.
+- [x] Deliver `GeographicEngine` with near/box planners, mapper, and facade helpers.
+- [x] Handle wraparound and polar helpers with tests for real-world coordinates.
+
+**Notes**
+
+- Implemented a dedicated geographic engine that plans near and bounding-box queries, handles anti-meridian wrapping, and exposes a `SpatialGeographic` facade alongside document mappers and Haversine distance calculations.
+- Added unit tests that verify covering bounds for Berlin, polar searches, anti-meridian spanning boxes, and GeoJSON parsing.
 
 ### S6 — Cartesian 2D engine
 
-- [ ] Provide `Cartesian2DEngine` and facade with Euclidean planning and mapping.
+- [x] Provide `Cartesian2DEngine` and facade with Euclidean planning and mapping.
+
+**Notes**
+
+- Added a configurable coordinate-space aware Cartesian 2D engine with Euclidean planning, mapper support for common document layouts, and facade helpers; tests cover near planning, out-of-bounds boxes, and mapper extraction.
 
 ### S7 — Cartesian 3D engine (points)
 
-- [ ] Implement `Cartesian3DEngine` and facade for point-based 3D queries.
+- [x] Implement `Cartesian3DEngine` and facade for point-based 3D queries.
+
+**Notes**
+
+- Delivered a Morton-backed 3D engine for point searches with Euclidean distance, document mapping (array and object shapes), and tests covering near planning, empty intersections, and mapper behavior.
 
 ### S8 — LINQ resolver
 
