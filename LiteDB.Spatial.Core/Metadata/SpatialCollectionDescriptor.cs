@@ -22,6 +22,7 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
     /// <param name="dimensions">The spatial dimensionality supported by the engine.</param>
     /// <param name="geometryFieldName">The document field that contains the geometry value.</param>
     /// <param name="options">The index options associated with the collection.</param>
+    /// <param name="settings">Optional engine-specific settings persisted alongside the descriptor.</param>
     /// <param name="engine">Optional runtime engine instance attached to the descriptor.</param>
     public SpatialCollectionDescriptor(
         string collectionName,
