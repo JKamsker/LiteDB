@@ -149,7 +149,12 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
             throw new ArgumentException("Coordinates must be finite values.");
         }
 
+#if NET8_0_OR_GREATER
         var clamped = Math.Clamp(coordinate, 0d, 1d);
+#else
+        var clamped = Clamp01(coordinate);
+#endif
+        
         var scaled = clamped * _maxValue;
         var quantized = (ulong)Math.Round(scaled, MidpointRounding.AwayFromZero);
         return quantized > _maxValue ? _maxValue : quantized;
@@ -166,6 +171,21 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
         }
 
         return buffer;
+    }
+
+    private static double Clamp01(double value)
+    {
+        if (value < 0d)
+        {
+            return 0d;
+        }
+
+        if (value > 1d)
+        {
+            return 1d;
+        }
+
+        return value;
     }
 
     private static ulong EstimateCellCount(IReadOnlyList<ulong> min, IReadOnlyList<ulong> max)
