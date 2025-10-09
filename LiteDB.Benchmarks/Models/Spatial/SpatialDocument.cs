@@ -26,7 +26,7 @@ namespace LiteDB.Benchmarks.Models.Spatial
             new GeoPoint(0.001, 0.001)
         });
 
-        internal long _gh { get; set; }
+        internal long _idx { get; set; }
 
         internal double[] _mbb { get; set; } = Array.Empty<double>();
     }
