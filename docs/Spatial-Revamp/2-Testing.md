@@ -59,7 +59,7 @@
 
   * `geodesic_pairs.json` (from GeographicLib; meters).
   * `geojson_polygons/*.json` (holes, self-touching, anti-meridian).
-  * `point_clouds/*.json` (dense 2D & 3D lattices).
+  * `point_clouds/*.json` (dense 2D & 3D lattices). Regenerate 3D lattices with `dotnet run --project scripts/spatial/Cartesian3DFixtureGenerator/Cartesian3DFixtureGenerator.csproj` from the repository root; the tool uses only the BCL and writes deterministically into `LiteDB.Spatial.Core.Tests/Differential/Cartesian3D/Fixtures`.
 * Define numeric tolerances:
 
   * Distances: **Earth** `≤ 1e-4 * distance + 0.05 m` (Vincenty/Haversine parity),

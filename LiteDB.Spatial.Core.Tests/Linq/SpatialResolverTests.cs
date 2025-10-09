@@ -194,7 +194,7 @@ public sealed class SpatialResolverTests
             Last2DCenter = center;
             LastRadius = radius;
             LastBounds = BoundingBox.From2D(center.Longitude - radius, center.Latitude - radius, center.Longitude + radius, center.Latitude + radius);
-            return new SpatialQueryPlan(Name, Dimensions, LastBounds, Array.Empty<SpatialIndexRange>(), $"Radius <= {radius}");
+            return new SpatialQueryPlan(Name, Dimensions, LastBounds, Array.Empty<SpatialIndexRange>(), $"Radius <= {radius}", SpatialCoveringDiagnostics.Empty);
         }
 
         public ISpatialQueryPlan PlanNear(GeoPoint3D center, double radius)
@@ -207,13 +207,13 @@ public sealed class SpatialResolverTests
             Last3DCenter = center;
             LastRadius = radius;
             LastBounds = BoundingBox.From3D(center.X - radius, center.Y - radius, center.Z - radius, center.X + radius, center.Y + radius, center.Z + radius);
-            return new SpatialQueryPlan(Name, Dimensions, LastBounds, Array.Empty<SpatialIndexRange>(), $"Radius <= {radius}");
+            return new SpatialQueryPlan(Name, Dimensions, LastBounds, Array.Empty<SpatialIndexRange>(), $"Radius <= {radius}", SpatialCoveringDiagnostics.Empty);
         }
 
         public ISpatialQueryPlan PlanWithin(BoundingBox bounds)
         {
             LastBounds = bounds;
-            return new SpatialQueryPlan(Name, Dimensions, bounds, Array.Empty<SpatialIndexRange>(), "Within bounds");
+            return new SpatialQueryPlan(Name, Dimensions, bounds, Array.Empty<SpatialIndexRange>(), "Within bounds", SpatialCoveringDiagnostics.Empty);
         }
 
         private sealed class StubMapper : ISpatialMapper

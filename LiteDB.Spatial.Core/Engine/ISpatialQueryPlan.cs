@@ -33,4 +33,9 @@ public interface ISpatialQueryPlan
     /// Gets a human readable description of the exact predicate applied after index filtering.
     /// </summary>
     string? ExactPredicateDescription { get; }
+
+    /// <summary>
+    /// Gets diagnostics describing how the covering was generated.
+    /// </summary>
+    SpatialCoveringDiagnostics CoveringDiagnostics { get; }
 }

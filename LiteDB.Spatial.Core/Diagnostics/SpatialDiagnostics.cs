@@ -29,6 +29,7 @@ public static class SpatialDiagnostics
             plan.IndexRanges,
             plan.ExactPredicateDescription,
             descriptor?.Options.IndexFieldName,
-            descriptor?.Options.BoundingBoxFieldName);
+            descriptor?.Options.BoundingBoxFieldName,
+            plan.CoveringDiagnostics);
     }
 }
