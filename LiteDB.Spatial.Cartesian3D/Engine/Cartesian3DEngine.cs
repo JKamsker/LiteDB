@@ -102,7 +102,7 @@ public sealed class Cartesian3DEngine : ICartesianSpatialEngine
         var normalized = _normalizer.Normalize(bounds);
         var ranges = _encoder.Cover(normalized, _options.MaxCoveringCells);
         var merged = MortonIndexEncoder.UnionAdjacentRanges(ranges);
-        return new SpatialQueryPlan(Dimensions, bounds, merged, predicate);
+        return new SpatialQueryPlan(Name, Dimensions, bounds, merged, predicate);
     }
 
     private static void ValidateRadius(double radius)

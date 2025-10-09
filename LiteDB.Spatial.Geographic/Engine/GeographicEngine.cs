@@ -113,7 +113,7 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
             _ => BoundingBox.From2D(-180d, segments.Min(s => s.MinLatitude), 180d, segments.Max(s => s.MaxLatitude))
         };
 
-        return new SpatialQueryPlan(Dimensions, coveringBounds, mergedRanges, predicate);
+        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, mergedRanges, predicate);
     }
 
     private static void ValidateGeoPoint(GeoPoint point)

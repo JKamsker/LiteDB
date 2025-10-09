@@ -84,8 +84,13 @@ public static class SpatialCartesian3D
             throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' must be three-dimensional for Cartesian3D queries.");
         }
 
-        if (descriptor.HasEngine && descriptor.Engine is Cartesian3DEngine cartesian)
+        if (descriptor.TryGetEngine(out var runtimeEngine))
         {
+            if (runtimeEngine is not Cartesian3DEngine cartesian)
+            {
+                throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is configured for engine '{descriptor.EngineName}' but a Cartesian3D engine is required.");
+            }
+
             return cartesian;
         }
 

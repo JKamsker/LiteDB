@@ -10,6 +10,11 @@ namespace LiteDB.Spatial;
 public interface ISpatialQueryPlan
 {
     /// <summary>
+    /// Gets the name of the spatial engine that produced the plan.
+    /// </summary>
+    string EngineName { get; }
+
+    /// <summary>
     /// Gets the dimensionality of the underlying spatial index.
     /// </summary>
     int Dimensions { get; }
