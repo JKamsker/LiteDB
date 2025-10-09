@@ -19,6 +19,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LiteDB.Spatial.Core\LiteDB.Spatial.Core.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial.Geographic\LiteDB.Spatial.Geographic.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial.Cartesian2D\LiteDB.Spatial.Cartesian2D.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial.Cartesian3D\LiteDB.Spatial.Cartesian3D.csproj" />
     <ProjectReference Include="..\LiteDB\LiteDB.csproj">
       <Aliases>LiteDbBase</Aliases>
     </ProjectReference>

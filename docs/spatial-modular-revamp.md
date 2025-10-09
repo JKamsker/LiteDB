@@ -96,16 +96,16 @@ LiteDB.Spatial
 
 ### S5 — Geographic engine (2D)
 
-- [ ] Deliver `GeographicEngine` with near/box planners, mapper, and facade helpers.
-- [ ] Handle wraparound and polar helpers with tests for real-world coordinates.
+- [x] Deliver `GeographicEngine` with near/box planners, mapper, and facade helpers.
+- [x] Handle wraparound and polar helpers with tests for real-world coordinates.
 
 ### S6 — Cartesian 2D engine
 
-- [ ] Provide `Cartesian2DEngine` and facade with Euclidean planning and mapping.
+- [x] Provide `Cartesian2DEngine` and facade with Euclidean planning and mapping.
 
 ### S7 — Cartesian 3D engine (points)
 
-- [ ] Implement `Cartesian3DEngine` and facade for point-based 3D queries.
+- [x] Implement `Cartesian3DEngine` and facade for point-based 3D queries.
 
 ### S8 — LINQ resolver
 
