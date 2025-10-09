@@ -166,15 +166,33 @@ LiteDB.Spatial
 
 ### S11 — Top-level facade & dispatch
 
-- [ ] `LiteDB.Spatial.Spatial` entry point manages engine configuration and dispatch.
+- [x] `LiteDB.Spatial.Spatial` entry point manages engine configuration and dispatch.
+
+**Notes**
+
+- Implemented a dedicated `LiteDB.Spatial` facade that persists descriptors, enforces `_idx` index creation, and dispatches `Near`/`WithinBoundingBox` queries based on the configured engine.
+- Reflected internal engine and mapper access so typed collections can participate without additional public APIs.
+- Added facade integration tests covering geographic and Cartesian3D flows.
 
 ### S12 — Migration & docs
 
-- [ ] Author upgrade/guide/diagnostics documentation with samples.
+- [x] Author upgrade/guide/diagnostics documentation with samples.
+
+**Notes**
+
+- Rewrote `docs/spatial-guide.md` to demonstrate the `Spatial.Use*` entry points, metadata expectations, and tuning guidelines.
+- Authored `docs/spatial-upgrade.md` outlining the `_gh` → `_idx` migration path with rollout steps.
+- Added `docs/spatial-diagnostics.md` to document plan explanations and metadata validation utilities.
 
 ### S13 — Benchmarks & regression guardrails
 
-- [ ] Capture performance baselines and add regression guardrails.
+- [x] Capture performance baselines and add regression guardrails.
+
+**Notes**
+
+- Recorded filtered baseline results from `SpatialQueryBenchmarks` (DatasetSize=1,000) and published them in `docs/spatial-benchmarks.md` for regression tracking.
+- Updated the benchmark harness so `--spatial-only` injects a BenchmarkDotNet filter, allowing additional `--filter` patterns (e.g. dataset selection) without touching the code.
+- Documented the exact command in the new benchmarks guide so teams can reproduce numbers in CI or local environments.
 
 ---
 
