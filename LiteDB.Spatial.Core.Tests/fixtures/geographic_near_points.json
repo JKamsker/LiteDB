@@ -1,0 +1,14 @@
+{
+  "center": { "lon": -122.4194, "lat": 37.7749 },
+  "radiusMeters": 800000.0,
+  "points": [
+    { "id": 1, "name": "san_francisco", "lon": -122.4194, "lat": 37.7749 },
+    { "id": 2, "name": "oakland", "lon": -122.2711, "lat": 37.8044 },
+    { "id": 3, "name": "san_jose", "lon": -121.8863, "lat": 37.3382 },
+    { "id": 4, "name": "los_angeles", "lon": -118.2437, "lat": 34.0522 },
+    { "id": 5, "name": "las_vegas", "lon": -115.1398, "lat": 36.1699 },
+    { "id": 6, "name": "seattle", "lon": -122.3321, "lat": 47.6062 },
+    { "id": 7, "name": "portland", "lon": -122.6765, "lat": 45.5231 },
+    { "id": 8, "name": "vancouver", "lon": -123.1207, "lat": 49.2827 }
+  ]
+}
