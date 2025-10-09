@@ -12,7 +12,7 @@ using SpatialApi = SpatialFacade::LiteDB.Spatial.Spatial;
 
 namespace LiteDB.Benchmarks.Benchmarks.Spatial
 {
-    [BenchmarkCategory(Constants.Categories.QUERIES)]
+    [BenchmarkCategory(Constants.Categories.SPATIAL, Constants.Categories.QUERIES)]
     public class SpatialQueryBenchmarks : BenchmarkBase
     {
         private ILiteCollection<SpatialDocument> _collection = null!;
