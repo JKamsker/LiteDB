@@ -166,15 +166,15 @@ LiteDB.Spatial
 
 ### S11 — Top-level facade & dispatch
 
-- [ ] `LiteDB.Spatial.Spatial` entry point manages engine configuration and dispatch.
+- [x] `LiteDB.Spatial.Spatial` entry point manages engine configuration and dispatch.
 
 ### S12 — Migration & docs
 
-- [ ] Author upgrade/guide/diagnostics documentation with samples.
+- [x] Author upgrade/guide/diagnostics documentation with samples.
 
 ### S13 — Benchmarks & regression guardrails
 
-- [ ] Capture performance baselines and add regression guardrails.
+- [x] Capture performance baselines and add regression guardrails.
 
 ---
 
@@ -182,7 +182,7 @@ LiteDB.Spatial
 
 - **Internal field rename**: standardize on `_idx` (previously `_gh`). Keep `_gh` reading optional if present (migration path), but **do not** write new `_gh`. Provide backfill to `_idx`.
 - **Engine selection**: no global singletons; bind per collection via metadata to avoid cross-collection leakage.
-- **Precision in 3D**: document that 3D needs higher `PrecisionBits` for similar spatial locality; default +4 vs 2D.
+- **Precision in 3D**: document that Morton3D keys are capped at 21 precision bits per axis to stay within 64-bit ranges.
 - **Range explosion**: cap by `MaxCoveringCells`; if exceeded, coarsen ranges and rely on exact filters (documented behavior).
 
 ---

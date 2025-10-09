@@ -1,19 +1,23 @@
+extern alias SpatialFacade;
+extern alias SpatialCore;
+
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
 using LiteDB.Benchmarks.Models.Spatial;
-using LiteDB.Spatial;
-using SpatialApi = LiteDB.Spatial.Spatial;
+using BoundingBox = SpatialCore::LiteDB.Spatial.BoundingBox;
+using GeoPoint = SpatialCore::LiteDB.Spatial.GeoPoint;
+using SpatialApi = SpatialFacade::LiteDB.Spatial.Spatial;
 
 namespace LiteDB.Benchmarks.Benchmarks.Spatial
 {
-    [BenchmarkCategory(Constants.Categories.QUERIES)]
+    [BenchmarkCategory(Constants.Categories.SPATIAL, Constants.Categories.QUERIES)]
     public class SpatialQueryBenchmarks : BenchmarkBase
     {
         private ILiteCollection<SpatialDocument> _collection = null!;
-        private GeoPoint _center = null!;
-        private GeoPolygon _searchArea = null!;
+        private GeoPoint _center;
+        private BoundingBox _searchBounds;
         private double _radiusMeters;
 
         [GlobalSetup]
@@ -24,9 +28,7 @@ namespace LiteDB.Benchmarks.Benchmarks.Spatial
             DatabaseInstance = new LiteDatabase(ConnectionString());
             _collection = DatabaseInstance.GetCollection<SpatialDocument>("places");
 
-            SpatialApi.EnsurePointIndex(_collection, x => x.Location);
-            SpatialApi.EnsureShapeIndex(_collection, x => x.Region);
-            SpatialApi.EnsureShapeIndex(_collection, x => x.Route);
+            SpatialApi.UseGeographic(_collection, x => x.Location);
 
             var documents = SpatialDocumentGenerator.Generate(DatasetSize);
             _collection.Insert(documents);
@@ -35,7 +37,7 @@ namespace LiteDB.Benchmarks.Benchmarks.Spatial
 
             _center = new GeoPoint(0, 0);
             _radiusMeters = 25_000;
-            _searchArea = SpatialDocumentGenerator.BuildSearchPolygon(0, 0, 0.1);
+            _searchBounds = BoundingBox.From2D(-0.1, -0.1, 0.1, 0.1);
         }
 
         [Benchmark(Baseline = true)]
@@ -47,19 +49,7 @@ namespace LiteDB.Benchmarks.Benchmarks.Spatial
         [Benchmark]
         public List<SpatialDocument> BoundingBoxQuery()
         {
-            return SpatialApi.WithinBoundingBox(_collection, x => x.Location, -0.2, -0.2, 0.2, 0.2).ToList();
-        }
-
-        [Benchmark]
-        public List<SpatialDocument> PolygonContainmentQuery()
-        {
-            return SpatialApi.Within(_collection, x => x.Region, _searchArea).ToList();
-        }
-
-        [Benchmark]
-        public List<SpatialDocument> RouteIntersectionQuery()
-        {
-            return SpatialApi.Intersects(_collection, x => x.Route, _searchArea).ToList();
+            return SpatialApi.WithinBoundingBox(_collection, x => x.Location, _searchBounds).ToList();
         }
 
         [GlobalCleanup]
