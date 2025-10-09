@@ -1,0 +1,32 @@
+[
+  {
+    "id": "equator_east_1deg",
+    "from": { "lat": 0.0, "lon": 0.0 },
+    "to": { "lat": 0.0, "lon": 1.0 },
+    "distance_m": 111319.490793
+  },
+  {
+    "id": "north_1deg",
+    "from": { "lat": 0.0, "lon": 0.0 },
+    "to": { "lat": 1.0, "lon": 0.0 },
+    "distance_m": 110574.388558
+  },
+  {
+    "id": "paris_to_nyc",
+    "from": { "lat": 48.8566, "lon": 2.3522 },
+    "to": { "lat": 40.7128, "lon": -74.006 },
+    "distance_m": 5852935.291785
+  },
+  {
+    "id": "la_to_tokyo",
+    "from": { "lat": 34.0522, "lon": -118.2437 },
+    "to": { "lat": 35.6762, "lon": 139.6503 },
+    "distance_m": 8838470.245305
+  },
+  {
+    "id": "london_to_moscow",
+    "from": { "lat": 51.5074, "lon": -0.1278 },
+    "to": { "lat": 55.7558, "lon": 37.6173 },
+    "distance_m": 2508569.248281
+  }
+]
