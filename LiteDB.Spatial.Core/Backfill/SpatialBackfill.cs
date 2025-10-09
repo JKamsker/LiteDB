@@ -64,6 +64,7 @@ public static class SpatialBackfill
         var options = descriptor.Options;
         var result = new SpatialBackfillResult();
         var lastCheckpoint = checkpoint;
+        var pending = new List<BaseLiteDB.BsonDocument>(batchSize);
 
         while (true)
         {
@@ -125,13 +126,13 @@ public static class SpatialBackfill
 
                     if (needsUpdate)
                     {
-                        if (!collection.Update(idValue, document))
-                        {
-                            result.AddError(idValue, "Failed to update the document with spatial data.");
-                            continue;
-                        }
-
+                        pending.Add(document);
                         result.MarkUpdated();
+
+                        if (pending.Count >= batchSize)
+                        {
+                            Flush(collection, pending);
+                        }
                     }
                     else
                     {
@@ -140,8 +141,13 @@ public static class SpatialBackfill
                 }
                 catch (Exception ex) when (!(ex is SpatialMetadataException))
                 {
-                    result.AddError(idValue, ex.Message);
+                    result.AddError(idValue, ex.Message, ex);
                 }
+            }
+
+            if (pending.Count > 0)
+            {
+                Flush(collection, pending);
             }
         }
 
@@ -177,8 +183,19 @@ public static class SpatialBackfill
             return false;
         }
 
-        document[fieldName] = new BaseLiteDB.BsonValue((decimal)index);
+        document[fieldName] = CreateIndexValue(index);
         return true;
+    }
+
+    private static void Flush(BaseLiteDB.ILiteCollection<BaseLiteDB.BsonDocument> collection, List<BaseLiteDB.BsonDocument> pending)
+    {
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        collection.Update(pending);
+        pending.Clear();
     }
 
     private static bool EnsureBoundingBox(BaseLiteDB.BsonDocument document, string fieldName, BoundingBox box)
@@ -214,6 +231,16 @@ public static class SpatialBackfill
 
         document[fieldName] = new BaseLiteDB.BsonArray(expected);
         return true;
+    }
+
+    private static BaseLiteDB.BsonValue CreateIndexValue(ulong index)
+    {
+        if (index <= long.MaxValue)
+        {
+            return new BaseLiteDB.BsonValue((long)index);
+        }
+
+        return new BaseLiteDB.BsonValue((decimal)index);
     }
 
     private static bool TryConvertIndex(BaseLiteDB.BsonValue value, out ulong index)

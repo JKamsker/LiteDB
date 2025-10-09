@@ -81,8 +81,8 @@ LiteDB.Spatial
 
 **Notes**
 
-- Implemented `SpatialCollectionDescriptor` equality semantics and a metadata store with caching, round-trip persistence, and friendly error messages when metadata is missing or incompatible with stored documents.
-- Added schema validation helpers to flag mismatched bounding box lengths, easing diagnosis of dimensional errors.
+- Implemented `SpatialCollectionDescriptor` equality semantics and persisted geometry field metadata, plus a metadata store with caching, round-trip persistence, and friendly error messages when metadata is missing or incompatible with stored documents.
+- Added schema validation helpers to flag mismatched bounding box lengths and non-numeric index/bounding box values, easing diagnosis of dimensional errors.
 
 ### S4 — Backfill utility
 
@@ -91,7 +91,7 @@ LiteDB.Spatial
 
 **Notes**
 
-- Delivered a document-oriented backfill runner that pages through collections, invokes engine mappers to compute `_idx`/`_mbb`, and reports processed/updated/skipped counts alongside per-document errors.
+- Delivered a document-oriented backfill runner that pages through collections, batches writes, captures the last checkpoint, and records processed/updated/skipped counts alongside exception details for failed documents.
 - Added smoke tests with stub engines to confirm idempotency, checkpoint handling, and resilience to malformed documents.
 
 ### S5 — Geographic engine (2D)

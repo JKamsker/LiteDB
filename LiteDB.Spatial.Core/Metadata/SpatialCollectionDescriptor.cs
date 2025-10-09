@@ -10,32 +10,59 @@ namespace LiteDB.Spatial;
 public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDescriptor>
 {
     /// <summary>
+    /// Default geometry field name used when metadata predates geometry persistence.
+    /// </summary>
+    public const string DefaultGeometryFieldName = "_geometry";
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="SpatialCollectionDescriptor"/> class.
     /// </summary>
-    /// <param name="engine">The engine name responsible for indexing the collection.</param>
+    /// <param name="collectionName">The name of the collection.</param>
+    /// <param name="engineName">The engine name responsible for indexing the collection.</param>
     /// <param name="dimensions">The spatial dimensionality supported by the engine.</param>
+    /// <param name="geometryFieldName">The document field that contains the geometry value.</param>
     /// <param name="options">The index options associated with the collection.</param>
-    public SpatialCollectionDescriptor(string engine, int dimensions, SpatialIndexOptions options)
+    /// <param name="engine">Optional runtime engine instance attached to the descriptor.</param>
+    public SpatialCollectionDescriptor(
+        string collectionName,
+        string engineName,
+        int dimensions,
+        string geometryFieldName,
+        SpatialIndexOptions options,
+        ISpatialEngine? engine = null)
     {
-        if (string.IsNullOrWhiteSpace(engine))
+        if (string.IsNullOrWhiteSpace(collectionName))
         {
-            throw new ArgumentException("Engine name must be provided.", nameof(engine));
+            throw new ArgumentException("Collection name must be provided.", nameof(collectionName));
         }
 
-        if (dimensions != 2 && dimensions != 3)
+        if (string.IsNullOrWhiteSpace(engineName))
+        {
+            throw new ArgumentException("Engine name must be provided.", nameof(engineName));
+        }
+
+        if (dimensions is < 2 or > 3)
         {
             throw new ArgumentOutOfRangeException(nameof(dimensions), "Spatial collections must be either two- or three-dimensional.");
         }
 
-        Engine = engine;
+        CollectionName = collectionName;
+        EngineName = engineName;
         Dimensions = dimensions;
+        GeometryFieldName = string.IsNullOrWhiteSpace(geometryFieldName) ? DefaultGeometryFieldName : geometryFieldName;
         Options = options ?? throw new ArgumentNullException(nameof(options));
+        Engine = engine;
     }
+
+    /// <summary>
+    /// Gets the name of the collection that owns this descriptor.
+    /// </summary>
+    public string CollectionName { get; }
 
     /// <summary>
     /// Gets the engine name used to service spatial queries for the collection.
     /// </summary>
-    public string Engine { get; }
+    public string EngineName { get; }
 
     /// <summary>
     /// Gets the spatial dimensionality supported by the collection.
@@ -43,9 +70,59 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
     public int Dimensions { get; }
 
     /// <summary>
+    /// Gets the document field where geometries are stored.
+    /// </summary>
+    public string GeometryFieldName { get; }
+
+    /// <summary>
     /// Gets the index options associated with the collection.
     /// </summary>
     public SpatialIndexOptions Options { get; }
+
+    /// <summary>
+    /// Gets the runtime engine instance when attached.
+    /// </summary>
+    public ISpatialEngine? Engine { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether a runtime engine has been attached.
+    /// </summary>
+    public bool HasEngine => Engine is not null;
+
+    /// <summary>
+    /// Gets the expected number of elements within the serialized bounding box.
+    /// </summary>
+    public int ExpectedBoundingBoxLength => Dimensions * 2;
+
+    /// <summary>
+    /// Creates a new descriptor with the provided engine instance attached.
+    /// </summary>
+    /// <param name="engine">The runtime engine.</param>
+    /// <returns>A descriptor that references the supplied engine.</returns>
+    public SpatialCollectionDescriptor WithEngine(ISpatialEngine engine)
+    {
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        if (!string.Equals(engine.Name, EngineName, StringComparison.Ordinal))
+        {
+            throw new ArgumentException($"Engine '{engine.Name}' does not match descriptor engine '{EngineName}'.", nameof(engine));
+        }
+
+        if (engine.Dimensions != Dimensions)
+        {
+            throw new ArgumentException($"Engine '{engine.Name}' reports {engine.Dimensions} dimensions but descriptor expects {Dimensions}.", nameof(engine));
+        }
+
+        if (!engine.Options.Equals(Options))
+        {
+            throw new ArgumentException("Engine options do not match the descriptor options.", nameof(engine));
+        }
+
+        return new SpatialCollectionDescriptor(CollectionName, EngineName, Dimensions, GeometryFieldName, Options, engine);
+    }
 
     /// <summary>
     /// Ensures that the provided bounding box matches the descriptor dimensionality.
@@ -55,7 +132,7 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
     {
         if (box.Dimensions != Dimensions)
         {
-            throw new SpatialMetadataException($"Collection is configured for {Dimensions}D geometry but encountered a {box.Dimensions}D bounding box.");
+            throw new SpatialMetadataException($"Collection '{CollectionName}' is configured for {Dimensions}D geometry but encountered a {box.Dimensions}D bounding box.");
         }
     }
 
@@ -65,10 +142,9 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
     /// <param name="valueCount">The number of serialized bounding box values.</param>
     public void EnsureCompatible(int valueCount)
     {
-        var expected = Dimensions == 2 ? 4 : 6;
-        if (valueCount != expected)
+        if (valueCount != ExpectedBoundingBoxLength)
         {
-            throw new SpatialMetadataException($"Collection is configured for {Dimensions}D geometry but {Options.BoundingBoxFieldName} contains {valueCount} values.");
+            throw new SpatialMetadataException($"Collection '{CollectionName}' is configured for {Dimensions}D geometry but {Options.BoundingBoxFieldName} contains {valueCount} values.");
         }
     }
 
@@ -80,8 +156,10 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
             return false;
         }
 
-        return Dimensions == other.Dimensions
-            && string.Equals(Engine, other.Engine, StringComparison.Ordinal)
+        return string.Equals(CollectionName, other.CollectionName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(EngineName, other.EngineName, StringComparison.Ordinal)
+            && Dimensions == other.Dimensions
+            && string.Equals(GeometryFieldName, other.GeometryFieldName, StringComparison.Ordinal)
             && Options.Equals(other.Options);
     }
 
@@ -96,8 +174,10 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
     {
         unchecked
         {
-            var hash = StringComparer.Ordinal.GetHashCode(Engine);
-            hash = (hash * 397) ^ Dimensions.GetHashCode();
+            var hash = StringComparer.OrdinalIgnoreCase.GetHashCode(CollectionName);
+            hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(EngineName);
+            hash = (hash * 397) ^ Dimensions;
+            hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(GeometryFieldName);
             hash = (hash * 397) ^ Options.GetHashCode();
             return hash;
         }
@@ -106,6 +186,6 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
     /// <inheritdoc />
     public override string ToString()
     {
-        return $"Engine={Engine}, Dimensions={Dimensions}, Options=({Options})";
+        return $"Collection={CollectionName}, Engine={EngineName}, Dimensions={Dimensions}, GeometryField={GeometryFieldName}, Options=({Options})";
     }
 }

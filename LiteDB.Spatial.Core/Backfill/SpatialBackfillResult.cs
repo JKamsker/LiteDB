@@ -1,5 +1,6 @@
 extern alias LiteDbBase;
 
+using System;
 using System.Collections.Generic;
 using BaseLiteDB = LiteDbBase::LiteDB;
 
@@ -59,8 +60,8 @@ public sealed class SpatialBackfillResult
         Skipped++;
     }
 
-    internal void AddError(BaseLiteDB.BsonValue id, string message)
+    internal void AddError(BaseLiteDB.BsonValue id, string message, Exception? exception = null)
     {
-        _errors.Add(new SpatialBackfillError(id, message));
+        _errors.Add(new SpatialBackfillError(id, message, exception));
     }
 }

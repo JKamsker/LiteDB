@@ -14,7 +14,7 @@ public sealed class SpatialMetadataStoreTests
     {
         using var database = new BaseLiteDB.LiteDatabase(new MemoryStream());
         var store = new LiteDB.Spatial.SpatialMetadataStore(database);
-        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("Geographic", 2, new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 12));
+        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("places", "Geographic", 2, "location", new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 12));
 
         store.SaveDescriptor("places", descriptor);
 
@@ -27,7 +27,7 @@ public sealed class SpatialMetadataStoreTests
     {
         using var database = new BaseLiteDB.LiteDatabase(new MemoryStream());
         var store = new LiteDB.Spatial.SpatialMetadataStore(database);
-        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("Cartesian3D", 3, new LiteDB.Spatial.SpatialIndexOptions());
+        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("points", "Cartesian3D", 3, "location", new LiteDB.Spatial.SpatialIndexOptions());
 
         var document = new BaseLiteDB.BsonDocument
         {

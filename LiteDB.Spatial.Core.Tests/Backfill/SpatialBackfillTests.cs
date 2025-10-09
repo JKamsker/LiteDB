@@ -20,7 +20,7 @@ public sealed class SpatialBackfillTests
     {
         using var database = new BaseLiteDB.LiteDatabase(new MemoryStream());
         var collection = database.GetCollection("points");
-        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("Stub2D", 2, new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 4));
+        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("points", "Stub2D", 2, "location", new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 4));
         var engine = new Stub2DEngine(descriptor.Options);
 
         InsertPoint(collection, 1, 0.25, 0.75);
@@ -35,7 +35,7 @@ public sealed class SpatialBackfillTests
 
         var stored = collection.FindById(1);
         ((object?)stored).Should().NotBeNull();
-        stored![descriptor.Options.IndexFieldName].Type.Should().Be(BaseLiteDB.BsonType.Decimal);
+        stored![descriptor.Options.IndexFieldName].Type.Should().BeOneOf(BaseLiteDB.BsonType.Int32, BaseLiteDB.BsonType.Int64, BaseLiteDB.BsonType.Decimal);
         stored[descriptor.Options.BoundingBoxFieldName].AsArray.Count.Should().Be(4);
 
         var second = LiteDB.Spatial.SpatialBackfill.Run(collection, descriptor, engine);
@@ -49,7 +49,7 @@ public sealed class SpatialBackfillTests
     {
         using var database = new BaseLiteDB.LiteDatabase(new MemoryStream());
         var collection = database.GetCollection("points");
-        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("Stub2D", 2, new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 4));
+        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("points", "Stub2D", 2, "location", new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 4));
         var engine = new Stub2DEngine(descriptor.Options);
 
         InsertPoint(collection, 1, 0.1, 0.1);
@@ -73,7 +73,7 @@ public sealed class SpatialBackfillTests
     {
         using var database = new BaseLiteDB.LiteDatabase(new MemoryStream());
         var collection = database.GetCollection("points");
-        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("Stub2D", 2, new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 4));
+        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("points", "Stub2D", 2, "location", new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 4));
         var engine = new Stub2DEngine(descriptor.Options);
 
         InsertPoint(collection, 1, 0.0, 0.0);

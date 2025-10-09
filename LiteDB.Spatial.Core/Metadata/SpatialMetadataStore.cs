@@ -45,6 +45,11 @@ public sealed class SpatialMetadataStore
             throw new ArgumentNullException(nameof(descriptor));
         }
 
+        if (!string.Equals(collectionName, descriptor.CollectionName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Collection name argument must match descriptor.CollectionName.", nameof(collectionName));
+        }
+
         var collection = _database.GetCollection(MetadataCollectionName);
         var document = Serialize(collectionName, descriptor);
         collection.Upsert(document);
@@ -111,9 +116,31 @@ public sealed class SpatialMetadataStore
             throw new ArgumentNullException(nameof(descriptor));
         }
 
-        if (document.TryGetValue(descriptor.Options.BoundingBoxFieldName, out var value) && value.IsArray)
+        if (document.TryGetValue(descriptor.Options.BoundingBoxFieldName, out var boundingValue) && !boundingValue.IsNull)
         {
-            descriptor.EnsureCompatible(value.AsArray.Count);
+            if (!boundingValue.IsArray)
+            {
+                throw new SpatialMetadataException($"Spatial metadata for collection '{descriptor.CollectionName}' expects '{descriptor.Options.BoundingBoxFieldName}' to be stored as an array.");
+            }
+
+            var array = boundingValue.AsArray;
+            descriptor.EnsureCompatible(array.Count);
+
+            for (var i = 0; i < array.Count; i++)
+            {
+                if (!array[i].IsNumber)
+                {
+                    throw new SpatialMetadataException($"Spatial metadata for collection '{descriptor.CollectionName}' expects '{descriptor.Options.BoundingBoxFieldName}' to contain only numeric values.");
+                }
+            }
+        }
+
+        if (document.TryGetValue(descriptor.Options.IndexFieldName, out var indexValue) && !indexValue.IsNull)
+        {
+            if (!indexValue.IsInt32 && !indexValue.IsInt64 && !indexValue.IsDecimal && !indexValue.IsDouble)
+            {
+                throw new SpatialMetadataException($"Spatial metadata for collection '{descriptor.CollectionName}' expects '{descriptor.Options.IndexFieldName}' to be a numeric type.");
+            }
         }
     }
 
@@ -133,8 +160,9 @@ public sealed class SpatialMetadataStore
         {
             ["_id"] = collectionName,
             ["collection"] = collectionName,
-            ["engine"] = descriptor.Engine,
+            ["engine"] = descriptor.EngineName,
             ["dimensions"] = descriptor.Dimensions,
+            ["geometryField"] = descriptor.GeometryFieldName,
             ["options"] = optionsDoc,
             ["updatedUtc"] = DateTime.UtcNow
         };
@@ -146,6 +174,9 @@ public sealed class SpatialMetadataStore
     {
         var engine = document["engine"].AsString;
         var dimensions = document["dimensions"].AsInt32;
+        var geometryField = document.TryGetValue("geometryField", out var geometryValue) && geometryValue.IsString
+            ? geometryValue.AsString
+            : SpatialCollectionDescriptor.DefaultGeometryFieldName;
         var optionsDoc = document["options"].AsDocument;
 
         var options = new SpatialIndexOptions(
@@ -155,6 +186,7 @@ public sealed class SpatialMetadataStore
             optionsDoc["indexFieldName"].AsString,
             optionsDoc["boundingBoxFieldName"].AsString);
 
-        return new SpatialCollectionDescriptor(engine, dimensions, options);
+        var collectionName = document["collection"].AsString;
+        return new SpatialCollectionDescriptor(collectionName, engine, dimensions, geometryField, options);
     }
 }
