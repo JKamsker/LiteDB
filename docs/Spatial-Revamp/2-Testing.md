@@ -109,6 +109,12 @@
 
 * 1,000 random cases per run; zero mismatches or reproducible counterexamples saved to `/tests/failures`.
 
+### Running the property suites
+
+* Set `SPATIAL_FSCHECK_SEED=<randomSeed>,<startSize>` when invoking `dotnet test` to replay a specific FsCheck run. The seed uses the `StdGen` tuple format (for example `SPATIAL_FSCHECK_SEED=1742975381,0`).
+* Property snapshots are written to `tests/failures` using the shared helper – only promote counterexamples to fixtures when they represent new coverage.
+* Synthetic point-cloud fixtures live under `tests/fixtures/point_clouds`. Update or regenerate them by editing the JSON files directly; keep distance checks within the shared tolerance helper (`NumericTolerance.ForDistance`).
+
 ---
 
 ## T5 — Differential Correctness: Cartesian 3D
