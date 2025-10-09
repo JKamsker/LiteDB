@@ -1,0 +1,19 @@
+{
+  "type": "Feature",
+  "id": "antimeridian-wrap",
+  "properties": {
+    "description": "Polygon crossing the anti-meridian near the Aleutians"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [170.0, 52.0],
+        [-170.0, 52.0],
+        [-170.0, 56.0],
+        [170.0, 56.0],
+        [170.0, 52.0]
+      ]
+    ]
+  }
+}

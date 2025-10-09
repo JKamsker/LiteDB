@@ -220,10 +220,10 @@ dOur.Should().BeApproximately(dRef, 1e-9);
 
 # How to integrate without polluting production
 
-* Place all external libs under `tests` projects only.
-* Introduce an **`[Category("oracle")]`** attribute; allow `dotnet test -l "console;verbosity=normal" --filter TestCategory=oracle` to toggle.
-* For PostGIS/SQLite tests, guard with `EnvVar("SPATIAL_DB_TESTS") == "1"`.
-* Persist expensive oracle outputs to JSON **fixtures** and run parity against those in regular CI to avoid Docker flakiness.
+* Place all external libs under `tests` projects only via the shared `LiteDB.Spatial.Testing.Oracles` helper library.
+* Introduce an **`[OracleSkip(...)]`** attribute; allow `dotnet test --filter FullyQualifiedName~` etc. to toggle oracles via `SPATIAL_ORACLES`.
+* For PostGIS/SQLite tests, guard with `SPATIAL_DB_TESTS=1` in conjunction with `OracleSkip`.
+* Persist expensive oracle outputs to JSON **fixtures** under `/tests/fixtures` and run parity against those in regular CI to avoid Docker flakiness.
 
 ---
 
