@@ -148,7 +148,42 @@ public sealed class GeographicMapper : ISpatialMapper
             return true;
         }
 
+        if (TryGetAlternateField(document, field, out bson))
+        {
+            value = bson.AsDouble;
+            return true;
+        }
+
         value = default;
+        return false;
+    }
+
+    private static bool TryGetAlternateField(BaseLiteDB.BsonDocument document, string field, out BaseLiteDB.BsonValue value)
+    {
+        value = default!;
+
+        if (string.IsNullOrEmpty(field))
+        {
+            return false;
+        }
+
+        if (char.IsLower(field[0]))
+        {
+            var alternate = char.ToUpperInvariant(field[0]) + field.Substring(1);
+            if (document.TryGetValue(alternate, out value) && value.IsNumber)
+            {
+                return true;
+            }
+        }
+        else if (char.IsUpper(field[0]))
+        {
+            var alternate = char.ToLowerInvariant(field[0]) + field.Substring(1);
+            if (document.TryGetValue(alternate, out value) && value.IsNumber)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 }
