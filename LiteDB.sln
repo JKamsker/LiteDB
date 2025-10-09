@@ -52,6 +52,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiteDB.Spatial.Cartesian3D"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Spatial", "Spatial", "{AF44CBF2-208C-464D-AB0E-0691B83EA0BB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiteDB.Spatial", "LiteDB.Spatial\LiteDB.Spatial.csproj", "{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -230,6 +232,18 @@ Global
 		{6A161AAC-E21D-4B06-BFE0-A3785E77BC8B}.Release|x64.Build.0 = Release|Any CPU
 		{6A161AAC-E21D-4B06-BFE0-A3785E77BC8B}.Release|x86.ActiveCfg = Release|Any CPU
 		{6A161AAC-E21D-4B06-BFE0-A3785E77BC8B}.Release|x86.Build.0 = Release|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Debug|x64.Build.0 = Debug|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Debug|x86.Build.0 = Debug|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Release|x64.ActiveCfg = Release|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Release|x64.Build.0 = Release|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Release|x86.ActiveCfg = Release|Any CPU
+		{AC2D06EC-BB3E-42CF-BFA2-AD867D4CE557}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

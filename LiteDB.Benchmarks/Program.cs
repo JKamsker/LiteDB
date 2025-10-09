@@ -1,7 +1,11 @@
-﻿using BenchmarkDotNet.Configs;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Environments;
 using BenchmarkDotNet.Exporters;
+using BenchmarkDotNet.Filters;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.CsProj;
@@ -12,7 +16,7 @@ namespace LiteDB.Benchmarks
     {
         static void Main(string[] args)
         {
-            BenchmarkRunner.Run(typeof(Program).Assembly, DefaultConfig.Instance
+            var config = DefaultConfig.Instance
                 //.With(new BenchmarkDotNet.Filters.AnyCategoriesFilter(new[] { Benchmarks.Constants.Categories.GENERAL }))
                 //.AddFilter(new BenchmarkDotNet.Filters.AnyCategoriesFilter([Benchmarks.Constants.Categories.GENERAL]))
                 .AddJob(Job.Default.WithRuntime(CoreRuntime.Core80)
@@ -25,7 +29,39 @@ namespace LiteDB.Benchmarks
                     .WithGcForce(true))*/
                 .AddDiagnoser(MemoryDiagnoser.Default)
                 .AddExporter(BenchmarkReportExporter.Default, HtmlExporter.Default, MarkdownExporter.GitHub)
-                .KeepBenchmarkFiles());
+                .KeepBenchmarkFiles();
+
+            var normalizedArgs = new List<string>();
+            var spatialOnly = false;
+
+            foreach (var argument in args)
+            {
+                if (string.Equals(argument, "--spatial-only", StringComparison.OrdinalIgnoreCase))
+                {
+                    spatialOnly = true;
+                    continue;
+                }
+
+                normalizedArgs.Add(argument);
+            }
+
+            var effectiveConfig = spatialOnly
+                ? config.AddFilter(new SpatialBenchmarkFilter())
+                : config;
+
+            BenchmarkSwitcher
+                .FromAssembly(typeof(Program).Assembly)
+                .Run(normalizedArgs.ToArray(), effectiveConfig);
+        }
+
+        private sealed class SpatialBenchmarkFilter : IFilter
+        {
+            public bool Predicate(BenchmarkCase benchmarkCase)
+            {
+                return benchmarkCase.Descriptor.DisplayInfo.IndexOf(
+                    "SpatialQueryBenchmarks",
+                    StringComparison.Ordinal) >= 0;
+            }
         }
     }
 }
