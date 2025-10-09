@@ -1,133 +1,189 @@
-# Spatial Indexing Guide
+# Spatial Guide
 
-LiteDB's spatial tooling now supports index-aware queries, expression operators, and ready-to-run samples. This guide walks through enabling spatial indexes, querying data, and composing applications that take advantage of the new API surface.
+LiteDB's modular spatial stack is composed of engine-specific packages
+(`LiteDB.Spatial.Geographic`, `LiteDB.Spatial.Cartesian2D`, `LiteDB.Spatial.Cartesian3D`)
+and a thin facade (`LiteDB.Spatial`) that orchestrates metadata, backfill, and query
+planning. This guide demonstrates how to configure collections, execute index-aware
+queries, and surface diagnostics.
 
-## 1. Preparing Collections
+## 1. Configure metadata
+
+Spatial metadata is stored per collection inside the `_spatial_meta` collection. Use a
+`SpatialMetadataStore` to persist descriptors that describe the engine, geometry field,
+dimensionality, and optional settings such as Cartesian domains or geographic distance
+modes.
 
 ```csharp
-using LiteDB;
+extern alias LiteDbBase;
+
 using LiteDB.Spatial;
+using BaseLiteDB = LiteDbBase::LiteDB;
 
-using var db = new LiteDatabase("Filename=geo.db;Mode=Shared");
-var places = db.GetCollection<Place>("places");
+using var db = new BaseLiteDB.LiteDatabase("Filename=geo.db");
+var metadata = new SpatialMetadataStore(db);
 
-// Persist precision metadata and computed members
-Spatial.EnsurePointIndex(places, x => x.Location);
-Spatial.EnsureShapeIndex(places, x => x.Footprint);
+Spatial.UseGeographic(metadata, "places", "location");
+Spatial.UseCartesian3D(metadata, "sensors", "position", BoundingBox.From3D(-100, -100, -50, 100, 100, 50));
 ```
 
-`EnsurePointIndex` now records the Morton precision that was used so future queries can translate shapes into the correct `_gh` windows without additional configuration.
+Descriptors are cached in-memory once retrieved, enabling repeated lookups without
+re-reading the metadata collection.
+
+## 2. Ensure point indexes
+
+After configuring a collection, call `Spatial.EnsurePointIndex`. The helper creates the
+raw `_idx` field, a companion `_mbb` bounding box, and a B-Tree index on `"$._idx"`. The
+operation accepts either a database/collection name pair or an existing
+`SpatialMetadataStore` and collection reference.
 
 ```csharp
-public class Place
+var places = db.GetCollection("places");
+var descriptor = Spatial.EnsurePointIndex(metadata, places);
+
+// descriptor.Engine exposes the runtime engine instance for diagnostics
+Console.WriteLine($"Engine: {descriptor.EngineName}, Dimensions: {descriptor.Dimensions}");
+```
+
+`SpatialBackfill` is executed automatically, so existing documents receive `_idx` and
+`_mbb` values the first time the helper runs. Subsequent calls update only the documents
+that are missing fields or contain stale values.
+
+## 3. Querying with plans
+
+`Spatial.Near` and `Spatial.WithinBoundingBox` return `ISpatialQueryPlan` instances that
+describe the Morton ranges to scan, optional covering bounds, and the exact predicate to
+apply. Plans can be executed manually by iterating over the index ranges:
+
+```csharp
+var center = new GeoPoint(16.37, 48.21);
+var plan = Spatial.Near(descriptor, center, radius: 5_000);
+var tolerance = descriptor.Options.DistanceTolerance;
+var engine = descriptor.Engine!;
+var matches = new List<BaseLiteDB.BsonDocument>();
+var visited = new HashSet<int>();
+
+foreach (var range in plan.IndexRanges)
 {
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public GeoPoint Location { get; set; } = new GeoPoint(0, 0);
-    public GeoPolygon Footprint { get; set; } = SquareAround(0, 0, 0.05);
+    var query = places.Query().Where(BaseLiteDB.Query.Between(
+        descriptor.Options.IndexFieldName,
+        ToIndexValue(range.Start),
+        ToIndexValue(range.End)));
 
-internal long _gh { get; set; }
-internal double[] _mbb { get; set; } = Array.Empty<double>();
+    foreach (var doc in query.ToDocuments())
+    {
+        if (!visited.Add(doc["_id"].AsInt32))
+        {
+            continue;
+        }
+
+        if (!engine.Mapper.TryReadPoint(doc, out GeoPoint point))
+        {
+            continue;
+        }
+
+        if (plan.CoveringBounds.HasValue && !Contains(plan.CoveringBounds.Value, point))
+        {
+            continue;
+        }
+
+        if (engine.Distance.Distance(center, point) <= 5_000 + tolerance)
+        {
+            matches.Add(doc);
+        }
+    }
 }
+```
 
-static GeoPolygon SquareAround(double lat, double lon, double halfExtent)
+Helper functions `ToIndexValue` and `Contains` simply convert `ulong` ranges to
+`BsonValue` and perform axis-aligned checks. The same pattern applies to three-dimensional
+collections by swapping `GeoPoint` for `GeoPoint3D` and using `Contains` overloads that
+compare all six bounding-box coordinates.
+
+```csharp
+static IEnumerable<(BaseLiteDB.BsonDocument Document, GeoPoint Point)> EnumeratePlan2D(
+    SpatialCollectionDescriptor descriptor,
+    BaseLiteDB.ILiteCollection<BaseLiteDB.BsonDocument> collection,
+    ISpatialQueryPlan plan)
 {
-    var topLeft = new GeoPoint(lat + halfExtent, lon - halfExtent);
-    var topRight = new GeoPoint(lat + halfExtent, lon + halfExtent);
-    var bottomRight = new GeoPoint(lat - halfExtent, lon + halfExtent);
-    var bottomLeft = new GeoPoint(lat - halfExtent, lon - halfExtent);
+    var engine = descriptor.Engine ?? throw new InvalidOperationException();
+    var visited = new HashSet<int>();
 
-    return new GeoPolygon(new[] { topLeft, topRight, bottomRight, bottomLeft, topLeft });
+    foreach (var range in plan.IndexRanges)
+    {
+        var query = collection.Query().Where(BaseLiteDB.Query.Between(
+            descriptor.Options.IndexFieldName,
+            ToIndexValue(range.Start),
+            ToIndexValue(range.End)));
+
+        foreach (var document in query.ToDocuments())
+        {
+            if (!visited.Add(document["_id"].AsInt32))
+            {
+                continue;
+            }
+
+            if (!engine.Mapper.TryReadPoint(document, out GeoPoint point))
+            {
+                continue;
+            }
+
+            if (plan.CoveringBounds.HasValue && !Contains(plan.CoveringBounds.Value, point))
+            {
+                continue;
+            }
+
+            yield return (document, point);
+        }
+    }
 }
 ```
 
-`_mbb` now persists the original coordinate values (degrees for geographic data and native units for Cartesian projections). Th
-is keeps diagnostics readable and ensures planner coverings can be compared directly against stored bounding boxes without norm
-alization math.
+## 4. Bounding box queries
 
-## 2. Index-Aware Queries
-
-### Radius Searches
-
-`Spatial.Near` now projects circle queries into Morton range scans and `_mbb` filters before falling back to geometry checks. This avoids `FindAll()` enumeration even on large collections.
+Bounding-box searches rely on the same infrastructure. Request a plan using
+`Spatial.WithinBoundingBox` and filter results using the raw bounding box values stored
+in `_mbb` or by re-reading the geometry via the engine mapper.
 
 ```csharp
-var vienna = new GeoPoint(48.2082, 16.3738);
-var withinFiveKm = Spatial.Near(places, x => x.Location, vienna, radiusMeters: 5_000).ToList();
-```
-
-### Bounding Boxes
-
-Bounding-box queries reuse the same range generator and anti-meridian aware filters:
-
-```csharp
-var hits = Spatial.WithinBoundingBox(places, x => x.Location, 47.9, 16.1, 48.4, 16.6).ToList();
-```
-
-### Polygon Containment & Intersections
-
-Shape-based queries can rely on the lightweight `_mbb` predicate that gets folded into the pipeline before precise geometry calculations:
-
-```csharp
-var downtown = SquareAround(48.2082, 16.3738, 0.15);
-var inside = Spatial.Within(places, x => x.Footprint, downtown).ToList();
-```
-
-## 3. Expression & LINQ Operators
-
-Spatial functions participate in the LINQ translator and the expression engine via the new operators:
-
-| C# Call | Bson Expression |
-| --- | --- |
-| `Spatial.Near(doc.Location, center, 1000)` | `SPATIAL_NEAR($.Location, @0, @1)` |
-| `Spatial.Within(doc.Footprint, polygon)` | `SPATIAL_WITHIN($.Footprint, @0)` |
-| `Spatial.Intersects(doc.Route, query)` | `SPATIAL_INTERSECTS($.Route, @0)` |
-| `Spatial.Contains(doc.Footprint, point)` | `SPATIAL_CONTAINS_POINT($.Footprint, @0)` |
-
-```csharp
-var linq = places.Query()
-    .Where(p => Spatial.Near(p.Location, vienna, 2_000))
-    .Select(p => new { p.Name, p.Location })
+var bounds = BoundingBox.From2D(16.2, 48.0, 17.3, 48.4);
+var plan = Spatial.WithinBoundingBox(descriptor, bounds);
+var inBox = EnumeratePlan2D(descriptor, places, plan)
+    .Where(item => Contains(bounds, item.Point))
+    .Select(item => item.Document)
     .ToList();
 ```
 
-Each operator pairs with the indexed `_gh` ranges captured by `EnsurePointIndex`, maintaining fast candidate pruning.
+## 5. Diagnostics and explain output
 
-## 4. Benchmarking Spatial Pipelines
+`SpatialDiagnostics.Explain(plan, descriptor)` produces a human-readable summary. Sample
+output for a geographic near query:
 
-`LiteDB.Benchmarks` ships with a `SpatialQueryBenchmarks` suite that tracks radius, bounding-box, containment, and intersection workloads across dataset sizes. Run:
-
-```bash
-dotnet run --project LiteDB.Benchmarks -c Release --filter "SpatialQueryBenchmarks"
+```
+Engine: Geographic (2D)
+Index field: _idx
+Bounding box field: _mbb
+Index ranges (3) via _idx
+  - [1208925819614629170, 1208925819614631231] (0x10C0000C00000002 - 0x10C0000C000007FF)
+  - [1208925819614637056, 1208925819614639615] (0x10C0000C00001800 - 0x10C0000C00001FFF)
+  - [1208925819614643712, 1208925819614646271] (0x10C0000C00003000 - 0x10C0000C000037FF)
+Covering bounds via _mbb: [16.32, 48.17, 16.42, 48.25]
+Exact predicate: distance <= 5000 m
 ```
 
-The new benchmarks emit allocations and wall-clock metrics so regressions are easy to spot as spatial features evolve.
+The explain output is ideal for logging and regression tests: range counts highlight
+Morton cover sizes, while bounding boxes and exact predicates confirm the planner is
+applying index-aware pruning.
 
-## 5. Sample REST API
+## 6. LINQ integration
 
-A minimal API showcasing radius and polygon queries lives under `samples/SpatialApiSample`. Seed and query via:
+The `LiteDB.Spatial.Core` package ships `SpatialExpressions` and `SpatialResolver`. When
+a resolver is registered with the queryable pipeline, expressions such as
+`doc => SpatialExpressions.Near(doc.Location, target, radius)` are translated into the
+same plans described above. Index ranges are injected into the expression tree, ensuring
+queries remain index-aware even when composed via LINQ.
 
-```bash
-dotnet run --project samples/SpatialApiSample
-# In another terminal
-curl -X POST http://localhost:5000/seed
-curl "http://localhost:5000/places/near?lat=48.2&lon=16.37&radiusKm=5"
-```
+---
 
-The endpoint reuses the shared helpers, ensuring metadata is created automatically and results arrive sorted by distance.
-
-## 6. Troubleshooting & Options
-
-`SpatialOptions` exposes tunables for query precision and numeric tolerances:
-
-```csharp
-Spatial.Options = new SpatialOptions
-{
-    IndexPrecisionBits = 48,
-    NumericToleranceDegrees = 1e-8,
-    MaxCoveringCells = 64,
-    Distance = DistanceFormula.Vincenty
-};
-```
-
-Changing `IndexPrecisionBits` updates persisted metadata the next time `EnsurePointIndex` runs, so the engine always knows how to slice query ranges. Adjust `NumericToleranceDegrees` if your datasets require more relaxed comparisons for noisy coordinates.
+The combination of metadata descriptors, automatic backfill, and diagnostic-friendly
+plans lets you mix geographic, Cartesian 2D, and Cartesian 3D collections in the same
+application without juggling global singletons or bespoke index fields.

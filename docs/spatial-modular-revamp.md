@@ -166,15 +166,42 @@ LiteDB.Spatial
 
 ### S11 — Top-level facade & dispatch
 
-- [ ] `LiteDB.Spatial.Spatial` entry point manages engine configuration and dispatch.
+- [x] `LiteDB.Spatial.Spatial` entry point manages engine configuration and dispatch.
+
+**Notes**
+
+- Added a dedicated `LiteDB.Spatial` project that wires metadata persistence, index
+  creation, backfill, and plan dispatch across the geographic, Cartesian 2D, and
+  Cartesian 3D engines. The facade automatically provisions a B-Tree on `"$._idx"` and
+  exposes engine-neutral helpers for `Use*`, `EnsurePointIndex`, `Near`, and
+  `WithinBoundingBox`.
+- Integration tests exercise the facade end-to-end for each engine and assert that plans
+  are emitted with non-empty Morton ranges and compatible bounding boxes.
 
 ### S12 — Migration & docs
 
-- [ ] Author upgrade/guide/diagnostics documentation with samples.
+- [x] Author upgrade/guide/diagnostics documentation with samples.
+
+**Notes**
+
+- Authored `docs/spatial-upgrade.md`, `docs/spatial-guide.md`, and
+  `docs/spatial-diagnostics.md` to describe the new metadata workflow, index backfill,
+  manual plan execution, and explain output.
+- Updated the minimal API sample to use the facade directly for both geographic and
+  Cartesian 3D collections.
 
 ### S13 — Benchmarks & regression guardrails
 
-- [ ] Capture performance baselines and add regression guardrails.
+- [x] Capture performance baselines and add regression guardrails.
+
+**Notes**
+
+- Reworked the spatial benchmark to compare near/bounding-box workloads with and
+  without index-backed plan execution while capturing candidate reduction.
+- Added an integration test that validates the facade-driven plan trims candidate sets on
+  a dense Cartesian grid, providing a regression guardrail for planner changes.
+- Standardized benchmark imports around the aliased `LiteDB` reference so the suite builds
+  alongside the new facade project without manual edits per benchmark class.
 
 ---
 
