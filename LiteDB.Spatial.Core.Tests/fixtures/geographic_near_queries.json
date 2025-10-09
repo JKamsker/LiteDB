@@ -1,0 +1,26 @@
+[
+  {
+    "id": "tokyo_core",
+    "center": { "lon": 139.7671, "lat": 35.6812 },
+    "radiusMeters": 6000.0,
+    "points": [
+      { "id": "tokyo_station", "lon": 139.7671, "lat": 35.6812 },
+      { "id": "shinjuku", "lon": 139.7006, "lat": 35.6895 },
+      { "id": "tokyo_tower", "lon": 139.7454, "lat": 35.6586 },
+      { "id": "yokohama", "lon": 139.6380, "lat": 35.4437 },
+      { "id": "sapporo", "lon": 141.3545, "lat": 43.0618 }
+    ]
+  },
+  {
+    "id": "andes_arc",
+    "center": { "lon": -77.0428, "lat": -12.0464 },
+    "radiusMeters": 150000.0,
+    "points": [
+      { "id": "lima", "lon": -77.0428, "lat": -12.0464 },
+      { "id": "callao", "lon": -77.1290, "lat": -12.0560 },
+      { "id": "cusco", "lon": -71.9675, "lat": -13.5319 },
+      { "id": "quito", "lon": -78.4678, "lat": -0.1807 },
+      { "id": "santiago", "lon": -70.6690, "lat": -33.4489 }
+    ]
+  }
+]
