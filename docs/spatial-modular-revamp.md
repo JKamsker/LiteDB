@@ -142,15 +142,15 @@ LiteDB.Spatial
 
 ### S8 — LINQ resolver
 
-- [ ] Translate `SpatialExpressions` into query plans based on metadata.
+- [x] Translate `SpatialExpressions` into query plans based on metadata.
 
 ### S9 — Diagnostics ("Explain")
 
-- [ ] Produce printable `SpatialExplainResult` summaries for query plans.
+- [x] Produce printable `SpatialExplainResult` summaries for query plans.
 
 ### S10 — GeoJSON I/O (minimal)
 
-- [ ] `GeoJsonSerializer` round-trips GeoPoint/Polygon/LineString data.
+- [x] `GeoJsonSerializer` round-trips GeoPoint/Polygon/LineString data.
 
 ### S11 — Top-level facade & dispatch
 
