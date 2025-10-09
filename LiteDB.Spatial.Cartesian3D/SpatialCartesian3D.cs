@@ -35,6 +35,16 @@ public static class SpatialCartesian3D
         }
 
         var effectiveOptions = options ?? new SpatialIndexOptions();
+
+        // Morton encoding interleaves coordinate bits into a 64-bit key. Limiting
+        // precision to 21 bits per axis keeps the combined key within 63 bits for
+        // three-dimensional datasets and avoids wrap-around during query planning.
+        const int MaxSupportedPrecisionBits = 21;
+
+        if (effectiveOptions.PrecisionBits > MaxSupportedPrecisionBits)
+        {
+            effectiveOptions = effectiveOptions.With(precisionBits: MaxSupportedPrecisionBits);
+        }
         var settings = SpatialEngineSettings.ForCartesian(domain);
         var descriptor = new SpatialCollectionDescriptor(collection.Name, Cartesian3DEngine.EngineNameValue, 3, geometryFieldName, effectiveOptions, settings);
         metadata.SaveDescriptor(collection.Name, descriptor);
