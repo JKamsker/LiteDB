@@ -94,11 +94,15 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
     private SpatialQueryPlan BuildPlanFromSegments(IReadOnlyList<GeographicBoundsSegment> segments, double radius, string predicateUnit)
     {
         var ranges = new List<SpatialIndexRange>();
+        long coveringCells = 0;
+        var usedFallback = false;
 
         foreach (var segment in segments)
         {
-            var coverings = _encoder.Cover(segment.Normalized, _options.MaxCoveringCells);
-            ranges.AddRange(coverings);
+            var covering = _encoder.Cover(segment.Normalized, _options.MaxCoveringCells);
+            ranges.AddRange(covering.Ranges);
+            coveringCells += covering.CoveringCellCount;
+            usedFallback |= covering.UsedMaxCoveringCellFallback;
         }
 
         var mergedRanges = MortonIndexEncoder.UnionAdjacentRanges(ranges);
@@ -113,7 +117,8 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
             _ => BoundingBox.From2D(-180d, segments.Min(s => s.MinLatitude), 180d, segments.Max(s => s.MaxLatitude))
         };
 
-        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, mergedRanges, predicate);
+        var coveringCellCount = coveringCells > int.MaxValue ? int.MaxValue : (int)coveringCells;
+        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, mergedRanges, predicate, coveringCellCount, usedFallback);
     }
 
     private static void ValidateGeoPoint(GeoPoint point)
