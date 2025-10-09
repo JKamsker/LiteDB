@@ -7,7 +7,7 @@
   * **NetTopologySuite (NTS)** — robust predicates: `Contains`, `Intersects`, `Within`, polygon holes/edge cases.
 * **Geodesic distances (Earth):**
 
-  * **GeographicLib** (C# port if available; otherwise precomputed vectors from C++/CLI) — great-circle, inverse geodesic; use as golden values.
+  * **GeographicLib.NET** (managed port of GeographicLib) — great-circle, inverse geodesic; use as golden values.
 * **Projections / CRS transforms (optional sanity):**
 
   * **ProjNET** — to cross-check lon/lat ↔ projected calculations for small-radius approximations.
@@ -21,6 +21,18 @@
 
   * **PostGIS** (Docker) — `ST_DWithin`, `ST_Intersects`, anti-meridian polygons;
   * **SQLite+RTree/SpatiaLite** — bbox/near behavior.
+
+## Centralised oracle support (new)
+
+* The `LiteDB.Spatial.Testing.Oracles` project is now part of the solution; reference it from any test assembly that needs external truth data.
+* Each adapter implements a small surface (`IGeodesicOracle`, `IGeometryOracle2D`, `IDistanceOracle3D`) and respects two environment gates:
+  * `SPATIAL_ORACLES` — comma separated list (`nts,geographiclib,mathnet,postgis`) or `*` for all. An empty value enables the managed adapters by default.
+  * `SPATIAL_DB_TESTS` — opt-in flag (`1`, `true`, `on`) that unlocks heavyweight integrations such as `PostgisOracle`.
+* Apply `[OracleSkip("nts")]` (or the relevant name) alongside `[Fact]`/`[Theory]`. The attribute throws an xUnit skip with the precise reason when an oracle is disabled.
+* Helper types live under `LiteDB.Spatial.Core.Tests/Infrastructure`:
+  * `FixtureLoader` parses JSON packs from `tests/fixtures` (geodesic pairs, GeoJSON polygons, 3D point clouds).
+  * `SpatialTolerance` exposes consistent tolerances for geographic vs cartesian domains and annotates failure messages with fixture IDs and deltas.
+  * `SnapshotOnFailure` saves JSON payloads to `tests/fixtures/_snapshots/` when an assertion needs extra context.
 
 ## Public datasets & fixtures
 

@@ -1,0 +1,22 @@
+{
+  "pairs": [
+    {
+      "id": "nyc-lon",
+      "start": { "lat": 40.7128, "lon": -74.0060 },
+      "end": { "lat": 51.5074, "lon": -0.1278 },
+      "expected_meters": 5585233.5789313
+    },
+    {
+      "id": "syd-tok",
+      "start": { "lat": -33.8688, "lon": 151.2093 },
+      "end": { "lat": 35.6762, "lon": 139.6503 },
+      "expected_meters": 7792174.827115239
+    },
+    {
+      "id": "equator-cross",
+      "start": { "lat": 0.0, "lon": -45.0 },
+      "end": { "lat": 0.0, "lon": 45.0 },
+      "expected_meters": 10018754.171394622
+    }
+  ]
+}
