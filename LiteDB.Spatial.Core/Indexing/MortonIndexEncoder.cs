@@ -61,7 +61,7 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<SpatialIndexRange> Cover(BoundingBox bounds, int maxCells)
+    public SpatialCoveringResult Cover(BoundingBox bounds, int maxCells)
     {
         if (bounds.Dimensions != Dimensions)
         {
@@ -80,7 +80,7 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
 
         if (totalCells == 0)
         {
-            return Array.Empty<SpatialIndexRange>();
+            return new SpatialCoveringResult(Array.Empty<SpatialIndexRange>(), 0, maxCells, 0);
         }
 
         if (totalCells > _enumerationThreshold)
@@ -92,15 +92,18 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
                 (start, end) = (end, start);
             }
 
-            return new[] { new SpatialIndexRange(start, end) };
+            var ranges = new[] { new SpatialIndexRange(start, end) };
+            return new SpatialCoveringResult(ranges, totalCells, maxCells, ranges.Length);
         }
 
         var buffer = new List<ulong>((int)Math.Min(totalCells, int.MaxValue));
         EnumerateCodes(minimum, maximum, buffer, new ulong[Dimensions], 0);
         buffer.Sort();
 
-        var ranges = BuildRanges(buffer);
-        return ReduceRangeCount(ranges, maxCells);
+        var coverageRanges = BuildRanges(buffer);
+        var originalRangeCount = coverageRanges.Count;
+        var reduced = ReduceRangeCount(coverageRanges, maxCells);
+        return new SpatialCoveringResult(reduced, totalCells, maxCells, originalRangeCount);
     }
 
     /// <summary>

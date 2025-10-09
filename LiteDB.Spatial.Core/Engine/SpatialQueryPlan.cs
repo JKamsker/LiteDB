@@ -16,13 +16,13 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
     /// <param name="engineName">The name of the spatial engine that produced the plan.</param>
     /// <param name="dimensions">The dimensionality of the spatial index.</param>
     /// <param name="coveringBounds">The optional coarse covering bounds.</param>
-    /// <param name="indexRanges">The index ranges that should be scanned.</param>
+    /// <param name="covering">Details about the Morton covering produced for the plan.</param>
     /// <param name="predicateDescription">Human friendly description of the exact predicate.</param>
     public SpatialQueryPlan(
         string engineName,
         int dimensions,
         BoundingBox? coveringBounds,
-        IReadOnlyList<SpatialIndexRange> indexRanges,
+        SpatialCoveringResult covering,
         string? predicateDescription)
     {
         if (string.IsNullOrWhiteSpace(engineName))
@@ -38,7 +38,7 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
         EngineName = engineName;
         Dimensions = dimensions;
         CoveringBounds = coveringBounds;
-        IndexRanges = indexRanges ?? throw new ArgumentNullException(nameof(indexRanges));
+        Covering = covering ?? throw new ArgumentNullException(nameof(covering));
         ExactPredicateDescription = predicateDescription;
     }
 
@@ -52,8 +52,13 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
     public BoundingBox? CoveringBounds { get; }
 
     /// <inheritdoc />
-    public IReadOnlyList<SpatialIndexRange> IndexRanges { get; }
+    public IReadOnlyList<SpatialIndexRange> IndexRanges => Covering.Ranges;
 
     /// <inheritdoc />
     public string? ExactPredicateDescription { get; }
+
+    /// <summary>
+    /// Gets details about the Morton covering used for this plan.
+    /// </summary>
+    public SpatialCoveringResult Covering { get; }
 }
