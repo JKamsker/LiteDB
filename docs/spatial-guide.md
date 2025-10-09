@@ -26,8 +26,8 @@ public class Place
     public GeoPoint Location { get; set; } = new GeoPoint(0, 0);
     public GeoPolygon Footprint { get; set; } = SquareAround(0, 0, 0.05);
 
-    internal long _gh { get; set; }
-    internal double[] _mbb { get; set; } = Array.Empty<double>();
+internal long _gh { get; set; }
+internal double[] _mbb { get; set; } = Array.Empty<double>();
 }
 
 static GeoPolygon SquareAround(double lat, double lon, double halfExtent)
@@ -40,6 +40,10 @@ static GeoPolygon SquareAround(double lat, double lon, double halfExtent)
     return new GeoPolygon(new[] { topLeft, topRight, bottomRight, bottomLeft, topLeft });
 }
 ```
+
+`_mbb` now persists the original coordinate values (degrees for geographic data and native units for Cartesian projections). Th
+is keeps diagnostics readable and ensures planner coverings can be compared directly against stored bounding boxes without norm
+alization math.
 
 ## 2. Index-Aware Queries
 

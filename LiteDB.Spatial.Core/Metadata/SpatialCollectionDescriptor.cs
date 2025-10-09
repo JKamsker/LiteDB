@@ -29,6 +29,7 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
         int dimensions,
         string geometryFieldName,
         SpatialIndexOptions options,
+        SpatialEngineSettings? settings = null,
         ISpatialEngine? engine = null)
     {
         if (string.IsNullOrWhiteSpace(collectionName))
@@ -51,6 +52,7 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
         Dimensions = dimensions;
         GeometryFieldName = string.IsNullOrWhiteSpace(geometryFieldName) ? DefaultGeometryFieldName : geometryFieldName;
         Options = options ?? throw new ArgumentNullException(nameof(options));
+        Settings = settings ?? SpatialEngineSettings.Empty;
         Engine = engine;
     }
 
@@ -78,6 +80,11 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
     /// Gets the index options associated with the collection.
     /// </summary>
     public SpatialIndexOptions Options { get; }
+
+    /// <summary>
+    /// Gets additional metadata describing engine-specific configuration.
+    /// </summary>
+    public SpatialEngineSettings Settings { get; }
 
     /// <summary>
     /// Gets the runtime engine instance when attached.
@@ -121,7 +128,33 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
             throw new ArgumentException("Engine options do not match the descriptor options.", nameof(engine));
         }
 
-        return new SpatialCollectionDescriptor(CollectionName, EngineName, Dimensions, GeometryFieldName, Options, engine);
+        if (Settings.Domain is { } domain)
+        {
+            if (engine is not ICartesianSpatialEngine cartesian)
+            {
+                throw new ArgumentException("Descriptor domain metadata is only supported for Cartesian engines.", nameof(engine));
+            }
+
+            if (!cartesian.Domain.Equals(domain))
+            {
+                throw new ArgumentException("Engine domain does not match the descriptor settings.", nameof(engine));
+            }
+        }
+
+        if (Settings.DistanceMode is { } mode)
+        {
+            if (engine is not IGeographicSpatialEngine geographic)
+            {
+                throw new ArgumentException("Descriptor distance mode metadata is only supported for geographic engines.", nameof(engine));
+            }
+
+            if (geographic.DistanceMode != mode)
+            {
+                throw new ArgumentException("Engine distance mode does not match the descriptor settings.", nameof(engine));
+            }
+        }
+
+        return new SpatialCollectionDescriptor(CollectionName, EngineName, Dimensions, GeometryFieldName, Options, Settings, engine);
     }
 
     /// <summary>
@@ -160,7 +193,8 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
             && string.Equals(EngineName, other.EngineName, StringComparison.Ordinal)
             && Dimensions == other.Dimensions
             && string.Equals(GeometryFieldName, other.GeometryFieldName, StringComparison.Ordinal)
-            && Options.Equals(other.Options);
+            && Options.Equals(other.Options)
+            && Settings.Equals(other.Settings);
     }
 
     /// <inheritdoc />
@@ -179,6 +213,7 @@ public sealed class SpatialCollectionDescriptor : IEquatable<SpatialCollectionDe
             hash = (hash * 397) ^ Dimensions;
             hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(GeometryFieldName);
             hash = (hash * 397) ^ Options.GetHashCode();
+            hash = (hash * 397) ^ Settings.GetHashCode();
             return hash;
         }
     }

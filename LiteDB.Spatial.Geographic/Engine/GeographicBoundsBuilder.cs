@@ -104,6 +104,11 @@ internal static class GeographicBoundsBuilder
         var clampedMinLat = ClampLatitude(minLat);
         var clampedMaxLat = ClampLatitude(maxLat);
 
+        if (minLon > maxLon)
+        {
+            (minLon, maxLon) = (maxLon, minLon);
+        }
+
         var normalizedMinLon = NormalizeLongitudeToUnit(minLon);
         var normalizedMaxLon = NormalizeLongitudeToUnit(maxLon);
         var normalizedMinLat = NormalizeLatitudeToUnit(clampedMinLat);
@@ -115,7 +120,19 @@ internal static class GeographicBoundsBuilder
             Math.Max(normalizedMinLon, normalizedMaxLon),
             Math.Max(normalizedMinLat, normalizedMaxLat));
 
-        return new GeographicBoundsSegment(normalizedBounds, normalizedMinLat, normalizedMaxLat, normalizedMinLon, normalizedMaxLon);
+        var worldBounds = BoundingBox.From2D(
+            Math.Min(minLon, maxLon),
+            clampedMinLat,
+            Math.Max(minLon, maxLon),
+            clampedMaxLat);
+
+        return new GeographicBoundsSegment(
+            normalizedBounds,
+            worldBounds,
+            clampedMinLat,
+            clampedMaxLat,
+            minLon,
+            maxLon);
     }
 
     private static bool IsLatitudeWithinRange(double latitude)
@@ -176,22 +193,31 @@ internal static class GeographicBoundsBuilder
 
 internal readonly struct GeographicBoundsSegment
 {
-    public GeographicBoundsSegment(BoundingBox normalized, double minLatNormalized, double maxLatNormalized, double minLonNormalized, double maxLonNormalized)
+    public GeographicBoundsSegment(
+        BoundingBox normalized,
+        BoundingBox world,
+        double minLatitude,
+        double maxLatitude,
+        double minLongitude,
+        double maxLongitude)
     {
         Normalized = normalized;
-        MinLatitudeNormalized = minLatNormalized;
-        MaxLatitudeNormalized = maxLatNormalized;
-        MinLongitudeNormalized = minLonNormalized;
-        MaxLongitudeNormalized = maxLonNormalized;
+        World = world;
+        MinLatitude = minLatitude;
+        MaxLatitude = maxLatitude;
+        MinLongitude = minLongitude;
+        MaxLongitude = maxLongitude;
     }
 
     public BoundingBox Normalized { get; }
 
-    public double MinLatitudeNormalized { get; }
+    public BoundingBox World { get; }
 
-    public double MaxLatitudeNormalized { get; }
+    public double MinLatitude { get; }
 
-    public double MinLongitudeNormalized { get; }
+    public double MaxLatitude { get; }
 
-    public double MaxLongitudeNormalized { get; }
+    public double MinLongitude { get; }
+
+    public double MaxLongitude { get; }
 }

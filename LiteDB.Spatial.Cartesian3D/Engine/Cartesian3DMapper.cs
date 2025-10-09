@@ -8,22 +8,24 @@ using BaseLiteDB = LiteDbBase::LiteDB;
 namespace LiteDB.Spatial;
 
 /// <summary>
-/// Maps two-dimensional Cartesian points to normalized Morton coordinates.
+/// Maps three-dimensional Cartesian points to normalized Morton coordinates.
 /// </summary>
-public sealed class Cartesian2DMapper : ISpatialMapper
+public sealed class Cartesian3DMapper : ISpatialMapper
 {
     private readonly CartesianNormalizer _normalizer;
     private readonly ISpatialIndexEncoder _encoder;
     private readonly string _geometryFieldName;
     private readonly string _xFieldName;
     private readonly string _yFieldName;
+    private readonly string _zFieldName;
 
-    public Cartesian2DMapper(
+    public Cartesian3DMapper(
         CartesianNormalizer normalizer,
         ISpatialIndexEncoder encoder,
         string geometryFieldName,
         string xFieldName = "x",
-        string yFieldName = "y")
+        string yFieldName = "y",
+        string zFieldName = "z")
     {
         _normalizer = normalizer ?? throw new ArgumentNullException(nameof(normalizer));
         _encoder = encoder ?? throw new ArgumentNullException(nameof(encoder));
@@ -32,39 +34,47 @@ public sealed class Cartesian2DMapper : ISpatialMapper
             : geometryFieldName;
         _xFieldName = string.IsNullOrWhiteSpace(xFieldName) ? "x" : xFieldName;
         _yFieldName = string.IsNullOrWhiteSpace(yFieldName) ? "y" : yFieldName;
+        _zFieldName = string.IsNullOrWhiteSpace(zFieldName) ? "z" : zFieldName;
     }
 
     /// <inheritdoc />
     public BoundingBox GetBoundingBox(GeoPoint point)
     {
-        var normalized = _normalizer.NormalizePoint2D(point.Longitude, point.Latitude);
-        return BoundingBox.From2D(normalized.x, normalized.y, normalized.x, normalized.y);
+        throw new NotSupportedException("Cartesian3D mapper requires three-dimensional points.");
     }
 
     /// <inheritdoc />
     public BoundingBox GetBoundingBox(GeoPoint3D point)
     {
-        throw new NotSupportedException("Cartesian2D mapper cannot project three-dimensional points.");
+        return BoundingBox.From3D(point.X, point.Y, point.Z, point.X, point.Y, point.Z);
     }
 
     /// <inheritdoc />
     public ulong Encode(GeoPoint point)
     {
-        var normalized = _normalizer.NormalizePoint2D(point.Longitude, point.Latitude);
-        Span<double> buffer = stackalloc double[2];
-        buffer[0] = normalized.x;
-        buffer[1] = normalized.y;
-        return _encoder.Encode(buffer);
+        throw new NotSupportedException("Cartesian3D mapper requires three-dimensional points.");
     }
 
     /// <inheritdoc />
     public ulong Encode(GeoPoint3D point)
     {
-        throw new NotSupportedException("Cartesian2D mapper cannot project three-dimensional points.");
+        var normalized = _normalizer.NormalizePoint3D(point.X, point.Y, point.Z);
+        Span<double> buffer = stackalloc double[3];
+        buffer[0] = normalized.x;
+        buffer[1] = normalized.y;
+        buffer[2] = normalized.z;
+        return _encoder.Encode(buffer);
     }
 
     /// <inheritdoc />
     public bool TryReadPoint(BaseLiteDB.BsonDocument document, out GeoPoint point)
+    {
+        point = default;
+        return false;
+    }
+
+    /// <inheritdoc />
+    public bool TryReadPoint(BaseLiteDB.BsonDocument document, out GeoPoint3D point)
     {
         if (document == null)
         {
@@ -78,21 +88,16 @@ public sealed class Cartesian2DMapper : ISpatialMapper
         }
 
         var geometryDoc = geometry.AsDocument;
-        if (!TryReadDouble(geometryDoc, _xFieldName, out var x) || !TryReadDouble(geometryDoc, _yFieldName, out var y))
+        if (!TryReadDouble(geometryDoc, _xFieldName, out var x) ||
+            !TryReadDouble(geometryDoc, _yFieldName, out var y) ||
+            !TryReadDouble(geometryDoc, _zFieldName, out var z))
         {
             point = default;
             return false;
         }
 
-        point = new GeoPoint(x, y);
+        point = new GeoPoint3D(x, y, z);
         return true;
-    }
-
-    /// <inheritdoc />
-    public bool TryReadPoint(BaseLiteDB.BsonDocument document, out GeoPoint3D point)
-    {
-        point = default;
-        return false;
     }
 
     private static bool TryReadDouble(BaseLiteDB.BsonDocument document, string field, out double value)

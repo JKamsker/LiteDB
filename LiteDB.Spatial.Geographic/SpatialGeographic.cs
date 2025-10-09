@@ -35,14 +35,19 @@ public static class SpatialGeographic
         }
 
         var effectiveOptions = options ?? new SpatialIndexOptions();
-        var descriptor = new SpatialCollectionDescriptor(collection.Name, GeographicEngine.EngineNameValue, 2, geometryFieldName, effectiveOptions);
+        var settings = SpatialEngineSettings.ForGeographic(distanceMode);
+        var descriptor = new SpatialCollectionDescriptor(collection.Name, GeographicEngine.EngineNameValue, 2, geometryFieldName, effectiveOptions, settings);
         metadata.SaveDescriptor(collection.Name, descriptor);
 
         collection.EnsureIndex(effectiveOptions.IndexFieldName);
         collection.EnsureIndex(effectiveOptions.BoundingBoxFieldName);
 
         var engine = new GeographicEngine(geometryFieldName, effectiveOptions, distanceMode);
-        return descriptor.WithEngine(engine);
+        var descriptorWithEngine = descriptor.WithEngine(engine);
+
+        SpatialBackfill.Run(collection, descriptorWithEngine, engine);
+
+        return descriptorWithEngine;
     }
 
     public static ISpatialQueryPlan Near(
@@ -80,14 +85,23 @@ public static class SpatialGeographic
             throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' must be two-dimensional for geographic queries.");
         }
 
+        var configuredMode = descriptor.Settings.DistanceMode ?? GeographicDistanceMode.Haversine;
+
+        if (requestedMode.HasValue && descriptor.Settings.DistanceMode.HasValue && descriptor.Settings.DistanceMode.Value != requestedMode.Value)
+        {
+            throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is configured for {descriptor.Settings.DistanceMode.Value} distances but '{requestedMode.Value}' was requested.");
+        }
+
+        var effectiveMode = requestedMode ?? configuredMode;
+
         if (descriptor.HasEngine && descriptor.Engine is GeographicEngine geographic)
         {
-            if (requestedMode == null || geographic.DistanceMode == requestedMode)
+            if (geographic.DistanceMode == effectiveMode)
             {
                 return geographic;
             }
         }
 
-        return new GeographicEngine(descriptor.GeometryFieldName, descriptor.Options, requestedMode ?? GeographicDistanceMode.Haversine);
+        return new GeographicEngine(descriptor.GeometryFieldName, descriptor.Options, effectiveMode);
     }
 }

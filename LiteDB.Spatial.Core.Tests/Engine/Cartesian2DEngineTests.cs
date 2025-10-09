@@ -24,8 +24,8 @@ public sealed class Cartesian2DEngineTests
         plan.Dimensions.Should().Be(2);
         plan.CoveringBounds.Should().NotBeNull();
         var covering = plan.CoveringBounds!.Value;
-        covering.MinX.Should().BeApproximately(0.05, 1e-6);
-        covering.MaxX.Should().BeApproximately(0.15, 1e-6);
+        covering.MinX.Should().BeApproximately(5, 1e-6);
+        covering.MaxX.Should().BeApproximately(15, 1e-6);
         plan.IndexRanges.Should().NotBeEmpty();
     }
 
@@ -40,8 +40,8 @@ public sealed class Cartesian2DEngineTests
 
         plan.CoveringBounds.Should().NotBeNull();
         var covering = plan.CoveringBounds!.Value;
-        covering.MinX.Should().BeApproximately(0.25, 1e-6);
-        covering.MinY.Should().BeApproximately(0.25, 1e-6);
+        covering.MinX.Should().BeApproximately(-5, 1e-6);
+        covering.MinY.Should().BeApproximately(-5, 1e-6);
     }
 
     [Fact]
@@ -62,9 +62,29 @@ public sealed class Cartesian2DEngineTests
         var metadata = new SpatialMetadataStore(database);
         var domain = BoundingBox.From2D(0, 0, 10, 10);
 
+        collection.Insert(new BaseLiteDB.BsonDocument
+        {
+            ["_id"] = 1,
+            ["position"] = new BaseLiteDB.BsonDocument
+            {
+                ["x"] = 1.5,
+                ["y"] = 2.5
+            }
+        });
+
         var descriptor = SpatialCartesian2D.EnsurePointIndex(metadata, collection, "position", domain, new SpatialIndexOptions(precisionBits: 6));
 
         descriptor.Engine.Should().BeOfType<Cartesian2DEngine>();
-        SpatialCartesian2D.Near(descriptor, new GeoPoint(5, 5), 1).IndexRanges.Should().NotBeEmpty();
+        descriptor.Settings.Domain.Should().Be(domain);
+
+        var plan = SpatialCartesian2D.Near(descriptor, new GeoPoint(5, 5), 1);
+        plan.IndexRanges.Should().NotBeEmpty();
+
+        var stored = collection.FindById(new BaseLiteDB.BsonValue(1));
+        ((object?)stored).Should().NotBeNull();
+        var bounding = stored![descriptor.Options.BoundingBoxFieldName].AsArray;
+        bounding.Count.Should().Be(4);
+        bounding[0].AsDouble.Should().BeApproximately(1.5, 1e-6);
+        bounding[1].AsDouble.Should().BeApproximately(2.5, 1e-6);
     }
 }

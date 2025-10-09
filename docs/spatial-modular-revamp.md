@@ -81,7 +81,7 @@ LiteDB.Spatial
 
 **Notes**
 
-- Implemented `SpatialCollectionDescriptor` equality semantics and persisted geometry field metadata, plus a metadata store with caching, round-trip persistence, and friendly error messages when metadata is missing or incompatible with stored documents.
+- Implemented `SpatialCollectionDescriptor` equality semantics, persisted geometry field metadata, and introduced `SpatialEngineSettings` so descriptors round-trip per-engine configuration like Cartesian domains and geographic distance modes.
 - Added schema validation helpers to flag mismatched bounding box lengths and non-numeric index/bounding box values, easing diagnosis of dimensional errors.
 
 ### S4 — Backfill utility
@@ -96,14 +96,14 @@ LiteDB.Spatial
 
 ### S5 — Geographic engine (2D)
 
-- [ ] Deliver `GeographicEngine` with near/box planners, mapper, and facade helpers.
+- [x] Deliver `GeographicEngine` with near/box planners, mapper, and facade helpers.
   - `PlanNear2D` must expose both Haversine and Vincenty distance modes with range coalescing tuned for meter-based tolerances.
   - `PlanWithinBox2D` needs explicit anti-meridian handling so bounding boxes that cross ±180° still emit coherent `_mbb` filters.
-  - Mapper should quantize lon/lat into Morton2D codes, normalize bounding boxes, and record metadata for subsequent backfills.
-- [ ] Handle wraparound and polar helpers with tests for real-world coordinates.
+  - Mapper should quantize lon/lat into Morton2D codes, normalize bounding boxes for the encoder, and persist world-space `_mbb` values for diagnostics.
+- [x] Handle wraparound and polar helpers with tests for real-world coordinates.
   - Introduce helpers for longitude wrapping and polar clamping to avoid discontinuities around the poles.
   - Guard rails for invalid latitude/longitude inputs with actionable error messages surfaced through the facade.
-- [ ] Ship `SpatialGeographic` facade utilities (`EnsurePointIndex`, `Near`, `WithinBoundingBox`) delegating to the engine and wiring common options.
+- [x] Ship `SpatialGeographic` facade utilities (`EnsurePointIndex`, `Near`, `WithinBoundingBox`) delegating to the engine, wiring common options, and invoking backfill automatically.
 
 **Testing outline**
 
@@ -114,11 +114,11 @@ LiteDB.Spatial
 
 ### S6 — Cartesian 2D engine
 
-- [ ] Provide `Cartesian2DEngine` and facade with Euclidean planning and mapping.
+- [x] Provide `Cartesian2DEngine` and facade with Euclidean planning and mapping.
   - `PlanNear2D` should compute Euclidean radii, fall back to bounding-box approximations when `MaxCoveringCells` is exceeded, and reuse Morton2D coverings.
-  - `PlanWithinBox2D` maps axis-aligned bounding boxes directly to `_mbb` predicates with consistent normalization.
-- [ ] Implement mapper to encode points with Morton2D and persist `_mbb` spans without geographic-specific logic.
-- [ ] Ship `SpatialCartesian2D` facade mirroring the geographic API surface for flat-coordinate callers.
+  - `PlanWithinBox2D` maps axis-aligned bounding boxes directly to `_mbb` predicates while keeping coverings in the same coordinate space.
+- [x] Implement mapper to encode points with Morton2D and persist `_mbb` spans without geographic-specific logic.
+- [x] Ship `SpatialCartesian2D` facade mirroring the geographic API surface for flat-coordinate callers and triggering backfill on configuration.
 
 **Testing outline**
 
@@ -128,11 +128,11 @@ LiteDB.Spatial
 
 ### S7 — Cartesian 3D engine (points)
 
-- [ ] Implement `Cartesian3DEngine` and facade for point-based 3D queries.
+- [x] Implement `Cartesian3DEngine` and facade for point-based 3D queries.
   - `PlanNear3D` forms spherical shells via Morton3D coverings, adds `_mbb` pruning, and applies exact Euclidean3D distance filtering.
   - `PlanWithinBox3D` translates 3D axis-aligned bounding boxes into `_mbb` spans and Morton3D range plans.
-- [ ] Implement mapper to normalize XYZ coordinates, emit Morton3D keys, and maintain six-value `_mbb` arrays respecting descriptor precision.
-- [ ] Ship `SpatialCartesian3D` facade with helpers for ensuring indexes, running near queries, and bulk backfills for point clouds.
+- [x] Implement mapper to normalize XYZ coordinates, emit Morton3D keys, and maintain six-value `_mbb` arrays respecting descriptor precision.
+- [x] Ship `SpatialCartesian3D` facade with helpers for ensuring indexes, running near queries, and bulk backfills for point clouds.
 
 **Testing outline**
 

@@ -7,42 +7,44 @@ using System.Globalization;
 namespace LiteDB.Spatial;
 
 /// <summary>
-/// Provides spatial planning for point-based three-dimensional Cartesian coordinates.
+/// Provides spatial planning for flat two-dimensional Cartesian coordinates.
 /// </summary>
-public sealed class Cartesian3DEngine : ISpatialEngine
+public sealed class Cartesian2DEngine : ICartesianSpatialEngine
 {
-    internal const string EngineNameValue = "Cartesian3D";
+    internal const string EngineNameValue = "Cartesian2D";
     public const string EngineName = EngineNameValue;
 
+    private readonly BoundingBox _domain;
     private readonly CartesianNormalizer _normalizer;
     private readonly ISpatialIndexEncoder _encoder;
-    private readonly Cartesian3DMapper _mapper;
+    private readonly Cartesian2DMapper _mapper;
     private readonly SpatialIndexOptions _options;
 
-    public Cartesian3DEngine(string geometryFieldName, BoundingBox domain, SpatialIndexOptions options)
+    public Cartesian2DEngine(string geometryFieldName, BoundingBox domain, SpatialIndexOptions options)
     {
         if (string.IsNullOrWhiteSpace(geometryFieldName))
         {
             throw new ArgumentException("Geometry field name must be provided.", nameof(geometryFieldName));
         }
 
-        if (domain.Dimensions != 3)
+        if (domain.Dimensions != 2)
         {
-            throw new ArgumentException("Cartesian3D engine requires a 3D domain.", nameof(domain));
+            throw new ArgumentException("Cartesian2D engine requires a 2D domain.", nameof(domain));
         }
 
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _domain = domain;
         _normalizer = new CartesianNormalizer(domain);
-        _encoder = new MortonIndexEncoder(3, options.PrecisionBits);
-        _mapper = new Cartesian3DMapper(_normalizer, _encoder, geometryFieldName);
-        Distance = new CartesianDistance(supports3D: true);
+        _encoder = new MortonIndexEncoder(2, options.PrecisionBits);
+        _mapper = new Cartesian2DMapper(_normalizer, _encoder, geometryFieldName);
+        Distance = new CartesianDistance(supports3D: false);
     }
 
     /// <inheritdoc />
     public string Name => EngineNameValue;
 
     /// <inheritdoc />
-    public int Dimensions => 3;
+    public int Dimensions => 2;
 
     /// <inheritdoc />
     public SpatialIndexOptions Options => _options;
@@ -57,36 +59,35 @@ public sealed class Cartesian3DEngine : ISpatialEngine
     public ISpatialDistance Distance { get; }
 
     /// <inheritdoc />
+    public BoundingBox Domain => _domain;
+
+    /// <inheritdoc />
     public ISpatialQueryPlan PlanNear(GeoPoint center, double radius)
     {
-        throw new NotSupportedException("Cartesian3D engine requires three-dimensional points for near queries.");
+        ValidateRadius(radius);
+        ValidateFinite(center.Longitude, nameof(center.Longitude));
+        ValidateFinite(center.Latitude, nameof(center.Latitude));
+
+        var minX = center.Longitude - radius;
+        var minY = center.Latitude - radius;
+        var maxX = center.Longitude + radius;
+        var maxY = center.Latitude + radius;
+        var bounds = BoundingBox.From2D(minX, minY, maxX, maxY);
+        return PlanFromBounds(bounds, string.Format(CultureInfo.InvariantCulture, "Euclidean <= {0:0.###}", radius));
     }
 
     /// <inheritdoc />
     public ISpatialQueryPlan PlanNear(GeoPoint3D center, double radius)
     {
-        ValidateRadius(radius);
-        ValidateFinite(center.X, nameof(center.X));
-        ValidateFinite(center.Y, nameof(center.Y));
-        ValidateFinite(center.Z, nameof(center.Z));
-
-        var bounds = BoundingBox.From3D(
-            center.X - radius,
-            center.Y - radius,
-            center.Z - radius,
-            center.X + radius,
-            center.Y + radius,
-            center.Z + radius);
-
-        return PlanFromBounds(bounds, string.Format(CultureInfo.InvariantCulture, "Euclidean3D <= {0:0.###}", radius));
+        throw new NotSupportedException("Cartesian2D engine does not support 3D geometry.");
     }
 
     /// <inheritdoc />
     public ISpatialQueryPlan PlanWithin(BoundingBox bounds)
     {
-        if (bounds.Dimensions != 3)
+        if (bounds.Dimensions != 2)
         {
-            throw new ArgumentException("Cartesian3D engine expects a 3D bounding box.", nameof(bounds));
+            throw new ArgumentException("Cartesian2D engine expects a 2D bounding box.", nameof(bounds));
         }
 
         return PlanFromBounds(bounds, "Within bounding box");
@@ -97,7 +98,7 @@ public sealed class Cartesian3DEngine : ISpatialEngine
         var normalized = _normalizer.Normalize(bounds);
         var ranges = _encoder.Cover(normalized, _options.MaxCoveringCells);
         var merged = MortonIndexEncoder.UnionAdjacentRanges(ranges);
-        return new SpatialQueryPlan(Dimensions, normalized, merged, predicate);
+        return new SpatialQueryPlan(Dimensions, bounds, merged, predicate);
     }
 
     private static void ValidateRadius(double radius)

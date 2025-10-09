@@ -31,8 +31,7 @@ public sealed class GeographicMapper : ISpatialMapper
     /// <inheritdoc />
     public BoundingBox GetBoundingBox(GeoPoint point)
     {
-        var normalized = Normalize(point);
-        return BoundingBox.From2D(normalized.longitude, normalized.latitude, normalized.longitude, normalized.latitude);
+        return BoundingBox.From2D(point.Longitude, point.Latitude, point.Longitude, point.Latitude);
     }
 
     /// <inheritdoc />
