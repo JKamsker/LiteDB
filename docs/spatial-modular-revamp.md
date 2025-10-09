@@ -166,15 +166,20 @@ LiteDB.Spatial
 
 ### S11 — Top-level facade & dispatch
 
-- [ ] `LiteDB.Spatial.Spatial` entry point manages engine configuration and dispatch.
+- [x] `LiteDB.Spatial.Spatial` entry point manages engine configuration and dispatch.
+  - Added a new `LiteDB.Spatial` project that wires metadata stores, attaches engines, and exposes `Use*`, `EnsurePointIndex`, `Near`, and `WithinBoundingBox` helpers.
+  - Integration tests cover geographic, Cartesian 2D, and Cartesian 3D flows through the façade.
 
 ### S12 — Migration & docs
 
-- [ ] Author upgrade/guide/diagnostics documentation with samples.
+- [x] Author upgrade/guide/diagnostics documentation with samples.
+  - Rewrote the spatial guide for the new façade and published dedicated upgrade (`docs/spatial-upgrade.md`) and diagnostics (`docs/spatial-diagnostics.md`) references.
+  - Refreshed `SpatialApiSample` and added a 3D console sample demonstrating Cartesian usage.
 
 ### S13 — Benchmarks & regression guardrails
 
-- [ ] Capture performance baselines and add regression guardrails.
+- [x] Capture performance baselines and add regression guardrails.
+  - Updated the spatial benchmark suite to exercise the new façade alongside full-scan baselines and captured timings in `docs/spatial-benchmarks.md`.
 
 ---
 
