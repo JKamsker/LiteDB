@@ -9,7 +9,7 @@ namespace LiteDB.Spatial;
 /// <summary>
 /// Provides query planning and document mapping for two-dimensional geographic coordinates.
 /// </summary>
-public sealed class GeographicEngine : ISpatialEngine
+public sealed class GeographicEngine : IGeographicSpatialEngine
 {
     internal const string EngineNameValue = "Geographic2D";
     public const string EngineName = EngineNameValue;
@@ -109,8 +109,8 @@ public sealed class GeographicEngine : ISpatialEngine
         BoundingBox? coveringBounds = segments.Count switch
         {
             0 => (BoundingBox?)null,
-            1 => segments[0].Normalized,
-            _ => BoundingBox.From2D(0d, segments.Min(s => s.MinLatitudeNormalized), 1d, segments.Max(s => s.MaxLatitudeNormalized))
+            1 => segments[0].World,
+            _ => BoundingBox.From2D(-180d, segments.Min(s => s.MinLatitude), 180d, segments.Max(s => s.MaxLatitude))
         };
 
         return new SpatialQueryPlan(Dimensions, coveringBounds, mergedRanges, predicate);

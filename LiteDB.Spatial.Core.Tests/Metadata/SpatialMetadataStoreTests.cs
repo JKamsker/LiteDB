@@ -14,12 +14,16 @@ public sealed class SpatialMetadataStoreTests
     {
         using var database = new BaseLiteDB.LiteDatabase(new MemoryStream());
         var store = new LiteDB.Spatial.SpatialMetadataStore(database);
-        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("places", "Geographic", 2, "location", new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 12));
+        var options = new LiteDB.Spatial.SpatialIndexOptions(precisionBits: 12);
+        var settings = LiteDB.Spatial.SpatialEngineSettings.Create(LiteDB.Spatial.BoundingBox.From2D(-10, -5, 10, 5), LiteDB.Spatial.GeographicDistanceMode.Vincenty);
+        var descriptor = new LiteDB.Spatial.SpatialCollectionDescriptor("places", "Geographic", 2, "location", options, settings);
 
         store.SaveDescriptor("places", descriptor);
 
         var loaded = store.GetRequiredDescriptor("places");
         loaded.Should().Be(descriptor);
+        loaded.Settings.DistanceMode.Should().Be(LiteDB.Spatial.GeographicDistanceMode.Vincenty);
+        loaded.Settings.Domain.Should().Be(LiteDB.Spatial.BoundingBox.From2D(-10, -5, 10, 5));
     }
 
     [Fact]

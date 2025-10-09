@@ -22,7 +22,7 @@ public sealed class Cartesian3DEngineTests
 
         plan.Dimensions.Should().Be(3);
         plan.CoveringBounds.Should().NotBeNull();
-        plan.CoveringBounds!.Value.MinZ.Should().BeApproximately(0.08, 1e-6);
+        plan.CoveringBounds!.Value.MinZ.Should().BeApproximately(8, 1e-6);
         plan.IndexRanges.Should().NotBeEmpty();
     }
 
@@ -44,9 +44,30 @@ public sealed class Cartesian3DEngineTests
         var metadata = new SpatialMetadataStore(database);
         var domain = BoundingBox.From3D(-10, -10, -10, 10, 10, 10);
 
+        collection.Insert(new BaseLiteDB.BsonDocument
+        {
+            ["_id"] = 1,
+            ["position"] = new BaseLiteDB.BsonDocument
+            {
+                ["x"] = 1.5,
+                ["y"] = -2.5,
+                ["z"] = 3.5
+            }
+        });
+
         var descriptor = SpatialCartesian3D.EnsurePointIndex(metadata, collection, "position", domain, new SpatialIndexOptions(precisionBits: 6));
 
         descriptor.Engine.Should().BeOfType<Cartesian3DEngine>();
+        descriptor.Settings.Domain.Should().Be(domain);
+
         SpatialCartesian3D.Near(descriptor, new GeoPoint3D(0, 0, 0), 1).IndexRanges.Should().NotBeEmpty();
+
+        var stored = collection.FindById(new BaseLiteDB.BsonValue(1));
+        ((object?)stored).Should().NotBeNull();
+        var bounding = stored![descriptor.Options.BoundingBoxFieldName].AsArray;
+        bounding.Count.Should().Be(6);
+        bounding[0].AsDouble.Should().BeApproximately(1.5, 1e-6);
+        bounding[1].AsDouble.Should().BeApproximately(-2.5, 1e-6);
+        bounding[2].AsDouble.Should().BeApproximately(3.5, 1e-6);
     }
 }

@@ -35,14 +35,19 @@ public static class SpatialCartesian2D
         }
 
         var effectiveOptions = options ?? new SpatialIndexOptions();
-        var descriptor = new SpatialCollectionDescriptor(collection.Name, Cartesian2DEngine.EngineNameValue, 2, geometryFieldName, effectiveOptions);
+        var settings = SpatialEngineSettings.ForCartesian(domain);
+        var descriptor = new SpatialCollectionDescriptor(collection.Name, Cartesian2DEngine.EngineNameValue, 2, geometryFieldName, effectiveOptions, settings);
         metadata.SaveDescriptor(collection.Name, descriptor);
 
         collection.EnsureIndex(effectiveOptions.IndexFieldName);
         collection.EnsureIndex(effectiveOptions.BoundingBoxFieldName);
 
         var engine = new Cartesian2DEngine(geometryFieldName, domain, effectiveOptions);
-        return descriptor.WithEngine(engine);
+        var descriptorWithEngine = descriptor.WithEngine(engine);
+
+        SpatialBackfill.Run(collection, descriptorWithEngine, engine);
+
+        return descriptorWithEngine;
     }
 
     public static ISpatialQueryPlan Near(
@@ -84,6 +89,11 @@ public static class SpatialCartesian2D
             return cartesian;
         }
 
-        throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is missing an attached Cartesian2D engine. Call EnsurePointIndex before planning queries.");
+        if (descriptor.Settings.Domain is not { } domain)
+        {
+            throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is missing domain metadata. Recreate the spatial index using EnsurePointIndex.");
+        }
+
+        return new Cartesian2DEngine(descriptor.GeometryFieldName, domain, descriptor.Options);
     }
 }
