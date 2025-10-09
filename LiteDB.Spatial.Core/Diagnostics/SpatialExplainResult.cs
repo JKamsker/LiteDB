@@ -22,6 +22,7 @@ public sealed class SpatialExplainResult
     /// <param name="coveringBounds">The optional coarse bounding box evaluated prior to exact predicates.</param>
     /// <param name="ranges">The index ranges that will be scanned.</param>
     /// <param name="exactPredicate">The human readable exact predicate description.</param>
+    /// <param name="covering">The covering metrics describing Morton range production.</param>
     /// <param name="indexFieldName">Optional name of the index field used during scanning.</param>
     /// <param name="boundingBoxFieldName">Optional name of the bounding box field storing coarse bounds.</param>
     public SpatialExplainResult(
@@ -30,6 +31,7 @@ public sealed class SpatialExplainResult
         BoundingBox? coveringBounds,
         IReadOnlyList<SpatialIndexRange> ranges,
         string? exactPredicate,
+        SpatialCoveringResult covering,
         string? indexFieldName = null,
         string? boundingBoxFieldName = null)
     {
@@ -50,6 +52,7 @@ public sealed class SpatialExplainResult
         ExactPredicate = exactPredicate;
         IndexFieldName = string.IsNullOrWhiteSpace(indexFieldName) ? null : indexFieldName;
         BoundingBoxFieldName = string.IsNullOrWhiteSpace(boundingBoxFieldName) ? null : boundingBoxFieldName;
+        Covering = covering ?? throw new ArgumentNullException(nameof(covering));
     }
 
     /// <summary>
@@ -93,6 +96,11 @@ public sealed class SpatialExplainResult
     public int RangeCount => _ranges.Count;
 
     /// <summary>
+    /// Gets covering statistics describing Morton range production.
+    /// </summary>
+    public SpatialCoveringResult Covering { get; }
+
+    /// <summary>
     /// Creates a formatted, human readable summary of the explain result.
     /// </summary>
     /// <returns>A multi-line string describing the engine, ranges, and predicates.</returns>
@@ -132,6 +140,26 @@ public sealed class SpatialExplainResult
                 .Append(FormatRange(range))
                 .AppendLine();
         }
+
+        builder.Append("Covering ranges: ")
+            .Append(Covering.FinalRangeCount.ToString(CultureInfo.InvariantCulture))
+            .Append(" / ")
+            .Append(Covering.RequestedMaxCells.ToString(CultureInfo.InvariantCulture));
+
+        if (Covering.WasCapped)
+        {
+            builder.Append(" (capped)");
+        }
+
+        builder.AppendLine();
+
+        builder.Append("Estimated covering cells: ")
+            .Append(Covering.EstimatedCellCount.ToString(CultureInfo.InvariantCulture))
+            .AppendLine();
+
+        builder.Append("Original covering ranges: ")
+            .Append(Covering.OriginalRangeCount.ToString(CultureInfo.InvariantCulture))
+            .AppendLine();
 
         builder.Append("Covering bounds");
         if (!string.IsNullOrWhiteSpace(BoundingBoxFieldName))

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\LiteDB.Spatial.Cartesian3D\LiteDB.Spatial.Cartesian3D.csproj" />
+    <ProjectReference Include="..\..\LiteDB.Spatial.Core\LiteDB.Spatial.Core.csproj" />
+  </ItemGroup>
+</Project>
