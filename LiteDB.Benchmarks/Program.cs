@@ -8,6 +8,7 @@ using BenchmarkDotNet.Filters;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.CsProj;
+using LiteDB.Benchmarks.Benchmarks;
 
 namespace LiteDB.Benchmarks
 {
@@ -33,7 +34,7 @@ namespace LiteDB.Benchmarks
 
             if (spatialOnly)
             {
-                config = config.AddFilter(new AnyCategoriesFilter(Constants.Categories.SPATIAL));
+                config = config.AddFilter(new AnyCategoriesFilter(new[] { Constants.Categories.SPATIAL }));
                 Console.WriteLine("Running LiteDB benchmarks with the SPATIAL category filter (--spatial-only).");
             }
 
