@@ -1,0 +1,42 @@
+[
+  {
+    "id": "nyc-london",
+    "from": { "lon": -74.0060, "lat": 40.7128 },
+    "to": { "lon": -0.1278, "lat": 51.5074 }
+  },
+  {
+    "id": "sydney-tokyo",
+    "from": { "lon": 151.2093, "lat": -33.8688 },
+    "to": { "lon": 139.6917, "lat": 35.6895 }
+  },
+  {
+    "id": "quito-nairobi",
+    "from": { "lon": -78.4678, "lat": -0.1807 },
+    "to": { "lon": 36.8219, "lat": -1.2921 }
+  },
+  {
+    "id": "honolulu-anchorage",
+    "from": { "lon": -157.8583, "lat": 21.3069 },
+    "to": { "lon": -149.9003, "lat": 61.2181 }
+  },
+  {
+    "id": "reykjavik-anchorage",
+    "from": { "lon": -21.8277, "lat": 64.1265 },
+    "to": { "lon": -149.9003, "lat": 61.2181 }
+  },
+  {
+    "id": "madrid-cairo",
+    "from": { "lon": -3.7038, "lat": 40.4168 },
+    "to": { "lon": 31.2357, "lat": 30.0444 }
+  },
+  {
+    "id": "samoa-fiji",
+    "from": { "lon": -171.7514, "lat": -13.7590 },
+    "to": { "lon": 178.0650, "lat": -18.1248 }
+  },
+  {
+    "id": "north-south-pole",
+    "from": { "lon": 0.0000, "lat": 89.9000 },
+    "to": { "lon": 90.0000, "lat": -89.9000 }
+  }
+]

@@ -29,6 +29,7 @@
 * **OSM extracts (tiny tiles)**: dense urban point clouds for performance & correctness mixes.
 * **Synthetic grids & lattices**: controlled point sets for Morton/Hilbert locality tests.
 * **Precomputed geodesic pairs** from GeographicLib samples (save as JSON with expected distances).
+* **Geographic bounding boxes** extracted from Natural Earth landmasses (Aleutians, Chukotka, Fiji/Samoa, polar caps) stored in `LiteDB.Spatial.Core.Tests/fixtures/geographic_bounding_boxes.json`.
 
 ---
 
@@ -194,6 +195,24 @@ foreach (var p in pairs)
 }
 ```
 
+### Bounding box parity (Geographic anti-meridian)
+
+```csharp
+var fixture = LoadBoundingBoxes("fixtures/geographic_bounding_boxes.json");
+var descriptor = Spatial.UseGeographic(collection, x => x.Location);
+
+foreach (var box in fixture.Boxes)
+{
+    var bounds = BoundingBox.From2D(box.MinLon, box.MinLat, box.MaxLon, box.MaxLat);
+    var explain = SpatialDiagnostics.Explain(SpatialGeographic.WithinBoundingBox(descriptor, bounds), descriptor);
+    explain.ToString().Should().Contain("_idx");
+
+    var liteDb = Spatial.WithinBoundingBox(collection, x => x.Location, bounds);
+    var expected = fixture.Points.Where(p => NtsOracle.Contains(box.ToTuple(), p.Lon, p.Lat));
+    liteDb.Select(p => p.Id).Should().BeEquivalentTo(expected.Select(p => p.Id));
+}
+```
+
 ### Predicate parity (2D)
 
 ```csharp
@@ -221,9 +240,15 @@ dOur.Should().BeApproximately(dRef, 1e-9);
 # How to integrate without polluting production
 
 * Place all external libs under `tests` projects only.
-* Introduce an **`[Category("oracle")]`** attribute; allow `dotnet test -l "console;verbosity=normal" --filter TestCategory=oracle` to toggle.
-* For PostGIS/SQLite tests, guard with `EnvVar("SPATIAL_DB_TESTS") == "1"`.
-* Persist expensive oracle outputs to JSON **fixtures** and run parity against those in regular CI to avoid Docker flakiness.
+* Mark parity suites with **`[Category("oracle")]`** so they can run in isolation via `dotnet test LiteDB.Spatial.Core.Tests --filter Category=oracle`.
+* Guard PostGIS probes behind `SPATIAL_DB_TESTS=1` and surface the connection string via `POSTGIS_CONNECTION_STRING` so CI can skip them by default.
+* Persist GeographicLib/NTS derived values to checked-in fixtures (`geodesic_pairs.json`, `geographic_bounding_boxes.json`) and document how to refresh them when upstream datasets change.
+
+Refresh playbook:
+
+1. Adjust `fixtures/geodesic_pairs.json` with any new lon/lat samples and rerun `dotnet test LiteDB.Spatial.Core.Tests --filter FullyQualifiedName~GeodesicDistanceOracleTests` to confirm the tolerance window—failing IDs are echoed to the console.
+2. Recompute Natural Earth bounding boxes with your GIS tool of choice (e.g., `ogrinfo --sql "SELECT ST_Extent(geom) ..."`) and overwrite `fixtures/geographic_bounding_boxes.json` before exercising the oracle suite.
+3. When a PostGIS instance is available, execute the opt-in comparison via `SPATIAL_DB_TESTS=1 POSTGIS_CONNECTION_STRING=... dotnet test ...` to regenerate live result sets instead of relying on stale caches.
 
 ---
 
