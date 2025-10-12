@@ -40,6 +40,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiteDB.ReproRunner.Shared",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharedMutexHarness", "LiteDB.Tests.SharedMutexHarness\SharedMutexHarness.csproj", "{F7E423B9-B90B-4F4D-B02A-F0101BBA26E6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiteDB.Vector", "LiteDB.Vector\LiteDB.Vector.csproj", "{5E492474-A04A-4587-8F95-40F3D13CBFBB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -158,6 +160,18 @@ Global
 		{F7E423B9-B90B-4F4D-B02A-F0101BBA26E6}.Release|x64.Build.0 = Release|Any CPU
 		{F7E423B9-B90B-4F4D-B02A-F0101BBA26E6}.Release|x86.ActiveCfg = Release|Any CPU
 		{F7E423B9-B90B-4F4D-B02A-F0101BBA26E6}.Release|x86.Build.0 = Release|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Debug|x64.Build.0 = Debug|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Debug|x86.Build.0 = Debug|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Release|x64.ActiveCfg = Release|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Release|x64.Build.0 = Release|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Release|x86.ActiveCfg = Release|Any CPU
+		{5E492474-A04A-4587-8F95-40F3D13CBFBB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
