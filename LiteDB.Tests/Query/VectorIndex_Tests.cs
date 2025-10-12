@@ -24,6 +24,16 @@ namespace LiteDB.Tests.QueryTest
             public bool Flag { get; set; }
         }
 
+        private static LiteDatabase CreateDatabase(string connectionString)
+        {
+            return new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance });
+        }
+
+        private static LiteDatabase CreateDatabase(Stream stream)
+        {
+            return new LiteDatabase(stream, plugins: new[] { VectorSearchPlugin.Instance });
+        }
+
         private static readonly FieldInfo EngineField = typeof(LiteDatabase).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly FieldInfo HeaderField = typeof(LiteEngine).GetField("_header", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly MethodInfo AutoTransactionMethod = typeof(LiteEngine).GetMethod("AutoTransaction", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -205,7 +215,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void EnsureVectorIndex_CreatesAndReuses()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -228,7 +238,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void EnsureVectorIndex_PreservesEnumerableExpressionsForVectorIndexes()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("documents");
 
             var resourcePath = Path.Combine(AppContext.BaseDirectory, "Resources", "ingest-20250922-234735.json");
@@ -279,7 +289,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void WhereNear_UsesVectorIndex_WhenAvailable()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -308,7 +318,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void WhereNear_FallsBack_WhenNoVectorIndexExists()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -334,7 +344,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void WhereNear_FallsBack_WhenDimensionMismatch()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -359,7 +369,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void TopKNear_UsesVectorIndex()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -387,7 +397,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void OrderBy_VectorSimilarity_WithCompositeOrdering_UsesVectorIndex()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -433,7 +443,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void WhereNear_DotProductHonorsMinimumSimilarity()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -464,7 +474,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void VectorIndex_Search_Prunes_Node_Visits()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             const int nearClusterSize = 64;
@@ -520,7 +530,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void VectorIndex_PersistsNodes_WhenDocumentsChange()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -647,7 +657,7 @@ namespace LiteDB.Tests.QueryTest
         [InlineData(VectorDistanceMetric.DotProduct)]
         public void VectorIndex_Search_MatchesReferenceRanking(VectorDistanceMetric metric)
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             var random = new Random(4242);
@@ -710,7 +720,7 @@ namespace LiteDB.Tests.QueryTest
         [InlineData(VectorDistanceMetric.DotProduct)]
         public void WhereNear_MatchesReferenceOrdering(VectorDistanceMetric metric)
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             var random = new Random(9182);
@@ -763,7 +773,7 @@ namespace LiteDB.Tests.QueryTest
         [InlineData(VectorDistanceMetric.DotProduct)]
         public void TopKNear_MatchesReferenceOrdering(VectorDistanceMetric metric)
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = CreateDatabase(":memory:");
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             var random = new Random(5461);
@@ -825,7 +835,7 @@ namespace LiteDB.Tests.QueryTest
                 })
                 .ToList();
 
-            using (var setup = new LiteDatabase(file))
+            using (var setup = CreateDatabase(file))
             {
                 var setupCollection = setup.GetCollection<VectorDocument>("vectors");
                 setupCollection.Insert(originalDocuments);
@@ -841,7 +851,7 @@ namespace LiteDB.Tests.QueryTest
                 setup.Checkpoint();
             }
 
-            using var db = new LiteDatabase(file);
+            using var db = CreateDatabase(file);
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             var (inlineDetected, mismatches) = InspectVectorIndex(db, "vectors", (snapshot, collation, metadata) =>

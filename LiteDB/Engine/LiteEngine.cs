@@ -1,4 +1,5 @@
-﻿using LiteDB.Utils;
+﻿using LiteDB.Plugins;
+using LiteDB.Utils;
 
 using System;
 using System.Collections.Concurrent;
@@ -16,7 +17,7 @@ namespace LiteDB.Engine
     /// Its isolated from complete solution - works on low level only (no linq, no poco... just BSON objects)
     /// [ThreadSafe]
     /// </summary>
-    public partial class LiteEngine : ILiteEngine
+    public partial class LiteEngine : ILiteEngine, IPluginContextHost
     {
         #region Services instances
 
@@ -33,6 +34,8 @@ namespace LiteDB.Engine
         private SortDisk _sortDisk;
 
         private EngineState _state;
+
+        private ILitePluginContext _pluginContext;
 
         // immutable settings
         private readonly EngineSettings _settings;
@@ -239,6 +242,11 @@ namespace LiteDB.Engine
             }
 
             return tc.Exceptions;
+        }
+
+        void IPluginContextHost.SetPluginContext(ILitePluginContext context)
+        {
+            _pluginContext = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         #endregion

@@ -23,62 +23,114 @@ namespace LiteDB
 
         private static MethodInfo M(string s) => typeof(BsonExpressionOperators).GetMethod(s);
 
+        private sealed class OperatorDefinition
+        {
+            public OperatorDefinition(string expression, MethodInfo method, BsonExpressionType type)
+            {
+                this.Expression = expression;
+                this.Method = method;
+                this.Type = type;
+            }
+
+            public string Expression { get; }
+
+            public MethodInfo Method { get; }
+
+            public BsonExpressionType Type { get; }
+        }
+
         /// <summary>
         /// Operation definition by methods with defined expression type (operators are in precedence order)
         /// </summary>
-        private static readonly Dictionary<string, Tuple<string, MethodInfo, BsonExpressionType>> _operators = new Dictionary<string, Tuple<string, MethodInfo, BsonExpressionType>>
+        private static readonly Dictionary<string, OperatorDefinition> _operators = new Dictionary<string, OperatorDefinition>(StringComparer.OrdinalIgnoreCase);
+        private static readonly List<string> _operatorOrder = new List<string>();
+        private static readonly object _operatorSync = new object();
+
+        static BsonExpressionParser()
         {
             // arithmetic
-            ["%"] = Tuple.Create("%", M("MOD"), BsonExpressionType.Modulo),
-            ["/"] = Tuple.Create("/", M("DIVIDE"), BsonExpressionType.Divide),
-            ["*"] = Tuple.Create("*", M("MULTIPLY"), BsonExpressionType.Multiply),
-            ["+"] = Tuple.Create("+", M("ADD"), BsonExpressionType.Add),
-            ["-"] = Tuple.Create("-", M("MINUS"), BsonExpressionType.Subtract),
+            RegisterBinaryOperator("%", "%", M("MOD"), BsonExpressionType.Modulo, 0);
+            RegisterBinaryOperator("/", "/", M("DIVIDE"), BsonExpressionType.Divide, 1);
+            RegisterBinaryOperator("*", "*", M("MULTIPLY"), BsonExpressionType.Multiply, 2);
+            RegisterBinaryOperator("+", "+", M("ADD"), BsonExpressionType.Add, 3);
+            RegisterBinaryOperator("-", "-", M("MINUS"), BsonExpressionType.Subtract, 4);
 
-            // vector similarity operator returns the cosine distance between two vectors
-            ["VECTOR_SIM"] = Tuple.Create(" VECTOR_SIM ", M("VECTOR_SIM"), BsonExpressionType.VectorSim),
+            // vector similarity operator registration moved to plugin pipeline.
 
             // predicate
-            ["LIKE"] = Tuple.Create(" LIKE ", M("LIKE"), BsonExpressionType.Like),
-            ["BETWEEN"] = Tuple.Create(" BETWEEN ", M("BETWEEN"), BsonExpressionType.Between),
-            ["IN"] = Tuple.Create(" IN ", M("IN"), BsonExpressionType.In),
+            RegisterBinaryOperator("LIKE", " LIKE ", M("LIKE"), BsonExpressionType.Like, 100);
+            RegisterBinaryOperator("BETWEEN", " BETWEEN ", M("BETWEEN"), BsonExpressionType.Between, 101);
+            RegisterBinaryOperator("IN", " IN ", M("IN"), BsonExpressionType.In, 102);
 
-            [">"] = Tuple.Create(">", M("GT"), BsonExpressionType.GreaterThan),
-            [">="] = Tuple.Create(">=", M("GTE"), BsonExpressionType.GreaterThanOrEqual),
-            ["<"] = Tuple.Create("<", M("LT"), BsonExpressionType.LessThan),
-            ["<="] = Tuple.Create("<=", M("LTE"), BsonExpressionType.LessThanOrEqual),
+            RegisterBinaryOperator(">", ">", M("GT"), BsonExpressionType.GreaterThan, 103);
+            RegisterBinaryOperator(">=", ">=", M("GTE"), BsonExpressionType.GreaterThanOrEqual, 104);
+            RegisterBinaryOperator("<", "<", M("LT"), BsonExpressionType.LessThan, 105);
+            RegisterBinaryOperator("<=", "<=", M("LTE"), BsonExpressionType.LessThanOrEqual, 106);
 
-            ["!="] = Tuple.Create("!=", M("NEQ"), BsonExpressionType.NotEqual),
-            ["="] = Tuple.Create("=", M("EQ"), BsonExpressionType.Equal),
+            RegisterBinaryOperator("!=", "!=", M("NEQ"), BsonExpressionType.NotEqual, 107);
+            RegisterBinaryOperator("=", "=", M("EQ"), BsonExpressionType.Equal, 108);
 
-            ["ANY LIKE"] = Tuple.Create(" ANY LIKE ", M("LIKE_ANY"), BsonExpressionType.Like),
-            ["ANY BETWEEN"] = Tuple.Create(" ANY BETWEEN ", M("BETWEEN_ANY"), BsonExpressionType.Between),
-            ["ANY IN"] = Tuple.Create(" ANY IN ", M("IN_ANY"), BsonExpressionType.In),
+            RegisterBinaryOperator("ANY LIKE", " ANY LIKE ", M("LIKE_ANY"), BsonExpressionType.Like, 109);
+            RegisterBinaryOperator("ANY BETWEEN", " ANY BETWEEN ", M("BETWEEN_ANY"), BsonExpressionType.Between, 110);
+            RegisterBinaryOperator("ANY IN", " ANY IN ", M("IN_ANY"), BsonExpressionType.In, 111);
 
-            ["ANY >"] = Tuple.Create(" ANY>", M("GT_ANY"), BsonExpressionType.GreaterThan),
-            ["ANY >="] = Tuple.Create(" ANY>=", M("GTE_ANY"), BsonExpressionType.GreaterThanOrEqual),
-            ["ANY <"] = Tuple.Create(" ANY<", M("LT_ANY"), BsonExpressionType.LessThan),
-            ["ANY <="] = Tuple.Create(" ANY<=", M("LTE_ANY"), BsonExpressionType.LessThanOrEqual),
+            RegisterBinaryOperator("ANY >", " ANY>", M("GT_ANY"), BsonExpressionType.GreaterThan, 112);
+            RegisterBinaryOperator("ANY >=", " ANY>=", M("GTE_ANY"), BsonExpressionType.GreaterThanOrEqual, 113);
+            RegisterBinaryOperator("ANY <", " ANY<", M("LT_ANY"), BsonExpressionType.LessThan, 114);
+            RegisterBinaryOperator("ANY <=", " ANY<=", M("LTE_ANY"), BsonExpressionType.LessThanOrEqual, 115);
 
-            ["ANY !="] = Tuple.Create(" ANY!=", M("NEQ_ANY"), BsonExpressionType.NotEqual),
-            ["ANY ="] = Tuple.Create(" ANY=", M("EQ_ANY"), BsonExpressionType.Equal),
+            RegisterBinaryOperator("ANY !=", " ANY!=", M("NEQ_ANY"), BsonExpressionType.NotEqual, 116);
+            RegisterBinaryOperator("ANY =", " ANY=", M("EQ_ANY"), BsonExpressionType.Equal, 117);
 
-            ["ALL LIKE"] = Tuple.Create(" ALL LIKE ", M("LIKE_ALL"), BsonExpressionType.Like),
-            ["ALL BETWEEN"] = Tuple.Create(" ALL BETWEEN ", M("BETWEEN_ALL"), BsonExpressionType.Between),
-            ["ALL IN"] = Tuple.Create(" ALL IN ", M("IN_ALL"), BsonExpressionType.In),
+            RegisterBinaryOperator("ALL LIKE", " ALL LIKE ", M("LIKE_ALL"), BsonExpressionType.Like, 118);
+            RegisterBinaryOperator("ALL BETWEEN", " ALL BETWEEN ", M("BETWEEN_ALL"), BsonExpressionType.Between, 119);
+            RegisterBinaryOperator("ALL IN", " ALL IN ", M("IN_ALL"), BsonExpressionType.In, 120);
 
-            ["ALL >"] = Tuple.Create(" ALL>", M("GT_ALL"), BsonExpressionType.GreaterThan),
-            ["ALL >="] = Tuple.Create(" ALL>=", M("GTE_ALL"), BsonExpressionType.GreaterThanOrEqual),
-            ["ALL <"] = Tuple.Create(" ALL<", M("LT_ALL"), BsonExpressionType.LessThan),
-            ["ALL <="] = Tuple.Create(" ALL<=", M("LTE_ALL"), BsonExpressionType.LessThanOrEqual),
+            RegisterBinaryOperator("ALL >", " ALL>", M("GT_ALL"), BsonExpressionType.GreaterThan, 121);
+            RegisterBinaryOperator("ALL >=", " ALL>=", M("GTE_ALL"), BsonExpressionType.GreaterThanOrEqual, 122);
+            RegisterBinaryOperator("ALL <", " ALL<", M("LT_ALL"), BsonExpressionType.LessThan, 123);
+            RegisterBinaryOperator("ALL <=", " ALL<=", M("LTE_ALL"), BsonExpressionType.LessThanOrEqual, 124);
 
-            ["ALL !="] = Tuple.Create(" ALL!=", M("NEQ_ALL"), BsonExpressionType.NotEqual),
-            ["ALL ="] = Tuple.Create(" ALL=", M("EQ_ALL"), BsonExpressionType.Equal),
+            RegisterBinaryOperator("ALL !=", " ALL!=", M("NEQ_ALL"), BsonExpressionType.NotEqual, 125);
+            RegisterBinaryOperator("ALL =", " ALL=", M("EQ_ALL"), BsonExpressionType.Equal, 126);
 
             // logic (will use Expression.AndAlso|OrElse)
-            ["AND"] = Tuple.Create(" AND ", (MethodInfo)null, BsonExpressionType.And),
-            ["OR"] = Tuple.Create(" OR ", (MethodInfo)null, BsonExpressionType.Or),
-        };
+            RegisterBinaryOperator("AND", " AND ", null, BsonExpressionType.And, 200);
+            RegisterBinaryOperator("OR", " OR ", null, BsonExpressionType.Or, 201);
+        }
+
+        internal static void RegisterBinaryOperator(string token, string expression, MethodInfo method, BsonExpressionType type, int precedence)
+        {
+            if (string.IsNullOrWhiteSpace(token)) throw new ArgumentNullException(nameof(token));
+            if (string.IsNullOrWhiteSpace(expression)) throw new ArgumentNullException(nameof(expression));
+
+            var normalized = token.ToUpperInvariant();
+
+            lock (_operatorSync)
+            {
+                if (_operators.ContainsKey(normalized))
+                {
+                    var index = _operatorOrder.FindIndex(x => string.Equals(x, normalized, StringComparison.OrdinalIgnoreCase));
+                    if (index >= 0)
+                    {
+                        _operatorOrder.RemoveAt(index);
+                    }
+                }
+
+                if (precedence < 0)
+                {
+                    precedence = 0;
+                }
+
+                if (precedence > _operatorOrder.Count)
+                {
+                    precedence = _operatorOrder.Count;
+                }
+
+                _operatorOrder.Insert(precedence, normalized);
+                _operators[normalized] = new OperatorDefinition(expression, method, type);
+            }
+        }
 
         private static readonly MethodInfo _parameterPathMethod = M("PARAMETER_PATH");
         private static readonly MethodInfo _memberPathMethod = M("MEMBER_PATH");
@@ -129,11 +181,25 @@ namespace LiteDB
 
             var order = 0;
 
+            List<string> operatorOrderSnapshot;
+            Dictionary<string, OperatorDefinition> operatorSnapshot;
+
+            lock (_operatorSync)
+            {
+                operatorOrderSnapshot = new List<string>(_operatorOrder);
+                operatorSnapshot = _operators.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
+            }
+
             // now, process operator in correct order
             while (values.Count >= 2)
             {
-                var op = _operators.ElementAt(order);
-                var n = ops.IndexOf(op.Key);
+                if (order >= operatorOrderSnapshot.Count)
+                {
+                    break;
+                }
+
+                var token = operatorOrderSnapshot[order];
+                var n = ops.IndexOf(token);
 
                 if (n == -1)
                 {
@@ -145,12 +211,13 @@ namespace LiteDB
                     var left = values.ElementAt(n);
                     var right = values.ElementAt(n + 1);
 
-                    var src = op.Value.Item1;
-                    var method = op.Value.Item2;
-                    var type = op.Value.Item3;
+                    var definition = operatorSnapshot[token];
+                    var src = definition.Expression;
+                    var method = definition.Method;
+                    var type = definition.Type;
 
                     // test left/right scalar
-                    var isLeftEnum = op.Key.StartsWith("ALL") || op.Key.StartsWith("ANY");
+                    var isLeftEnum = token.StartsWith("ALL", StringComparison.OrdinalIgnoreCase) || token.StartsWith("ANY", StringComparison.OrdinalIgnoreCase);
 
                     if (isLeftEnum && left.IsScalar) left = ConvertToEnumerable(left);
                     //if (isLeftEnum && left.IsScalar) throw new LiteException(0, $"Left expression `{left.Source}` must return multiples values");
