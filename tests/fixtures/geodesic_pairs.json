@@ -1,0 +1,26 @@
+[
+  {
+    "id": "nyc-london",
+    "description": "New York City to London",
+    "from": { "lat": 40.7128, "lon": -74.0060 },
+    "to": { "lat": 51.5074, "lon": -0.1278 }
+  },
+  {
+    "id": "sydney-tokyo",
+    "description": "Sydney to Tokyo",
+    "from": { "lat": -33.8688, "lon": 151.2093 },
+    "to": { "lat": 35.6762, "lon": 139.6503 }
+  },
+  {
+    "id": "quito-nairobi",
+    "description": "Quito to Nairobi",
+    "from": { "lat": -0.1807, "lon": -78.4678 },
+    "to": { "lat": -1.2921, "lon": 36.8219 }
+  },
+  {
+    "id": "sf-la",
+    "description": "San Francisco to Los Angeles",
+    "from": { "lat": 37.7749, "lon": -122.4194 },
+    "to": { "lat": 34.0522, "lon": -118.2437 }
+  }
+]

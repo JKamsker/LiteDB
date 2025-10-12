@@ -1,0 +1,16 @@
+{
+  "id": "unit-square",
+  "description": "Axis aligned square with unit side length",
+  "geojson": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 1.0],
+        [0.0, 0.0]
+      ]
+    ]
+  }
+}

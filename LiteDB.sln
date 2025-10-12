@@ -54,6 +54,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Spatial", "Spatial", "{AF44
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiteDB.Spatial", "LiteDB.Spatial\LiteDB.Spatial.csproj", "{52E63331-2B21-44E2-B2D6-4E321C263F41}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiteDB.Spatial.Testing.Oracles", "LiteDB.Spatial.Testing.Oracles\LiteDB.Spatial.Testing.Oracles.csproj", "{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -244,6 +246,18 @@ Global
 		{52E63331-2B21-44E2-B2D6-4E321C263F41}.Release|x64.Build.0 = Release|Any CPU
 		{52E63331-2B21-44E2-B2D6-4E321C263F41}.Release|x86.ActiveCfg = Release|Any CPU
 		{52E63331-2B21-44E2-B2D6-4E321C263F41}.Release|x86.Build.0 = Release|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Debug|x64.Build.0 = Debug|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Debug|x86.Build.0 = Debug|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Release|x64.ActiveCfg = Release|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Release|x64.Build.0 = Release|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Release|x86.ActiveCfg = Release|Any CPU
+		{C5FF3B8F-2ADD-4E17-B57D-897B76173D0C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

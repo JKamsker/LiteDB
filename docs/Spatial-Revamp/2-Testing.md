@@ -17,6 +17,22 @@
 * **GeoJSON parsing (test-only):**
 
   * **GeoJSON.Net** (Newtonsoft) — load complex fixtures without maintaining your own parser.
+
+## Repository support library
+
+The solution now ships with `LiteDB.Spatial.Testing.Oracles` — a test-only project that wraps these dependencies behind
+interfaces. It exposes:
+
+* `SpatialOracleCatalog` for discovering enabled oracles (GeographicLib, NTS, MathNet, optional PostGIS).
+* `OracleSkipAttribute` to honour `SPATIAL_ORACLES` and `SPATIAL_DB_TESTS` in `[Fact]`/`[Theory]` declarations.
+* `SpatialFixtureLoader`/`SpatialTolerance` helper utilities (under `LiteDB.Spatial.Core.Tests/Infrastructure/`) so tests can
+  load packs from `/tests/fixtures` and emit snapshot JSON when tolerances are exceeded.
+
+Environment knobs:
+
+* `SPATIAL_ORACLES=*` (default) runs every available adapter. Provide a comma-separated subset (e.g. `nts,mathnet-3d`) to trim
+  the matrix when external libraries are unavailable.
+* `SPATIAL_DB_TESTS=1` opts into Docker/PostGIS verification. The value accepts `1/0`, `true/false`, or `yes/no`.
 * **External systems for differential tests (CI optional):**
 
   * **PostGIS** (Docker) — `ST_DWithin`, `ST_Intersects`, anti-meridian polygons;
