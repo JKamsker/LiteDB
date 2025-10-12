@@ -1,0 +1,1101 @@
+{
+  "name": "lattice-aspects",
+  "domain": {
+    "min": [
+      -12,
+      -12,
+      -12
+    ],
+    "max": [
+      12,
+      12,
+      12
+    ]
+  },
+  "options": {
+    "precisionBits": 12,
+    "maxCoveringCells": 4,
+    "distanceTolerance": 0.05
+  },
+  "points": [
+    {
+      "id": "P000",
+      "coordinates": [
+        -12,
+        -12,
+        -12
+      ]
+    },
+    {
+      "id": "P001",
+      "coordinates": [
+        -12,
+        -12,
+        -6
+      ]
+    },
+    {
+      "id": "P002",
+      "coordinates": [
+        -12,
+        -12,
+        0
+      ]
+    },
+    {
+      "id": "P003",
+      "coordinates": [
+        -12,
+        -12,
+        6
+      ]
+    },
+    {
+      "id": "P004",
+      "coordinates": [
+        -12,
+        -12,
+        12
+      ]
+    },
+    {
+      "id": "P005",
+      "coordinates": [
+        -12,
+        -6,
+        -12
+      ]
+    },
+    {
+      "id": "P006",
+      "coordinates": [
+        -12,
+        -6,
+        -6
+      ]
+    },
+    {
+      "id": "P007",
+      "coordinates": [
+        -12,
+        -6,
+        0
+      ]
+    },
+    {
+      "id": "P008",
+      "coordinates": [
+        -12,
+        -6,
+        6
+      ]
+    },
+    {
+      "id": "P009",
+      "coordinates": [
+        -12,
+        -6,
+        12
+      ]
+    },
+    {
+      "id": "P010",
+      "coordinates": [
+        -12,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "P011",
+      "coordinates": [
+        -12,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "P012",
+      "coordinates": [
+        -12,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "P013",
+      "coordinates": [
+        -12,
+        0,
+        6
+      ]
+    },
+    {
+      "id": "P014",
+      "coordinates": [
+        -12,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "P015",
+      "coordinates": [
+        -12,
+        6,
+        -12
+      ]
+    },
+    {
+      "id": "P016",
+      "coordinates": [
+        -12,
+        6,
+        -6
+      ]
+    },
+    {
+      "id": "P017",
+      "coordinates": [
+        -12,
+        6,
+        0
+      ]
+    },
+    {
+      "id": "P018",
+      "coordinates": [
+        -12,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "P019",
+      "coordinates": [
+        -12,
+        6,
+        12
+      ]
+    },
+    {
+      "id": "P020",
+      "coordinates": [
+        -12,
+        12,
+        -12
+      ]
+    },
+    {
+      "id": "P021",
+      "coordinates": [
+        -12,
+        12,
+        -6
+      ]
+    },
+    {
+      "id": "P022",
+      "coordinates": [
+        -12,
+        12,
+        0
+      ]
+    },
+    {
+      "id": "P023",
+      "coordinates": [
+        -12,
+        12,
+        6
+      ]
+    },
+    {
+      "id": "P024",
+      "coordinates": [
+        -12,
+        12,
+        12
+      ]
+    },
+    {
+      "id": "P025",
+      "coordinates": [
+        -6,
+        -12,
+        -12
+      ]
+    },
+    {
+      "id": "P026",
+      "coordinates": [
+        -6,
+        -12,
+        -6
+      ]
+    },
+    {
+      "id": "P027",
+      "coordinates": [
+        -6,
+        -12,
+        0
+      ]
+    },
+    {
+      "id": "P028",
+      "coordinates": [
+        -6,
+        -12,
+        6
+      ]
+    },
+    {
+      "id": "P029",
+      "coordinates": [
+        -6,
+        -12,
+        12
+      ]
+    },
+    {
+      "id": "P030",
+      "coordinates": [
+        -6,
+        -6,
+        -12
+      ]
+    },
+    {
+      "id": "P031",
+      "coordinates": [
+        -6,
+        -6,
+        -6
+      ]
+    },
+    {
+      "id": "P032",
+      "coordinates": [
+        -6,
+        -6,
+        0
+      ]
+    },
+    {
+      "id": "P033",
+      "coordinates": [
+        -6,
+        -6,
+        6
+      ]
+    },
+    {
+      "id": "P034",
+      "coordinates": [
+        -6,
+        -6,
+        12
+      ]
+    },
+    {
+      "id": "P035",
+      "coordinates": [
+        -6,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "P036",
+      "coordinates": [
+        -6,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "P037",
+      "coordinates": [
+        -6,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "P038",
+      "coordinates": [
+        -6,
+        0,
+        6
+      ]
+    },
+    {
+      "id": "P039",
+      "coordinates": [
+        -6,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "P040",
+      "coordinates": [
+        -6,
+        6,
+        -12
+      ]
+    },
+    {
+      "id": "P041",
+      "coordinates": [
+        -6,
+        6,
+        -6
+      ]
+    },
+    {
+      "id": "P042",
+      "coordinates": [
+        -6,
+        6,
+        0
+      ]
+    },
+    {
+      "id": "P043",
+      "coordinates": [
+        -6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "P044",
+      "coordinates": [
+        -6,
+        6,
+        12
+      ]
+    },
+    {
+      "id": "P045",
+      "coordinates": [
+        -6,
+        12,
+        -12
+      ]
+    },
+    {
+      "id": "P046",
+      "coordinates": [
+        -6,
+        12,
+        -6
+      ]
+    },
+    {
+      "id": "P047",
+      "coordinates": [
+        -6,
+        12,
+        0
+      ]
+    },
+    {
+      "id": "P048",
+      "coordinates": [
+        -6,
+        12,
+        6
+      ]
+    },
+    {
+      "id": "P049",
+      "coordinates": [
+        -6,
+        12,
+        12
+      ]
+    },
+    {
+      "id": "P050",
+      "coordinates": [
+        0,
+        -12,
+        -12
+      ]
+    },
+    {
+      "id": "P051",
+      "coordinates": [
+        0,
+        -12,
+        -6
+      ]
+    },
+    {
+      "id": "P052",
+      "coordinates": [
+        0,
+        -12,
+        0
+      ]
+    },
+    {
+      "id": "P053",
+      "coordinates": [
+        0,
+        -12,
+        6
+      ]
+    },
+    {
+      "id": "P054",
+      "coordinates": [
+        0,
+        -12,
+        12
+      ]
+    },
+    {
+      "id": "P055",
+      "coordinates": [
+        0,
+        -6,
+        -12
+      ]
+    },
+    {
+      "id": "P056",
+      "coordinates": [
+        0,
+        -6,
+        -6
+      ]
+    },
+    {
+      "id": "P057",
+      "coordinates": [
+        0,
+        -6,
+        0
+      ]
+    },
+    {
+      "id": "P058",
+      "coordinates": [
+        0,
+        -6,
+        6
+      ]
+    },
+    {
+      "id": "P059",
+      "coordinates": [
+        0,
+        -6,
+        12
+      ]
+    },
+    {
+      "id": "P060",
+      "coordinates": [
+        0,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "P061",
+      "coordinates": [
+        0,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "P062",
+      "coordinates": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "P063",
+      "coordinates": [
+        0,
+        0,
+        6
+      ]
+    },
+    {
+      "id": "P064",
+      "coordinates": [
+        0,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "P065",
+      "coordinates": [
+        0,
+        6,
+        -12
+      ]
+    },
+    {
+      "id": "P066",
+      "coordinates": [
+        0,
+        6,
+        -6
+      ]
+    },
+    {
+      "id": "P067",
+      "coordinates": [
+        0,
+        6,
+        0
+      ]
+    },
+    {
+      "id": "P068",
+      "coordinates": [
+        0,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "P069",
+      "coordinates": [
+        0,
+        6,
+        12
+      ]
+    },
+    {
+      "id": "P070",
+      "coordinates": [
+        0,
+        12,
+        -12
+      ]
+    },
+    {
+      "id": "P071",
+      "coordinates": [
+        0,
+        12,
+        -6
+      ]
+    },
+    {
+      "id": "P072",
+      "coordinates": [
+        0,
+        12,
+        0
+      ]
+    },
+    {
+      "id": "P073",
+      "coordinates": [
+        0,
+        12,
+        6
+      ]
+    },
+    {
+      "id": "P074",
+      "coordinates": [
+        0,
+        12,
+        12
+      ]
+    },
+    {
+      "id": "P075",
+      "coordinates": [
+        6,
+        -12,
+        -12
+      ]
+    },
+    {
+      "id": "P076",
+      "coordinates": [
+        6,
+        -12,
+        -6
+      ]
+    },
+    {
+      "id": "P077",
+      "coordinates": [
+        6,
+        -12,
+        0
+      ]
+    },
+    {
+      "id": "P078",
+      "coordinates": [
+        6,
+        -12,
+        6
+      ]
+    },
+    {
+      "id": "P079",
+      "coordinates": [
+        6,
+        -12,
+        12
+      ]
+    },
+    {
+      "id": "P080",
+      "coordinates": [
+        6,
+        -6,
+        -12
+      ]
+    },
+    {
+      "id": "P081",
+      "coordinates": [
+        6,
+        -6,
+        -6
+      ]
+    },
+    {
+      "id": "P082",
+      "coordinates": [
+        6,
+        -6,
+        0
+      ]
+    },
+    {
+      "id": "P083",
+      "coordinates": [
+        6,
+        -6,
+        6
+      ]
+    },
+    {
+      "id": "P084",
+      "coordinates": [
+        6,
+        -6,
+        12
+      ]
+    },
+    {
+      "id": "P085",
+      "coordinates": [
+        6,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "P086",
+      "coordinates": [
+        6,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "P087",
+      "coordinates": [
+        6,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "P088",
+      "coordinates": [
+        6,
+        0,
+        6
+      ]
+    },
+    {
+      "id": "P089",
+      "coordinates": [
+        6,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "P090",
+      "coordinates": [
+        6,
+        6,
+        -12
+      ]
+    },
+    {
+      "id": "P091",
+      "coordinates": [
+        6,
+        6,
+        -6
+      ]
+    },
+    {
+      "id": "P092",
+      "coordinates": [
+        6,
+        6,
+        0
+      ]
+    },
+    {
+      "id": "P093",
+      "coordinates": [
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "P094",
+      "coordinates": [
+        6,
+        6,
+        12
+      ]
+    },
+    {
+      "id": "P095",
+      "coordinates": [
+        6,
+        12,
+        -12
+      ]
+    },
+    {
+      "id": "P096",
+      "coordinates": [
+        6,
+        12,
+        -6
+      ]
+    },
+    {
+      "id": "P097",
+      "coordinates": [
+        6,
+        12,
+        0
+      ]
+    },
+    {
+      "id": "P098",
+      "coordinates": [
+        6,
+        12,
+        6
+      ]
+    },
+    {
+      "id": "P099",
+      "coordinates": [
+        6,
+        12,
+        12
+      ]
+    },
+    {
+      "id": "P100",
+      "coordinates": [
+        12,
+        -12,
+        -12
+      ]
+    },
+    {
+      "id": "P101",
+      "coordinates": [
+        12,
+        -12,
+        -6
+      ]
+    },
+    {
+      "id": "P102",
+      "coordinates": [
+        12,
+        -12,
+        0
+      ]
+    },
+    {
+      "id": "P103",
+      "coordinates": [
+        12,
+        -12,
+        6
+      ]
+    },
+    {
+      "id": "P104",
+      "coordinates": [
+        12,
+        -12,
+        12
+      ]
+    },
+    {
+      "id": "P105",
+      "coordinates": [
+        12,
+        -6,
+        -12
+      ]
+    },
+    {
+      "id": "P106",
+      "coordinates": [
+        12,
+        -6,
+        -6
+      ]
+    },
+    {
+      "id": "P107",
+      "coordinates": [
+        12,
+        -6,
+        0
+      ]
+    },
+    {
+      "id": "P108",
+      "coordinates": [
+        12,
+        -6,
+        6
+      ]
+    },
+    {
+      "id": "P109",
+      "coordinates": [
+        12,
+        -6,
+        12
+      ]
+    },
+    {
+      "id": "P110",
+      "coordinates": [
+        12,
+        0,
+        -12
+      ]
+    },
+    {
+      "id": "P111",
+      "coordinates": [
+        12,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "P112",
+      "coordinates": [
+        12,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "P113",
+      "coordinates": [
+        12,
+        0,
+        6
+      ]
+    },
+    {
+      "id": "P114",
+      "coordinates": [
+        12,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "P115",
+      "coordinates": [
+        12,
+        6,
+        -12
+      ]
+    },
+    {
+      "id": "P116",
+      "coordinates": [
+        12,
+        6,
+        -6
+      ]
+    },
+    {
+      "id": "P117",
+      "coordinates": [
+        12,
+        6,
+        0
+      ]
+    },
+    {
+      "id": "P118",
+      "coordinates": [
+        12,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "P119",
+      "coordinates": [
+        12,
+        6,
+        12
+      ]
+    },
+    {
+      "id": "P120",
+      "coordinates": [
+        12,
+        12,
+        -12
+      ]
+    },
+    {
+      "id": "P121",
+      "coordinates": [
+        12,
+        12,
+        -6
+      ]
+    },
+    {
+      "id": "P122",
+      "coordinates": [
+        12,
+        12,
+        0
+      ]
+    },
+    {
+      "id": "P123",
+      "coordinates": [
+        12,
+        12,
+        6
+      ]
+    },
+    {
+      "id": "P124",
+      "coordinates": [
+        12,
+        12,
+        12
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "name": "TightOrigin",
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "radius": 1.5,
+      "tolerance": 0.05,
+      "expectFallback": true
+    },
+    {
+      "name": "OriginShell",
+      "center": [
+        0,
+        0,
+        0
+      ],
+      "radius": 4.5,
+      "tolerance": 0.05,
+      "expectFallback": true
+    },
+    {
+      "name": "EdgeSweep",
+      "center": [
+        9,
+        9,
+        9
+      ],
+      "radius": 6.5,
+      "tolerance": 0.05,
+      "expectFallback": true
+    }
+  ],
+  "boxes": [
+    {
+      "name": "CoreCube",
+      "min": [
+        -6,
+        -6,
+        -6
+      ],
+      "max": [
+        6,
+        6,
+        6
+      ],
+      "expectFallback": true
+    },
+    {
+      "name": "NeedleX",
+      "min": [
+        -12,
+        -1,
+        -1
+      ],
+      "max": [
+        12,
+        1,
+        1
+      ],
+      "expectFallback": true
+    },
+    {
+      "name": "OffsetSlab",
+      "min": [
+        -12,
+        -12,
+        6
+      ],
+      "max": [
+        -4,
+        -4,
+        12
+      ],
+      "expectFallback": true
+    }
+  ]
+}

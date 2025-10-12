@@ -35,6 +35,7 @@ Index ranges (3) via _idx
   - [223372036856873984, 223372036857029631] (0x031C71C74F032000 - 0x031C71C75200007F)
   - [223372036860939264, 223372036861421567] (0x031C71C7B6664000 - 0x031C71C7BF3FFFFF)
 Covering bounds via _mbb: [16.1738, 47.9082, 16.5738, 48.5082]
+Covering cells: 96 (fallback)
 Exact predicate: Vincenty distance <= 5000 meters
 ```
 
@@ -43,6 +44,7 @@ Exact predicate: Vincenty distance <= 5000 meters
 * **Bounding box field** – the field used for coarse filtering (`null` when the plan does not require one).
 * **Index ranges** – the Morton windows that will be scanned. Values are displayed as decimal and hexadecimal for easy comparison.
 * **Covering bounds** – the bounding box applied before exact predicates.
+* **Covering cells** – the number of Morton ranges requested before enforcing `MaxCoveringCells`. `fallback` indicates the encoder merged ranges because the limit was exceeded.
 * **Exact predicate** – the final check executed for each candidate.
 
 ## 3. Bounding boxes and anti-meridian ranges
@@ -66,6 +68,7 @@ Engine: Cartesian3D (3D)
 Index ranges (1) via _idx
   - [4294967296, 4380866642] (0x0000000100000000 - 0x0000000105341202)
 Covering bounds via _mbb: [-10, -10, -10, 10, 10, 10]
+Covering cells: 1
 Exact predicate: Euclidean3D <= 25
 ```
 
@@ -99,4 +102,14 @@ explain.IndexRanges.Count.Should().BeLessThanOrEqualTo(descriptor.Options.MaxCov
 ```
 
 Combining explain assertions with query results helps catch both performance regressions and correctness issues early in CI.
+
+## 8. Refreshing Cartesian3D fixtures
+
+The differential tests under `LiteDB.Spatial.Core.Tests/Differential/Cartesian3D` rely on deterministic lattice fixtures. Regenerate them whenever you adjust the lattice spacing or query mix:
+
+```
+dotnet run --project scripts/Cartesian3DFixtures/Cartesian3DFixtures.csproj
+```
+
+The console app writes JSON fixtures into `LiteDB.Spatial.Core.Tests/Differential/Cartesian3D/Fixtures` without requiring external tooling. Commit the updated JSON alongside any test changes so CI and diagnostics stay in sync.
 

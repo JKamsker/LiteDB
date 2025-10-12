@@ -28,6 +28,8 @@ public static class SpatialDiagnostics
             plan.CoveringBounds,
             plan.IndexRanges,
             plan.ExactPredicateDescription,
+            plan.CoveringCellCount,
+            plan.UsedMaxCoveringCellFallback,
             descriptor?.Options.IndexFieldName,
             descriptor?.Options.BoundingBoxFieldName);
     }
