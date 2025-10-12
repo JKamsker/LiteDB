@@ -2,12 +2,13 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using LiteDB.Spatial.Core.Tests.TestSupport;
 
 namespace LiteDB.Spatial.Core.Tests.Differential.Cartesian3D;
 
 internal static class DifferentialFailureRecorder
 {
-    private static readonly string FailureDirectory = TestPathHelper.GetPath("tests", "failures", "3d");
+    private static readonly string FailureDirectory = Path.Combine(TestResourceLocator.GetFailuresDirectory(), "3d");
 
     public static void Record(string fixtureName, string queryId, object payload)
     {

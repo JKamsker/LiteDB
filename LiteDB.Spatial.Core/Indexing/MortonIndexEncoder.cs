@@ -61,7 +61,7 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
     }
 
     /// <inheritdoc />
-    public SpatialIndexCovering Cover(BoundingBox bounds, int maxCells)
+    public SpatialCovering Cover(BoundingBox bounds, int maxCells)
     {
         if (bounds.Dimensions != Dimensions)
         {
@@ -80,7 +80,7 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
 
         if (totalCells == 0)
         {
-            return new SpatialIndexCovering(Array.Empty<SpatialIndexRange>(), 0, usedMaxCoveringCellFallback: false);
+            return SpatialCovering.Empty;
         }
 
         if (totalCells > _enumerationThreshold)
@@ -92,10 +92,14 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
                 (start, end) = (end, start);
             }
 
-            var ranges = new[] { new SpatialIndexRange(start, end) };
-            var coveringCells = totalCells > int.MaxValue ? int.MaxValue : (int)Math.Min(totalCells, (ulong)int.MaxValue);
-            var fallback = totalCells > (ulong)maxCells;
-            return new SpatialIndexCovering(ranges, coveringCells, fallback);
+            var coarse = new[] { new SpatialIndexRange(start, end) };
+            var coarseDiagnostics = new SpatialCoveringDiagnostics(
+                requestedRangeCount: 1,
+                returnedRangeCount: 1,
+                estimatedCellCount: totalCells,
+                usedMaxCoveringCellsFallback: false,
+                usedEnumerationFallback: true);
+            return new SpatialCovering(coarse, coarseDiagnostics);
         }
 
         var buffer = new List<ulong>((int)Math.Min(totalCells, int.MaxValue));
@@ -103,10 +107,15 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
         buffer.Sort();
 
         var enumeratedRanges = BuildRanges(buffer);
-        var coveringCellCount = enumeratedRanges.Count;
-        var usedFallback = enumeratedRanges.Count > maxCells;
+        var requestedRangeCount = enumeratedRanges.Count;
         var reduced = ReduceRangeCount(enumeratedRanges, maxCells);
-        return new SpatialIndexCovering(reduced, coveringCellCount, usedFallback);
+        var diagnostics = new SpatialCoveringDiagnostics(
+            requestedRangeCount,
+            reduced.Count,
+            totalCells,
+            usedMaxCoveringCellsFallback: requestedRangeCount > maxCells,
+            usedEnumerationFallback: false);
+        return new SpatialCovering(reduced, diagnostics);
     }
 
     /// <summary>

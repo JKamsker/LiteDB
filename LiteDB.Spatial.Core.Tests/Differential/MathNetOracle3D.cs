@@ -16,6 +16,13 @@ internal static class MathNetOracle3D
         return MathNet.Numerics.Distance.Euclidean(first, second);
     }
 
+    public static double Distance((double X, double Y, double Z) first, (double X, double Y, double Z) second)
+    {
+        return Distance(
+            new[] { first.X, first.Y, first.Z },
+            new[] { second.X, second.Y, second.Z });
+    }
+
     public static double Distance(GeoPoint3D first, double[] second)
     {
         return Distance(new[] { first.X, first.Y, first.Z }, second);
@@ -24,5 +31,15 @@ internal static class MathNetOracle3D
     public static double Distance(double[] first, GeoPoint3D second)
     {
         return Distance(first, new[] { second.X, second.Y, second.Z });
+    }
+
+    public static double Distance((double X, double Y, double Z) first, GeoPoint3D second)
+    {
+        return Distance(first, (second.X, second.Y, second.Z));
+    }
+
+    public static double Distance(GeoPoint3D first, (double X, double Y, double Z) second)
+    {
+        return Distance((first.X, first.Y, first.Z), second);
     }
 }

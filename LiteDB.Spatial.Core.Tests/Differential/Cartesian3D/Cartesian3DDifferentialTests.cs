@@ -36,7 +36,7 @@ public sealed class Cartesian3DDifferentialTests
 
             if (query.ExpectCapped)
             {
-                plan.Covering.WasCapped.Should().BeTrue($"Fixture {fixture.Name} query {query.Id} should trigger MaxCoveringCells fallback.");
+                plan.CoveringDiagnostics.UsedMaxCoveringCellsFallback.Should().BeTrue($"Fixture {fixture.Name} query {query.Id} should trigger MaxCoveringCells fallback.");
             }
 
             var baseTolerance = context.Descriptor.Options.DistanceTolerance;
@@ -90,14 +90,7 @@ public sealed class Cartesian3DDifferentialTests
                         queryRadius = query.Radius,
                         tolerance,
                         baseTolerance,
-                        covering = new
-                        {
-                            estimated = plan.Covering.EstimatedCellCount,
-                            requested = plan.Covering.RequestedMaxCells,
-                            original = plan.Covering.OriginalRangeCount,
-                            final = plan.Covering.FinalRangeCount,
-                            wasCapped = plan.Covering.WasCapped
-                        },
+                        covering = CreateCoveringSnapshot(plan.CoveringDiagnostics, context.Descriptor.Options.MaxCoveringCells),
                         expected = expected,
                         actual = actualProjected,
                         points = fixture.Points
@@ -144,14 +137,7 @@ public sealed class Cartesian3DDifferentialTests
                         fixture = fixture.Name,
                         query = query.Id,
                         bounds = query.Bounds.ToArray(),
-                        covering = new
-                        {
-                            estimated = plan.Covering.EstimatedCellCount,
-                            requested = plan.Covering.RequestedMaxCells,
-                            original = plan.Covering.OriginalRangeCount,
-                            final = plan.Covering.FinalRangeCount,
-                            wasCapped = plan.Covering.WasCapped
-                        },
+                        covering = CreateCoveringSnapshot(plan.CoveringDiagnostics, context.Descriptor.Options.MaxCoveringCells),
                         expected,
                         actual,
                         points = fixture.Points
@@ -212,8 +198,23 @@ public sealed class Cartesian3DDifferentialTests
 
     private void LogCovering(string category, string fixtureName, string queryId, ISpatialQueryPlan plan)
     {
+        var covering = plan.CoveringDiagnostics;
         _output.WriteLine(
-            $"[{category}] {fixtureName}/{queryId}: ranges={plan.Covering.FinalRangeCount}/{plan.Covering.RequestedMaxCells} capped={plan.Covering.WasCapped} estimated={plan.Covering.EstimatedCellCount} original={plan.Covering.OriginalRangeCount}");
+            $"[{category}] {fixtureName}/{queryId}: requested={covering.RequestedRangeCount} returned={covering.ReturnedRangeCount} effective={covering.EffectiveRangeCount} estimated={covering.EstimatedCellCount} maxFallback={covering.UsedMaxCoveringCellsFallback} enumerationFallback={covering.UsedEnumerationFallback}");
+    }
+
+    private static object CreateCoveringSnapshot(SpatialCoveringDiagnostics covering, int maxCoveringCells)
+    {
+        return new
+        {
+            covering.RequestedRangeCount,
+            covering.ReturnedRangeCount,
+            covering.EffectiveRangeCount,
+            covering.EstimatedCellCount,
+            covering.UsedMaxCoveringCellsFallback,
+            covering.UsedEnumerationFallback,
+            maxCoveringCells
+        };
     }
 
     private sealed class FixtureContext : IDisposable

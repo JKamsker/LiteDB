@@ -47,8 +47,8 @@ public sealed class MortonIndexEncoderTests
 
         var covering = encoder.Cover(bounds, maxCells: 16);
         covering.Ranges.Should().NotBeEmpty();
-        covering.CoveringCellCount.Should().BeGreaterThan(0);
-        covering.UsedMaxCoveringCellFallback.Should().BeFalse();
+        covering.Diagnostics.UsedMaxCoveringCellsFallback.Should().BeFalse();
+        covering.Diagnostics.UsedEnumerationFallback.Should().BeFalse();
 
         var codes = covering.Ranges.SelectMany(range => Enumerable.Range(0, (int)(range.End - range.Start + 1)).Select(offset => range.Start + (ulong)offset));
         var lowerBound = encoder.Encode(stackalloc double[] { 0.25, 0.25 });

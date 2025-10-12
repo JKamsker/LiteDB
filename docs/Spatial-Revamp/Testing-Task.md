@@ -31,7 +31,7 @@ for dir in $WORKTREES_ROOT/pr-*; do printf '%-70s %s\n' "$(basename "$dir")" "$(
 
 # One Task: aggregate + merge plan
 
-## 0) Create the working branch
+- [x] **0) Create the working branch**
 
 ```bash
 git switch -c feat/spatial-revamp-testing feat/spatial-revamp
@@ -39,7 +39,7 @@ git switch -c feat/spatial-revamp-testing feat/spatial-revamp
 
 ---
 
-## 1) Spatial **Testing Oracles** — base on `pr-76`, layer infra from `pr-73`
+- [x] **1) Spatial Testing Oracles — base on `pr-76`, layer infra from `pr-73`**
 
 * Rationale: `pr-76` is the only branch that already wires adapters into real parity tests; `pr-73` has the best environment toggles, per-oracle gating, fixture infra, and tolerance helpers. Drop `pr-74`/`pr-75`. 
 
@@ -72,7 +72,7 @@ git commit -m "Spatial Testing Oracles: base pr-76 + env/infra from pr-73 (per-o
 
 ---
 
-## 2) **Spatial Test Suites & Features** — base on `pr-80`, fold in bits from `pr-77`/`pr-78`/`pr-79`
+- [x] **2) Spatial Test Suites & Features — base on `pr-80`, fold in bits from `pr-77`/`pr-78`/`pr-79`**
 
 * Rationale: `pr-80` is the strongest chassis; add the separate oracle project (77), correct PostGIS gating via `PostgisFact` (78, with a missing import fix), and keep regeneration tooling (79) while tightening tolerances. 
 
@@ -113,7 +113,7 @@ git commit -m "Spatial Suites: base pr-80; add oracle project (pr-77), PostgisFa
 
 ---
 
-## 3) **FsCheck Property Tests** — base on `pr-84`, integrate runner (82), plan checks (83), sized gens (81)
+- [x] **3) FsCheck Property Tests — base on `pr-84`, integrate runner (82), plan checks (83), sized gens (81)**
 
 * Rationale: `pr-84` is the best property backbone; add `FsCheckPropertyRunner` & richer replay (82), plan-stage assertions/utilities (83), and swap in sized, query-driven generators (81). 
 
@@ -145,7 +145,7 @@ git commit -m "FsCheck: base pr-84 + runner (pr-82) + plan coverage (pr-83) + si
 
 ---
 
-## 4) **Differential Cartesian3D** — base on `pr-87`, add fixtures (85), tolerance helpers (88), diagnostics (89)
+- [ ] **4) Differential Cartesian3D — base on `pr-87`, add fixtures (85), tolerance helpers (88), diagnostics (89)** *(in progress: merged lattice fixtures, upgraded diagnostics, added tuple-aware MathNet oracle; pending tolerance finalization + commit drop-in)*
 
 * Rationale: strongest API-level harness = `pr-87`; bring uncapped+mixed fixtures from `pr-85`; adopt scale-aware tolerance helpers from `pr-88`; surface `SpatialCoveringDiagnostics` and engine-vs-oracle parity from `pr-89`. 
 
@@ -180,7 +180,7 @@ git commit -m "Cartesian3D Differential: base pr-87 + fixtures (pr-85) + scale-a
 
 ---
 
-## 5) **Synthetic Grid Locality** — base on `pr-93`, add span metrics (90), uniqueness + top-K checks (92)
+- [ ] **5) Synthetic Grid Locality — base on `pr-93`, add span metrics (90), uniqueness + top-K checks (92)**
 
 * Rationale: `pr-93` offers the best generator+metrics+compact fixtures; add span metrics from `pr-90`; import uniqueness and constant neighborhood checks from `pr-92`; drop `pr-91`. 
 
@@ -213,7 +213,7 @@ git commit -m "Synthetic Grid Locality: base pr-93 + span metrics (pr-90) + uniq
 
 ---
 
-## 6) Wire-up + consistency pass (traits, toggles, tolerances)
+- [ ] **6) Wire-up + consistency pass (traits, toggles, tolerances)**
 
 ```bash
 # Restore trait filtering & category discoverer (from pr-77/78 into the current tree)
@@ -233,7 +233,7 @@ git add -A && git commit -m "Align distance tolerances to documented budgets"
 
 ---
 
-## 7) CI sanity: run suites deterministically
+- [ ] **7) CI sanity: run suites deterministically**
 
 ```bash
 # Run all spatial tests on net8
@@ -249,7 +249,7 @@ dotnet test LiteDB.Spatial.Core.Tests -f net8.0 --filter Category=locality
 
 ---
 
-## 8) Finalize
+- [ ] **8) Finalize**
 
 ```bash
 git push -u origin feat/spatial-revamp-testing

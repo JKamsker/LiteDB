@@ -31,5 +31,5 @@ public interface ISpatialIndexEncoder
     /// <param name="bounds">The bounding box to cover.</param>
     /// <param name="maxCells">The maximum number of ranges the caller is willing to accept.</param>
     /// <returns>A covering description containing closed index ranges ordered from lowest to highest.</returns>
-    SpatialIndexCovering Cover(BoundingBox bounds, int maxCells);
+    SpatialCovering Cover(BoundingBox bounds, int maxCells);
 }

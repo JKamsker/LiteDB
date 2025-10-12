@@ -30,17 +30,12 @@ public interface ISpatialQueryPlan
     IReadOnlyList<SpatialIndexRange> IndexRanges { get; }
 
     /// <summary>
-    /// Gets the number of index ranges requested before applying the <c>MaxCoveringCells</c> limit.
-    /// </summary>
-    int CoveringCellCount { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether the covering exceeded <c>MaxCoveringCells</c> and required coarse fallback ranges.
-    /// </summary>
-    bool UsedMaxCoveringCellFallback { get; }
-
-    /// <summary>
     /// Gets a human readable description of the exact predicate applied after index filtering.
     /// </summary>
     string? ExactPredicateDescription { get; }
+
+    /// <summary>
+    /// Gets diagnostics describing how the covering was generated.
+    /// </summary>
+    SpatialCoveringDiagnostics CoveringDiagnostics { get; }
 }

@@ -18,16 +18,14 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
     /// <param name="coveringBounds">The optional coarse covering bounds.</param>
     /// <param name="indexRanges">The index ranges that should be scanned.</param>
     /// <param name="predicateDescription">Human friendly description of the exact predicate.</param>
-    /// <param name="coveringCellCount">The number of ranges requested before enforcing the maximum covering cell limit.</param>
-    /// <param name="usedMaxCoveringCellFallback">Indicates whether the covering exceeded the configured cell budget.</param>
+    /// <param name="coveringDiagnostics">Diagnostics describing how the covering was generated.</param>
     public SpatialQueryPlan(
         string engineName,
         int dimensions,
         BoundingBox? coveringBounds,
         IReadOnlyList<SpatialIndexRange> indexRanges,
         string? predicateDescription,
-        int coveringCellCount,
-        bool usedMaxCoveringCellFallback)
+        SpatialCoveringDiagnostics coveringDiagnostics)
     {
         if (string.IsNullOrWhiteSpace(engineName))
         {
@@ -44,13 +42,7 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
         CoveringBounds = coveringBounds;
         IndexRanges = indexRanges ?? throw new ArgumentNullException(nameof(indexRanges));
         ExactPredicateDescription = predicateDescription;
-        if (coveringCellCount < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(coveringCellCount), "Covering cell count cannot be negative.");
-        }
-
-        CoveringCellCount = coveringCellCount;
-        UsedMaxCoveringCellFallback = usedMaxCoveringCellFallback;
+        CoveringDiagnostics = coveringDiagnostics;
     }
 
     /// <inheritdoc />
@@ -66,11 +58,8 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
     public IReadOnlyList<SpatialIndexRange> IndexRanges { get; }
 
     /// <inheritdoc />
-    public int CoveringCellCount { get; }
-
-    /// <inheritdoc />
-    public bool UsedMaxCoveringCellFallback { get; }
-
-    /// <inheritdoc />
     public string? ExactPredicateDescription { get; }
+
+    /// <inheritdoc />
+    public SpatialCoveringDiagnostics CoveringDiagnostics { get; }
 }

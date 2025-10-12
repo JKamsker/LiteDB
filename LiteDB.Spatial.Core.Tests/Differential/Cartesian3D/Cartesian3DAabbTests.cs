@@ -50,11 +50,13 @@ public sealed class Cartesian3DAabbTests
             metadata,
             collection,
             "position",
-            fixture.DomainBoundingBox,
+            fixture.Domain,
             new SpatialIndexOptions(
-                precisionBits: 9,
-                maxCoveringCells: fixture.MaxCoveringCells,
-                distanceTolerance: fixture.DistanceTolerance));
+                fixture.Options.PrecisionBits,
+                fixture.Options.MaxCoveringCells,
+                fixture.Options.DistanceTolerance,
+                fixture.Options.IndexFieldName,
+                fixture.Options.BoundingBoxFieldName));
 
         var boundingField = descriptor.Options.BoundingBoxFieldName;
         var mbbById = new Dictionary<int, double[]>(fixture.Points.Count);
@@ -85,14 +87,14 @@ public sealed class Cartesian3DAabbTests
 
         var fallbackTriggered = false;
 
-        foreach (var query in fixture.BoxQueries)
+        foreach (var query in fixture.AabbQueries)
         {
-            var bounds = query.ToBoundingBox();
+            var bounds = query.Bounds;
             var plan = SpatialCartesian3D.WithinBoundingBox(descriptor, bounds);
             _output.WriteLine(
-                $"[box:{query.Name}] ranges={plan.IndexRanges.Count}/{descriptor.Options.MaxCoveringCells} coveringCells={plan.CoveringCellCount} fallback={plan.UsedMaxCoveringCellFallback}");
+                $"[box:{query.Id}] requested={plan.CoveringDiagnostics.RequestedRangeCount} returned={plan.CoveringDiagnostics.ReturnedRangeCount} effective={plan.CoveringDiagnostics.EffectiveRangeCount} estimated={plan.CoveringDiagnostics.EstimatedCellCount} maxFallback={plan.CoveringDiagnostics.UsedMaxCoveringCellsFallback} enumerationFallback={plan.CoveringDiagnostics.UsedEnumerationFallback}");
 
-            var triggeredFallback = plan.UsedMaxCoveringCellFallback;
+            var triggeredFallback = plan.CoveringDiagnostics.UsedMaxCoveringCellsFallback || plan.CoveringDiagnostics.UsedEnumerationFallback;
             fallbackTriggered |= triggeredFallback;
 
             var manualMatches = mbbById
@@ -109,20 +111,23 @@ public sealed class Cartesian3DAabbTests
 
             try
             {
-                manualMatches.Should().Equal(coordinateMatches, $"manual inequality filter should match coordinate evaluation for {query.Name}");
+                manualMatches.Should().Equal(coordinateMatches, $"manual inequality filter should match coordinate evaluation for {query.Id}");
             }
             catch (Xunit.Sdk.XunitException)
             {
-                FailureReporter.Record($"box-{query.Name}", new
+                FailureReporter.Record($"box-{query.Id}", new
                 {
                     Query = query,
                     descriptor.Options.DistanceTolerance,
                     Plan = new
                     {
-                        RangeCount = plan.IndexRanges.Count,
-                        plan.CoveringCellCount,
-                        descriptor.Options.MaxCoveringCells,
-                        plan.UsedMaxCoveringCellFallback
+                        plan.CoveringDiagnostics.RequestedRangeCount,
+                        plan.CoveringDiagnostics.ReturnedRangeCount,
+                        plan.CoveringDiagnostics.EffectiveRangeCount,
+                        plan.CoveringDiagnostics.EstimatedCellCount,
+                        plan.CoveringDiagnostics.UsedMaxCoveringCellsFallback,
+                        plan.CoveringDiagnostics.UsedEnumerationFallback,
+                        descriptor.Options.MaxCoveringCells
                     },
                     BoundingBoxes = mbbById,
                     CoordinateMatches = coordinateMatches,
@@ -136,17 +141,19 @@ public sealed class Cartesian3DAabbTests
         fallbackTriggered.Should().BeTrue("At least one bounding box query should trigger a covering fallback");
     }
 
-    private static bool Contains(double[] mbb, BoxQuery query)
+    private static bool Contains(double[] mbb, Cartesian3DAabbQuery query)
     {
-        return mbb[0] >= query.Min.X && mbb[3] <= query.Max.X
-            && mbb[1] >= query.Min.Y && mbb[4] <= query.Max.Y
-            && mbb[2] >= query.Min.Z && mbb[5] <= query.Max.Z;
+        var bounds = query.Bounds.GetValues();
+        return mbb[0] >= bounds[0] && mbb[3] <= bounds[3]
+            && mbb[1] >= bounds[1] && mbb[4] <= bounds[4]
+            && mbb[2] >= bounds[2] && mbb[5] <= bounds[5];
     }
 
-    private static bool Contains(LatticePoint point, BoxQuery query)
+    private static bool Contains(Cartesian3DLatticePoint point, Cartesian3DAabbQuery query)
     {
-        return point.X >= query.Min.X && point.X <= query.Max.X
-            && point.Y >= query.Min.Y && point.Y <= query.Max.Y
-            && point.Z >= query.Min.Z && point.Z <= query.Max.Z;
+        var bounds = query.Bounds.GetValues();
+        return point.X >= bounds[0] && point.X <= bounds[3]
+            && point.Y >= bounds[1] && point.Y <= bounds[4]
+            && point.Z >= bounds[2] && point.Z <= bounds[5];
     }
 }

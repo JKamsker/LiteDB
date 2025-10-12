@@ -1,12 +1,13 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using LiteDB.Spatial.Core.Tests.TestSupport;
 
 namespace LiteDB.Spatial.Core.Tests.Differential.Cartesian3D;
 
 internal static class Cartesian3DLatticeFixtureLoader
 {
-    private static readonly string FixtureDirectory = TestPathHelper.GetPath("LiteDB.Spatial.Core.Tests", "Differential", "Cartesian3D", "Fixtures");
+    private static readonly string FixtureDirectory = Path.Combine(TestResourceLocator.RepositoryRoot, "LiteDB.Spatial.Core.Tests", "Differential", "Cartesian3D", "Fixtures");
 
     public static IEnumerable<Cartesian3DLatticeFixture> LoadAll()
     {
