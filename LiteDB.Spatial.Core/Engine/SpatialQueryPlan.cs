@@ -18,12 +18,14 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
     /// <param name="coveringBounds">The optional coarse covering bounds.</param>
     /// <param name="indexRanges">The index ranges that should be scanned.</param>
     /// <param name="predicateDescription">Human friendly description of the exact predicate.</param>
+    /// <param name="coveringMetrics">Diagnostic metrics describing how the covering was produced.</param>
     public SpatialQueryPlan(
         string engineName,
         int dimensions,
         BoundingBox? coveringBounds,
         IReadOnlyList<SpatialIndexRange> indexRanges,
-        string? predicateDescription)
+        string? predicateDescription,
+        SpatialCoveringMetrics coveringMetrics = default)
     {
         if (string.IsNullOrWhiteSpace(engineName))
         {
@@ -40,6 +42,7 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
         CoveringBounds = coveringBounds;
         IndexRanges = indexRanges ?? throw new ArgumentNullException(nameof(indexRanges));
         ExactPredicateDescription = predicateDescription;
+        CoveringMetrics = coveringMetrics;
     }
 
     /// <inheritdoc />
@@ -56,4 +59,7 @@ public sealed class SpatialQueryPlan : ISpatialQueryPlan
 
     /// <inheritdoc />
     public string? ExactPredicateDescription { get; }
+
+    /// <inheritdoc />
+    public SpatialCoveringMetrics CoveringMetrics { get; }
 }
