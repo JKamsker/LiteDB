@@ -100,3 +100,21 @@ explain.IndexRanges.Count.Should().BeLessThanOrEqualTo(descriptor.Options.MaxCov
 
 Combining explain assertions with query results helps catch both performance regressions and correctness issues early in CI.
 
+
+## 8. Property-based verification and fixtures
+
+The Cartesian differential tests in `LiteDB.Spatial.Core.Tests` rely on [`FsCheck`](https://fscheck.github.io/FsCheck/) to build convex polygons and bounding boxes. When you need to reproduce a specific run, set the `SPATIAL_FSCHECK_SEED` environment variable before invoking `dotnet test`. The expected format is `seed:gamma[:size]`, which mirrors the tuple printed in a failing counterexample, for example:
+
+```bash
+env SPATIAL_FSCHECK_SEED=123456789:987654321 dotnet test LiteDB.Spatial.Core.Tests
+```
+
+Shrunk counterexamples are persisted as JSON files under `tests/failures/`. Each payload contains the captured seed, original arguments, and shrunk arguments so you can replay or handcraft a regression test.
+
+Distance diagnostics also use synthetic point clouds that live in `tests/fixtures/point_clouds`. The fixture generator is deterministic; set `SPATIAL_REGENERATE_FIXTURES=true` to rebuild the JSON assets from code when tolerances change:
+
+```bash
+env SPATIAL_REGENERATE_FIXTURES=true dotnet test LiteDB.Spatial.Core.Tests
+```
+
+The refreshed fixtures will be written back to disk with stable formatting—remember to inspect and commit the updated files alongside any tolerance adjustments.
