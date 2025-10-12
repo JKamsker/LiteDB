@@ -4,10 +4,12 @@ extern alias LiteDbBase;
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using FluentAssertions;
 using LiteDB.Spatial;
+using LiteDB.Spatial.Core.Tests;
 using LiteDB.Spatial.Core.Tests.TestSupport;
 using Xunit;
 using Xunit.Abstractions;
@@ -15,6 +17,7 @@ using BaseLiteDB = LiteDbBase::LiteDB;
 
 namespace LiteDB.Spatial.Core.Tests.Differential.Cartesian3D;
 
+[Category("differential")]
 public sealed class Cartesian3DAabbTests
 {
     private readonly ITestOutputHelper _output;
@@ -59,12 +62,20 @@ public sealed class Cartesian3DAabbTests
                 fixture.Options.BoundingBoxFieldName));
 
         var boundingField = descriptor.Options.BoundingBoxFieldName;
-        var mbbById = new Dictionary<int, double[]>(fixture.Points.Count);
-        var pointById = fixture.Points.ToDictionary(p => p.Id);
+        var mbbById = new Dictionary<string, double[]>(fixture.Points.Count, StringComparer.Ordinal);
+        var pointById = fixture.Points.ToDictionary(p => p.Id, StringComparer.Ordinal);
 
         foreach (var document in collection.FindAll())
         {
-            var id = document["_id"].AsInt32;
+            var idValue = document["_id"];
+            var id = idValue.Type switch
+            {
+                BaseLiteDB.BsonType.Int32 => idValue.AsInt32.ToString(CultureInfo.InvariantCulture),
+                BaseLiteDB.BsonType.Int64 => idValue.AsInt64.ToString(CultureInfo.InvariantCulture),
+                BaseLiteDB.BsonType.Double => idValue.AsDouble.ToString(CultureInfo.InvariantCulture),
+                BaseLiteDB.BsonType.String => idValue.AsString,
+                _ => idValue.ToString()
+            };
             var mbb = document[boundingField].AsArray.Select(v => v.AsDouble).ToArray();
             mbb.Length.Should().Be(6, "3D bounding boxes must contain six values");
             for (var axis = 0; axis < 3; axis++)
@@ -100,13 +111,13 @@ public sealed class Cartesian3DAabbTests
             var manualMatches = mbbById
                 .Where(pair => Contains(pair.Value, query))
                 .Select(pair => pair.Key)
-                .OrderBy(id => id)
+                .OrderBy(id => id, StringComparer.Ordinal)
                 .ToList();
 
             var coordinateMatches = fixture.Points
                 .Where(point => Contains(point, query))
                 .Select(point => point.Id)
-                .OrderBy(id => id)
+                .OrderBy(id => id, StringComparer.Ordinal)
                 .ToList();
 
             try

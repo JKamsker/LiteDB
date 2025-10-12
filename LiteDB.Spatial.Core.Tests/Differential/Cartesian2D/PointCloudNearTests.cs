@@ -1,11 +1,13 @@
 using System;
 using System.Linq;
 using FluentAssertions;
+using LiteDB.Spatial.Core.Tests;
 using LiteDB.Spatial.Core.Tests.TestSupport;
 using Xunit;
 
 namespace LiteDB.Spatial.Core.Tests.Differential.Cartesian2D;
 
+[Category("differential")]
 public sealed class PointCloudNearTests
 {
     [Fact]

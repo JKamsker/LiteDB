@@ -3,11 +3,14 @@ using System.Linq;
 using FluentAssertions;
 using FsCheck;
 using FsCheck.Xunit;
+using LiteDB.Spatial.Core.Tests;
 using LiteDB.Spatial.Core.Tests.TestSupport;
 using Xunit;
 
 namespace LiteDB.Spatial.Core.Tests.Differential.Cartesian2D;
 
+[Category("property")]
+[Category("differential")]
 public sealed class CartesianBoundingBoxDifferentialTests
 {
     [SpatialProperty(MaxTest = 100, Arbitrary = new[] { typeof(Cartesian2DGenerators) })]
