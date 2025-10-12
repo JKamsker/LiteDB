@@ -145,7 +145,7 @@ git commit -m "FsCheck: base pr-84 + runner (pr-82) + plan coverage (pr-83) + si
 
 ---
 
-- [ ] **4) Differential Cartesian3D — base on `pr-87`, add fixtures (85), tolerance helpers (88), diagnostics (89)** *(in progress: merged lattice fixtures, upgraded diagnostics, added tuple-aware MathNet oracle; pending tolerance finalization + commit drop-in)*
+- [x] **4) Differential Cartesian3D — base on `pr-87`, add fixtures (85), tolerance helpers (88), diagnostics (89)**
 
 * Rationale: strongest API-level harness = `pr-87`; bring uncapped+mixed fixtures from `pr-85`; adopt scale-aware tolerance helpers from `pr-88`; surface `SpatialCoveringDiagnostics` and engine-vs-oracle parity from `pr-89`. 
 
@@ -180,7 +180,7 @@ git commit -m "Cartesian3D Differential: base pr-87 + fixtures (pr-85) + scale-a
 
 ---
 
-- [ ] **5) Synthetic Grid Locality — base on `pr-93`, add span metrics (90), uniqueness + top-K checks (92)**
+- [x] **5) Synthetic Grid Locality — base on `pr-93`, add span metrics (90), uniqueness + top-K checks (92)**
 
 * Rationale: `pr-93` offers the best generator+metrics+compact fixtures; add span metrics from `pr-90`; import uniqueness and constant neighborhood checks from `pr-92`; drop `pr-91`. 
 
@@ -213,7 +213,7 @@ git commit -m "Synthetic Grid Locality: base pr-93 + span metrics (pr-90) + uniq
 
 ---
 
-- [ ] **6) Wire-up + consistency pass (traits, toggles, tolerances)**
+- [x] **6) Wire-up + consistency pass (traits, toggles, tolerances)**
 
 ```bash
 # Restore trait filtering & category discoverer (from pr-77/78 into the current tree)
@@ -233,7 +233,7 @@ git add -A && git commit -m "Align distance tolerances to documented budgets"
 
 ---
 
-- [ ] **7) CI sanity: run suites deterministically**
+- [x] **7) CI sanity: run suites deterministically**
 
 ```bash
 # Run all spatial tests on net8

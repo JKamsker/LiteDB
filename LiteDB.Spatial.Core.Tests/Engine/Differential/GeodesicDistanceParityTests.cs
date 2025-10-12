@@ -1,6 +1,7 @@
 using FluentAssertions;
 using FluentAssertions.Execution;
 using LiteDB.Spatial;
+using LiteDB.Spatial.Core.Tests.Infrastructure;
 using Xunit;
 
 namespace LiteDB.Spatial.Core.Tests.Engine.Differential;
@@ -17,12 +18,10 @@ namespace LiteDB.Spatial.Core.Tests.Engine.Differential;
 //   json.dump(pairs, open('LiteDB.Spatial.Core.Tests/fixtures/geodesic_pairs.json', 'w'), indent=2)
 //   PY
 
+[Category("geographic")]
 [Category("oracle")]
 public sealed class GeodesicDistanceParityTests
 {
-    private const double RelativeTolerance = 1e-4;
-    private const double AbsoluteTolerance = 0.05;
-
     [Fact]
     public void HaversineMatchesGeographicLibSamples()
     {
@@ -35,9 +34,7 @@ public sealed class GeodesicDistanceParityTests
 
             var expected = GeographicLibOracle.Distance(pair.Id, pair.From, pair.To);
             var actual = distance.Distance(pair.From, pair.To);
-            var tolerance = RelativeTolerance * expected + AbsoluteTolerance;
-
-            actual.Should().BeApproximately(expected, tolerance);
+            SpatialTolerance.AssertEarthDistance(pair.Id, expected, actual);
         }
     }
 
@@ -53,9 +50,7 @@ public sealed class GeodesicDistanceParityTests
 
             var expected = GeographicLibOracle.Distance(pair.Id, pair.From, pair.To);
             var actual = distance.Distance(pair.From, pair.To);
-            var tolerance = RelativeTolerance * expected + AbsoluteTolerance;
-
-            actual.Should().BeApproximately(expected, tolerance);
+            SpatialTolerance.AssertEarthDistance(pair.Id, expected, actual);
         }
     }
 }

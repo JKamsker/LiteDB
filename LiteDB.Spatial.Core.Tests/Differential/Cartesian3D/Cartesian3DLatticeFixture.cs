@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -75,8 +76,8 @@ public sealed class Cartesian3DLatticeFixture
             raw.Options?.BoundingBoxFieldName ?? SpatialIndexOptions.DefaultBoundingBoxFieldName);
 
         var points = raw.Points
-            .Select(p => new Cartesian3DLatticePoint(p.Id, p.X, p.Y, p.Z))
-            .OrderBy(p => p.Id)
+            .Select((p, index) => new Cartesian3DLatticePoint(ReadPointId(p.Id, index), p.X, p.Y, p.Z))
+            .OrderBy(p => p.Id, StringComparer.Ordinal)
             .ToList();
 
         var near = (raw.NearQueries ?? Array.Empty<RawNearQuery>())
@@ -139,10 +140,22 @@ public sealed class Cartesian3DLatticeFixture
         public string? BoundingBoxFieldName { get; set; }
     }
 
+    private static string ReadPointId(JsonElement element, int index)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString() ?? index.ToString(CultureInfo.InvariantCulture),
+            JsonValueKind.Number when element.TryGetInt64(out var integer) => integer.ToString(CultureInfo.InvariantCulture),
+            JsonValueKind.Number => element.GetDouble().ToString(CultureInfo.InvariantCulture),
+            JsonValueKind.Null => index.ToString(CultureInfo.InvariantCulture),
+            _ => element.ToString() ?? index.ToString(CultureInfo.InvariantCulture)
+        };
+    }
+
     private sealed class RawPoint
     {
         [JsonPropertyName("id")]
-        public int Id { get; set; }
+        public JsonElement Id { get; set; }
 
         [JsonPropertyName("x")]
         public double X { get; set; }
@@ -179,7 +192,7 @@ public sealed class Cartesian3DLatticeFixture
     }
 }
 
-public sealed record Cartesian3DLatticePoint(int Id, double X, double Y, double Z)
+public sealed record Cartesian3DLatticePoint(string Id, double X, double Y, double Z)
 {
     public GeoPoint3D ToGeoPoint() => new(X, Y, Z);
 }

@@ -13,6 +13,7 @@ using SpatialFacade = LiteDB.Spatial.Spatial;
 
 namespace LiteDB.Spatial.Core.Tests.Engine.Differential;
 
+[Category("geographic")]
 [Category("oracle")]
 public sealed class GeographicBoundingBoxDifferentialTests
 {
