@@ -1,0 +1,20 @@
+[
+  {
+    "id": "equator-10km",
+    "from": { "lon": 0.0, "lat": 0.0 },
+    "to": { "lon": 0.08983152841195213, "lat": 0.0 },
+    "distance_m": 10000.0
+  },
+  {
+    "id": "sanfran-tokyo",
+    "from": { "lon": -122.4194, "lat": 37.7749 },
+    "to": { "lon": 139.6917, "lat": 35.6895 },
+    "distance_m": 8289537.582643976
+  },
+  {
+    "id": "polar-longitude-flip",
+    "from": { "lon": 0.0, "lat": 89.5 },
+    "to": { "lon": 180.0, "lat": 89.5 },
+    "distance_m": 111693.95089655284
+  }
+]
