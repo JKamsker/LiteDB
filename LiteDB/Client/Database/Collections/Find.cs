@@ -14,7 +14,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Query()
         {
-            return new LiteQueryable<T>(_engine, _mapper, _collection, new Query()).Include(_includes);
+            return new LiteQueryable<T>(_engine, _mapper, _collection, new Query(), _expressions).Include(_includes);
         }
 
         #region Find
@@ -44,7 +44,7 @@ namespace LiteDB
             if (skip != 0) query.Offset = skip;
             if (limit != int.MaxValue) query.Limit = limit;
 
-            return new LiteQueryable<T>(_engine, _mapper, _collection, query)
+            return new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions)
                 .ToEnumerable();
         }
 
@@ -64,7 +64,10 @@ namespace LiteDB
         {
             if (id == null || id.IsNull) throw new ArgumentNullException(nameof(id));
 
-            return this.Find(BsonExpression.Create("_id = @0", id)).FirstOrDefault();
+            using (this.EnterExpressionScope())
+            {
+                return this.Find(BsonExpression.Create("_id = @0", id)).FirstOrDefault();
+            }
         }
 
         /// <summary>
@@ -75,12 +78,24 @@ namespace LiteDB
         /// <summary>
         /// Find the first document using predicate expression. Returns null if not found
         /// </summary>
-        public T FindOne(string predicate, BsonDocument parameters) => this.FindOne(BsonExpression.Create(predicate, parameters));
+        public T FindOne(string predicate, BsonDocument parameters)
+        {
+            using (this.EnterExpressionScope())
+            {
+                return this.FindOne(BsonExpression.Create(predicate, parameters));
+            }
+        }
 
         /// <summary>
         /// Find the first document using predicate expression. Returns null if not found
         /// </summary>
-        public T FindOne(BsonExpression predicate, params BsonValue[] args) => this.FindOne(BsonExpression.Create(predicate, args));
+        public T FindOne(BsonExpression predicate, params BsonValue[] args)
+        {
+            using (this.EnterExpressionScope())
+            {
+                return this.FindOne(BsonExpression.Create(predicate, args));
+            }
+        }
 
         /// <summary>
         /// Find the first document using predicate expression. Returns null if not found

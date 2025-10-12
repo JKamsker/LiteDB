@@ -8,6 +8,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -123,6 +125,17 @@ namespace LiteDB
         /// Compiled Expression into a scalar function to be executed: func(source[], root, current, parameters)1
         /// </summary>
         private BsonExpressionScalarDelegate _funcScalar;
+
+        private static readonly AsyncLocal<IExpressionRegistry> _currentRegistry = new AsyncLocal<IExpressionRegistry>();
+
+        internal static IDisposable UseRegistry(IExpressionRegistry registry)
+        {
+            var previous = _currentRegistry.Value;
+            _currentRegistry.Value = registry;
+            return new RegistryScope(previous);
+        }
+
+        internal static IExpressionRegistry CurrentRegistry => _currentRegistry.Value;
 
         /// <summary>
         /// Get default field name when need convert simple BsonValue into BsonDocument
@@ -458,6 +471,26 @@ namespace LiteDB
         public override string ToString()
         {
             return $"`{this.Source}` [{this.Type}]";
+        }
+
+        private sealed class RegistryScope : IDisposable
+        {
+            private readonly IExpressionRegistry _previous;
+            private bool _disposed;
+
+            public RegistryScope(IExpressionRegistry previous)
+            {
+                _previous = previous;
+            }
+
+            public void Dispose()
+            {
+                if (!_disposed)
+                {
+                    _currentRegistry.Value = _previous;
+                    _disposed = true;
+                }
+            }
         }
     }
 }

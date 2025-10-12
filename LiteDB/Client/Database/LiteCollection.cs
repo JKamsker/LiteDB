@@ -1,4 +1,5 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using static LiteDB.Constants;
@@ -14,6 +15,7 @@ namespace LiteDB
         private readonly EntityMapper _entity;
         private readonly MemberMapper _id;
         private readonly BsonAutoId _autoId;
+        private readonly IExpressionRegistry _expressions;
 
         /// <summary>
         /// Get collection name
@@ -30,12 +32,18 @@ namespace LiteDB
         /// </summary>
         public EntityMapper EntityMapper => _entity;
 
-        internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper)
+        internal IDisposable EnterExpressionScope()
+        {
+            return BsonExpression.UseRegistry(_expressions);
+        }
+
+        internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper, IExpressionRegistry expressions)
         {
             _collection = name ?? mapper.ResolveCollectionName(typeof(T));
             _engine = engine;
             _mapper = mapper;
             _includes = new List<BsonExpression>();
+            _expressions = expressions;
 
             // if strong typed collection, get _id member mapped (if exists)
             if (typeof(T) == typeof(BsonDocument))

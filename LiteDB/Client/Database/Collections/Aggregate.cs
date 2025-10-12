@@ -31,12 +31,24 @@ namespace LiteDB
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public int Count(string predicate, BsonDocument parameters) => this.Count(BsonExpression.Create(predicate, parameters));
+        public int Count(string predicate, BsonDocument parameters)
+        {
+            using (this.EnterExpressionScope())
+            {
+                return this.Count(BsonExpression.Create(predicate, parameters));
+            }
+        }
 
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public int Count(string predicate, params BsonValue[] args) => this.Count(BsonExpression.Create(predicate, args));
+        public int Count(string predicate, params BsonValue[] args)
+        {
+            using (this.EnterExpressionScope())
+            {
+                return this.Count(BsonExpression.Create(predicate, args));
+            }
+        }
 
         /// <summary>
         /// Count documents matching a query. This method does not deserialize any documents. Needs indexes on query expression
@@ -46,7 +58,7 @@ namespace LiteDB
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public int Count(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query).Count();
+        public int Count(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions).Count();
 
         #endregion
 
@@ -73,12 +85,24 @@ namespace LiteDB
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public long LongCount(string predicate, BsonDocument parameters) => this.LongCount(BsonExpression.Create(predicate, parameters));
+        public long LongCount(string predicate, BsonDocument parameters)
+        {
+            using (this.EnterExpressionScope())
+            {
+                return this.LongCount(BsonExpression.Create(predicate, parameters));
+            }
+        }
 
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public long LongCount(string predicate, params BsonValue[] args) => this.LongCount(BsonExpression.Create(predicate, args));
+        public long LongCount(string predicate, params BsonValue[] args)
+        {
+            using (this.EnterExpressionScope())
+            {
+                return this.LongCount(BsonExpression.Create(predicate, args));
+            }
+        }
 
         /// <summary>
         /// Get document count in collection using predicate filter expression
@@ -88,7 +112,7 @@ namespace LiteDB
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public long LongCount(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query).Count();
+        public long LongCount(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions).Count();
 
         #endregion
 
@@ -107,12 +131,24 @@ namespace LiteDB
         /// <summary>
         /// Get true if collection contains at least 1 document that satisfies the predicate expression
         /// </summary>
-        public bool Exists(string predicate, BsonDocument parameters) => this.Exists(BsonExpression.Create(predicate, parameters));
+        public bool Exists(string predicate, BsonDocument parameters)
+        {
+            using (this.EnterExpressionScope())
+            {
+                return this.Exists(BsonExpression.Create(predicate, parameters));
+            }
+        }
 
         /// <summary>
         /// Get true if collection contains at least 1 document that satisfies the predicate expression
         /// </summary>
-        public bool Exists(string predicate, params BsonValue[] args) => this.Exists(BsonExpression.Create(predicate, args));
+        public bool Exists(string predicate, params BsonValue[] args)
+        {
+            using (this.EnterExpressionScope())
+            {
+                return this.Exists(BsonExpression.Create(predicate, args));
+            }
+        }
 
         /// <summary>
         /// Get true if collection contains at least 1 document that satisfies the predicate expression
@@ -122,7 +158,7 @@ namespace LiteDB
         /// <summary>
         /// Get true if collection contains at least 1 document that satisfies the predicate expression
         /// </summary>
-        public bool Exists(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query).Exists();
+        public bool Exists(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions).Exists();
 
         #endregion
 

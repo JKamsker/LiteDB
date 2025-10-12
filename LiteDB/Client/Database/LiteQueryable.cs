@@ -1,4 +1,5 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,16 +19,18 @@ namespace LiteDB
         protected readonly BsonMapper _mapper;
         protected readonly string _collection;
         protected readonly Query _query;
+        private readonly IExpressionRegistry _expressions;
 
         // indicate that T type are simple and result are inside first document fields (query always return a BsonDocument)
         private readonly bool _isSimpleType = Reflection.IsSimpleType(typeof(T));
 
-        internal LiteQueryable(ILiteEngine engine, BsonMapper mapper, string collection, Query query)
+        internal LiteQueryable(ILiteEngine engine, BsonMapper mapper, string collection, Query query, IExpressionRegistry expressions)
         {
             _engine = engine;
             _mapper = mapper;
             _collection = collection;
             _query = query;
+            _expressions = expressions;
         }
 
         #region Includes
@@ -77,7 +80,10 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(string predicate, BsonDocument parameters)
         {
-            _query.Where.Add(BsonExpression.Create(predicate, parameters));
+            using (BsonExpression.UseRegistry(_expressions))
+            {
+                _query.Where.Add(BsonExpression.Create(predicate, parameters));
+            }
             return this;
         }
 
@@ -86,7 +92,10 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(string predicate, params BsonValue[] args)
         {
-            _query.Where.Add(BsonExpression.Create(predicate, args));
+            using (BsonExpression.UseRegistry(_expressions))
+            {
+                _query.Where.Add(BsonExpression.Create(predicate, args));
+            }
             return this;
         }
 
@@ -184,7 +193,7 @@ namespace LiteDB
 
             _mapper.RegisterGroupingType<K, T>();
 
-            return new LiteQueryable<IGrouping<K, T>>(_engine, _mapper, _collection, _query);
+            return new LiteQueryable<IGrouping<K, T>>(_engine, _mapper, _collection, _query, _expressions);
         }
 
         /// <summary>
@@ -224,7 +233,7 @@ namespace LiteDB
         {
             _query.Select = selector;
 
-            return new LiteQueryable<BsonDocument>(_engine, _mapper, _collection, _query);
+            return new LiteQueryable<BsonDocument>(_engine, _mapper, _collection, _query, _expressions);
         }
 
         /// <summary>
@@ -234,7 +243,7 @@ namespace LiteDB
         {
             _query.Select = _mapper.GetExpression(selector);
 
-            return new LiteQueryable<K>(_engine, _mapper, _collection, _query);
+            return new LiteQueryable<K>(_engine, _mapper, _collection, _query, _expressions);
         }
 
         private static void ValidateVectorArguments(float[] target, double maxDistance)
@@ -244,20 +253,24 @@ namespace LiteDB
             if (double.IsNaN(maxDistance)) throw new ArgumentOutOfRangeException(nameof(maxDistance), "Similarity threshold must be a valid number.");
         }
 
-        private static BsonExpression CreateVectorSimilarityFilter(BsonExpression fieldExpr, float[] target, double maxDistance)
+        private BsonExpression CreateVectorSimilarityFilter(BsonExpression fieldExpr, float[] target, double maxDistance)
         {
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
 
             ValidateVectorArguments(target, maxDistance);
 
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
-            return BsonExpression.Create($"{fieldExpr.Source} VECTOR_SIM @0 <= @1", targetArray, new BsonValue(maxDistance));
+            using (BsonExpression.UseRegistry(_expressions))
+            {
+                return BsonExpression.Create($"{fieldExpr.Source} VECTOR_SIM @0 <= @1", targetArray, new BsonValue(maxDistance));
+            }
         }
 
         internal ILiteQueryable<T> VectorWhereNear(string vectorField, float[] target, double maxDistance)
         {
             if (string.IsNullOrWhiteSpace(vectorField)) throw new ArgumentNullException(nameof(vectorField));
 
+            using var _ = BsonExpression.UseRegistry(_expressions);
             var fieldExpr = BsonExpression.Create($"$.{vectorField}");
             return this.VectorWhereNear(fieldExpr, target, maxDistance);
         }
@@ -291,6 +304,7 @@ namespace LiteDB
 
         internal ILiteQueryableResult<T> VectorTopKNear(string field, float[] target, int k)
         {
+            using var _ = BsonExpression.UseRegistry(_expressions);
             var fieldExpr = BsonExpression.Create($"$.{field}");
             return this.VectorTopKNear(fieldExpr, target, k);
         }
@@ -304,15 +318,18 @@ namespace LiteDB
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
 
             // Build VECTOR_SIM as order clause
-            var simExpr = BsonExpression.Create($"VECTOR_SIM({fieldExpr.Source}, @0)", targetArray);
+            using (BsonExpression.UseRegistry(_expressions))
+            {
+                var simExpr = BsonExpression.Create($"VECTOR_SIM({fieldExpr.Source}, @0)", targetArray);
 
-            _query.VectorField = fieldExpr.Source;
-            _query.VectorTarget = target?.ToArray();
-            _query.VectorMaxDistance = double.MaxValue;
+                _query.VectorField = fieldExpr.Source;
+                _query.VectorTarget = target?.ToArray();
+                _query.VectorMaxDistance = double.MaxValue;
 
-            return this
-                .OrderBy(simExpr, Query.Ascending)
-                .Limit(k);
+                return this
+                    .OrderBy(simExpr, Query.Ascending)
+                    .Limit(k);
+            }
         }
 
         [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]

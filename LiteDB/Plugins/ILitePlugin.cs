@@ -31,6 +31,8 @@ namespace LiteDB.Plugins
         IServiceProvider Services { get; }
 
         ILogger Logger { get; }
+
+        ConnectionString ConnectionString { get; }
     }
 
     /// <summary>
@@ -59,11 +61,21 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface IExpressionRegistry
     {
-        void RegisterOperator(string name, BsonBinaryOperator operation);
+        void RegisterBinaryOperator(string token, BsonExpressionType expressionType, BsonBinaryOperator implementation, BinaryOperatorPrecedence precedence = BinaryOperatorPrecedence.Comparison, string source = null);
 
-        bool TryGetOperator(string name, out BsonBinaryOperator operation);
+        void RegisterFunction(string name, Delegate implementation, BsonExpressionType expressionType, bool convertScalarLeftToEnumerable = true, bool isScalarResult = false);
 
-        IEnumerable<KeyValuePair<string, BsonBinaryOperator>> Operators { get; }
+        void RegisterKeyword(string keyword);
+
+        IReadOnlyCollection<BinaryOperatorRegistration> Operators { get; }
+
+        IReadOnlyCollection<ExpressionFunctionRegistration> Functions { get; }
+
+        IReadOnlyCollection<string> Keywords { get; }
+
+        bool ContainsOperator(string token);
+
+        bool ContainsKeyword(string keyword);
     }
 
     /// <summary>
