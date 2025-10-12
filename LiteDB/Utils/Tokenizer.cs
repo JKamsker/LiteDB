@@ -98,8 +98,7 @@ namespace LiteDB
             "LIKE",
             "IN",
             "AND",
-            "OR",
-            "VECTOR_SIM"
+            "OR"
         };
 
         public Token(TokenType tokenType, string value, long position)
@@ -188,7 +187,19 @@ namespace LiteDB
                     case TokenType.NotEquals:
                         return true;
                     case TokenType.Word:
-                        return _keywords.Contains(Value);
+                        if (_keywords.Contains(Value))
+                        {
+                            return true;
+                        }
+
+                        var registry = BsonExpression.CurrentRegistry;
+
+                        if (registry != null && (registry.ContainsKeyword(Value) || registry.ContainsOperator(Value)))
+                        {
+                            return true;
+                        }
+
+                        return false;
                     default:
                         return false;
                 }

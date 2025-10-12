@@ -6,13 +6,14 @@ namespace LiteDB.Plugins
 {
     internal sealed class DefaultPluginContext : ILitePluginContext
     {
-        public DefaultPluginContext(IServiceProvider services, ILogger logger)
+        public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
         {
             this.Expressions = new ExpressionRegistry();
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
             this.Logger = logger ?? NullLogger.Instance;
+            this.ConnectionString = connectionString ?? new ConnectionString();
         }
 
         public IExpressionRegistry Expressions { get; }
@@ -24,47 +25,136 @@ namespace LiteDB.Plugins
         public IServiceProvider Services { get; }
 
         public ILogger Logger { get; }
+
+        public ConnectionString ConnectionString { get; }
     }
 
     internal sealed class ExpressionRegistry : IExpressionRegistry
     {
         private readonly object _sync = new object();
-        private readonly Dictionary<string, BsonBinaryOperator> _operators = new Dictionary<string, BsonBinaryOperator>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, BinaryOperatorRegistration> _operators = new Dictionary<string, BinaryOperatorRegistration>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ExpressionFunctionRegistration> _functions = new Dictionary<string, ExpressionFunctionRegistration>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _keywords = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        public void RegisterOperator(string name, BsonBinaryOperator operation)
-        {
-            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
-            if (operation == null) throw new ArgumentNullException(nameof(operation));
-
-            lock (_sync)
-            {
-                _operators[name] = operation;
-            }
-        }
-
-        public bool TryGetOperator(string name, out BsonBinaryOperator operation)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                operation = null;
-                return false;
-            }
-
-            lock (_sync)
-            {
-                return _operators.TryGetValue(name, out operation);
-            }
-        }
-
-        public IEnumerable<KeyValuePair<string, BsonBinaryOperator>> Operators
+        public IReadOnlyCollection<BinaryOperatorRegistration> Operators
         {
             get
             {
                 lock (_sync)
                 {
-                    return _operators.ToArray();
+                    return _operators.Values.ToArray();
                 }
             }
+        }
+
+        public IReadOnlyCollection<ExpressionFunctionRegistration> Functions
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _functions.Values.ToArray();
+                }
+            }
+        }
+
+        public IReadOnlyCollection<string> Keywords
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _keywords.Keys.ToArray();
+                }
+            }
+        }
+
+        public void RegisterBinaryOperator(string token, BsonExpressionType expressionType, BsonBinaryOperator implementation, BinaryOperatorPrecedence precedence = BinaryOperatorPrecedence.Comparison, string source = null)
+        {
+            var registration = new BinaryOperatorRegistration(token, expressionType, implementation, precedence, source);
+
+            lock (_sync)
+            {
+                _operators[registration.Token] = registration;
+            }
+        }
+
+        public void RegisterFunction(string name, Delegate implementation, BsonExpressionType expressionType, bool convertScalarLeftToEnumerable = true, bool isScalarResult = false)
+        {
+            var registration = new ExpressionFunctionRegistration(name, implementation, expressionType, convertScalarLeftToEnumerable, isScalarResult);
+            var key = GetFunctionKey(registration.Name, registration.AdditionalArgumentCount);
+
+            lock (_sync)
+            {
+                _functions[key] = registration;
+            }
+        }
+
+        public void RegisterKeyword(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentNullException(nameof(keyword));
+
+            lock (_sync)
+            {
+                _keywords[keyword] = keyword;
+            }
+        }
+
+        public bool ContainsOperator(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return false;
+            }
+
+            lock (_sync)
+            {
+                return _operators.ContainsKey(token);
+            }
+        }
+
+        public bool ContainsKeyword(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                return false;
+            }
+
+            lock (_sync)
+            {
+                return _keywords.ContainsKey(keyword);
+            }
+        }
+
+        internal bool TryGetOperator(string token, out BinaryOperatorRegistration registration)
+        {
+            lock (_sync)
+            {
+                return _operators.TryGetValue(token, out registration);
+            }
+        }
+
+        internal bool TryGetFunction(string name, int additionalArgumentCount, out ExpressionFunctionRegistration registration)
+        {
+            var key = GetFunctionKey(name, additionalArgumentCount);
+
+            lock (_sync)
+            {
+                return _functions.TryGetValue(key, out registration);
+            }
+        }
+
+        internal ExpressionFunctionRegistration FindByName(string name)
+        {
+            lock (_sync)
+            {
+                return _functions.Values.FirstOrDefault(f => f.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        private static string GetFunctionKey(string name, int additionalArgumentCount)
+        {
+            return name.ToUpperInvariant() + "~" + additionalArgumentCount;
         }
     }
 

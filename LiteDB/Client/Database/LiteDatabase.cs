@@ -51,9 +51,9 @@ namespace LiteDB
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
 
-            _pluginContext = new DefaultPluginContext(NullServiceProvider.Instance, NullLogger.Instance);
+            _pluginContext = new DefaultPluginContext(connectionString, NullServiceProvider.Instance, NullLogger.Instance);
 
-            this.InitializePlugins(plugins, connectionString.Features);
+            this.InitializePlugins(plugins);
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace LiteDB
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
 
-            _pluginContext = new DefaultPluginContext(NullServiceProvider.Instance, NullLogger.Instance);
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
 
             this.InitializePlugins(plugins);
 
@@ -114,7 +114,7 @@ namespace LiteDB
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = disposeOnClose;
 
-            _pluginContext = new DefaultPluginContext(NullServiceProvider.Instance, NullLogger.Instance);
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
 
             this.InitializePlugins(plugins);
         }
@@ -130,7 +130,7 @@ namespace LiteDB
         /// <param name="autoId">Define autoId data type (when object contains no id field)</param>
         public ILiteCollection<T> GetCollection<T>(string name, BsonAutoId autoId = BsonAutoId.ObjectId)
         {
-            return new LiteCollection<T>(name, autoId, _engine, _mapper);
+            return new LiteCollection<T>(name, autoId, _engine, _mapper, _pluginContext.Expressions);
         }
 
         /// <summary>
@@ -158,12 +158,17 @@ namespace LiteDB
         {
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 
-            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper);
+            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions);
+        }
+
+        internal IDisposable EnterExpressionScope()
+        {
+            return BsonExpression.UseRegistry(_pluginContext.Expressions);
         }
 
         #endregion
 
-        private void InitializePlugins(IEnumerable<ILitePlugin> plugins, IEnumerable<string> features = null)
+        private void InitializePlugins(IEnumerable<ILitePlugin> plugins)
         {
             var initialized = new HashSet<Type>();
 
@@ -181,24 +186,6 @@ namespace LiteDB
                     if (initialized.Add(type))
                     {
                         plugin.Initialize(this, _pluginContext);
-                    }
-                }
-            }
-
-            if (features != null)
-            {
-                foreach (var feature in features)
-                {
-                    if (PluginFeatureCatalog.TryCreate(feature, out var plugin))
-                    {
-                        if (plugin != null && initialized.Add(plugin.GetType()))
-                        {
-                            plugin.Initialize(this, _pluginContext);
-                        }
-                    }
-                    else
-                    {
-                        _pluginContext.Logger.Write(LogLevel.Warning, $"Unknown feature '{feature}'.");
                     }
                 }
             }

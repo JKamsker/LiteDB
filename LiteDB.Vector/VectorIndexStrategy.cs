@@ -8,10 +8,12 @@ namespace LiteDB.Vector
     internal sealed class VectorIndexStrategy : IIndexStrategy
     {
         private readonly ILogger _logger;
+        private readonly VectorDistanceMetric? _defaultMetric;
 
-        public VectorIndexStrategy(ILogger logger)
+        public VectorIndexStrategy(ILogger logger, VectorDistanceMetric? defaultMetric = null)
         {
             _logger = logger;
+            _defaultMetric = defaultMetric;
         }
 
         public string Kind => "vector";
@@ -162,13 +164,33 @@ namespace LiteDB.Vector
                 throw new LiteException(0, "Vector index options must include a numeric 'dimensions' value.");
             }
 
-            if (!options.TryGetValue("metric", out var metricValue) || !metricValue.IsNumber)
+            VectorDistanceMetric metric;
+
+            if (!options.TryGetValue("metric", out var metricValue))
             {
-                throw new LiteException(0, "Vector index options must include a numeric 'metric' value.");
+                if (_defaultMetric.HasValue)
+                {
+                    metric = _defaultMetric.Value;
+                }
+                else
+                {
+                    throw new LiteException(0, "Vector index options must include a 'metric' value when no default is configured.");
+                }
+            }
+            else if (metricValue.IsNumber)
+            {
+                metric = (VectorDistanceMetric)metricValue.AsInt32;
+            }
+            else if (metricValue.IsString && Enum.TryParse<VectorDistanceMetric>(metricValue.AsString, true, out var parsedMetric))
+            {
+                metric = parsedMetric;
+            }
+            else
+            {
+                throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
             }
 
             var dimensions = (ushort)dimensionValue.AsInt32;
-            var metric = (VectorDistanceMetric)metricValue.AsInt32;
 
             return (dimensions, metric);
         }
