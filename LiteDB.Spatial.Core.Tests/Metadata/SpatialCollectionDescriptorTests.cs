@@ -85,17 +85,22 @@ public sealed class SpatialCollectionDescriptorTests
 
         public ISpatialQueryPlan PlanNear(GeoPoint center, double radius)
         {
-            return new SpatialQueryPlan(Name, Dimensions, BoundingBox.From2D(center.Longitude, center.Latitude, center.Longitude, center.Latitude), Array.Empty<SpatialIndexRange>(), $"Radius <= {radius}");
+            return new SpatialQueryPlan(Name, Dimensions, BoundingBox.From2D(center.Longitude, center.Latitude, center.Longitude, center.Latitude), CreateEmptyCovering(), $"Radius <= {radius}");
         }
 
         public ISpatialQueryPlan PlanNear(GeoPoint3D center, double radius)
         {
-            return new SpatialQueryPlan(Name, Dimensions, BoundingBox.From3D(center.X, center.Y, center.Z, center.X, center.Y, center.Z), Array.Empty<SpatialIndexRange>(), $"Radius <= {radius}");
+            return new SpatialQueryPlan(Name, Dimensions, BoundingBox.From3D(center.X, center.Y, center.Z, center.X, center.Y, center.Z), CreateEmptyCovering(), $"Radius <= {radius}");
         }
 
         public ISpatialQueryPlan PlanWithin(BoundingBox bounds)
         {
-            return new SpatialQueryPlan(Name, Dimensions, bounds, Array.Empty<SpatialIndexRange>(), "Within bounds");
+            return new SpatialQueryPlan(Name, Dimensions, bounds, CreateEmptyCovering(), "Within bounds");
+        }
+
+        private static SpatialCoveringResult CreateEmptyCovering()
+        {
+            return new SpatialCoveringResult(Array.Empty<SpatialIndexRange>(), 0, 1, 0);
         }
 
         private sealed class NullMapper : ISpatialMapper

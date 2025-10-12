@@ -94,14 +94,23 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
     private SpatialQueryPlan BuildPlanFromSegments(IReadOnlyList<GeographicBoundsSegment> segments, double radius, string predicateUnit)
     {
         var ranges = new List<SpatialIndexRange>();
+        ulong estimatedCells = 0;
+        var originalRangeTotal = 0;
 
         foreach (var segment in segments)
         {
-            var coverings = _encoder.Cover(segment.Normalized, _options.MaxCoveringCells);
-            ranges.AddRange(coverings);
+            var covering = _encoder.Cover(segment.Normalized, _options.MaxCoveringCells);
+            ranges.AddRange(covering.Ranges);
+            estimatedCells = AddSaturated(estimatedCells, covering.EstimatedCellCount);
+            originalRangeTotal = AddRangeCount(originalRangeTotal, covering.OriginalRangeCount);
         }
 
         var mergedRanges = MortonIndexEncoder.UnionAdjacentRanges(ranges);
+        var coveringResult = new SpatialCoveringResult(
+            mergedRanges,
+            estimatedCells,
+            _options.MaxCoveringCells,
+            originalRangeTotal);
         var predicate = predicateUnit == "within"
             ? "Within bounding box"
             : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} distance <= {1:0.##} {2}", _distanceMode, radius, predicateUnit);
@@ -113,7 +122,24 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
             _ => BoundingBox.From2D(-180d, segments.Min(s => s.MinLatitude), 180d, segments.Max(s => s.MaxLatitude))
         };
 
-        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, mergedRanges, predicate);
+        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, coveringResult, predicate);
+    }
+
+    private static ulong AddSaturated(ulong left, ulong right)
+    {
+        var remaining = ulong.MaxValue - left;
+        return right > remaining ? ulong.MaxValue : left + right;
+    }
+
+    private static int AddRangeCount(int left, int right)
+    {
+        long total = (long)left + right;
+        if (total > int.MaxValue)
+        {
+            return int.MaxValue;
+        }
+
+        return (int)total;
     }
 
     private static void ValidateGeoPoint(GeoPoint point)
