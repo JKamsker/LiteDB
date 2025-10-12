@@ -8,6 +8,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -23,62 +24,117 @@ namespace LiteDB
 
         private static MethodInfo M(string s) => typeof(BsonExpressionOperators).GetMethod(s);
 
+        private sealed class OperatorDefinition
+        {
+            public OperatorDefinition(string name, string displayToken, MethodInfo method, BsonExpressionType expressionType, int precedence)
+            {
+                this.Name = name.ToUpperInvariant();
+                this.DisplayToken = displayToken;
+                this.Method = method;
+                this.ExpressionType = expressionType;
+                this.Precedence = precedence;
+            }
+
+            public string Name { get; }
+
+            public string DisplayToken { get; }
+
+            public MethodInfo Method { get; }
+
+            public BsonExpressionType ExpressionType { get; }
+
+            public int Precedence { get; }
+        }
+
         /// <summary>
         /// Operation definition by methods with defined expression type (operators are in precedence order)
         /// </summary>
-        private static readonly Dictionary<string, Tuple<string, MethodInfo, BsonExpressionType>> _operators = new Dictionary<string, Tuple<string, MethodInfo, BsonExpressionType>>
+        private static readonly List<OperatorDefinition> _defaultOperators = new List<OperatorDefinition>
         {
-            // arithmetic
-            ["%"] = Tuple.Create("%", M("MOD"), BsonExpressionType.Modulo),
-            ["/"] = Tuple.Create("/", M("DIVIDE"), BsonExpressionType.Divide),
-            ["*"] = Tuple.Create("*", M("MULTIPLY"), BsonExpressionType.Multiply),
-            ["+"] = Tuple.Create("+", M("ADD"), BsonExpressionType.Add),
-            ["-"] = Tuple.Create("-", M("MINUS"), BsonExpressionType.Subtract),
+            new OperatorDefinition("%", "%", M("MOD"), BsonExpressionType.Modulo, 0),
+            new OperatorDefinition("/", "/", M("DIVIDE"), BsonExpressionType.Divide, 1),
+            new OperatorDefinition("*", "*", M("MULTIPLY"), BsonExpressionType.Multiply, 2),
+            new OperatorDefinition("+", "+", M("ADD"), BsonExpressionType.Add, 3),
+            new OperatorDefinition("-", "-", M("MINUS"), BsonExpressionType.Subtract, 4),
 
-            // vector similarity operator returns the cosine distance between two vectors
-            ["VECTOR_SIM"] = Tuple.Create(" VECTOR_SIM ", M("VECTOR_SIM"), BsonExpressionType.VectorSim),
+            new OperatorDefinition("LIKE", " LIKE ", M("LIKE"), BsonExpressionType.Like, 10),
+            new OperatorDefinition("BETWEEN", " BETWEEN ", M("BETWEEN"), BsonExpressionType.Between, 11),
+            new OperatorDefinition("IN", " IN ", M("IN"), BsonExpressionType.In, 12),
 
-            // predicate
-            ["LIKE"] = Tuple.Create(" LIKE ", M("LIKE"), BsonExpressionType.Like),
-            ["BETWEEN"] = Tuple.Create(" BETWEEN ", M("BETWEEN"), BsonExpressionType.Between),
-            ["IN"] = Tuple.Create(" IN ", M("IN"), BsonExpressionType.In),
+            new OperatorDefinition(">", ">", M("GT"), BsonExpressionType.GreaterThan, 20),
+            new OperatorDefinition(">=", ">=", M("GTE"), BsonExpressionType.GreaterThanOrEqual, 21),
+            new OperatorDefinition("<", "<", M("LT"), BsonExpressionType.LessThan, 22),
+            new OperatorDefinition("<=", "<=", M("LTE"), BsonExpressionType.LessThanOrEqual, 23),
 
-            [">"] = Tuple.Create(">", M("GT"), BsonExpressionType.GreaterThan),
-            [">="] = Tuple.Create(">=", M("GTE"), BsonExpressionType.GreaterThanOrEqual),
-            ["<"] = Tuple.Create("<", M("LT"), BsonExpressionType.LessThan),
-            ["<="] = Tuple.Create("<=", M("LTE"), BsonExpressionType.LessThanOrEqual),
+            new OperatorDefinition("!=", "!=", M("NEQ"), BsonExpressionType.NotEqual, 24),
+            new OperatorDefinition("=", "=", M("EQ"), BsonExpressionType.Equal, 25),
 
-            ["!="] = Tuple.Create("!=", M("NEQ"), BsonExpressionType.NotEqual),
-            ["="] = Tuple.Create("=", M("EQ"), BsonExpressionType.Equal),
+            new OperatorDefinition("ANY LIKE", " ANY LIKE ", M("LIKE_ANY"), BsonExpressionType.Like, 30),
+            new OperatorDefinition("ANY BETWEEN", " ANY BETWEEN ", M("BETWEEN_ANY"), BsonExpressionType.Between, 31),
+            new OperatorDefinition("ANY IN", " ANY IN ", M("IN_ANY"), BsonExpressionType.In, 32),
 
-            ["ANY LIKE"] = Tuple.Create(" ANY LIKE ", M("LIKE_ANY"), BsonExpressionType.Like),
-            ["ANY BETWEEN"] = Tuple.Create(" ANY BETWEEN ", M("BETWEEN_ANY"), BsonExpressionType.Between),
-            ["ANY IN"] = Tuple.Create(" ANY IN ", M("IN_ANY"), BsonExpressionType.In),
+            new OperatorDefinition("ANY >", " ANY>", M("GT_ANY"), BsonExpressionType.GreaterThan, 33),
+            new OperatorDefinition("ANY >=", " ANY>=", M("GTE_ANY"), BsonExpressionType.GreaterThanOrEqual, 34),
+            new OperatorDefinition("ANY <", " ANY<", M("LT_ANY"), BsonExpressionType.LessThan, 35),
+            new OperatorDefinition("ANY <=", " ANY<=", M("LTE_ANY"), BsonExpressionType.LessThanOrEqual, 36),
 
-            ["ANY >"] = Tuple.Create(" ANY>", M("GT_ANY"), BsonExpressionType.GreaterThan),
-            ["ANY >="] = Tuple.Create(" ANY>=", M("GTE_ANY"), BsonExpressionType.GreaterThanOrEqual),
-            ["ANY <"] = Tuple.Create(" ANY<", M("LT_ANY"), BsonExpressionType.LessThan),
-            ["ANY <="] = Tuple.Create(" ANY<=", M("LTE_ANY"), BsonExpressionType.LessThanOrEqual),
+            new OperatorDefinition("ANY !=", " ANY!=", M("NEQ_ANY"), BsonExpressionType.NotEqual, 37),
+            new OperatorDefinition("ANY =", " ANY=", M("EQ_ANY"), BsonExpressionType.Equal, 38),
 
-            ["ANY !="] = Tuple.Create(" ANY!=", M("NEQ_ANY"), BsonExpressionType.NotEqual),
-            ["ANY ="] = Tuple.Create(" ANY=", M("EQ_ANY"), BsonExpressionType.Equal),
+            new OperatorDefinition("ALL LIKE", " ALL LIKE ", M("LIKE_ALL"), BsonExpressionType.Like, 40),
+            new OperatorDefinition("ALL BETWEEN", " ALL BETWEEN ", M("BETWEEN_ALL"), BsonExpressionType.Between, 41),
+            new OperatorDefinition("ALL IN", " ALL IN ", M("IN_ALL"), BsonExpressionType.In, 42),
 
-            ["ALL LIKE"] = Tuple.Create(" ALL LIKE ", M("LIKE_ALL"), BsonExpressionType.Like),
-            ["ALL BETWEEN"] = Tuple.Create(" ALL BETWEEN ", M("BETWEEN_ALL"), BsonExpressionType.Between),
-            ["ALL IN"] = Tuple.Create(" ALL IN ", M("IN_ALL"), BsonExpressionType.In),
+            new OperatorDefinition("ALL >", " ALL>", M("GT_ALL"), BsonExpressionType.GreaterThan, 43),
+            new OperatorDefinition("ALL >=", " ALL>=", M("GTE_ALL"), BsonExpressionType.GreaterThanOrEqual, 44),
+            new OperatorDefinition("ALL <", " ALL<", M("LT_ALL"), BsonExpressionType.LessThan, 45),
+            new OperatorDefinition("ALL <=", " ALL<=", M("LTE_ALL"), BsonExpressionType.LessThanOrEqual, 46),
 
-            ["ALL >"] = Tuple.Create(" ALL>", M("GT_ALL"), BsonExpressionType.GreaterThan),
-            ["ALL >="] = Tuple.Create(" ALL>=", M("GTE_ALL"), BsonExpressionType.GreaterThanOrEqual),
-            ["ALL <"] = Tuple.Create(" ALL<", M("LT_ALL"), BsonExpressionType.LessThan),
-            ["ALL <="] = Tuple.Create(" ALL<=", M("LTE_ALL"), BsonExpressionType.LessThanOrEqual),
+            new OperatorDefinition("ALL !=", " ALL!=", M("NEQ_ALL"), BsonExpressionType.NotEqual, 47),
+            new OperatorDefinition("ALL =", " ALL=", M("EQ_ALL"), BsonExpressionType.Equal, 48),
 
-            ["ALL !="] = Tuple.Create(" ALL!=", M("NEQ_ALL"), BsonExpressionType.NotEqual),
-            ["ALL ="] = Tuple.Create(" ALL=", M("EQ_ALL"), BsonExpressionType.Equal),
-
-            // logic (will use Expression.AndAlso|OrElse)
-            ["AND"] = Tuple.Create(" AND ", (MethodInfo)null, BsonExpressionType.And),
-            ["OR"] = Tuple.Create(" OR ", (MethodInfo)null, BsonExpressionType.Or),
+            new OperatorDefinition("AND", " AND ", null, BsonExpressionType.And, 100),
+            new OperatorDefinition("OR", " OR ", null, BsonExpressionType.Or, 101)
         };
+
+        private static readonly IReadOnlyList<OperatorDefinition> _defaultOperatorTable = _defaultOperators
+            .OrderBy(x => x.Precedence)
+            .ToArray();
+
+        private static IReadOnlyList<OperatorDefinition> GetOperatorTable(ILitePluginContext pluginContext)
+        {
+            if (pluginContext?.Expressions == null)
+            {
+                return _defaultOperatorTable;
+            }
+
+            var overrides = new Dictionary<string, OperatorDefinition>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var registration in pluginContext.Expressions.BinaryOperators)
+            {
+                overrides[registration.Name] = new OperatorDefinition(registration.Name, registration.DisplayToken, registration.Method, registration.ExpressionType, registration.Precedence);
+            }
+
+            if (overrides.Count == 0)
+            {
+                return _defaultOperatorTable;
+            }
+
+            var combined = new List<OperatorDefinition>(_defaultOperatorTable.Count + overrides.Count);
+
+            foreach (var op in _defaultOperatorTable)
+            {
+                if (!overrides.TryGetValue(op.Name, out var replacement))
+                {
+                    combined.Add(op);
+                }
+            }
+
+            combined.AddRange(overrides.Values);
+            combined.Sort((left, right) => left.Precedence.CompareTo(right.Precedence));
+
+            return combined;
+        }
 
         private static readonly MethodInfo _parameterPathMethod = M("PARAMETER_PATH");
         private static readonly MethodInfo _memberPathMethod = M("MEMBER_PATH");
@@ -96,11 +152,14 @@ namespace LiteDB
         /// <summary>
         /// Start parse string into linq expression. Read path, function or base type bson values (int, double, bool, string)
         /// </summary>
-        public static BsonExpression ParseFullExpression(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope)
+        public static BsonExpression ParseFullExpression(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, ILitePluginContext pluginContext = null)
         {
-            var first = ParseSingleExpression(tokenizer, context, parameters, scope);
+            pluginContext ??= PluginExpressionScope.Current;
+
+            var first = ParseSingleExpression(tokenizer, context, parameters, scope, pluginContext);
             var values = new List<BsonExpression> { first };
             var ops = new List<string>();
+            var operatorTable = GetOperatorTable(pluginContext);
 
             // read all blocks and operation first
             while (!tokenizer.EOF)
@@ -110,14 +169,14 @@ namespace LiteDB
 
                 if (op == null) break;
 
-                var expr = ParseSingleExpression(tokenizer, context, parameters, scope);
+                var expr = ParseSingleExpression(tokenizer, context, parameters, scope, pluginContext);
 
                 // special BETWEEN "AND" read
                 if (op.EndsWith("BETWEEN", StringComparison.OrdinalIgnoreCase))
                 {
                     var and = tokenizer.ReadToken(true).Expect("AND");
 
-                    var expr2 = ParseSingleExpression(tokenizer, context, parameters, scope);
+                    var expr2 = ParseSingleExpression(tokenizer, context, parameters, scope, pluginContext);
 
                     // convert expr and expr2 into an array with 2 values
                     expr = NewArray(expr, expr2);
@@ -132,8 +191,14 @@ namespace LiteDB
             // now, process operator in correct order
             while (values.Count >= 2)
             {
-                var op = _operators.ElementAt(order);
-                var n = ops.IndexOf(op.Key);
+                if (order >= operatorTable.Count)
+                {
+                    var token = tokenizer.Current ?? tokenizer.LookAhead();
+                    throw LiteException.UnexpectedToken("Invalid expression operator order.", token);
+                }
+
+                var op = operatorTable[order];
+                var n = ops.IndexOf(op.Name);
 
                 if (n == -1)
                 {
@@ -145,12 +210,12 @@ namespace LiteDB
                     var left = values.ElementAt(n);
                     var right = values.ElementAt(n + 1);
 
-                    var src = op.Value.Item1;
-                    var method = op.Value.Item2;
-                    var type = op.Value.Item3;
+                    var src = op.DisplayToken;
+                    var method = op.Method;
+                    var type = op.ExpressionType;
 
                     // test left/right scalar
-                    var isLeftEnum = op.Key.StartsWith("ALL") || op.Key.StartsWith("ANY");
+                    var isLeftEnum = op.Name.StartsWith("ALL") || op.Name.StartsWith("ANY");
 
                     if (isLeftEnum && left.IsScalar) left = ConvertToEnumerable(left);
                     //if (isLeftEnum && left.IsScalar) throw new LiteException(0, $"Left expression `{left.Source}` must return multiples values");
@@ -209,7 +274,7 @@ namespace LiteDB
         /// <summary>
         /// Start parse string into linq expression. Read path, function or base type bson values (int, double, bool, string)
         /// </summary>
-        public static BsonExpression ParseSingleExpression(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope)
+        public static BsonExpression ParseSingleExpression(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, ILitePluginContext pluginContext = null)
         {
             // read next token and test with all expression parts
             var token = tokenizer.ReadToken();
@@ -224,9 +289,9 @@ namespace LiteDB
                 TryParseDocument(tokenizer, context, parameters, scope) ??
                 TryParseArray(tokenizer, context, parameters, scope) ??
                 TryParseParameter(tokenizer, context, parameters, scope) ??
-                TryParseInnerExpression(tokenizer, context, parameters, scope) ??
-                TryParseFunction(tokenizer, context, parameters, scope) ??
-                TryParseMethodCall(tokenizer, context, parameters, scope) ??
+                TryParseInnerExpression(tokenizer, context, parameters, scope, pluginContext) ??
+                TryParseFunction(tokenizer, context, parameters, scope, pluginContext) ??
+                TryParseMethodCall(tokenizer, context, parameters, scope, pluginContext) ??
                 TryParsePath(tokenizer, context, parameters, scope) ??
                 throw LiteException.UnexpectedToken(token);
         }
@@ -234,7 +299,7 @@ namespace LiteDB
         /// <summary>
         /// Parse a document builder syntax used in SELECT statment: {expr0} [AS] [{alias}], {expr1} [AS] [{alias}], ...
         /// </summary>
-        public static BsonExpression ParseSelectDocumentBuilder(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters)
+        public static BsonExpression ParseSelectDocumentBuilder(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, ILitePluginContext pluginContext)
         {
             // creating unique field names
             var fields = new List<KeyValuePair<string, BsonExpression>>();
@@ -257,7 +322,7 @@ namespace LiteDB
 
             while (true)
             {
-                var expr = ParseFullExpression(tokenizer, context, parameters, DocumentScope.Root);
+                var expr = ParseFullExpression(tokenizer, context, parameters, DocumentScope.Root, pluginContext);
 
                 var next = tokenizer.LookAhead();
 
@@ -335,7 +400,7 @@ namespace LiteDB
         /// {key0} = {expr0}, .... will be converted into { key: [expr], ... }
         /// {key: value} ... return return a new document
         /// </summary>
-        public static BsonExpression ParseUpdateDocumentBuilder(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters)
+        public static BsonExpression ParseUpdateDocumentBuilder(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, ILitePluginContext pluginContext)
         {
             var next = tokenizer.LookAhead();
 
@@ -364,7 +429,7 @@ namespace LiteDB
 
                 src.Append(":");
 
-                var value = ParseFullExpression(tokenizer, context, parameters, DocumentScope.Root);
+                var value = ParseFullExpression(tokenizer, context, parameters, DocumentScope.Root, pluginContext);
 
                 if (!value.IsScalar) value = ConvertToArray(value);
 
@@ -846,12 +911,12 @@ namespace LiteDB
         /// <summary>
         /// Try parse inner expression - return null if not bracket token
         /// </summary>
-        private static BsonExpression TryParseInnerExpression(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope)
+        private static BsonExpression TryParseInnerExpression(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, ILitePluginContext pluginContext)
         {
             if (tokenizer.Current.Type != TokenType.OpenParenthesis) return null;
 
             // read a inner expression inside ( and )
-            var inner = ParseFullExpression(tokenizer, context, parameters, scope);
+            var inner = ParseFullExpression(tokenizer, context, parameters, scope, pluginContext);
 
             // read close )
             tokenizer.ReadToken().Expect(TokenType.CloseParenthesis);
@@ -874,7 +939,7 @@ namespace LiteDB
         /// <summary>
         /// Try parse method call - return null if not method call
         /// </summary>
-        private static BsonExpression TryParseMethodCall(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope)
+        private static BsonExpression TryParseMethodCall(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, ILitePluginContext pluginContext)
         {
             var token = tokenizer.Current;
 
@@ -902,7 +967,7 @@ namespace LiteDB
             {
                 while (!tokenizer.CheckEOF())
                 {
-                    var parameter = ParseFullExpression(tokenizer, context, parameters, scope);
+                    var parameter = ParseFullExpression(tokenizer, context, parameters, scope, pluginContext);
 
                     // update isImmutable only when came false
                     if (parameter.IsImmutable == false) isImmutable = false;
@@ -1168,7 +1233,7 @@ namespace LiteDB
         /// <summary>
         /// Try parse FUNCTION methods: MAP, FILTER, SORT, ...
         /// </summary>
-        private static BsonExpression TryParseFunction(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope)
+        private static BsonExpression TryParseFunction(Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, ILitePluginContext pluginContext)
         {
             if (tokenizer.Current.Type != TokenType.Word) return null;
             if (tokenizer.LookAhead().Type != TokenType.OpenParenthesis) return null;
@@ -1177,12 +1242,21 @@ namespace LiteDB
 
             switch (token)
             {
-                case "MAP": return ParseFunction(token, BsonExpressionType.Map, tokenizer, context, parameters, scope);
-                case "FILTER": return ParseFunction(token, BsonExpressionType.Filter, tokenizer, context, parameters, scope);
-                case "SORT": return ParseFunction(token, BsonExpressionType.Sort, tokenizer, context, parameters, scope);
-                case "VECTOR_SIM":
-                    return ParseFunction(token, BsonExpressionType.VectorSim, tokenizer, context, parameters, scope,
-                        convertScalarLeftToEnumerable: false, isScalarResult: true);
+                case "MAP": return ParseFunction(token, BsonExpressionType.Map, tokenizer, context, parameters, scope, pluginContext: pluginContext);
+                case "FILTER": return ParseFunction(token, BsonExpressionType.Filter, tokenizer, context, parameters, scope, pluginContext: pluginContext);
+                case "SORT": return ParseFunction(token, BsonExpressionType.Sort, tokenizer, context, parameters, scope, pluginContext: pluginContext);
+            }
+
+            if (pluginContext?.Expressions != null)
+            {
+                foreach (var registration in pluginContext.Expressions.Functions)
+                {
+                    if (registration.Name.Equals(token, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ParseFunction(token, registration.ExpressionType, tokenizer, context, parameters, scope,
+                            registration.ConvertScalarLeftToEnumerable, registration.IsScalarResult, pluginContext);
+                    }
+                }
             }
 
             return null;
@@ -1192,7 +1266,7 @@ namespace LiteDB
         /// Parse expression functions, like MAP, FILTER or SORT.
         /// MAP(items[*] => @.Name)
         /// </summary>
-        private static BsonExpression ParseFunction(string functionName, BsonExpressionType type, Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, bool convertScalarLeftToEnumerable = true, bool isScalarResult = false)
+        private static BsonExpression ParseFunction(string functionName, BsonExpressionType type, Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, bool convertScalarLeftToEnumerable = true, bool isScalarResult = false, ILitePluginContext pluginContext = null)
         {
             // check if next token are ( otherwise returns null (is not a function)
             if (tokenizer.LookAhead().Type != TokenType.OpenParenthesis) return null;
@@ -1200,7 +1274,9 @@ namespace LiteDB
             // read (
             tokenizer.ReadToken().Expect(TokenType.OpenParenthesis);
 
-            var left = ParseSingleExpression(tokenizer, context, parameters, scope);
+            pluginContext ??= PluginExpressionScope.Current;
+
+            var left = ParseSingleExpression(tokenizer, context, parameters, scope, pluginContext);
 
             // if left is a scalar expression, convert into enumerable expression (avoid to use [*] all the time)
             if (convertScalarLeftToEnumerable && left.IsScalar)
@@ -1228,7 +1304,7 @@ namespace LiteDB
                 tokenizer.ReadToken().Expect(TokenType.Greater);
 
                 var right = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters,
-                    left.Type == BsonExpressionType.Source ? DocumentScope.Source : DocumentScope.Current);
+                    left.Type == BsonExpressionType.Source ? DocumentScope.Source : DocumentScope.Current, pluginContext);
 
                 src.Append("=>" + right.Source);
                 args.Add(Expression.Constant(right));

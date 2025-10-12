@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 using Xunit;
 
@@ -55,7 +56,7 @@ public class BsonVector_Tests
     [Fact]
     public void VectorSim_Query_ReturnsExpectedNearest()
     {
-        using var db = new LiteDatabase(":memory:");
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var col = db.GetCollection<VectorDoc>("vectors");
 
         // Insert vectorized documents
@@ -81,7 +82,7 @@ public class BsonVector_Tests
     [Fact]
     public void VectorSim_Query_WhereVectorSimilar_AppliesAlias()
     {
-        using var db = new LiteDatabase(":memory:");
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var col = db.GetCollection<VectorDoc>("vectors");
 
         col.Insert(new VectorDoc { Id = 1, Embedding = new float[] { 1.0f, 0.0f } });
@@ -110,7 +111,7 @@ public class BsonVector_Tests
     [Fact]
     public void VectorSim_Query_BsonExpressionOverload_ReturnsExpectedNearest()
     {
-        using var db = new LiteDatabase(":memory:");
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var col = db.GetCollection<VectorDoc>("vectors");
 
         col.Insert(new VectorDoc { Id = 1, Embedding = new float[] { 1.0f, 0.0f } });
@@ -118,19 +119,23 @@ public class BsonVector_Tests
         col.Insert(new VectorDoc { Id = 3, Embedding = new float[] { 1.0f, 1.0f } });
 
         var target = new float[] { 1.0f, 0.0f };
-        var fieldExpr = BsonExpression.Create("$.Embedding");
 
-        var results = col.Query()
-            .WhereNear(fieldExpr, target, maxDistance: .28)
-            .ToList();
+        using (PluginExpressionScope.Enter(db.PluginContext))
+        {
+            var fieldExpr = BsonExpression.Create("$.Embedding");
 
-        results.Select(x => x.Id).Should().ContainSingle(id => id == 1);
+            var results = col.Query()
+                .WhereNear(fieldExpr, target, maxDistance: .28)
+                .ToList();
+
+            results.Select(x => x.Id).Should().ContainSingle(id => id == 1);
+        }
     }
 
     [Fact]
     public void VectorSim_ExpressionQuery_WorksViaSQL()
     {
-        using var db = new LiteDatabase(":memory:");
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var col = db.GetCollection("vectors");
 
         col.Insert(new BsonDocument
@@ -176,6 +181,8 @@ public class BsonVector_Tests
     [Fact]
     public void VectorSim_InfixExpression_ParsesAndEvaluates()
     {
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+        using var scope = PluginExpressionScope.Enter(db.PluginContext);
         var expr = BsonExpression.Create("$.Embedding VECTOR_SIM [1.0, 0.0]");
 
         expr.Type.Should().Be(BsonExpressionType.VectorSim);
@@ -194,6 +201,8 @@ public class BsonVector_Tests
     [Fact]
     public void VectorSim_FunctionCall_ParsesAndEvaluates()
     {
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+        using var scope = PluginExpressionScope.Enter(db.PluginContext);
         var expr = BsonExpression.Create("VECTOR_SIM($.Embedding, [1.0, 0.0])");
 
         expr.Type.Should().Be(BsonExpressionType.VectorSim);
@@ -215,7 +224,7 @@ public class BsonVector_Tests
         var left = new BsonArray { 1.0, 0.0 };
         var right = new BsonVector(new float[] { 1.0f, 0.0f });
 
-        var result = BsonExpressionMethods.VECTOR_SIM(left, right);
+        var result = VectorExpressionMethods.VECTOR_SIM(left, right);
 
         Assert.NotNull(result);
         Assert.True(result.IsDouble);
@@ -228,7 +237,7 @@ public class BsonVector_Tests
         var left = new BsonArray { 1.0, 0.0 };
         var right = new BsonVector(new float[] { 0.0f, 1.0f });
 
-        var result = BsonExpressionMethods.VECTOR_SIM(left, right);
+        var result = VectorExpressionMethods.VECTOR_SIM(left, right);
 
         Assert.NotNull(result);
         Assert.True(result.IsDouble);
@@ -241,7 +250,7 @@ public class BsonVector_Tests
         var left = new BsonArray { "a", "b" };
         var right = new BsonVector(new float[] { 1.0f, 0.0f });
 
-        var result = BsonExpressionMethods.VECTOR_SIM(left, right);
+        var result = VectorExpressionMethods.VECTOR_SIM(left, right);
 
         Assert.True(result.IsNull);
     }
@@ -252,7 +261,7 @@ public class BsonVector_Tests
         var left = new BsonArray { 1.0, 2.0, 3.0 };
         var right = new BsonVector(new float[] { 1.0f, 2.0f });
 
-        var result = BsonExpressionMethods.VECTOR_SIM(left, right);
+        var result = VectorExpressionMethods.VECTOR_SIM(left, right);
 
         Assert.True(result.IsNull);
     }
@@ -261,7 +270,7 @@ public class BsonVector_Tests
     [Fact]
     public void VectorSim_TopK_ReturnsCorrectOrder()
     {
-        using var db = new LiteDatabase(":memory:");
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var col = db.GetCollection<VectorDoc>("vectors");
 
         col.Insert(new VectorDoc { Id = 1, Embedding = new float[] { 1.0f, 0.0f } }); // sim = 0.0
@@ -301,7 +310,7 @@ public class BsonVector_Tests
     [Fact]
     public void BsonVector_Index_OrderIsDeterministic()
     {
-        using var db = new LiteDatabase(":memory:");
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var col = db.GetCollection<VectorDoc>("vectors");
 
         var docs = new[]

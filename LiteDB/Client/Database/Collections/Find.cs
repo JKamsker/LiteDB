@@ -64,6 +64,7 @@ namespace LiteDB
         {
             if (id == null || id.IsNull) throw new ArgumentNullException(nameof(id));
 
+            using var scope = this.EnterPluginScope();
             return this.Find(BsonExpression.Create("_id = @0", id)).FirstOrDefault();
         }
 
@@ -75,12 +76,20 @@ namespace LiteDB
         /// <summary>
         /// Find the first document using predicate expression. Returns null if not found
         /// </summary>
-        public T FindOne(string predicate, BsonDocument parameters) => this.FindOne(BsonExpression.Create(predicate, parameters));
+        public T FindOne(string predicate, BsonDocument parameters)
+        {
+            using var scope = this.EnterPluginScope();
+            return this.FindOne(BsonExpression.Create(predicate, parameters));
+        }
 
         /// <summary>
         /// Find the first document using predicate expression. Returns null if not found
         /// </summary>
-        public T FindOne(BsonExpression predicate, params BsonValue[] args) => this.FindOne(BsonExpression.Create(predicate, args));
+        public T FindOne(BsonExpression predicate, params BsonValue[] args)
+        {
+            using var scope = this.EnterPluginScope();
+            return this.FindOne(BsonExpression.Create(predicate, args));
+        }
 
         /// <summary>
         /// Find the first document using predicate expression. Returns null if not found

@@ -1,4 +1,5 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using static LiteDB.Constants;
@@ -14,6 +15,11 @@ namespace LiteDB
         private readonly EntityMapper _entity;
         private readonly MemberMapper _id;
         private readonly BsonAutoId _autoId;
+
+        private IDisposable EnterPluginScope()
+        {
+            return PluginExpressionScope.Enter(_engine.PluginContext);
+        }
 
         /// <summary>
         /// Get collection name

@@ -37,12 +37,20 @@ namespace LiteDB
         /// <summary>
         /// Delete all documents based on predicate expression. Returns how many documents was deleted
         /// </summary>
-        public int DeleteMany(string predicate, BsonDocument parameters) => this.DeleteMany(BsonExpression.Create(predicate, parameters));
+        public int DeleteMany(string predicate, BsonDocument parameters)
+        {
+            using var scope = this.EnterPluginScope();
+            return this.DeleteMany(BsonExpression.Create(predicate, parameters));
+        }
 
         /// <summary>
         /// Delete all documents based on predicate expression. Returns how many documents was deleted
         /// </summary>
-        public int DeleteMany(string predicate, params BsonValue[] args) => this.DeleteMany(BsonExpression.Create(predicate, args));
+        public int DeleteMany(string predicate, params BsonValue[] args)
+        {
+            using var scope = this.EnterPluginScope();
+            return this.DeleteMany(BsonExpression.Create(predicate, args));
+        }
 
         /// <summary>
         /// Delete all documents based on predicate expression. Returns how many documents was deleted

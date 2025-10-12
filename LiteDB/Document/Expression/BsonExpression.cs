@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using static LiteDB.Constants;
+using LiteDB.Plugins;
 
 namespace LiteDB
 {
@@ -312,9 +313,10 @@ namespace LiteDB
         {
             if (string.IsNullOrWhiteSpace(expression)) throw new ArgumentNullException(nameof(expression));
 
-            var tokenizer = new Tokenizer(expression);
+            var pluginContext = PluginExpressionScope.Current;
+            var tokenizer = new Tokenizer(expression, pluginContext?.Expressions?.Keywords);
 
-            var expr = Create(tokenizer, BsonExpressionParserMode.Full, parameters);
+            var expr = Create(tokenizer, BsonExpressionParserMode.Full, parameters, pluginContext);
 
             tokenizer.LookAhead().Expect(TokenType.EOF);
 
@@ -324,27 +326,29 @@ namespace LiteDB
         /// <summary>
         /// Parse tokenizer and create new instance of BsonExpression - for now, do not use cache
         /// </summary>
-        internal static BsonExpression Create(Tokenizer tokenizer, BsonExpressionParserMode mode, BsonDocument parameters)
+        internal static BsonExpression Create(Tokenizer tokenizer, BsonExpressionParserMode mode, BsonDocument parameters, ILitePluginContext pluginContext = null)
         {
             if (tokenizer == null) throw new ArgumentNullException(nameof(tokenizer));
 
-            return ParseAndCompile(tokenizer, mode, parameters, DocumentScope.Root);
+            return ParseAndCompile(tokenizer, mode, parameters, DocumentScope.Root, pluginContext);
         }
 
         /// <summary>
         /// Parse and compile string expression and return BsonExpression
         /// </summary>
-        internal static BsonExpression ParseAndCompile(Tokenizer tokenizer, BsonExpressionParserMode mode, BsonDocument parameters, DocumentScope scope)
+        internal static BsonExpression ParseAndCompile(Tokenizer tokenizer, BsonExpressionParserMode mode, BsonDocument parameters, DocumentScope scope, ILitePluginContext pluginContext = null)
         {
             if (tokenizer == null) throw new ArgumentNullException(nameof(tokenizer));
+
+            pluginContext ??= PluginExpressionScope.Current;
 
             var context = new ExpressionContext();
 
             var expr =
-                mode == BsonExpressionParserMode.Full ? BsonExpressionParser.ParseFullExpression(tokenizer, context, parameters, scope) :
-                mode == BsonExpressionParserMode.Single ? BsonExpressionParser.ParseSingleExpression(tokenizer, context, parameters, scope) :
-                mode == BsonExpressionParserMode.SelectDocument ? BsonExpressionParser.ParseSelectDocumentBuilder(tokenizer, context, parameters) :
-                BsonExpressionParser.ParseUpdateDocumentBuilder(tokenizer, context, parameters);
+                mode == BsonExpressionParserMode.Full ? BsonExpressionParser.ParseFullExpression(tokenizer, context, parameters, scope, pluginContext) :
+                mode == BsonExpressionParserMode.Single ? BsonExpressionParser.ParseSingleExpression(tokenizer, context, parameters, scope, pluginContext) :
+                mode == BsonExpressionParserMode.SelectDocument ? BsonExpressionParser.ParseSelectDocumentBuilder(tokenizer, context, parameters, pluginContext) :
+                BsonExpressionParser.ParseUpdateDocumentBuilder(tokenizer, context, parameters, pluginContext);
 
             // compile linq expression (with left+right expressions)
             Compile(expr, context);
@@ -450,7 +454,25 @@ namespace LiteDB
         {
             var key = name.ToUpperInvariant() + "~" + parameterCount;
 
-            return _functions.GetOrDefault(key);
+            if (_functions.TryGetValue(key, out var method))
+            {
+                return method;
+            }
+
+            var pluginContext = PluginExpressionScope.Current;
+
+            if (pluginContext?.Expressions != null)
+            {
+                foreach (var registration in pluginContext.Expressions.Functions)
+                {
+                    if (registration.ParameterCount == parameterCount && registration.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return registration.Method;
+                    }
+                }
+            }
+
+            return null;
         }
 
         #endregion

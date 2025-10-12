@@ -1,19 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace LiteDB.Plugins
 {
     internal sealed class DefaultPluginContext : ILitePluginContext
     {
-        public DefaultPluginContext(IServiceProvider services, ILogger logger)
+        public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
         {
+            this.ConnectionString = connectionString ?? new ConnectionString();
             this.Expressions = new ExpressionRegistry();
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
             this.Logger = logger ?? NullLogger.Instance;
         }
+
+        public ConnectionString ConnectionString { get; }
 
         public IExpressionRegistry Expressions { get; }
 
@@ -29,40 +33,73 @@ namespace LiteDB.Plugins
     internal sealed class ExpressionRegistry : IExpressionRegistry
     {
         private readonly object _sync = new object();
-        private readonly Dictionary<string, BsonBinaryOperator> _operators = new Dictionary<string, BsonBinaryOperator>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ExpressionBinaryOperator> _operators = new Dictionary<string, ExpressionBinaryOperator>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ExpressionFunction> _functions = new Dictionary<string, ExpressionFunction>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        public void RegisterOperator(string name, BsonBinaryOperator operation)
+        public void RegisterBinaryOperator(string name, string displayToken, MethodInfo method, BsonExpressionType expressionType, int precedence)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
-            if (operation == null) throw new ArgumentNullException(nameof(operation));
+            if (string.IsNullOrWhiteSpace(displayToken)) throw new ArgumentNullException(nameof(displayToken));
+            if (method == null) throw new ArgumentNullException(nameof(method));
 
             lock (_sync)
             {
-                _operators[name] = operation;
+                _operators[name] = new ExpressionBinaryOperator(name, displayToken, method, expressionType, precedence);
             }
         }
 
-        public bool TryGetOperator(string name, out BsonBinaryOperator operation)
+        public void RegisterFunction(string name, MethodInfo method, int parameterCount, BsonExpressionType expressionType, bool convertScalarLeftToEnumerable, bool isScalarResult)
         {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                operation = null;
-                return false;
-            }
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+            if (method == null) throw new ArgumentNullException(nameof(method));
+            if (parameterCount < 0) throw new ArgumentOutOfRangeException(nameof(parameterCount));
 
             lock (_sync)
             {
-                return _operators.TryGetValue(name, out operation);
+                _functions[name] = new ExpressionFunction(name, method, parameterCount, expressionType, convertScalarLeftToEnumerable, isScalarResult);
             }
         }
 
-        public IEnumerable<KeyValuePair<string, BsonBinaryOperator>> Operators
+        public void RegisterKeyword(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentNullException(nameof(keyword));
+
+            lock (_sync)
+            {
+                _keywords.Add(keyword);
+            }
+        }
+
+        public IEnumerable<ExpressionBinaryOperator> BinaryOperators
         {
             get
             {
                 lock (_sync)
                 {
-                    return _operators.ToArray();
+                    return _operators.Values.ToArray();
+                }
+            }
+        }
+
+        public IEnumerable<ExpressionFunction> Functions
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _functions.Values.ToArray();
+                }
+            }
+        }
+
+        public IEnumerable<string> Keywords
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _keywords.ToArray();
                 }
             }
         }
