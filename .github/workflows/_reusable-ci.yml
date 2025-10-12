@@ -132,6 +132,29 @@ jobs:
           --logger "trx;LogFileName=SpatialCoreTests.trx"
           --logger "console;verbosity=detailed"
 
+      - name: Collect test results
+        if: always()
+        run: |
+          set -euxo pipefail
+          results_dir="artifacts/${{ matrix.item.framework }}"
+          mkdir -p "${results_dir}"
+
+          if compgen -G "LiteDB.Tests/TestResults/*.trx" > /dev/null; then
+            cp LiteDB.Tests/TestResults/*.trx "${results_dir}/"
+          fi
+
+          if [ -d LiteDB.Spatial.Core.Tests/TestResults ] && compgen -G "LiteDB.Spatial.Core.Tests/TestResults/*.trx" > /dev/null; then
+            cp LiteDB.Spatial.Core.Tests/TestResults/*.trx "${results_dir}/"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.item.framework }}
+          path: artifacts/${{ matrix.item.framework }}
+          if-no-files-found: ignore
+
   repro-runner:
     runs-on: ubuntu-latest
     needs: build-linux
