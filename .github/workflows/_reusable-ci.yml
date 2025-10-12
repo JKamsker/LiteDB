@@ -71,6 +71,19 @@ jobs:
         item: ${{ fromJson(inputs.sdk-matrix) }}
 
     steps:
+      - name: Compute results key
+        id: results
+        run: |
+          set -euo pipefail
+          display="${{ matrix.item.display }}"
+          framework="${{ matrix.item.framework }}"
+          key="${display//.NET/dotnet}"
+          key="${key// /-}"
+          key="${key//./-}"
+          key="${key,,}"
+          framework_key="${framework//./-}"
+          echo "RESULTS_KEY=${key}-${framework_key}" >> "$GITHUB_ENV"
+
       - name: Check out repository
         uses: actions/checkout@v4
         with:
@@ -131,6 +144,29 @@ jobs:
           --settings tests.ci.runsettings
           --logger "trx;LogFileName=SpatialCoreTests.trx"
           --logger "console;verbosity=detailed"
+
+      - name: Collect test results
+        if: always()
+        run: |
+          set -euxo pipefail
+          results_dir="artifacts/${RESULTS_KEY}"
+          mkdir -p "${results_dir}"
+
+          if compgen -G "LiteDB.Tests/TestResults/*.trx" > /dev/null; then
+            cp LiteDB.Tests/TestResults/*.trx "${results_dir}/"
+          fi
+
+          if [ -d LiteDB.Spatial.Core.Tests/TestResults ] && compgen -G "LiteDB.Spatial.Core.Tests/TestResults/*.trx" > /dev/null; then
+            cp LiteDB.Spatial.Core.Tests/TestResults/*.trx "${results_dir}/"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ env.RESULTS_KEY }}
+          path: artifacts/${{ env.RESULTS_KEY }}
+          if-no-files-found: ignore
 
   repro-runner:
     runs-on: ubuntu-latest
