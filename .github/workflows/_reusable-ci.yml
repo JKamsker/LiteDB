@@ -65,6 +65,8 @@ jobs:
     name: Test (Linux ${{ matrix.item.display }})
     runs-on: ubuntu-latest
     needs: build-linux
+    env:
+      RESULTS_KEY: ${{ format('{0}-{1}', replace(replace(matrix.item.display, '.NET', 'dotnet'), ' ', '-'), matrix.item.framework) }}
     strategy:
       fail-fast: false
       matrix:
@@ -136,7 +138,7 @@ jobs:
         if: always()
         run: |
           set -euxo pipefail
-          results_dir="artifacts/${{ matrix.item.framework }}"
+          results_dir="artifacts/${RESULTS_KEY}"
           mkdir -p "${results_dir}"
 
           if compgen -G "LiteDB.Tests/TestResults/*.trx" > /dev/null; then
@@ -151,8 +153,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.item.framework }}
-          path: artifacts/${{ matrix.item.framework }}
+          name: test-results-${{ env.RESULTS_KEY }}
+          path: artifacts/${{ env.RESULTS_KEY }}
           if-no-files-found: ignore
 
   repro-runner:
