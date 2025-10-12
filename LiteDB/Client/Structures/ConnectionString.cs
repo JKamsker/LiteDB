@@ -12,8 +12,6 @@ namespace LiteDB
     public class ConnectionString
     {
         private readonly Dictionary<string, string> _values;
-        private readonly List<string> _features;
-        private IReadOnlyList<string> _featureView;
 
         /// <summary>
         /// "connection": Return how engine will be open (default: Direct)
@@ -56,17 +54,11 @@ namespace LiteDB
         public Collation Collation { get; set; }
 
         /// <summary>
-        /// Gets the feature identifiers requested via the connection string.
-        /// </summary>
-        public IReadOnlyList<string> Features => _featureView ??= _features.AsReadOnly();
-
-        /// <summary>
         /// Initialize empty connection string
         /// </summary>
         public ConnectionString()
         {
             _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            _features = new List<string>();
         }
 
         /// <summary>
@@ -106,18 +98,6 @@ namespace LiteDB
             this.Upgrade = _values.GetValue("upgrade", this.Upgrade);
             this.AutoRebuild = _values.GetValue("auto-rebuild", this.AutoRebuild);
 
-            if (_values.TryGetValue("features", out var featureValue) && featureValue != null)
-            {
-                foreach (var feature in featureValue.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    var token = feature.Trim();
-
-                    if (token.Length > 0)
-                    {
-                        _features.Add(token);
-                    }
-                }
-            }
         }
 
         /// <summary>

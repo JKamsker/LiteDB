@@ -1,4 +1,5 @@
 using System;
+using LiteDB;
 using LiteDB.Plugins;
 
 namespace LiteDB.Vector
@@ -8,8 +9,6 @@ namespace LiteDB.Vector
     /// </summary>
     public sealed class VectorSearchPlugin : ILitePlugin
     {
-        private bool _initialized;
-
         /// <summary>
         /// Gets the singleton instance used when enabling the plugin via configuration.
         /// </summary>
@@ -32,17 +31,22 @@ namespace LiteDB.Vector
                 throw new ArgumentNullException(nameof(context));
             }
 
-            if (_initialized)
-            {
-                context.Logger.Write(LogLevel.Debug, "VectorSearchPlugin already initialized for this database instance.");
-                return;
-            }
-
             context.Indexes.Register(new VectorIndexStrategy(context.Logger));
 
-            context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.");
+            context.Expressions.RegisterBinaryOperator(new BinaryOperatorRegistration(
+                "VECTOR_SIM",
+                " VECTOR_SIM ",
+                BsonExpressionType.VectorSim,
+                VectorExpressions.VectorSimOperator,
+                precedence: 2));
 
-            _initialized = true;
+            context.Expressions.RegisterFunction(
+                "VECTOR_SIM",
+                (Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>)VectorExpressions.VectorSimFunction);
+
+            context.Expressions.RegisterKeyword("VECTOR_SIM");
+
+            context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.");
         }
     }
 }

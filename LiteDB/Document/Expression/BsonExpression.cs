@@ -443,6 +443,16 @@ namespace LiteDB
             .ToDictionary(m => m.Name.ToUpperInvariant() + "~" + m.GetParameters()
             .Skip(5).Count());
 
+        internal static void RegisterFunction(string name, MethodInfo method, int parameterCount)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+            if (method == null) throw new ArgumentNullException(nameof(method));
+            if (!method.IsStatic) throw new ArgumentException("Expression functions must be static methods.", nameof(method));
+
+            var key = name.ToUpperInvariant() + "~" + parameterCount;
+            _functions[key] = method;
+        }
+
         /// <summary>
         /// Get expression function with same name and same parameter - return null if not found
         /// </summary>

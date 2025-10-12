@@ -98,9 +98,15 @@ namespace LiteDB
             "LIKE",
             "IN",
             "AND",
-            "OR",
-            "VECTOR_SIM"
+            "OR"
         };
+
+        internal static void RegisterKeyword(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentNullException(nameof(keyword));
+
+            _keywords.Add(keyword);
+        }
 
         public Token(TokenType tokenType, string value, long position)
         {
@@ -209,6 +215,11 @@ namespace LiteDB
     /// </summary>
     internal class Tokenizer
     {
+        public static void RegisterKeyword(string keyword)
+        {
+            Token.RegisterKeyword(keyword);
+        }
+
         private readonly TextReader _reader;
         private char _char = '\0';
         private Token _ahead = null;

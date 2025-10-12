@@ -1,6 +1,9 @@
 using FluentAssertions;
 using LiteDB;
+using LiteDB.Plugins;
 using LiteDB.Vector;
+using System.Linq;
+using System.Reflection;
 using Xunit;
 
 namespace LiteDB.Tests.QueryTest
@@ -17,7 +20,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void Collection_Extension_Produces_Vector_Index_Plan()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new VectorDocument { Id = 1, Embedding = new[] { 1f, 0f } });
@@ -36,7 +39,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void Repository_Extension_Delegates_To_Vector_Index_Implementation()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             ILiteRepository repository = new LiteRepository(db);
 
             repository.EnsureIndex<VectorDocument, float[]>(x => x.Embedding, new VectorIndexOptions(2));
@@ -47,6 +50,35 @@ namespace LiteDB.Tests.QueryTest
 
             plan["index"]["mode"].AsString.Should().Be("VECTOR INDEX SEARCH");
             plan["index"]["expr"].AsString.Should().Be("$.Embedding");
+        }
+
+        [Fact]
+        public void Collection_Extension_Throws_When_Plugin_Not_Installed()
+        {
+            using var db = new LiteDatabase(":memory:");
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            var action = () => collection.Query()
+                .WhereNear(x => x.Embedding, new[] { 1f, 0f }, maxDistance: 0.25)
+                .ToEnumerable()
+                .ToList();
+
+            action.Should().Throw<LiteException>()
+                .WithMessage("Vector operations require the VectorSearchPlugin. Add the LiteDB.Vector package and pass plugins: new[] { VectorSearchPlugin.Instance } when constructing LiteDatabase.");
+        }
+
+        [Fact]
+        public void Plugin_Registers_Vector_Index_Strategy()
+        {
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+
+            var contextProperty = typeof(LiteDatabase).GetProperty("PluginContext", BindingFlags.Instance | BindingFlags.NonPublic);
+            contextProperty.Should().NotBeNull();
+
+            var context = (ILitePluginContext)contextProperty!.GetValue(db);
+            context.Should().NotBeNull();
+
+            context.Indexes.GetByKind("vector").Should().NotBeNull();
         }
     }
 }

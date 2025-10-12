@@ -22,6 +22,8 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface ILitePluginContext
     {
+        ConnectionString ConnectionString { get; }
+
         IExpressionRegistry Expressions { get; }
 
         IIndexRegistry Indexes { get; }
@@ -59,11 +61,13 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface IExpressionRegistry
     {
-        void RegisterOperator(string name, BsonBinaryOperator operation);
+        void RegisterBinaryOperator(BinaryOperatorRegistration registration);
 
-        bool TryGetOperator(string name, out BsonBinaryOperator operation);
+        void RegisterFunction(string name, Delegate implementation);
 
-        IEnumerable<KeyValuePair<string, BsonBinaryOperator>> Operators { get; }
+        void RegisterKeyword(string keyword);
+
+        ExpressionParserConfiguration CreateConfiguration();
     }
 
     /// <summary>
