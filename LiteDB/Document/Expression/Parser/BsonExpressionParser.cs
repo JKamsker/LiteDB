@@ -8,6 +8,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -17,11 +18,33 @@ namespace LiteDB
     /// <summary>
     /// Compile and execute simple expressions using BsonDocuments. Used in indexes and updates operations. See https://github.com/mbdavid/LiteDB/wiki/Expressions
     /// </summary>
-    internal class BsonExpressionParser
-    {
-        #region Operators quick access
+        internal class BsonExpressionParser
+        {
+            internal static void RegisterBinaryOperator(BinaryOperatorRegistration registration)
+            {
+                if (registration == null) throw new ArgumentNullException(nameof(registration));
+
+                if (!registration.Token.Equals("VECTOR_SIM", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new NotSupportedException("Only the VECTOR_SIM operator can be registered dynamically.");
+                }
+
+                var method = registration.Implementation?.GetMethodInfo();
+
+                if (method == null || !method.IsStatic)
+                {
+                    throw new ArgumentException("Operator implementations must be static methods.", nameof(registration));
+                }
+
+                _operators["VECTOR_SIM"] = Tuple.Create(registration.Source, method, registration.ExpressionType);
+                _vectorOperatorEnabled = true;
+            }
+
+            #region Operators quick access
 
         private static MethodInfo M(string s) => typeof(BsonExpressionOperators).GetMethod(s);
+
+        private static bool _vectorOperatorEnabled;
 
         /// <summary>
         /// Operation definition by methods with defined expression type (operators are in precedence order)
@@ -36,7 +59,7 @@ namespace LiteDB
             ["-"] = Tuple.Create("-", M("MINUS"), BsonExpressionType.Subtract),
 
             // vector similarity operator returns the cosine distance between two vectors
-            ["VECTOR_SIM"] = Tuple.Create(" VECTOR_SIM ", M("VECTOR_SIM"), BsonExpressionType.VectorSim),
+            ["VECTOR_SIM"] = Tuple.Create(" VECTOR_SIM ", (MethodInfo)null, BsonExpressionType.VectorSim),
 
             // predicate
             ["LIKE"] = Tuple.Create(" LIKE ", M("LIKE"), BsonExpressionType.Like),
@@ -1384,6 +1407,11 @@ namespace LiteDB
 
             if (token.IsOperand)
             {
+                if (token.Value.Equals("VECTOR_SIM", StringComparison.OrdinalIgnoreCase) && _vectorOperatorEnabled == false)
+                {
+                    return null;
+                }
+
                 tokenizer.ReadToken(); // consume operant
 
                 return token.Value;

@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using LiteDB.Client.Shared;
-using LiteDB.Vector;
 
 namespace LiteDB
 {
@@ -16,6 +15,8 @@ namespace LiteDB
         private LiteEngine _engine;
         private bool _transactionRunning = false;
         private ILitePluginContext _plugins;
+
+        internal ILitePluginContext PluginContext => _plugins;
 
         public SharedEngine(EngineSettings settings)
         {

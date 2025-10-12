@@ -1,19 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace LiteDB.Plugins
 {
     internal sealed class DefaultPluginContext : ILitePluginContext
     {
-        public DefaultPluginContext(IServiceProvider services, ILogger logger)
+        public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
         {
+            this.ConnectionString = connectionString ?? new ConnectionString();
             this.Expressions = new ExpressionRegistry();
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
             this.Logger = logger ?? NullLogger.Instance;
         }
+
+        public ConnectionString ConnectionString { get; }
 
         public IExpressionRegistry Expressions { get; }
 
@@ -29,41 +33,70 @@ namespace LiteDB.Plugins
     internal sealed class ExpressionRegistry : IExpressionRegistry
     {
         private readonly object _sync = new object();
-        private readonly Dictionary<string, BsonBinaryOperator> _operators = new Dictionary<string, BsonBinaryOperator>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<BinaryOperatorRegistration> _operators = new List<BinaryOperatorRegistration>();
+        private readonly Dictionary<string, MethodInfo> _functions = new Dictionary<string, MethodInfo>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        public void RegisterOperator(string name, BsonBinaryOperator operation)
+        public void RegisterBinaryOperator(BinaryOperatorRegistration registration)
+        {
+            if (registration == null) throw new ArgumentNullException(nameof(registration));
+
+            lock (_sync)
+            {
+                _operators.Add(registration);
+            }
+
+            BsonExpressionParser.RegisterBinaryOperator(registration);
+        }
+
+        public void RegisterFunction(string name, Delegate implementation)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
-            if (operation == null) throw new ArgumentNullException(nameof(operation));
+            if (implementation == null) throw new ArgumentNullException(nameof(implementation));
+
+            var method = implementation.GetMethodInfo();
+
+            if (!method.IsStatic)
+            {
+                throw new ArgumentException("Expression functions must reference static methods.", nameof(implementation));
+            }
+
+            var parameterCount = method.GetParameters().Length - 5;
+
+            if (parameterCount < 0)
+            {
+                throw new ArgumentException("Expression functions must declare root, collation, parameters, and at least one argument slot.", nameof(implementation));
+            }
 
             lock (_sync)
             {
-                _operators[name] = operation;
+                var key = ExpressionRegistryHelpers.CreateFunctionKey(name, parameterCount);
+                _functions[key] = method;
             }
+
+            BsonExpression.RegisterFunction(name, method, parameterCount);
         }
 
-        public bool TryGetOperator(string name, out BsonBinaryOperator operation)
+        public void RegisterKeyword(string keyword)
         {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                operation = null;
-                return false;
-            }
+            if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentNullException(nameof(keyword));
 
             lock (_sync)
             {
-                return _operators.TryGetValue(name, out operation);
+                _keywords.Add(keyword);
             }
+
+            Tokenizer.RegisterKeyword(keyword);
         }
 
-        public IEnumerable<KeyValuePair<string, BsonBinaryOperator>> Operators
+        public ExpressionParserConfiguration CreateConfiguration()
         {
-            get
+            lock (_sync)
             {
-                lock (_sync)
-                {
-                    return _operators.ToArray();
-                }
+                return new ExpressionParserConfiguration(
+                    _operators.ToArray(),
+                    _functions.ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase),
+                    new HashSet<string>(_keywords, StringComparer.OrdinalIgnoreCase));
             }
         }
     }

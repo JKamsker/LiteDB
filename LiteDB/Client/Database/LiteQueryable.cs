@@ -244,6 +244,26 @@ namespace LiteDB
             if (double.IsNaN(maxDistance)) throw new ArgumentOutOfRangeException(nameof(maxDistance), "Similarity threshold must be a valid number.");
         }
 
+        private void EnsureVectorSupport()
+        {
+            const string message = "Vector operations require the VectorSearchPlugin. Add the LiteDB.Vector package and pass plugins: new[] { VectorSearchPlugin.Instance } when constructing LiteDatabase.";
+
+            if (_engine is LiteEngine engine)
+            {
+                if (engine.PluginContext?.Indexes?.GetByKind("vector") == null)
+                {
+                    throw new LiteException(0, message);
+                }
+            }
+            else if (_engine is SharedEngine shared)
+            {
+                if (shared.PluginContext?.Indexes?.GetByKind("vector") == null)
+                {
+                    throw new LiteException(0, message);
+                }
+            }
+        }
+
         private static BsonExpression CreateVectorSimilarityFilter(BsonExpression fieldExpr, float[] target, double maxDistance)
         {
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
@@ -258,12 +278,16 @@ namespace LiteDB
         {
             if (string.IsNullOrWhiteSpace(vectorField)) throw new ArgumentNullException(nameof(vectorField));
 
+            this.EnsureVectorSupport();
+
             var fieldExpr = BsonExpression.Create($"$.{vectorField}");
             return this.VectorWhereNear(fieldExpr, target, maxDistance);
         }
 
         internal ILiteQueryable<T> VectorWhereNear(BsonExpression fieldExpr, float[] target, double maxDistance)
         {
+            this.EnsureVectorSupport();
+
             var filter = CreateVectorSimilarityFilter(fieldExpr, target, maxDistance);
 
             _query.Where.Add(filter);
@@ -279,24 +303,32 @@ namespace LiteDB
         {
             if (field == null) throw new ArgumentNullException(nameof(field));
 
+            this.EnsureVectorSupport();
+
             var fieldExpr = _mapper.GetExpression(field);
             return this.VectorWhereNear(fieldExpr, target, maxDistance);
         }
 
         internal ILiteQueryableResult<T> VectorTopKNear<K>(Expression<Func<T, K>> field, float[] target, int k)
         {
+            this.EnsureVectorSupport();
+
             var fieldExpr = _mapper.GetExpression(field);
             return this.VectorTopKNear(fieldExpr, target, k);
         }
 
         internal ILiteQueryableResult<T> VectorTopKNear(string field, float[] target, int k)
         {
+            this.EnsureVectorSupport();
+
             var fieldExpr = BsonExpression.Create($"$.{field}");
             return this.VectorTopKNear(fieldExpr, target, k);
         }
 
         internal ILiteQueryableResult<T> VectorTopKNear(BsonExpression fieldExpr, float[] target, int k)
         {
+            this.EnsureVectorSupport();
+
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
             if (target == null || target.Length == 0) throw new ArgumentException("Target vector must be provided.", nameof(target));
             if (k <= 0) throw new ArgumentOutOfRangeException(nameof(k), "Top-K must be greater than zero.");
