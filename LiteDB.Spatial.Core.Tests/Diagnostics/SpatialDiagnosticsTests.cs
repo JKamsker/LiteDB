@@ -19,7 +19,8 @@ public sealed class SpatialDiagnosticsTests
                 new SpatialIndexRange(1, 5),
                 new SpatialIndexRange(6, 10)
             },
-            "Distance <= 10");
+            "Distance <= 10",
+            SpatialCoveringDiagnostics.Empty);
 
         var descriptor = new SpatialCollectionDescriptor("places", "Geographic2D", 2, "location", new SpatialIndexOptions());
         var explain = SpatialDiagnostics.Explain(plan, descriptor);
@@ -39,6 +40,7 @@ public sealed class SpatialDiagnosticsTests
         summary.Should().Contain("Bounding box field: _mbb");
         summary.Should().Contain("Index ranges (2) via _idx");
         summary.Should().Contain("[1, 5] (0x0000000000000001 - 0x0000000000000005)");
+        summary.Should().Contain("Covering diagnostics: requested=0, returned=0, effective=0, estimated=0, maxFallback=false, enumerationFallback=false");
         summary.Should().Contain("Covering bounds via _mbb");
         summary.Should().Contain("Exact predicate: Distance <= 10");
     }
@@ -51,7 +53,8 @@ public sealed class SpatialDiagnosticsTests
             3,
             null,
             Array.Empty<SpatialIndexRange>(),
-            null);
+            null,
+            SpatialCoveringDiagnostics.Empty);
 
         var explain = SpatialDiagnostics.Explain(plan);
 
@@ -65,6 +68,7 @@ public sealed class SpatialDiagnosticsTests
         summary.Should().Contain("Index field: n/a");
         summary.Should().Contain("Bounding box field: n/a");
         summary.Should().Contain("Index ranges (0)");
+        summary.Should().Contain("Covering diagnostics: requested=0, returned=0, effective=0, estimated=0, maxFallback=false, enumerationFallback=false");
         summary.Should().Contain("Covering bounds: none");
         summary.Should().Contain("Exact predicate: none");
     }

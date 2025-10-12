@@ -100,9 +100,10 @@ public sealed class Cartesian3DEngine : ICartesianSpatialEngine
     private SpatialQueryPlan PlanFromBounds(BoundingBox bounds, string predicate)
     {
         var normalized = _normalizer.Normalize(bounds);
-        var ranges = _encoder.Cover(normalized, _options.MaxCoveringCells);
-        var merged = MortonIndexEncoder.UnionAdjacentRanges(ranges);
-        return new SpatialQueryPlan(Name, Dimensions, bounds, merged, predicate);
+        var covering = _encoder.Cover(normalized, _options.MaxCoveringCells);
+        var merged = MortonIndexEncoder.UnionAdjacentRanges(covering.Ranges);
+        var diagnostics = covering.Diagnostics.WithEffectiveRangeCount(merged.Count);
+        return new SpatialQueryPlan(Name, Dimensions, bounds, merged, predicate, diagnostics);
     }
 
     private static void ValidateRadius(double radius)
