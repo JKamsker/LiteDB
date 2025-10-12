@@ -1,4 +1,5 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,6 +22,11 @@ namespace LiteDB
 
         // indicate that T type are simple and result are inside first document fields (query always return a BsonDocument)
         private readonly bool _isSimpleType = Reflection.IsSimpleType(typeof(T));
+
+        private IDisposable EnterPluginScope()
+        {
+            return PluginExpressionScope.Enter(_engine.PluginContext);
+        }
 
         internal LiteQueryable(ILiteEngine engine, BsonMapper mapper, string collection, Query query)
         {
@@ -77,6 +83,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(string predicate, BsonDocument parameters)
         {
+            using var scope = this.EnterPluginScope();
             _query.Where.Add(BsonExpression.Create(predicate, parameters));
             return this;
         }
@@ -86,6 +93,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(string predicate, params BsonValue[] args)
         {
+            using var scope = this.EnterPluginScope();
             _query.Where.Add(BsonExpression.Create(predicate, args));
             return this;
         }
@@ -258,12 +266,14 @@ namespace LiteDB
         {
             if (string.IsNullOrWhiteSpace(vectorField)) throw new ArgumentNullException(nameof(vectorField));
 
+            using var scope = this.EnterPluginScope();
             var fieldExpr = BsonExpression.Create($"$.{vectorField}");
             return this.VectorWhereNear(fieldExpr, target, maxDistance);
         }
 
         internal ILiteQueryable<T> VectorWhereNear(BsonExpression fieldExpr, float[] target, double maxDistance)
         {
+            using var scope = this.EnterPluginScope();
             var filter = CreateVectorSimilarityFilter(fieldExpr, target, maxDistance);
 
             _query.Where.Add(filter);
@@ -291,6 +301,7 @@ namespace LiteDB
 
         internal ILiteQueryableResult<T> VectorTopKNear(string field, float[] target, int k)
         {
+            using var scope = this.EnterPluginScope();
             var fieldExpr = BsonExpression.Create($"$.{field}");
             return this.VectorTopKNear(fieldExpr, target, k);
         }
@@ -304,6 +315,7 @@ namespace LiteDB
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
 
             // Build VECTOR_SIM as order clause
+            using var scope = this.EnterPluginScope();
             var simExpr = BsonExpression.Create($"VECTOR_SIM({fieldExpr.Source}, @0)", targetArray);
 
             _query.VectorField = fieldExpr.Source;

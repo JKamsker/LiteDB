@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using LiteDB.Engine;
 
 namespace LiteDB.Plugins
@@ -22,6 +23,8 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface ILitePluginContext
     {
+        ConnectionString ConnectionString { get; }
+
         IExpressionRegistry Expressions { get; }
 
         IIndexRegistry Indexes { get; }
@@ -59,11 +62,64 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface IExpressionRegistry
     {
-        void RegisterOperator(string name, BsonBinaryOperator operation);
+        void RegisterBinaryOperator(string name, string displayToken, MethodInfo method, BsonExpressionType expressionType, int precedence);
 
-        bool TryGetOperator(string name, out BsonBinaryOperator operation);
+        void RegisterFunction(string name, MethodInfo method, int parameterCount, BsonExpressionType expressionType = BsonExpressionType.Call, bool convertScalarLeftToEnumerable = true, bool isScalarResult = false);
 
-        IEnumerable<KeyValuePair<string, BsonBinaryOperator>> Operators { get; }
+        void RegisterKeyword(string keyword);
+
+        IEnumerable<ExpressionBinaryOperator> BinaryOperators { get; }
+
+        IEnumerable<ExpressionFunction> Functions { get; }
+
+        IEnumerable<string> Keywords { get; }
+    }
+
+    public readonly struct ExpressionBinaryOperator
+    {
+        public ExpressionBinaryOperator(string name, string displayToken, MethodInfo method, BsonExpressionType expressionType, int precedence)
+        {
+            this.Name = name ?? throw new ArgumentNullException(nameof(name));
+            this.DisplayToken = displayToken ?? throw new ArgumentNullException(nameof(displayToken));
+            this.Method = method ?? throw new ArgumentNullException(nameof(method));
+            this.ExpressionType = expressionType;
+            this.Precedence = precedence;
+        }
+
+        public string Name { get; }
+
+        public string DisplayToken { get; }
+
+        public MethodInfo Method { get; }
+
+        public BsonExpressionType ExpressionType { get; }
+
+        public int Precedence { get; }
+    }
+
+    public readonly struct ExpressionFunction
+    {
+        public ExpressionFunction(string name, MethodInfo method, int parameterCount, BsonExpressionType expressionType, bool convertScalarLeftToEnumerable, bool isScalarResult)
+        {
+            this.Name = name ?? throw new ArgumentNullException(nameof(name));
+            this.Method = method ?? throw new ArgumentNullException(nameof(method));
+            this.ParameterCount = parameterCount;
+            this.ExpressionType = expressionType;
+            this.ConvertScalarLeftToEnumerable = convertScalarLeftToEnumerable;
+            this.IsScalarResult = isScalarResult;
+        }
+
+        public string Name { get; }
+
+        public MethodInfo Method { get; }
+
+        public int ParameterCount { get; }
+
+        public BsonExpressionType ExpressionType { get; }
+
+        public bool ConvertScalarLeftToEnumerable { get; }
+
+        public bool IsScalarResult { get; }
     }
 
     /// <summary>

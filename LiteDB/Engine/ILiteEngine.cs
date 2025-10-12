@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 
 namespace LiteDB.Engine
 {
     public interface ILiteEngine : IDisposable
     {
+        ILitePluginContext PluginContext { get; }
+
         int Checkpoint();
         long Rebuild(RebuildOptions options);
 

@@ -92,21 +92,14 @@ namespace LiteDB
     /// </summary>
     internal class Token
     {
-        private static readonly HashSet<string> _keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "BETWEEN",
-            "LIKE",
-            "IN",
-            "AND",
-            "OR",
-            "VECTOR_SIM"
-        };
+        private readonly bool _isKeyword;
 
-        public Token(TokenType tokenType, string value, long position)
+        public Token(TokenType tokenType, string value, long position, bool isKeyword = false)
         {
             this.Position = position;
             this.Value = value;
             this.Type = tokenType;
+            _isKeyword = isKeyword;
         }
 
         public TokenType Type { get; private set; }
@@ -188,7 +181,7 @@ namespace LiteDB
                     case TokenType.NotEquals:
                         return true;
                     case TokenType.Word:
-                        return _keywords.Contains(Value);
+                        return _isKeyword;
                     default:
                         return false;
                 }
@@ -210,6 +203,7 @@ namespace LiteDB
     internal class Tokenizer
     {
         private readonly TextReader _reader;
+        private readonly HashSet<string> _keywords;
         private char _char = '\0';
         private Token _ahead = null;
         private bool _eof = false;
@@ -228,14 +222,35 @@ namespace LiteDB
             return false;
         }
 
-        public Tokenizer(string source)
-            : this(new StringReader(source))
+        private static readonly string[] _defaultKeywords = new[]
+        {
+            "BETWEEN",
+            "LIKE",
+            "IN",
+            "AND",
+            "OR"
+        };
+
+        public Tokenizer(string source, IEnumerable<string> keywords = null)
+            : this(new StringReader(source), keywords)
         {
         }
 
-        public Tokenizer(TextReader reader)
+        public Tokenizer(TextReader reader, IEnumerable<string> keywords = null)
         {
             _reader = reader;
+            _keywords = new HashSet<string>(_defaultKeywords, StringComparer.OrdinalIgnoreCase);
+
+            if (keywords != null)
+            {
+                foreach (var keyword in keywords)
+                {
+                    if (!string.IsNullOrWhiteSpace(keyword))
+                    {
+                        _keywords.Add(keyword);
+                    }
+                }
+            }
 
             this.Position = 0;
             this.ReadChar();
@@ -533,7 +548,8 @@ namespace LiteDB
                     // test if first char is an word 
                     if (IsWordChar(_char, true))
                     {
-                        token = new Token(TokenType.Word, this.ReadWord(), this.Position);
+                        var word = this.ReadWord();
+                        token = new Token(TokenType.Word, word, this.Position, _keywords.Contains(word));
                     }
                     else
                     {

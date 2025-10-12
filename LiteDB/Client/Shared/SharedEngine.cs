@@ -17,6 +17,8 @@ namespace LiteDB
         private bool _transactionRunning = false;
         private ILitePluginContext _plugins;
 
+        public ILitePluginContext PluginContext => _engine?.PluginContext ?? _plugins;
+
         public SharedEngine(EngineSettings settings)
         {
             _settings = settings;

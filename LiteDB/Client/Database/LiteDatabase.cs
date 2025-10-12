@@ -23,6 +23,8 @@ namespace LiteDB
         private readonly int? _checkpointOverride;
         private readonly DefaultPluginContext _pluginContext;
 
+        internal ILitePluginContext PluginContext => _pluginContext;
+
         /// <summary>
         /// Get current instance of BsonMapper used in this database instance (can be BsonMapper.Global)
         /// </summary>
@@ -51,9 +53,9 @@ namespace LiteDB
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
 
-            _pluginContext = new DefaultPluginContext(NullServiceProvider.Instance, NullLogger.Instance);
+            _pluginContext = new DefaultPluginContext(connectionString, NullServiceProvider.Instance, NullLogger.Instance);
 
-            this.InitializePlugins(plugins, connectionString.Features);
+            this.InitializePlugins(plugins);
         }
 
         /// <summary>
@@ -75,7 +77,7 @@ namespace LiteDB
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
 
-            _pluginContext = new DefaultPluginContext(NullServiceProvider.Instance, NullLogger.Instance);
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
 
             this.InitializePlugins(plugins);
 
@@ -114,7 +116,7 @@ namespace LiteDB
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = disposeOnClose;
 
-            _pluginContext = new DefaultPluginContext(NullServiceProvider.Instance, NullLogger.Instance);
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
 
             this.InitializePlugins(plugins);
         }
@@ -163,7 +165,7 @@ namespace LiteDB
 
         #endregion
 
-        private void InitializePlugins(IEnumerable<ILitePlugin> plugins, IEnumerable<string> features = null)
+        private void InitializePlugins(IEnumerable<ILitePlugin> plugins)
         {
             var initialized = new HashSet<Type>();
 
@@ -181,24 +183,6 @@ namespace LiteDB
                     if (initialized.Add(type))
                     {
                         plugin.Initialize(this, _pluginContext);
-                    }
-                }
-            }
-
-            if (features != null)
-            {
-                foreach (var feature in features)
-                {
-                    if (PluginFeatureCatalog.TryCreate(feature, out var plugin))
-                    {
-                        if (plugin != null && initialized.Add(plugin.GetType()))
-                        {
-                            plugin.Initialize(this, _pluginContext);
-                        }
-                    }
-                    else
-                    {
-                        _pluginContext.Logger.Write(LogLevel.Warning, $"Unknown feature '{feature}'.");
                     }
                 }
             }
@@ -311,7 +295,9 @@ namespace LiteDB
         {
             if (commandReader == null) throw new ArgumentNullException(nameof(commandReader));
 
-            var tokenizer = new Tokenizer(commandReader);
+            using var scope = PluginExpressionScope.Enter(_pluginContext);
+
+            var tokenizer = new Tokenizer(commandReader, _pluginContext?.Expressions?.Keywords);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 
@@ -325,7 +311,9 @@ namespace LiteDB
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
 
-            var tokenizer = new Tokenizer(command);
+            using var scope = PluginExpressionScope.Enter(_pluginContext);
+
+            var tokenizer = new Tokenizer(command, _pluginContext?.Expressions?.Keywords);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 

@@ -40,7 +40,7 @@ namespace LiteDB.Engine
 
         private ILitePluginContext _plugins;
 
-        internal ILitePluginContext PluginContext => _plugins;
+        public ILitePluginContext PluginContext => _plugins;
 
         void IPluginHost.SetPluginContext(ILitePluginContext context)
         {
