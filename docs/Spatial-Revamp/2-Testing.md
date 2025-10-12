@@ -216,6 +216,22 @@ var dOur  = Euclidean3D.Distance(a,b);
 dOur.Should().BeApproximately(dRef, 1e-9);
 ```
 
+## 8. FsCheck and synthetic fixtures
+
+* **Seeding FsCheck runs** – the Cartesian differential suites honour the `FS_CHECK_SEED` environment variable. Set it before invoking `dotnet test` to reproduce a failing run:
+
+  ```bash
+  FS_CHECK_SEED=123456 dotnet test LiteDB.Spatial.Core.Tests --filter "Category=Oracle"
+  ```
+
+  Copy the `Replay` value printed by FsCheck into `FS_CHECK_SEED` to replay the same random stream. Each counterexample is also serialized under `/tests/failures` for offline analysis.
+
+* **Refreshing synthetic fixtures** – synthetic datasets (e.g., point clouds) live under `tests/fixtures`. When tolerances change (see `LiteDB.Spatial.Core.Tests/TestSupport/SpatialTestTolerances.cs`), update fixtures by:
+
+  1. Adjusting the tolerance helper and rerunning the affected suites (`dotnet test LiteDB.Spatial.Core.Tests --filter "Category=Oracle"`).
+  2. Editing the relevant JSON fixture (such as `tests/fixtures/point_clouds/grid_3x3.json`) to reflect new expectations (candidate counts, exact IDs).
+  3. Committing the regenerated data alongside the tolerance changes to keep CI deterministic.
+
 ---
 
 # How to integrate without polluting production
