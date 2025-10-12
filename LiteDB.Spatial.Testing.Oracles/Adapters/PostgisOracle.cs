@@ -13,6 +13,7 @@ namespace LiteDB.Spatial.Testing.Oracles.Adapters;
 /// </summary>
 public sealed class PostgisOracle : IAsyncDisposable
 {
+    private const string OracleKey = "postgis";
     private readonly string _connectionString;
 
     /// <summary>
@@ -28,7 +29,10 @@ public sealed class PostgisOracle : IAsyncDisposable
     /// <summary>
     /// Gets a value indicating whether the PostGIS oracle can be used.
     /// </summary>
-    public static bool IsAvailable => OracleEnvironment.AreDatabaseTestsEnabled && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("POSTGIS_CONNECTION_STRING"));
+    public static bool IsAvailable
+        => OracleEnvironment.AreDatabaseTestsEnabled
+            && OracleEnvironment.IsOracleEnabled(OracleKey)
+            && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("POSTGIS_CONNECTION_STRING"));
 
     /// <inheritdoc />
     public ValueTask DisposeAsync()
@@ -41,6 +45,7 @@ public sealed class PostgisOracle : IAsyncDisposable
     /// </summary>
     public async Task<double> ExecuteScalarAsync(string sql, CancellationToken cancellationToken = default)
     {
+        OracleEnvironment.EnsureOraclesEnabled(OracleKey);
         OracleEnvironment.EnsureDatabaseTestsEnabled(nameof(PostgisOracle));
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
@@ -60,6 +65,7 @@ public sealed class PostgisOracle : IAsyncDisposable
     /// </summary>
     public async Task<IReadOnlyList<T>> QueryAsync<T>(string sql, Func<NpgsqlDataReader, T> projector, CancellationToken cancellationToken = default)
     {
+        OracleEnvironment.EnsureOraclesEnabled(OracleKey);
         OracleEnvironment.EnsureDatabaseTestsEnabled(nameof(PostgisOracle));
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);

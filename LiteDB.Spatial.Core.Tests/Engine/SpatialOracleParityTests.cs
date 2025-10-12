@@ -12,7 +12,7 @@ public sealed class SpatialOracleParityTests
     private readonly MathNetOracle3D _mathNet = new();
     private readonly NtsOracle _nts = new();
 
-    [OracleFact(feature: "geodesic_pairs")]
+    [OracleFact(feature: "geodesic_pairs", requiredOracles: new[] { "geographiclib" })]
     public void VincentyMatchesGeographicLibFixtures()
     {
         var fixtures = FixtureLoader.LoadCollection<GeodesicPairFixture>("geodesic_pairs.json");
@@ -29,7 +29,7 @@ public sealed class SpatialOracleParityTests
         }
     }
 
-    [OracleFact(feature: "point_clouds")]
+    [OracleFact(feature: "point_clouds", requiredOracles: new[] { "mathnet" })]
     public void CartesianDistanceMatchesMathNet()
     {
         var cloud = FixtureLoader.Load<PointCloud3DFixture>("point_clouds/cube_3d.json");
@@ -46,7 +46,7 @@ public sealed class SpatialOracleParityTests
         }
     }
 
-    [OracleFact(feature: "geojson_polygons")]
+    [OracleFact(feature: "geojson_polygons", requiredOracles: new[] { "nts" })]
     public void NtsOracleHonorsPolygonHoles()
     {
         var geoJson = FixtureLoader.LoadText("geojson_polygons/square_with_hole.json");

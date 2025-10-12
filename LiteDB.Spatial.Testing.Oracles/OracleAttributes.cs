@@ -1,3 +1,4 @@
+using System;
 using LiteDB.Spatial.Testing.Oracles.Infrastructure;
 using Xunit;
 
@@ -14,9 +15,11 @@ public class OracleFactAttribute : FactAttribute
     /// </summary>
     /// <param name="requiresDatabase">Whether the test requires database-backed integrations (e.g. PostGIS).</param>
     /// <param name="feature">An optional feature name for the skip reason.</param>
-    public OracleFactAttribute(bool requiresDatabase = false, string? feature = null)
+    /// <param name="requiredOracles">Optional list of oracle keys that must be enabled.</param>
+    public OracleFactAttribute(bool requiresDatabase = false, string? feature = null, params string[] requiredOracles)
     {
-        var skipReason = OracleEnvironment.GetSkipReason(requiresDatabase, feature);
+        requiredOracles ??= Array.Empty<string>();
+        var skipReason = OracleEnvironment.GetSkipReason(requiresDatabase, feature, requiredOracles);
         if (skipReason != null)
         {
             Skip = skipReason;
@@ -35,9 +38,11 @@ public sealed class OracleTheoryAttribute : TheoryAttribute
     /// </summary>
     /// <param name="requiresDatabase">Whether the test requires database-backed integrations.</param>
     /// <param name="feature">An optional feature name for the skip reason.</param>
-    public OracleTheoryAttribute(bool requiresDatabase = false, string? feature = null)
+    /// <param name="requiredOracles">Optional list of oracle keys that must be enabled.</param>
+    public OracleTheoryAttribute(bool requiresDatabase = false, string? feature = null, params string[] requiredOracles)
     {
-        var skipReason = OracleEnvironment.GetSkipReason(requiresDatabase, feature);
+        requiredOracles ??= Array.Empty<string>();
+        var skipReason = OracleEnvironment.GetSkipReason(requiresDatabase, feature, requiredOracles);
         if (skipReason != null)
         {
             Skip = skipReason;
@@ -56,8 +61,9 @@ public sealed class OracleSkipAttribute : OracleFactAttribute
     /// </summary>
     /// <param name="requiresDatabase">Whether the test requires database-backed integrations.</param>
     /// <param name="feature">An optional feature name for the skip reason.</param>
-    public OracleSkipAttribute(bool requiresDatabase = false, string? feature = null)
-        : base(requiresDatabase, feature)
+    /// <param name="requiredOracles">Optional list of oracle keys that must be enabled.</param>
+    public OracleSkipAttribute(bool requiresDatabase = false, string? feature = null, params string[] requiredOracles)
+        : base(requiresDatabase, feature, requiredOracles)
     {
     }
 }

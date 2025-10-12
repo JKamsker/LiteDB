@@ -26,6 +26,8 @@ namespace LiteDB.Spatial.Testing.Oracles.Adapters;
 /// </summary>
 public sealed class NtsOracle : IGeometryOracle2D
 {
+    private const string OracleKey = "nts";
+
     private readonly GeometryFactory _geometryFactory;
 
     /// <summary>
@@ -37,12 +39,12 @@ public sealed class NtsOracle : IGeometryOracle2D
     }
 
     /// <inheritdoc />
-    public bool IsAvailable => OracleEnvironment.AreOraclesEnabled;
+    public bool IsAvailable => OracleEnvironment.IsOracleEnabled(OracleKey);
 
     /// <inheritdoc />
     public GeometryHandle LoadFromGeoJson(string geoJson)
     {
-        OracleEnvironment.EnsureOraclesEnabled(nameof(NtsOracle));
+        OracleEnvironment.EnsureOraclesEnabled(OracleKey);
 
         using var reader = new JsonTextReader(new StringReader(geoJson));
         var serializer = JsonSerializer.CreateDefault();
@@ -65,7 +67,7 @@ public sealed class NtsOracle : IGeometryOracle2D
     /// <inheritdoc />
     public GeometryHandle CreatePolygon(IReadOnlyList<PlanarCoordinate> shell, IReadOnlyList<IReadOnlyList<PlanarCoordinate>>? holes = null)
     {
-        OracleEnvironment.EnsureOraclesEnabled(nameof(NtsOracle));
+        OracleEnvironment.EnsureOraclesEnabled(OracleKey);
 
         if (shell.Count < 4)
         {
@@ -98,7 +100,7 @@ public sealed class NtsOracle : IGeometryOracle2D
     /// <inheritdoc />
     public bool Contains(GeometryHandle geometry, PlanarCoordinate point)
     {
-        OracleEnvironment.EnsureOraclesEnabled(nameof(NtsOracle));
+        OracleEnvironment.EnsureOraclesEnabled(OracleKey);
         var ntsGeometry = ExtractGeometry(geometry);
         var pointGeometry = _geometryFactory.CreatePoint(new Coordinate(point.X, point.Y));
         return ntsGeometry.Contains(pointGeometry);
@@ -107,7 +109,7 @@ public sealed class NtsOracle : IGeometryOracle2D
     /// <inheritdoc />
     public bool Intersects(GeometryHandle left, GeometryHandle right)
     {
-        OracleEnvironment.EnsureOraclesEnabled(nameof(NtsOracle));
+        OracleEnvironment.EnsureOraclesEnabled(OracleKey);
         var leftGeometry = ExtractGeometry(left);
         var rightGeometry = ExtractGeometry(right);
         return leftGeometry.Intersects(rightGeometry);
@@ -116,7 +118,7 @@ public sealed class NtsOracle : IGeometryOracle2D
     /// <inheritdoc />
     public bool Within(GeometryHandle inner, GeometryHandle outer)
     {
-        OracleEnvironment.EnsureOraclesEnabled(nameof(NtsOracle));
+        OracleEnvironment.EnsureOraclesEnabled(OracleKey);
         var innerGeometry = ExtractGeometry(inner);
         var outerGeometry = ExtractGeometry(outer);
         return innerGeometry.Within(outerGeometry);
