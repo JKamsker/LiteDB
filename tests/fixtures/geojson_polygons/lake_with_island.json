@@ -1,0 +1,31 @@
+{
+  "id": "lake_with_island",
+  "description": "Polygon with a hole representing an island",
+  "geojson": {
+    "type": "Feature",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [-10.0, -10.0],
+          [-10.0, 10.0],
+          [10.0, 10.0],
+          [10.0, -10.0],
+          [-10.0, -10.0]
+        ],
+        [
+          [-3.0, -3.0],
+          [-3.0, 3.0],
+          [3.0, 3.0],
+          [3.0, -3.0],
+          [-3.0, -3.0]
+        ]
+      ]
+    },
+    "properties": {
+      "unit": "meters"
+    }
+  },
+  "expected_area": 364.0,
+  "expected_perimeter": 104.0
+}

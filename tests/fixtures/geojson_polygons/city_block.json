@@ -1,0 +1,24 @@
+{
+  "id": "city_block",
+  "description": "Simplified rectangular block",
+  "geojson": {
+    "type": "Feature",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [0.0, 0.0],
+          [0.0, 120.0],
+          [80.0, 120.0],
+          [80.0, 0.0],
+          [0.0, 0.0]
+        ]
+      ]
+    },
+    "properties": {
+      "unit": "meters"
+    }
+  },
+  "expected_area": 9600.0,
+  "expected_perimeter": 400.0
+}
