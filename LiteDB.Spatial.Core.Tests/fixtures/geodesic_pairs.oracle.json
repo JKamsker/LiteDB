@@ -1,0 +1,50 @@
+[
+  {
+    "distanceMeters": 54979.117896693126,
+    "id": "vienna-bratislava",
+    "lon1": 16.3738,
+    "lat1": 48.2082,
+    "lon2": 17.1077,
+    "lat2": 48.1486
+  },
+  {
+    "distanceMeters": 343923.1200910115,
+    "id": "paris-london",
+    "lon1": 2.3522,
+    "lat1": 48.8566,
+    "lon2": -0.1278,
+    "lat2": 51.5074
+  },
+  {
+    "distanceMeters": 327912.5163127486,
+    "id": "new_york-washington",
+    "lon1": -74.006,
+    "lat1": 40.7128,
+    "lon2": -77.0369,
+    "lat2": 38.9072
+  },
+  {
+    "distanceMeters": 713857.6651192008,
+    "id": "sydney-melbourne",
+    "lon1": 151.2093,
+    "lat1": -33.8688,
+    "lon2": 144.9631,
+    "lat2": -37.8136
+  },
+  {
+    "distanceMeters": 418269.7937831594,
+    "id": "anchorage-fairbanks",
+    "lon1": -149.9003,
+    "lat1": 61.2181,
+    "lon2": -147.7164,
+    "lat2": 64.8378
+  },
+  {
+    "distanceMeters": 729044.3909168273,
+    "id": "quito-bogota",
+    "lon1": -78.4678,
+    "lat1": -0.1807,
+    "lon2": -74.0721,
+    "lat2": 4.711
+  }
+]

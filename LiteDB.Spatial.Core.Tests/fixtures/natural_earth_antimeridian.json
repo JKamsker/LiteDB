@@ -1,0 +1,29 @@
+[
+  {
+    "id": "fiji_wrap",
+    "bounds": [170.0, -25.0, 190.0, -10.0],
+    "points": [
+      { "id": "nadi", "lon": 177.45, "lat": -17.8 },
+      { "id": "apia", "lon": -171.75, "lat": -13.83 },
+      { "id": "sydney", "lon": 151.21, "lat": -33.86 }
+    ]
+  },
+  {
+    "id": "bering_strait_wrap",
+    "bounds": [170.0, 50.0, 200.0, 72.0],
+    "points": [
+      { "id": "nome", "lon": -165.4064, "lat": 64.5011 },
+      { "id": "petropavlovsk", "lon": 158.6483, "lat": 53.0444 },
+      { "id": "anchorage", "lon": -149.9003, "lat": 61.2181 }
+    ]
+  },
+  {
+    "id": "north_pole_cap",
+    "bounds": [-60.0, 82.0, 80.0, 90.0],
+    "points": [
+      { "id": "alert", "lon": -62.284, "lat": 82.5018 },
+      { "id": "svalbard", "lon": 15.6333, "lat": 78.223 },
+      { "id": "north_pole", "lon": 0.0, "lat": 90.0 }
+    ]
+  }
+]

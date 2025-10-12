@@ -26,9 +26,18 @@
 
 * **Turf.js fixtures** (GeoJSON): points/lines/polygons with holes; great for predicate parity.
 * **Natural Earth**: coastlines, large polygons crossing the anti-meridian (Aleutians, Russia); polar stress.
+* `LiteDB.Spatial.Core.Tests/fixtures/geodesic_pairs.json` (+ `geodesic_pairs.oracle.json`) – geographic sample pairs sourced from GeographicLib; regenerate with `dotnet run --project scripts/SpatialOracleTools -- geodesic` when coordinates change.
+* `LiteDB.Spatial.Core.Tests/fixtures/natural_earth_antimeridian.json` – Natural Earth bounding boxes that wrap ±180° and clamp polar caps.
+* `LiteDB.Spatial.Core.Tests/fixtures/geographic_near_points.json` – Bay Area point cloud for PostGIS/LiteDB near-differential tests.
 * **OSM extracts (tiny tiles)**: dense urban point clouds for performance & correctness mixes.
 * **Synthetic grids & lattices**: controlled point sets for Morton/Hilbert locality tests.
 * **Precomputed geodesic pairs** from GeographicLib samples (save as JSON with expected distances).
+
+### Oracle toggles & refresh flows
+
+* Set `SPATIAL_DB_TESTS=1` and provide `POSTGIS_CONNECTION` (e.g. `Host=localhost;Port=5432;Database=spatial;Username=postgres;Password=postgres`) to opt-in to PostGIS parity checks. Tests skip with a clear message otherwise.
+* Refresh cached geodesic distances by running `dotnet run --project scripts/SpatialOracleTools -- geodesic`; the tool rewrites `geodesic_pairs.oracle.json` from the latest fixture coordinates via the Geodesy (Karney) ellipsoid solver for CI-friendly assertions.
+* Fixture-driven explain checks remain under the `Category("oracle")` trait. Use `dotnet test --filter Category=oracle` to execute the new suites in isolation.
 
 ---
 
