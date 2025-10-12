@@ -61,7 +61,7 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<SpatialIndexRange> Cover(BoundingBox bounds, int maxCells)
+    public SpatialCovering Cover(BoundingBox bounds, int maxCells)
     {
         if (bounds.Dimensions != Dimensions)
         {
@@ -80,7 +80,7 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
 
         if (totalCells == 0)
         {
-            return Array.Empty<SpatialIndexRange>();
+            return SpatialCovering.Empty;
         }
 
         if (totalCells > _enumerationThreshold)
@@ -92,15 +92,30 @@ public sealed class MortonIndexEncoder : ISpatialIndexEncoder
                 (start, end) = (end, start);
             }
 
-            return new[] { new SpatialIndexRange(start, end) };
+            var coarse = new[] { new SpatialIndexRange(start, end) };
+            var coarseDiagnostics = new SpatialCoveringDiagnostics(
+                requestedRangeCount: 1,
+                returnedRangeCount: 1,
+                estimatedCellCount: totalCells,
+                usedMaxCoveringCellsFallback: false,
+                usedEnumerationFallback: true);
+            return new SpatialCovering(coarse, coarseDiagnostics);
         }
 
         var buffer = new List<ulong>((int)Math.Min(totalCells, int.MaxValue));
         EnumerateCodes(minimum, maximum, buffer, new ulong[Dimensions], 0);
         buffer.Sort();
 
-        var ranges = BuildRanges(buffer);
-        return ReduceRangeCount(ranges, maxCells);
+        var enumeratedRanges = BuildRanges(buffer);
+        var requestedRangeCount = enumeratedRanges.Count;
+        var reduced = ReduceRangeCount(enumeratedRanges, maxCells);
+        var diagnostics = new SpatialCoveringDiagnostics(
+            requestedRangeCount,
+            reduced.Count,
+            totalCells,
+            usedMaxCoveringCellsFallback: requestedRangeCount > maxCells,
+            usedEnumerationFallback: false);
+        return new SpatialCovering(reduced, diagnostics);
     }
 
     /// <summary>

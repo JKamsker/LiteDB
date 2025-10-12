@@ -94,14 +94,30 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
     private SpatialQueryPlan BuildPlanFromSegments(IReadOnlyList<GeographicBoundsSegment> segments, double radius, string predicateUnit)
     {
         var ranges = new List<SpatialIndexRange>();
+        var requested = 0;
+        var returned = 0;
+        ulong estimated = 0;
+        var usedMaxFallback = false;
+        var usedEnumerationFallback = false;
 
         foreach (var segment in segments)
         {
-            var coverings = _encoder.Cover(segment.Normalized, _options.MaxCoveringCells);
-            ranges.AddRange(coverings);
+            var covering = _encoder.Cover(segment.Normalized, _options.MaxCoveringCells);
+            ranges.AddRange(covering.Ranges);
+            requested += covering.Diagnostics.RequestedRangeCount;
+            returned += covering.Diagnostics.ReturnedRangeCount;
+            estimated = AddSaturating(estimated, covering.Diagnostics.EstimatedCellCount);
+            usedMaxFallback |= covering.Diagnostics.UsedMaxCoveringCellsFallback;
+            usedEnumerationFallback |= covering.Diagnostics.UsedEnumerationFallback;
         }
 
         var mergedRanges = MortonIndexEncoder.UnionAdjacentRanges(ranges);
+        var diagnostics = new SpatialCoveringDiagnostics(
+            requested,
+            returned,
+            estimated,
+            usedMaxFallback,
+            usedEnumerationFallback).WithEffectiveRangeCount(mergedRanges.Count);
         var predicate = predicateUnit == "within"
             ? "Within bounding box"
             : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} distance <= {1:0.##} {2}", _distanceMode, radius, predicateUnit);
@@ -113,7 +129,18 @@ public sealed class GeographicEngine : IGeographicSpatialEngine
             _ => BoundingBox.From2D(-180d, segments.Min(s => s.MinLatitude), 180d, segments.Max(s => s.MaxLatitude))
         };
 
-        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, mergedRanges, predicate);
+        return new SpatialQueryPlan(Name, Dimensions, coveringBounds, mergedRanges, predicate, diagnostics);
+    }
+
+    private static ulong AddSaturating(ulong left, ulong right)
+    {
+        var sum = left + right;
+        if (sum < left || sum < right)
+        {
+            return ulong.MaxValue;
+        }
+
+        return sum;
     }
 
     private static void ValidateGeoPoint(GeoPoint point)
