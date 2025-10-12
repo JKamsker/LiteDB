@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>LiteDB.Spatial.Core.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentAssertions" Version="6.12.2" />
+    <PackageReference Include="FsCheck" Version="3.0.0" />
+    <PackageReference Include="FsCheck.Xunit" Version="3.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NetTopologySuite" Version="2.6.0" />
+    <PackageReference Include="Npgsql" Version="8.0.3" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LiteDB.Spatial.Core\LiteDB.Spatial.Core.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial.Geographic\LiteDB.Spatial.Geographic.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial.Cartesian2D\LiteDB.Spatial.Cartesian2D.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial.Cartesian3D\LiteDB.Spatial.Cartesian3D.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial\LiteDB.Spatial.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial.Testing.Oracles\LiteDB.Spatial.Testing.Oracles.csproj" />
+    <ProjectReference Include="..\LiteDB\LiteDB.csproj">
+      <Aliases>LiteDbBase</Aliases>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="fixtures\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Differential\Cartesian3D\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

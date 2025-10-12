@@ -1,129 +1,122 @@
 # Spatial Indexing Guide
 
-LiteDB's spatial tooling now supports index-aware queries, expression operators, and ready-to-run samples. This guide walks through enabling spatial indexes, querying data, and composing applications that take advantage of the new API surface.
+LiteDB's spatial revamp introduces engine-specific configuration helpers, metadata-driven dispatch, and diagnostics that keep query plans transparent. This guide walks through configuring collections, executing queries, and inspecting plans using the new facade.
 
-## 1. Preparing Collections
+## 1. Configuring collections
+
+### Geographic (WGS84)
 
 ```csharp
 using LiteDB;
 using LiteDB.Spatial;
 
-using var db = new LiteDatabase("Filename=geo.db;Mode=Shared");
+using var db = new LiteDatabase("Filename=places.db;Mode=Shared");
 var places = db.GetCollection<Place>("places");
 
-// Persist precision metadata and computed members
-Spatial.EnsurePointIndex(places, x => x.Location);
-Spatial.EnsureShapeIndex(places, x => x.Footprint);
+// Persist metadata, create indexes, and backfill existing documents.
+Spatial.UseGeographic(places, x => x.Location,
+    options: new SpatialIndexOptions(precisionBits: 40),
+    distanceMode: GeographicDistanceMode.Vincenty);
 ```
 
-`EnsurePointIndex` now records the Morton precision that was used so future queries can translate shapes into the correct `_gh` windows without additional configuration.
+`UseGeographic` stores the engine choice, precision, and distance mode in `_spatial_meta`, builds the `_idx` and `_mbb` indexes, and runs the backfill utility so existing documents pick up the new fields.
+
+### Cartesian engines
+
+Flat coordinate systems use the `UseCartesian*` helpers and must supply a domain describing the valid coordinate range:
 
 ```csharp
-public class Place
+var measurements2D = db.GetCollection<SensorReading>("grid");
+Spatial.UseCartesian2D(measurements2D, r => r.Position, BoundingBox.From2D(-1000, -1000, 1000, 1000));
+
+var measurements3D = db.GetCollection<Point3DRecord>("cloud");
+Spatial.UseCartesian3D(measurements3D, r => r.Position, BoundingBox.From3D(-50, -50, -50, 50, 50, 50));
+```
+
+> **Note:** Three-dimensional Morton keys fit within 64 bits when each axis uses at
+> most 21 precision bits. Higher values are automatically clamped to keep range
+> scans accurate.
+
+After configuration you can call `Spatial.EnsurePointIndex(collection)` whenever you need to rebuild the computed fields (for example after bulk imports that bypassed the mapper). The helper reads the metadata, instantiates the correct engine, and replays the backfill.
+
+## 2. Querying data
+
+### Radius searches
+
+`Spatial.Near` combines Morton range scans with `_mbb` filtering before falling back to exact distance checks using the configured engine.
+
+```csharp
+var center = new GeoPoint(16.3738, 48.2082); // (longitude, latitude)
+var withinFiveKilometers = Spatial.Near(places, x => x.Location, center, radius: 5_000);
+```
+
+Results are sorted by distance and the tolerance configured in `SpatialIndexOptions` is honoured automatically.
+
+### Bounding boxes
+
+Bounding-box queries rely on the engine's covering logic and support anti-meridian ranges out of the box:
+
+```csharp
+var bounds = BoundingBox.From2D(170, -10, 190, 10); // crosses the anti-meridian
+var crossing = Spatial.WithinBoundingBox(places, x => x.Location, bounds);
+```
+
+For Cartesian datasets the same API accepts both 2D and 3D boxes created via `BoundingBox.From2D`/`From3D`.
+
+## 3. LINQ & expressions
+
+The `LiteDB.Spatial.Core` package still exposes `SpatialExpressions` for LINQ queries. Once a collection is configured, register the descriptors with the resolver and issue LINQ queries that reference the expression helpers:
+
+```csharp
+var resolver = new SpatialResolver(new[]
 {
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public GeoPoint Location { get; set; } = new GeoPoint(0, 0);
-    public GeoPolygon Footprint { get; set; } = SquareAround(0, 0, 0.05);
+    new SpatialMetadataStore(db).GetRequiredDescriptor("places")
+});
 
-    internal long _gh { get; set; }
-    internal double[] _mbb { get; set; } = Array.Empty<double>();
-}
-
-static GeoPolygon SquareAround(double lat, double lon, double halfExtent)
-{
-    var topLeft = new GeoPoint(lat + halfExtent, lon - halfExtent);
-    var topRight = new GeoPoint(lat + halfExtent, lon + halfExtent);
-    var bottomRight = new GeoPoint(lat - halfExtent, lon + halfExtent);
-    var bottomLeft = new GeoPoint(lat - halfExtent, lon - halfExtent);
-
-    return new GeoPolygon(new[] { topLeft, topRight, bottomRight, bottomLeft, topLeft });
-}
-```
-
-## 2. Index-Aware Queries
-
-### Radius Searches
-
-`Spatial.Near` now projects circle queries into Morton range scans and `_mbb` filters before falling back to geometry checks. This avoids `FindAll()` enumeration even on large collections.
-
-```csharp
-var vienna = new GeoPoint(48.2082, 16.3738);
-var withinFiveKm = Spatial.Near(places, x => x.Location, vienna, radiusMeters: 5_000).ToList();
-```
-
-### Bounding Boxes
-
-Bounding-box queries reuse the same range generator and anti-meridian aware filters:
-
-```csharp
-var hits = Spatial.WithinBoundingBox(places, x => x.Location, 47.9, 16.1, 48.4, 16.6).ToList();
-```
-
-### Polygon Containment & Intersections
-
-Shape-based queries can rely on the lightweight `_mbb` predicate that gets folded into the pipeline before precise geometry calculations:
-
-```csharp
-var downtown = SquareAround(48.2082, 16.3738, 0.15);
-var inside = Spatial.Within(places, x => x.Footprint, downtown).ToList();
-```
-
-## 3. Expression & LINQ Operators
-
-Spatial functions participate in the LINQ translator and the expression engine via the new operators:
-
-| C# Call | Bson Expression |
-| --- | --- |
-| `Spatial.Near(doc.Location, center, 1000)` | `SPATIAL_NEAR($.Location, @0, @1)` |
-| `Spatial.Within(doc.Footprint, polygon)` | `SPATIAL_WITHIN($.Footprint, @0)` |
-| `Spatial.Intersects(doc.Route, query)` | `SPATIAL_INTERSECTS($.Route, @0)` |
-| `Spatial.Contains(doc.Footprint, point)` | `SPATIAL_CONTAINS_POINT($.Footprint, @0)` |
-
-```csharp
-var linq = places.Query()
-    .Where(p => Spatial.Near(p.Location, vienna, 2_000))
-    .Select(p => new { p.Name, p.Location })
+var query = places.Query()
+    .Where(p => SpatialExpressions.Near(p.Location, center, 5_000))
     .ToList();
 ```
 
-Each operator pairs with the indexed `_gh` ranges captured by `EnsurePointIndex`, maintaining fast candidate pruning.
+The metadata-driven planner keeps index usage consistent whether you issue imperative or LINQ-based queries.
 
-## 4. Benchmarking Spatial Pipelines
+## 4. Inspecting plans
 
-`LiteDB.Benchmarks` ships with a `SpatialQueryBenchmarks` suite that tracks radius, bounding-box, containment, and intersection workloads across dataset sizes. Run:
+To see how a query will execute, call `SpatialDiagnostics.Explain(plan, descriptor)` after building a plan via the engine-specific helpers:
 
-```bash
-dotnet run --project LiteDB.Benchmarks -c Release --filter "SpatialQueryBenchmarks"
+```csharp
+var store = new SpatialMetadataStore(db);
+var descriptor = store.GetRequiredDescriptor("places");
+var engine = SpatialDiagnostics.Explain(
+    SpatialGeographic.Near(descriptor, center, 5_000),
+    descriptor);
+
+Console.WriteLine(engine);
 ```
 
-The new benchmarks emit allocations and wall-clock metrics so regressions are easy to spot as spatial features evolve.
+A dedicated [Diagnostics reference](spatial-diagnostics.md) dives deeper into the explain output structure.
 
-## 5. Sample REST API
+## 5. Sample API
 
-A minimal API showcasing radius and polygon queries lives under `samples/SpatialApiSample`. Seed and query via:
+`samples/SpatialApiSample` wires everything together with minimal endpoints:
 
 ```bash
 dotnet run --project samples/SpatialApiSample
-# In another terminal
-curl -X POST http://localhost:5000/seed
+curl -X POST "http://localhost:5000/seed"
 curl "http://localhost:5000/places/near?lat=48.2&lon=16.37&radiusKm=5"
 ```
 
-The endpoint reuses the shared helpers, ensuring metadata is created automatically and results arrive sorted by distance.
+The `/seed` endpoint calls `Spatial.UseGeographic` to configure the collection, and the `/places/near` and `/places/within` endpoints call the top-level helpers shown above.
 
-## 6. Troubleshooting & Options
+## 6. Next steps
 
-`SpatialOptions` exposes tunables for query precision and numeric tolerances:
+* Read the [upgrade guide](spatial-upgrade.md) to migrate existing collections that relied on `_gh`.
+* Capture baselines with the refreshed `SpatialQueryBenchmarks` suite (see [benchmarks](spatial-benchmarks.md)).
+* Keep a metadata snapshot handy by querying the `_spatial_meta` collection:
 
 ```csharp
-Spatial.Options = new SpatialOptions
-{
-    IndexPrecisionBits = 48,
-    NumericToleranceDegrees = 1e-8,
-    MaxCoveringCells = 64,
-    Distance = DistanceFormula.Vincenty
-};
+var meta = db.GetCollection("_spatial_meta").FindAll().ToList();
 ```
 
-Changing `IndexPrecisionBits` updates persisted metadata the next time `EnsurePointIndex` runs, so the engine always knows how to slice query ranges. Adjust `NumericToleranceDegrees` if your datasets require more relaxed comparisons for noisy coordinates.
+This helps confirm options, distance modes, and domains before running troubleshooting commands.
+

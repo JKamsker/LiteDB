@@ -1,0 +1,27 @@
+{
+  "id": "unit_grid",
+  "domain": { "minX": -5, "minY": -5, "maxX": 5, "maxY": 5 },
+  "points": [
+    { "label": "A", "x": -2, "y": -2 },
+    { "label": "B", "x": -1, "y": -1 },
+    { "label": "C", "x": -1, "y": 0 },
+    { "label": "D", "x": 0, "y": 0 },
+    { "label": "E", "x": 1, "y": 0 },
+    { "label": "F", "x": 2, "y": 1 },
+    { "label": "G", "x": 0, "y": 2 },
+    { "label": "H", "x": -2, "y": 1 },
+    { "label": "I", "x": 2, "y": -1 }
+  ],
+  "queries": [
+    {
+      "id": "origin_radius_2",
+      "center": { "x": 0, "y": 0 },
+      "radius": 2.0
+    },
+    {
+      "id": "offset_radius_1_5",
+      "center": { "x": 1, "y": 0 },
+      "radius": 1.5
+    }
+  ]
+}

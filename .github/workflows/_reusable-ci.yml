@@ -36,7 +36,24 @@ jobs:
         run: dotnet build LiteDB.sln --configuration Release --no-restore /p:DefineConstants=TESTING
 
       - name: Package build outputs
-        run: tar -czf tests-build-linux.tar.gz LiteDB/bin/Release LiteDB/obj/Release LiteDB.Tests/bin/Release LiteDB.Tests/obj/Release
+        run: >
+          tar -czf tests-build-linux.tar.gz
+          LiteDB/bin/Release
+          LiteDB/obj/Release
+          LiteDB.Tests/bin/Release
+          LiteDB.Tests/obj/Release
+          LiteDB.Spatial/bin/Release
+          LiteDB.Spatial/obj/Release
+          LiteDB.Spatial.Core/bin/Release
+          LiteDB.Spatial.Core/obj/Release
+          LiteDB.Spatial.Geographic/bin/Release
+          LiteDB.Spatial.Geographic/obj/Release
+          LiteDB.Spatial.Cartesian2D/bin/Release
+          LiteDB.Spatial.Cartesian2D/obj/Release
+          LiteDB.Spatial.Cartesian3D/bin/Release
+          LiteDB.Spatial.Cartesian3D/obj/Release
+          LiteDB.Spatial.Testing.Oracles/bin/Release
+          LiteDB.Spatial.Testing.Oracles/obj/Release
 
       - name: Upload linux test build
         uses: actions/upload-artifact@v4
@@ -93,6 +110,50 @@ jobs:
           --logger "trx;LogFileName=TestResults.trx"
           --logger "console;verbosity=detailed"
           ${{ matrix.item.msbuildProps }}
+
+      - name: Build spatial core tests
+        if: matrix.item.framework == 'net8.0'
+        run: >-
+          dotnet build LiteDB.Spatial.Core.Tests/LiteDB.Spatial.Core.Tests.csproj
+          --configuration Release
+          --framework net8.0
+          --no-dependencies
+
+      - name: Run spatial core tests
+        if: matrix.item.framework == 'net8.0'
+        timeout-minutes: 10
+        run: >-
+          dotnet test LiteDB.Spatial.Core.Tests/LiteDB.Spatial.Core.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net8.0
+          --verbosity normal
+          --settings tests.ci.runsettings
+          --logger "trx;LogFileName=SpatialCoreTests.trx"
+          --logger "console;verbosity=detailed"
+
+      - name: Collect test results
+        if: always()
+        run: |
+          set -euxo pipefail
+          results_dir="artifacts/${{ matrix.item.framework }}"
+          mkdir -p "${results_dir}"
+
+          if compgen -G "LiteDB.Tests/TestResults/*.trx" > /dev/null; then
+            cp LiteDB.Tests/TestResults/*.trx "${results_dir}/"
+          fi
+
+          if [ -d LiteDB.Spatial.Core.Tests/TestResults ] && compgen -G "LiteDB.Spatial.Core.Tests/TestResults/*.trx" > /dev/null; then
+            cp LiteDB.Spatial.Core.Tests/TestResults/*.trx "${results_dir}/"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-dotnet-${{ replace(matrix.item.display, '.NET ', '') }}
+          path: artifacts/${{ matrix.item.framework }}
+          if-no-files-found: ignore
 
   repro-runner:
     runs-on: ubuntu-latest

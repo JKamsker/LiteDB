@@ -1,0 +1,27 @@
+name: Test Report
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  report:
+    if: ${{ github.event.workflow_run.conclusion != 'cancelled' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish test report
+        uses: dorny/test-reporter@v2
+        with:
+          artifact: /test-results-dotnet-(.*)/
+          name: '.NET tests ($1)'
+          path: '**/*.trx'
+          reporter: dotnet-trx
+          use-actions-summary: true
+          fail-on-error: true
+          run-id: ${{ github.event.workflow_run.id }}

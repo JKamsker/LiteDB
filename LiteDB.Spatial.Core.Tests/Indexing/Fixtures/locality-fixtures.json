@@ -1,0 +1,36 @@
+{
+  "fixtures": [
+    {
+      "id": "uniform_2d_precision8",
+      "grid": "uniform_2d_precision8.json",
+      "neighborCount": 8,
+      "windowRadius": 12,
+      "topK": 8,
+      "expected": {
+        "averageOverlap": 0.791016,
+        "minimumOverlap": 0.375,
+        "averageWindow": 24.390625,
+        "maximumWindow": 25.0,
+        "averageSpan": 36.80859375,
+        "worstSpan": 133.0,
+        "metricTolerance": 0.01
+      }
+    },
+    {
+      "id": "uniform_3d_precision6",
+      "grid": "uniform_3d_precision6.json",
+      "neighborCount": 12,
+      "windowRadius": 18,
+      "topK": 6,
+      "expected": {
+        "averageOverlap": 0.6865234375,
+        "minimumOverlap": 0.4166666667,
+        "averageWindow": 36.33203125,
+        "maximumWindow": 37.0,
+        "averageSpan": 121.30859375,
+        "worstSpan": 342.0,
+        "metricTolerance": 0.01
+      }
+    }
+  ]
+}

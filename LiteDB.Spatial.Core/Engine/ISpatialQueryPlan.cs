@@ -1,0 +1,41 @@
+#nullable enable
+
+using System.Collections.Generic;
+
+namespace LiteDB.Spatial;
+
+/// <summary>
+/// Describes the pieces required to execute a spatial query using index ranges and precise filters.
+/// </summary>
+public interface ISpatialQueryPlan
+{
+    /// <summary>
+    /// Gets the name of the spatial engine that produced the plan.
+    /// </summary>
+    string EngineName { get; }
+
+    /// <summary>
+    /// Gets the dimensionality of the underlying spatial index.
+    /// </summary>
+    int Dimensions { get; }
+
+    /// <summary>
+    /// Gets the coarse bounding region evaluated before exact predicates. May be <c>null</c> when not applicable.
+    /// </summary>
+    BoundingBox? CoveringBounds { get; }
+
+    /// <summary>
+    /// Gets the ordered set of index ranges that should be scanned.
+    /// </summary>
+    IReadOnlyList<SpatialIndexRange> IndexRanges { get; }
+
+    /// <summary>
+    /// Gets a human readable description of the exact predicate applied after index filtering.
+    /// </summary>
+    string? ExactPredicateDescription { get; }
+
+    /// <summary>
+    /// Gets diagnostics describing how the covering was generated.
+    /// </summary>
+    SpatialCoveringDiagnostics CoveringDiagnostics { get; }
+}
