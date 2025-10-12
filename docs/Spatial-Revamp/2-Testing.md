@@ -29,6 +29,19 @@
 * **OSM extracts (tiny tiles)**: dense urban point clouds for performance & correctness mixes.
 * **Synthetic grids & lattices**: controlled point sets for Morton/Hilbert locality tests.
 * **Precomputed geodesic pairs** from GeographicLib samples (save as JSON with expected distances).
+* **Cartesian3D lattice**: reproducible XYZ grids covering near / AABB parity.
+
+### Refreshing Cartesian3D lattice fixtures
+3D differential suites load their lattice from `LiteDB.Spatial.Core.Tests/Differential/Cartesian3D/Fixtures`. Regenerate the JSON
+without external tooling via:
+
+```bash
+dotnet run --project scripts/Cartesian3DFixtures/Cartesian3DFixtures.csproj
+```
+
+The script writes `cartesian3d_lattice_dense.json` with deterministic point clouds, tuned near-query radii that trigger
+`MaxCoveringCells` fallbacks, and varied aspect-ratio AABBs. Commit refreshed fixtures alongside script changes so CI exercises the
+same inputs.
 
 ---
 
