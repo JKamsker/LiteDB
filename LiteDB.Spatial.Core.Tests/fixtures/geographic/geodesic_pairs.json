@@ -1,0 +1,74 @@
+[
+  {
+    "id": "washington_tokyo",
+    "longitude1": -77.0365,
+    "latitude1": 38.8977,
+    "longitude2": 139.6917,
+    "latitude2": 35.6895,
+    "distanceMeters": 10927923.675099
+  },
+  {
+    "id": "sydney_cape",
+    "longitude1": 151.2093,
+    "latitude1": -33.8688,
+    "longitude2": 18.4241,
+    "latitude2": -33.9249,
+    "distanceMeters": 11033728.497599
+  },
+  {
+    "id": "reykjavik_nairobi",
+    "longitude1": -21.8277,
+    "latitude1": 64.1265,
+    "longitude2": 36.8219,
+    "latitude2": -1.2921,
+    "distanceMeters": 8671610.706461
+  },
+  {
+    "id": "quito_singapore",
+    "longitude1": -78.4678,
+    "latitude1": -0.1807,
+    "longitude2": 103.8198,
+    "latitude2": 1.3521,
+    "distanceMeters": 19743445.680718
+  },
+  {
+    "id": "anchorage_attu",
+    "longitude1": -149.9003,
+    "latitude1": 61.2181,
+    "longitude2": 173.1969,
+    "latitude2": 52.841,
+    "distanceMeters": 2386951.000127
+  },
+  {
+    "id": "suva_nukualofa",
+    "longitude1": 178.4501,
+    "latitude1": -18.1248,
+    "longitude2": -175.1982,
+    "latitude2": -21.1394,
+    "distanceMeters": 744996.360254
+  },
+  {
+    "id": "alert_longyearbyen",
+    "longitude1": -62.308,
+    "latitude1": 82.5018,
+    "longitude2": 15.633,
+    "latitude2": 78.223,
+    "distanceMeters": 1400527.969138
+  },
+  {
+    "id": "santiago_madrid",
+    "longitude1": -70.6693,
+    "latitude1": -33.4489,
+    "longitude2": -3.7038,
+    "latitude2": 40.4168,
+    "distanceMeters": 10681847.168117
+  },
+  {
+    "id": "honolulu_fairbanks",
+    "longitude1": -157.8583,
+    "latitude1": 21.3069,
+    "longitude2": -147.7164,
+    "latitude2": 64.8378,
+    "distanceMeters": 4893522.618848
+  }
+]

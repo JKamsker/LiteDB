@@ -60,6 +60,9 @@
   * `geodesic_pairs.json` (from GeographicLib; meters).
   * `geojson_polygons/*.json` (holes, self-touching, anti-meridian).
   * `point_clouds/*.json` (dense 2D & 3D lattices).
+* The geographic datasets now live in `LiteDB.Spatial.Core.Tests/fixtures/geographic`. `geodesic_pairs.json` contains Natural Earth inspired
+  coordinate pairs with a cached `distanceMeters` value from GeographicLib. Recompute values offline (e.g., `python -m geographiclib.geodesic --input`)
+  and overwrite the JSON when upstream data changes.
 * Define numeric tolerances:
 
   * Distances: **Earth** `≤ 1e-4 * distance + 0.05 m` (Vincenty/Haversine parity),
@@ -84,6 +87,10 @@
 
   * Validate with **NTS** after splitting box at ±180° (oracle method).
 * Edge cases: poles (|lat| ≥ 85°), boxes that straddle ±180°, tiny radii (≤ 1 m).
+
+`LiteDB.Spatial.Core.Tests` tags these runs with `[Category("oracle")]`. Enable them via `dotnet test --filter Category=oracle`. PostGIS comparisons
+remain opt-in; set `SPATIAL_DB_TESTS` (either to `1` or a full connection string) and optionally `POSTGIS_CONNECTION_STRING` to point at a local
+container before executing the suite. Without the toggle the PostGIS parity test is skipped so CI stays hermetic.
 
 **Acceptance**
 
