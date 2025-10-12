@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LiteDB.Plugins;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +30,7 @@ namespace LiteDB.Engine
         private readonly LockMode _mode;
         private readonly string _collectionName;
         private readonly CollectionPage _collectionPage;
+        private readonly ILitePluginContext _plugins;
 
         // local page cache - contains only pages about this collection (but do not contains CollectionPage - use this.CollectionPage)
         private readonly Dictionary<uint, BasePage> _localPages = new Dictionary<uint, BasePage>();
@@ -41,6 +43,9 @@ namespace LiteDB.Engine
         public CollectionPage CollectionPage => _collectionPage;
         public ICollection<BasePage> LocalPages => _localPages.Values;
         public int ReadVersion => _readVersion;
+        public ILitePluginContext Plugins => _plugins;
+        public Collation Collation => _header.Pragmas.Collation;
+        public uint MaxItemsCount => _disk.MAX_ITEMS_COUNT;
 
         public Snapshot(
             LockMode mode, 
@@ -52,7 +57,7 @@ namespace LiteDB.Engine
             WalIndexService walIndex, 
             DiskReader reader, 
             DiskService disk,
-            bool addIfNotExists)
+            bool addIfNotExists, ILitePluginContext plugins)
         {
             _mode = mode;
             _collectionName = collectionName;
@@ -63,6 +68,7 @@ namespace LiteDB.Engine
             _walIndex = walIndex;
             _reader = reader;
             _disk = disk;
+            _plugins = plugins;
 
             // enter in lock mode according initial mode
             if (mode == LockMode.Write)
@@ -664,7 +670,7 @@ namespace LiteDB.Engine
             ENSURE(!_disposed, "the snapshot is disposed");
 
             var indexer = new IndexService(this, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
-            VectorIndexService vectorIndexer = null;
+            var pluginIndexes = _plugins?.Indexes;
             
             // CollectionPage will be last deleted page (there is no NextPageID from CollectionPage)
             _transPages.FirstDeletedPageID = _collectionPage.PageID;
@@ -680,8 +686,16 @@ namespace LiteDB.Engine
             // getting all indexes pages from all indexes
             foreach(var index in _collectionPage.GetCollectionIndexes())
             {
-                if (index.IndexType == 1)
+                if (index.IndexType != 0)
                 {
+                    var strategy = pluginIndexes?.GetByType(index.IndexType);
+
+                    if (strategy != null)
+                    {
+                        strategy.DropIndex(this, _collectionPage, index.Name);
+                    }
+
+                    safePoint();
                     continue;
                 }
                 
@@ -697,14 +711,6 @@ namespace LiteDB.Engine
             }
             
             
-            foreach (var (_, metadata) in _collectionPage.GetVectorIndexes())
-            {
-                vectorIndexer ??= new VectorIndexService(this, _header.Pragmas.Collation);
-                vectorIndexer.Drop(metadata);
-
-                safePoint();
-            }
-
             // now, mark all pages as deleted
             foreach (var pageID in indexPages)
             {

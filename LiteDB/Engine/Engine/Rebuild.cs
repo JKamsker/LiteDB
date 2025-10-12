@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 
 using static LiteDB.Constants;
@@ -63,7 +64,7 @@ namespace LiteDB.Engine
                     var snapshot = transaction.CreateSnapshot(LockMode.Write, collection, true);
                     var indexer = new IndexService(snapshot, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
                     var data = new DataService(snapshot, _disk.MAX_ITEMS_COUNT);
-                    var vectorService = new VectorIndexService(snapshot, _header.Pragmas.Collation);
+                    var pluginStrategies = _plugins?.Indexes?.All ?? Array.Empty<IIndexStrategy>();
 
                     // get all documents from current collection
                     var docs = reader.GetDocuments(collection);
@@ -73,7 +74,7 @@ namespace LiteDB.Engine
                     {
                         transaction.Safepoint();
 
-                        this.InsertDocument(snapshot, doc, BsonAutoId.ObjectId, indexer, data, vectorService);
+                        this.InsertDocument(snapshot, doc, BsonAutoId.ObjectId, indexer, data, pluginStrategies);
                     }
 
                     // first create all user indexes (exclude _id index)
