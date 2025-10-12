@@ -23,6 +23,7 @@
     <ProjectReference Include="..\LiteDB.Spatial.Cartesian2D\LiteDB.Spatial.Cartesian2D.csproj" />
     <ProjectReference Include="..\LiteDB.Spatial.Cartesian3D\LiteDB.Spatial.Cartesian3D.csproj" />
     <ProjectReference Include="..\LiteDB.Spatial\LiteDB.Spatial.csproj" />
+    <ProjectReference Include="..\LiteDB.Spatial.Testing.Oracles\LiteDB.Spatial.Testing.Oracles.csproj" />
     <ProjectReference Include="..\LiteDB\LiteDB.csproj">
       <Aliases>LiteDbBase</Aliases>
     </ProjectReference>

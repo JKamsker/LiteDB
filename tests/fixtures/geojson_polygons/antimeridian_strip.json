@@ -1,0 +1,18 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "antimeridian_strip"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [170.0, -10.0],
+        [-170.0, -10.0],
+        [-170.0, 10.0],
+        [170.0, 10.0],
+        [170.0, -10.0]
+      ]
+    ]
+  }
+}
