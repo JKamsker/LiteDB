@@ -1,0 +1,76 @@
+[
+  {
+    "id": "equator_micro",
+    "from": {
+      "lon": 10.0,
+      "lat": 0.0
+    },
+    "to": {
+      "lon": 9.999393,
+      "lat": -3e-06
+    },
+    "geographicLibDistanceMeters": 67.5420169593904
+  },
+  {
+    "id": "midlat_short",
+    "from": {
+      "lon": -73.98,
+      "lat": 40.75
+    },
+    "to": {
+      "lon": -73.979783,
+      "lat": 40.75009
+    },
+    "geographicLibDistanceMeters": 20.879088334260352
+  },
+  {
+    "id": "dateline_micro",
+    "from": {
+      "lon": 179.999,
+      "lat": -17.5
+    },
+    "to": {
+      "lon": 179.9985,
+      "lat": -17.50024
+    },
+    "geographicLibDistanceMeters": 59.37266133166225
+  },
+  {
+    "id": "southern_micro",
+    "from": {
+      "lon": 151.21,
+      "lat": -33.86
+    },
+    "to": {
+      "lon": 151.2094,
+      "lat": -33.8604
+    },
+    "geographicLibDistanceMeters": 71.07146370436712
+  },
+  {
+    "id": "andes_micro",
+    "from": {
+      "lon": -77.05,
+      "lat": -12.05
+    },
+    "to": {
+      "lon": -77.049538,
+      "lat": -12.049912
+    },
+    "geographicLibDistanceMeters": 51.284454776201784
+  },
+  {
+    "id": "polar_micro",
+    "from": {
+      "lon": -45.0,
+      "lat": 89.5
+    },
+    "to": {
+      "lon": -44.999772,
+      "lat": 89.499981
+    },
+    "geographicLibDistanceMeters": 2.135449291942629
+  }
+]
+
+
