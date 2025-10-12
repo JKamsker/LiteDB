@@ -57,9 +57,13 @@
 
 * Store fixtures under `/tests/fixtures`:
 
-  * `geodesic_pairs.json` (from GeographicLib; meters).
-  * `geojson_polygons/*.json` (holes, self-touching, anti-meridian).
-  * `point_clouds/*.json` (dense 2D & 3D lattices).
+* `geodesic_pairs.json` (from GeographicLib; meters).
+  * Lives at `LiteDB.Spatial.Core.Tests/fixtures/geodesic_pairs.json` with `{ id, from, to, geographicLibDistanceMeters }` records.
+  * Re-generate via `python - <<'PY'` script in the test suite which uses `geographiclib.geodesic.Geodesic.WGS84.Inverse`.
+* `geojson_polygons/*.json` (holes, self-touching, anti-meridian).
+* `point_clouds/*.json` (dense 2D & 3D lattices).
+* `geographic_bounding_boxes.json` — Natural Earth anti-meridian slices used by `NtsOracle`.
+* `geographic_near_queries.json` — dense metro + regional samples for near/PostGIS parity.
 * Define numeric tolerances:
 
   * Distances: **Earth** `≤ 1e-4 * distance + 0.05 m` (Vincenty/Haversine parity),
@@ -89,6 +93,12 @@
 
 * Result sets equal to oracle (allow ordering differences).
 * Distance deltas within tolerance; anti-meridian parity proven on Natural Earth shapes.
+
+### PostGIS toggle & temporary schema
+
+* Set `SPATIAL_DB_TESTS` to an Npgsql connection string (e.g., `Host=localhost;Username=postgres;Password=secret;Database=spatial_tests`).
+* The test harness creates temporary tables (prefixed with `tmp_litedb_points_`) and expects the `postgis` extension to be installed.
+* When the variable is absent the xUnit suite throws a `SkipException`, keeping CI runs green without external services.
 
 ---
 
@@ -217,6 +227,18 @@ dOur.Should().BeApproximately(dRef, 1e-9);
 ```
 
 ---
+
+## Maintaining oracle datasets
+
+* Rebuild `geodesic_pairs.json` with the Python snippet in `GeodesicDistanceParityTests` whenever the upstream fixtures change.
+* Natural Earth bounding boxes (`geographic_bounding_boxes.json`) and near-query point clouds (`geographic_near_queries.json`) should be curated offline, keeping IDs stable so failure reports stay actionable.
+* `RelativeTolerance = 1e-4` and `AbsoluteTolerance = 0.05` underpin the geographic assertions—adjust fixtures instead of loosening tolerances.
+
+## Explain plan guardrails
+
+* All new geographic differential tests call `SpatialDiagnostics.Explain(plan, descriptor)` and assert the `_idx` predicate appears before the exact filter.
+* Expect distance plans to read like `Vincenty distance <= … meters` and bounding box plans to report `Within bounding box`.
+* Use the explain output to troubleshoot regressions before diving into index ranges.
 
 # How to integrate without polluting production
 
