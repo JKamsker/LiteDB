@@ -98,15 +98,29 @@ namespace LiteDB
             "LIKE",
             "IN",
             "AND",
-            "OR",
-            "VECTOR_SIM"
+            "OR"
         };
+
+        private static readonly object _keywordSync = new object();
 
         public Token(TokenType tokenType, string value, long position)
         {
             this.Position = position;
             this.Value = value;
             this.Type = tokenType;
+        }
+
+        public static void RegisterKeyword(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                return;
+            }
+
+            lock (_keywordSync)
+            {
+                _keywords.Add(keyword);
+            }
         }
 
         public TokenType Type { get; private set; }
@@ -209,6 +223,11 @@ namespace LiteDB
     /// </summary>
     internal class Tokenizer
     {
+        public static void RegisterKeyword(string keyword)
+        {
+            Token.RegisterKeyword(keyword);
+        }
+
         private readonly TextReader _reader;
         private char _char = '\0';
         private Token _ahead = null;
