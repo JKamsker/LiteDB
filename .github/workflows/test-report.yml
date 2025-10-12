@@ -2,7 +2,7 @@ name: Test Report
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "Reusable CI (Build & Test)"]
     types: [completed]
 
 permissions:
