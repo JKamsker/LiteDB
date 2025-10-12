@@ -65,8 +65,8 @@ public class BsonVector_Tests
         col.Insert(new VectorDoc { Id = 2, Embedding = new float[] { 0.0f, 1.0f } });
         col.Insert(new VectorDoc { Id = 3, Embedding = new float[] { 1.0f, 1.0f } });
 
-        // Create index on the embedding field (if applicable to your implementation)
-        col.EnsureIndex("Embedding", "Embedding");
+        var options = new VectorIndexOptions(2);
+        col.EnsureIndex(x => x.Embedding, options);
 
         // Query: Find vectors nearest to [1, 0]
         var target = new float[] { 1.0f, 0.0f };
@@ -91,6 +91,8 @@ public class BsonVector_Tests
         col.Insert(new VectorDoc { Id = 3, Embedding = new float[] { 1.0f, 1.0f } });
 
         var target = new float[] { 1.0f, 0.0f };
+
+        col.EnsureIndex(x => x.Embedding, new VectorIndexOptions(2));
 
         var nearResults = col.Query()
             .WhereNear(r => r.Embedding, target, maxDistance: .28)
@@ -118,6 +120,8 @@ public class BsonVector_Tests
         col.Insert(new VectorDoc { Id = 1, Embedding = new float[] { 1.0f, 0.0f } });
         col.Insert(new VectorDoc { Id = 2, Embedding = new float[] { 0.0f, 1.0f } });
         col.Insert(new VectorDoc { Id = 3, Embedding = new float[] { 1.0f, 1.0f } });
+
+        col.EnsureIndex(x => x.Embedding, new VectorIndexOptions(2));
 
         var target = new float[] { 1.0f, 0.0f };
         BsonExpression fieldExpr;
@@ -155,7 +159,16 @@ public class BsonVector_Tests
             ["Embedding"] = new BsonVector(new float[] { 1.0f, 1.0f })
         });
 
-        var query = "SELECT * FROM vectors WHERE $.Embedding VECTOR_SIM [1.0, 0.0] <= 0.25";
+        using (db.EnterExpressionScope())
+        {
+            col.EnsureIndex(
+                "embedding_idx",
+                BsonExpression.Create("$.Embedding"),
+                new VectorIndexOptions(2));
+        }
+
+        var query = "SELECT * FROM vectors WHERE ($.Embedding VECTOR_SIM [1.0, 0.0]) <= 0.25";
+        using var _ = db.EnterExpressionScope();
         var rawResults = db.Execute(query).ToList();
 
         var docs = rawResults
@@ -283,6 +296,8 @@ public class BsonVector_Tests
         col.Insert(new VectorDoc { Id = 1, Embedding = new float[] { 1.0f, 0.0f } }); // sim = 0.0
         col.Insert(new VectorDoc { Id = 2, Embedding = new float[] { 0.0f, 1.0f } }); // sim = 1.0
         col.Insert(new VectorDoc { Id = 3, Embedding = new float[] { 1.0f, 1.0f } }); // sim ≈ 0.293
+
+        col.EnsureIndex(x => x.Embedding, new VectorIndexOptions(2));
 
         var target = new float[] { 1.0f, 0.0f };
 

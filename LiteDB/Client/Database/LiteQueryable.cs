@@ -262,7 +262,7 @@ namespace LiteDB
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
             using (BsonExpression.UseRegistry(_expressions))
             {
-                return BsonExpression.Create($"{fieldExpr.Source} VECTOR_SIM @0 <= @1", targetArray, new BsonValue(maxDistance));
+                return BsonExpression.Create($"({fieldExpr.Source} VECTOR_SIM @0) <= @1", targetArray, new BsonValue(maxDistance));
             }
         }
 
