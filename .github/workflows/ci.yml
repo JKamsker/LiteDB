@@ -9,6 +9,8 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
+    env:
+      RESULTS_KEY: dotnet-8-net8-0
 
     steps:
       - name: Check out repository
@@ -46,12 +48,26 @@ jobs:
           --diag "TestHost.diag.log;tracelevel=verbose"
           /p:DefineConstants=TESTING
 
+      - name: Collect test results
+        if: always()
+        run: |
+          set -euxo pipefail
+          results_dir="artifacts/${RESULTS_KEY}"
+          mkdir -p "${results_dir}"
+
+          shopt -s globstar nullglob
+          files=(**/TestResults/*.trx)
+          if [ ${#files[@]} -gt 0 ]; then
+            cp "${files[@]}" "${results_dir}/"
+          fi
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
-          path: "**/*TestResults*.trx"
+          name: test-results-${{ env.RESULTS_KEY }}
+          path: artifacts/${{ env.RESULTS_KEY }}
+          if-no-files-found: ignore
 
       - name: Upload hang dumps (if any)
         uses: actions/upload-artifact@v4
