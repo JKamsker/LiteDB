@@ -26,6 +26,13 @@ namespace LiteDB.Engine
 
             if (expression.Source == "$._id") return false; // always exists
 
+            var vectorStrategy = _pluginContext?.Indexes?.GetByKind("vector");
+
+            if (vectorStrategy == null)
+            {
+                throw new LiteException(0, "Vector indexes require the LiteDB.Vector plugin. Add `VectorSearchPlugin.Instance` when constructing LiteDatabase.");
+            }
+
             return this.AutoTransaction(transaction =>
             {
                 var snapshot = transaction.CreateSnapshot(LockMode.Write, collection, true);
@@ -109,6 +116,11 @@ namespace LiteDB.Engine
             if (name.Length > INDEX_NAME_MAX_LENGTH) throw LiteException.InvalidIndexName(name, collection, "MaxLength = " + INDEX_NAME_MAX_LENGTH);
             if (!name.IsWord()) throw LiteException.InvalidIndexName(name, collection, "Use only [a-Z$_]");
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
+
+            if (_pluginContext?.Indexes?.GetByKind("vector") == null)
+            {
+                throw new LiteException(0, "Vector indexes require the LiteDB.Vector plugin. Add `VectorSearchPlugin.Instance` when constructing LiteDatabase.");
+            }
 
             return this.AutoTransaction(transaction =>
             {

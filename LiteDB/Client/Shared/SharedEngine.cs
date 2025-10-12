@@ -4,16 +4,18 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using LiteDB.Client.Shared;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 
 namespace LiteDB
 {
-    public class SharedEngine : ILiteEngine
+    public class SharedEngine : ILiteEngine, IPluginContextHost
     {
         private readonly EngineSettings _settings;
         private readonly Mutex _mutex;
         private LiteEngine _engine;
         private bool _transactionRunning = false;
+        private ILitePluginContext _pluginContext;
 
         public SharedEngine(EngineSettings settings)
         {
@@ -55,6 +57,11 @@ namespace LiteDB
                 try
                 {
                     _engine = new LiteEngine(_settings);
+                    if (_pluginContext != null)
+                    {
+                        (_engine as IPluginContextHost)?.SetPluginContext(_pluginContext);
+                    }
+
                     return true;
                 }
                 catch
@@ -84,6 +91,16 @@ namespace LiteDB
 
             // Release Mutex on every call to close DB.
             _mutex.ReleaseMutex();
+        }
+
+        void IPluginContextHost.SetPluginContext(ILitePluginContext context)
+        {
+            _pluginContext = context ?? throw new ArgumentNullException(nameof(context));
+
+            if (_engine != null)
+            {
+                (_engine as IPluginContextHost)?.SetPluginContext(context);
+            }
         }
 
         #region Transaction Operations
