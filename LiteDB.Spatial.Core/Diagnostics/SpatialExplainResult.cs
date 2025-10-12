@@ -22,6 +22,8 @@ public sealed class SpatialExplainResult
     /// <param name="coveringBounds">The optional coarse bounding box evaluated prior to exact predicates.</param>
     /// <param name="ranges">The index ranges that will be scanned.</param>
     /// <param name="exactPredicate">The human readable exact predicate description.</param>
+    /// <param name="coveringCellCount">The number of ranges requested before enforcing <c>MaxCoveringCells</c>.</param>
+    /// <param name="usedMaxCoveringCellFallback">Indicates whether the covering exceeded <c>MaxCoveringCells</c>.</param>
     /// <param name="indexFieldName">Optional name of the index field used during scanning.</param>
     /// <param name="boundingBoxFieldName">Optional name of the bounding box field storing coarse bounds.</param>
     public SpatialExplainResult(
@@ -30,6 +32,8 @@ public sealed class SpatialExplainResult
         BoundingBox? coveringBounds,
         IReadOnlyList<SpatialIndexRange> ranges,
         string? exactPredicate,
+        int coveringCellCount,
+        bool usedMaxCoveringCellFallback,
         string? indexFieldName = null,
         string? boundingBoxFieldName = null)
     {
@@ -47,7 +51,14 @@ public sealed class SpatialExplainResult
         Dimensions = dimensions;
         CoveringBounds = coveringBounds;
         _ranges = ranges ?? throw new ArgumentNullException(nameof(ranges));
+        if (coveringCellCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(coveringCellCount), "Covering cell count cannot be negative.");
+        }
+
         ExactPredicate = exactPredicate;
+        CoveringCellCount = coveringCellCount;
+        UsedMaxCoveringCellFallback = usedMaxCoveringCellFallback;
         IndexFieldName = string.IsNullOrWhiteSpace(indexFieldName) ? null : indexFieldName;
         BoundingBoxFieldName = string.IsNullOrWhiteSpace(boundingBoxFieldName) ? null : boundingBoxFieldName;
     }
@@ -71,6 +82,16 @@ public sealed class SpatialExplainResult
     /// Gets the index ranges that will be scanned.
     /// </summary>
     public IReadOnlyList<SpatialIndexRange> IndexRanges => _ranges;
+
+    /// <summary>
+    /// Gets the number of ranges requested before enforcing the covering cell cap.
+    /// </summary>
+    public int CoveringCellCount { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the encoder exceeded the cell cap and merged ranges.
+    /// </summary>
+    public bool UsedMaxCoveringCellFallback { get; }
 
     /// <summary>
     /// Gets a human readable description of the exact predicate applied after index pruning.
@@ -142,6 +163,11 @@ public sealed class SpatialExplainResult
         builder.Append(": ");
         builder.Append(CoveringBounds.HasValue ? CoveringBounds.Value.ToString() : "none");
         builder.AppendLine();
+
+        builder.Append("Covering cells: ")
+            .Append(CoveringCellCount.ToString(CultureInfo.InvariantCulture))
+            .Append(UsedMaxCoveringCellFallback ? " (fallback)" : string.Empty)
+            .AppendLine();
 
         builder.Append("Exact predicate: ");
         builder.Append(string.IsNullOrWhiteSpace(ExactPredicate) ? "none" : ExactPredicate);
