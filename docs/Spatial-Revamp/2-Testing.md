@@ -111,6 +111,14 @@
 
 ---
 
+## Operational Notes — FsCheck & Synthetic Fixtures
+
+* Reproduce FsCheck counterexamples by exporting the seed recorded under `/tests/failures` and setting `FS_CHECK_SEED=<seed>[,<size>]` when running `dotnet test`. The shared `FsCheckRunner` helper feeds the seed into FsCheck’s replay hook so the exact input set can be re-generated.
+* When Euclidean tolerances are tightened or relaxed, adjust the constants in `NumericTolerance` and refresh `tests/fixtures/point_clouds/*.json`. The JSON schema matches `PointCloudFixture` (domain, points, queries); regenerate datasets with a quick console app or LINQPad script that calls `CartesianScenarioFactory` and writes the emitted grid to disk.
+* Keep the regenerated fixtures under source control and clear any stale counterexamples from `/tests/failures` once the new tolerances are validated.
+
+---
+
 ## T5 — Differential Correctness: Cartesian 3D
 
 **Tasks**
