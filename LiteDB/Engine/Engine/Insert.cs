@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LiteDB.Plugins;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,7 +24,7 @@ namespace LiteDB.Engine
                 var count = 0;
                 var indexer = new IndexService(snapshot, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
                 var data = new DataService(snapshot, _disk.MAX_ITEMS_COUNT);
-                var vectorService = new VectorIndexService(snapshot, _header.Pragmas.Collation);
+                var pluginStrategies = _plugins?.Indexes?.All ?? Array.Empty<IIndexStrategy>();
 
                 LOG($"insert `{collection}`", "COMMAND");
 
@@ -33,7 +34,7 @@ namespace LiteDB.Engine
 
                     transaction.Safepoint();
 
-                    this.InsertDocument(snapshot, doc, autoId, indexer, data, vectorService);
+                    this.InsertDocument(snapshot, doc, autoId, indexer, data, pluginStrategies);
 
                     count++;
                 }
@@ -45,7 +46,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Internal implementation of insert a document
         /// </summary>
-        private void InsertDocument(Snapshot snapshot, BsonDocument doc, BsonAutoId autoId, IndexService indexer, DataService data, VectorIndexService vectorService)
+        private void InsertDocument(Snapshot snapshot, BsonDocument doc, BsonAutoId autoId, IndexService indexer, DataService data, IEnumerable<IIndexStrategy> pluginStrategies)
         {
             // if no _id, use AutoId
             if (!doc.TryGetValue("_id", out var id))
@@ -89,9 +90,9 @@ namespace LiteDB.Engine
                 }
             }
 
-            foreach (var (vectorIndex, metadata) in snapshot.CollectionPage.GetVectorIndexes())
+            foreach (var strategy in pluginStrategies)
             {
-                vectorService.Upsert(vectorIndex, metadata, doc, dataBlock);
+                strategy.OnDocumentUpsert(snapshot, snapshot.CollectionPage, dataBlock, doc);
             }
         }
     }

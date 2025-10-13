@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LiteDB.Plugins;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,7 @@ namespace LiteDB.Engine
         private readonly DiskReader _reader;
         private readonly WalIndexService _walIndex;
         private readonly TransactionMonitor _monitor;
+        private readonly ILitePluginContext _plugins;
 
         // transaction controls
         private readonly Dictionary<string, Snapshot> _snapshots = new Dictionary<string, Snapshot>(StringComparer.OrdinalIgnoreCase);
@@ -56,7 +58,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool ExplicitTransaction { get; set; } = false;
 
-        public TransactionService(HeaderPage header, LockService locker, DiskService disk, WalIndexService walIndex, int maxTransactionSize, TransactionMonitor monitor, bool queryOnly)
+        public TransactionService(HeaderPage header, LockService locker, DiskService disk, WalIndexService walIndex, int maxTransactionSize, TransactionMonitor monitor, bool queryOnly, ILitePluginContext plugins)
         {
             // retain instances
             _header = header;
@@ -64,6 +66,7 @@ namespace LiteDB.Engine
             _disk = disk;
             _walIndex = walIndex;
             _monitor = monitor;
+            _plugins = plugins;
 
             this.QueryOnly = queryOnly;
             this.MaxTransactionSize = maxTransactionSize;
@@ -89,7 +92,7 @@ namespace LiteDB.Engine
         {
             ENSURE(_state == TransactionState.Active, "transaction must be active to create new snapshot");
 
-            Snapshot create() => new Snapshot(mode, collection, _header, _transactionID, _transPages, _locker, _walIndex, _reader, _disk, addIfNotExists);
+            Snapshot create() => new Snapshot(mode, collection, _header, _transactionID, _transPages, _locker, _walIndex, _reader, _disk, addIfNotExists, _plugins);
 
             if (_snapshots.TryGetValue(collection, out var snapshot))
             {

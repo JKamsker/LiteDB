@@ -22,7 +22,7 @@ namespace LiteDB
             var collection = _tokenizer.ReadToken().Expect(TokenType.Word).Value;
             _tokenizer.ReadToken().Expect("SET");
 
-            var transform = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.UpdateDocument, _parameters);
+            var transform = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.UpdateDocument, _parameters, _tokenizer.Registry);
 
             // optional where
             BsonExpression where = null;
@@ -33,7 +33,7 @@ namespace LiteDB
                 // read WHERE
                 _tokenizer.ReadToken();
 
-                where = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters);
+                where = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters, _tokenizer.Registry);
             }
 
             // read eof
