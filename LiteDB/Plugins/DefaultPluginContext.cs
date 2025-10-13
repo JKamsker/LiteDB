@@ -134,7 +134,7 @@ namespace LiteDB.Plugins
             }
         }
 
-        internal bool TryGetFunction(string name, int additionalArgumentCount, out ExpressionFunctionRegistration registration)
+        public bool TryGetFunction(string name, int additionalArgumentCount, out ExpressionFunctionRegistration registration)
         {
             var key = GetFunctionKey(name, additionalArgumentCount);
 
@@ -144,7 +144,7 @@ namespace LiteDB.Plugins
             }
         }
 
-        internal ExpressionFunctionRegistration FindByName(string name)
+        public ExpressionFunctionRegistration FindByName(string name)
         {
             lock (_sync)
             {

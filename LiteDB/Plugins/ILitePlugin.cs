@@ -76,6 +76,10 @@ namespace LiteDB.Plugins
         bool ContainsOperator(string token);
 
         bool ContainsKeyword(string keyword);
+
+        bool TryGetFunction(string name, int additionalArgumentCount, out ExpressionFunctionRegistration registration);
+
+        ExpressionFunctionRegistration FindByName(string name);
     }
 
     /// <summary>
