@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -23,17 +24,33 @@ namespace LiteDB.Engine
         {
             var query = options?.AsString ?? throw new LiteException(0, $"Collection $query(sql) requires `sql` string parameter");
 
-            var sql = new SqlParser(_engine, new Tokenizer(query), null);
+            var expressions = this.ResolveExpressions();
+            var sql = new SqlParser(_engine, new Tokenizer(query, expressions), null);
 
             using (var reader = sql.Execute())
             {
-                while(reader.Read())
+                while (reader.Read())
                 {
                     var value = reader.Current;
 
                     yield return value.IsDocument ? value.AsDocument : new BsonDocument { ["expr"] = value };
                 }
             }
+        }
+
+        private IExpressionRegistry ResolveExpressions()
+        {
+            if (_engine is LiteEngine direct)
+            {
+                return direct.PluginContext?.Expressions;
+            }
+
+            if (_engine is LiteDB.SharedEngine shared)
+            {
+                return shared.PluginContext?.Expressions;
+            }
+
+            return null;
         }
     }
 }

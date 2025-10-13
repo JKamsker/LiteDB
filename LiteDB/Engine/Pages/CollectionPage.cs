@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using LiteDB.Vector;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -28,6 +29,7 @@ namespace LiteDB.Engine
         /// </summary>
         private readonly Dictionary<string, CollectionIndex> _indexes = new Dictionary<string, CollectionIndex>();
         private readonly Dictionary<string, VectorIndexMetadata> _vectorIndexes = new Dictionary<string, VectorIndexMetadata>();
+        private IExpressionRegistry _registry;
 
         public CollectionPage(PageBuffer buffer, uint pageID)
             : base(buffer, pageID, PageType.Collection)
@@ -183,6 +185,16 @@ namespace LiteDB.Engine
             }
         }
 
+        internal void BindExpressions(IExpressionRegistry registry)
+        {
+            _registry = registry;
+
+            foreach (var index in _indexes.Values)
+            {
+                index.BindExpressionRegistry(registry);
+            }
+        }
+
         public VectorIndexMetadata GetVectorIndexMetadata(string name)
         {
             return _vectorIndexes.TryGetValue(name, out var metadata) ? metadata : null;
@@ -208,6 +220,8 @@ namespace LiteDB.Engine
 
             _indexes[name] = index;
 
+            index.BindExpressionRegistry(_registry);
+
             this.IsDirty = true;
 
             return index;
@@ -231,6 +245,8 @@ namespace LiteDB.Engine
 
             _indexes[name] = index;
             _vectorIndexes[name] = metadata;
+
+            index.BindExpressionRegistry(_registry);
 
             this.IsDirty = true;
 

@@ -37,7 +37,7 @@ namespace LiteDB
             token.Expect("SELECT");
 
             // read required SELECT <expr> and convert into single expression
-            query.Select = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.SelectDocument, _parameters);
+            query.Select = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.SelectDocument, _parameters, _tokenizer.ExpressionRegistry);
 
             // read FROM|INTO
             var from = _tokenizer.ReadToken();
@@ -88,7 +88,7 @@ namespace LiteDB
                 // read WHERE keyword
                 _tokenizer.ReadToken();
 
-                var where = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters);
+                var where = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters, _tokenizer.ExpressionRegistry);
 
                 query.Where.Add(where);
             }
@@ -101,7 +101,7 @@ namespace LiteDB
                 _tokenizer.ReadToken();
                 _tokenizer.ReadToken().Expect("BY");
 
-                var groupBy = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters);
+                var groupBy = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters, _tokenizer.ExpressionRegistry);
 
                 query.GroupBy = groupBy;
 
@@ -112,7 +112,7 @@ namespace LiteDB
                     // read HAVING keyword
                     _tokenizer.ReadToken();
 
-                    var having = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters);
+                    var having = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters, _tokenizer.ExpressionRegistry);
 
                     query.Having = having;
                 }
@@ -128,7 +128,7 @@ namespace LiteDB
 
                 while (true)
                 {
-                    var orderBy = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters);
+                    var orderBy = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters, _tokenizer.ExpressionRegistry);
 
                     var orderByOrder = Query.Ascending;
                     var orderByToken = _tokenizer.LookAhead();
