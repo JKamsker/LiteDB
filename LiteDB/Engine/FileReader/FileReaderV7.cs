@@ -110,13 +110,17 @@ namespace LiteDB.Engine
                     name = name.Substring(0, INDEX_NAME_MAX_LENGTH);
                 }
 
-                yield return new IndexInfo
+                var info = new IndexInfo
                 {
                     Collection = collection,
                     Name = name,
                     Expression = index["expression"].AsString,
                     Unique = index["unique"].AsBoolean
                 };
+
+                info.BindExpressionRegistry(null);
+
+                yield return info;
             }
         }
 

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 using static LiteDB.Constants;
 
@@ -191,7 +192,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Insert new index inside this collection page
         /// </summary>
-        public CollectionIndex InsertCollectionIndex(string name, string expr, bool unique)
+        public CollectionIndex InsertCollectionIndex(string name, string expr, bool unique, IExpressionRegistry registry = null)
         {
             if (_indexes.ContainsKey(name) || _vectorIndexes.ContainsKey(name))
             {
@@ -205,6 +206,7 @@ namespace LiteDB.Engine
             var slot = (byte)(_indexes.Count == 0 ? 0 : (_indexes.Max(x => x.Value.Slot) + 1));
 
             var index = new CollectionIndex(slot, 0, name, expr, unique);
+            index.BindExpressionRegistry(registry);
 
             _indexes[name] = index;
 
@@ -213,7 +215,7 @@ namespace LiteDB.Engine
             return index;
         }
 
-        public (CollectionIndex Index, VectorIndexMetadata Metadata) InsertVectorIndex(string name, string expr, ushort dimensions, VectorDistanceMetric metric)
+        public (CollectionIndex Index, VectorIndexMetadata Metadata) InsertVectorIndex(string name, string expr, ushort dimensions, VectorDistanceMetric metric, IExpressionRegistry registry = null)
         {
             if (_indexes.ContainsKey(name) || _vectorIndexes.ContainsKey(name))
             {
@@ -227,6 +229,7 @@ namespace LiteDB.Engine
             var slot = (byte)(_indexes.Count == 0 ? 0 : (_indexes.Max(x => x.Value.Slot) + 1));
 
             var index = new CollectionIndex(slot, 1, name, expr, false);
+            index.BindExpressionRegistry(registry);
             var metadata = new VectorIndexMetadata(slot, dimensions, metric);
 
             _indexes[name] = index;
@@ -256,6 +259,14 @@ namespace LiteDB.Engine
             _vectorIndexes.Remove(name);
 
             this.IsDirty = true;
+        }
+
+        public void BindExpressionRegistry(IExpressionRegistry registry)
+        {
+            foreach (var index in _indexes.Values)
+            {
+                index.BindExpressionRegistry(registry);
+            }
         }
 
     }

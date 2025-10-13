@@ -13,6 +13,11 @@ namespace LiteDB
         BsonMapper Mapper { get; }
 
         /// <summary>
+        /// Gets the service registry associated with this database instance.
+        /// </summary>
+        LiteDatabaseServices Services { get; }
+
+        /// <summary>
         /// Returns a special collection for storage files/stream inside datafile. Use _files and _chunks collection names. FileId is implemented as string. Use "GetStorage" for custom options
         /// </summary>
         ILiteStorage<string> FileStorage { get; }

@@ -1,4 +1,5 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,12 +9,13 @@ using LiteDB.Vector;
 
 namespace LiteDB
 {
-    public class SharedEngine : ILiteEngine
+    public class SharedEngine : ILiteEngine, IPluginHost
     {
         private readonly EngineSettings _settings;
         private readonly Mutex _mutex;
         private LiteEngine _engine;
         private bool _transactionRunning = false;
+        private ILitePluginContext _plugins;
 
         public SharedEngine(EngineSettings settings)
         {
@@ -55,6 +57,10 @@ namespace LiteDB
                 try
                 {
                     _engine = new LiteEngine(_settings);
+                    if (_plugins != null)
+                    {
+                        ((IPluginHost)_engine).SetPluginContext(_plugins);
+                    }
                     return true;
                 }
                 catch
@@ -165,6 +171,16 @@ namespace LiteDB
         }
 
         #endregion
+
+        void IPluginHost.SetPluginContext(ILitePluginContext context)
+        {
+            _plugins = context;
+
+            if (_engine != null)
+            {
+                ((IPluginHost)_engine).SetPluginContext(context);
+            }
+        }
 
         #region Write Operations
 
