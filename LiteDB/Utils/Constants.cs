@@ -5,7 +5,10 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
+#pragma warning disable CS0436 // Type conflicts with imported type
 [assembly: InternalsVisibleTo("LiteDB.Tests")]
+[assembly: InternalsVisibleTo("LiteDB.Vector")]
+#pragma warning restore CS0436
 #if DEBUG || TESTING
 [assembly: InternalsVisibleTo("ConsoleApp1")]
 #endif

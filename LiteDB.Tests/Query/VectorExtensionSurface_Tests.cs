@@ -17,7 +17,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void Collection_Extension_Produces_Vector_Index_Plan()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new VectorDocument { Id = 1, Embedding = new[] { 1f, 0f } });
@@ -36,7 +36,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void Repository_Extension_Delegates_To_Vector_Index_Implementation()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             ILiteRepository repository = new LiteRepository(db);
 
             repository.EnsureIndex<VectorDocument, float[]>(x => x.Embedding, new VectorIndexOptions(2));

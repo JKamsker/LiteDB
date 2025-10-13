@@ -17,6 +17,16 @@ namespace LiteDB.Tests.QueryTest
 {
     public class VectorIndex_Tests
     {
+        private static BsonExpression CreateExpression(LiteDatabase db, string expression)
+        {
+            return BsonExpression.Create(expression, db.Services.ExpressionRegistry);
+        }
+
+        private static BsonExpression CreateExpression(LiteDatabase db, string expression, params BsonValue[] args)
+        {
+            return BsonExpression.Create(expression, db.Services.ExpressionRegistry, args);
+        }
+
         private class VectorDocument
         {
             public int Id { get; set; }
@@ -205,7 +215,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void EnsureVectorIndex_CreatesAndReuses()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -214,7 +224,7 @@ namespace LiteDB.Tests.QueryTest
                 new VectorDocument { Id = 2, Embedding = new[] { 0f, 1f }, Flag = false }
             });
 
-            var expression = BsonExpression.Create("$.Embedding");
+            var expression = CreateExpression(db, "$.Embedding");
             var options = new VectorIndexOptions(2, VectorDistanceMetric.Cosine);
 
             collection.EnsureIndex("embedding_idx", expression, options).Should().BeTrue();
@@ -228,7 +238,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void EnsureVectorIndex_PreservesEnumerableExpressionsForVectorIndexes()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("documents");
 
             var resourcePath = Path.Combine(AppContext.BaseDirectory, "Resources", "ingest-20250922-234735.json");
@@ -279,7 +289,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void WhereNear_UsesVectorIndex_WhenAvailable()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -289,7 +299,7 @@ namespace LiteDB.Tests.QueryTest
                 new VectorDocument { Id = 3, Embedding = new[] { 1f, 1f }, Flag = false }
             });
 
-            collection.EnsureIndex("embedding_idx", BsonExpression.Create("$.Embedding"), new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
+            collection.EnsureIndex("embedding_idx", CreateExpression(db, "$.Embedding"), new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
 
             var query = collection.Query()
                 .WhereNear(x => x.Embedding, new[] { 1f, 0f }, maxDistance: 0.25);
@@ -308,7 +318,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void WhereNear_FallsBack_WhenNoVectorIndexExists()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -334,7 +344,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void WhereNear_FallsBack_WhenDimensionMismatch()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -343,7 +353,7 @@ namespace LiteDB.Tests.QueryTest
                 new VectorDocument { Id = 2, Embedding = new[] { 0f, 1f, 0f }, Flag = false }
             });
 
-            collection.EnsureIndex("embedding_idx", BsonExpression.Create("$.Embedding"), new VectorIndexOptions(3, VectorDistanceMetric.Cosine));
+            collection.EnsureIndex("embedding_idx", CreateExpression(db, "$.Embedding"), new VectorIndexOptions(3, VectorDistanceMetric.Cosine));
 
             var query = collection.Query()
                 .WhereNear(x => x.Embedding, new[] { 1f, 0f }, maxDistance: 0.25);
@@ -359,7 +369,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void TopKNear_UsesVectorIndex()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -369,7 +379,7 @@ namespace LiteDB.Tests.QueryTest
                 new VectorDocument { Id = 3, Embedding = new[] { 1f, 1f }, Flag = false }
             });
 
-            collection.EnsureIndex("embedding_idx", BsonExpression.Create("$.Embedding"), new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
+            collection.EnsureIndex("embedding_idx", CreateExpression(db, "$.Embedding"), new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
 
             var query = collection.Query()
                 .TopKNear(x => x.Embedding, new[] { 1f, 0f }, k: 2);
@@ -387,7 +397,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void OrderBy_VectorSimilarity_WithCompositeOrdering_UsesVectorIndex()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -399,10 +409,10 @@ namespace LiteDB.Tests.QueryTest
 
             collection.EnsureIndex(
                 "embedding_idx",
-                BsonExpression.Create("$.Embedding"),
+                CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
 
-            var similarity = BsonExpression.Create("VECTOR_SIM($.Embedding, [1.0, 0.0])");
+            var similarity = CreateExpression(db, "VECTOR_SIM($.Embedding, [1.0, 0.0])");
 
             var query = (LiteQueryable<VectorDocument>)collection.Query()
                 .OrderBy(similarity, Query.Ascending)
@@ -433,7 +443,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void WhereNear_DotProductHonorsMinimumSimilarity()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -445,7 +455,7 @@ namespace LiteDB.Tests.QueryTest
 
             collection.EnsureIndex(
                 "embedding_idx",
-                BsonExpression.Create("$.Embedding"),
+                CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions(2, VectorDistanceMetric.DotProduct));
 
             var highThreshold = collection.Query()
@@ -464,7 +474,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void VectorIndex_Search_Prunes_Node_Visits()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             const int nearClusterSize = 64;
@@ -497,7 +507,7 @@ namespace LiteDB.Tests.QueryTest
 
             collection.EnsureIndex(
                 "embedding_idx",
-                BsonExpression.Create("$.Embedding"),
+                CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions(2, VectorDistanceMetric.Euclidean));
 
             var stats = InspectVectorIndex(
@@ -520,7 +530,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void VectorIndex_PersistsNodes_WhenDocumentsChange()
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             collection.Insert(new[]
@@ -530,7 +540,7 @@ namespace LiteDB.Tests.QueryTest
                 new VectorDocument { Id = 3, Embedding = new[] { 1f, 1f }, Flag = true }
             });
 
-            collection.EnsureIndex("embedding_idx", BsonExpression.Create("$.Embedding"), new VectorIndexOptions(2, VectorDistanceMetric.Euclidean));
+            collection.EnsureIndex("embedding_idx", CreateExpression(db, "$.Embedding"), new VectorIndexOptions(2, VectorDistanceMetric.Euclidean));
 
             InspectVectorIndex(db, "vectors", (snapshot, collation, metadata) =>
             {
@@ -647,7 +657,7 @@ namespace LiteDB.Tests.QueryTest
         [InlineData(VectorDistanceMetric.DotProduct)]
         public void VectorIndex_Search_MatchesReferenceRanking(VectorDistanceMetric metric)
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             var random = new Random(4242);
@@ -666,7 +676,7 @@ namespace LiteDB.Tests.QueryTest
 
             collection.EnsureIndex(
                 "embedding_idx",
-                BsonExpression.Create("$.Embedding"),
+                CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions((ushort)dimensions, metric));
 
             var target = CreateVector(random, dimensions);
@@ -710,7 +720,7 @@ namespace LiteDB.Tests.QueryTest
         [InlineData(VectorDistanceMetric.DotProduct)]
         public void WhereNear_MatchesReferenceOrdering(VectorDistanceMetric metric)
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             var random = new Random(9182);
@@ -729,7 +739,7 @@ namespace LiteDB.Tests.QueryTest
 
             collection.EnsureIndex(
                 "embedding_idx",
-                BsonExpression.Create("$.Embedding"),
+                CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions((ushort)dimensions, metric));
 
             var target = CreateVector(random, dimensions);
@@ -763,7 +773,7 @@ namespace LiteDB.Tests.QueryTest
         [InlineData(VectorDistanceMetric.DotProduct)]
         public void TopKNear_MatchesReferenceOrdering(VectorDistanceMetric metric)
         {
-            using var db = new LiteDatabase(":memory:");
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             var random = new Random(5461);
@@ -782,7 +792,7 @@ namespace LiteDB.Tests.QueryTest
 
             collection.EnsureIndex(
                 "embedding_idx",
-                BsonExpression.Create("$.Embedding"),
+                CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions((ushort)dimensions, metric));
 
             var target = CreateVector(random, dimensions);
@@ -825,13 +835,13 @@ namespace LiteDB.Tests.QueryTest
                 })
                 .ToList();
 
-            using (var setup = new LiteDatabase(file))
+            using (var setup = new LiteDatabase(file, plugins: new[] { VectorSearchPlugin.Instance }))
             {
                 var setupCollection = setup.GetCollection<VectorDocument>("vectors");
                 setupCollection.Insert(originalDocuments);
 
                 var indexOptions = new VectorIndexOptions((ushort)dimensions, VectorDistanceMetric.Euclidean);
-                setupCollection.EnsureIndex("embedding_idx", BsonExpression.Create("$.Embedding"), indexOptions);
+                setupCollection.EnsureIndex("embedding_idx", CreateExpression(setup, "$.Embedding"), indexOptions);
 
                 foreach (var doc in documents)
                 {
@@ -841,7 +851,7 @@ namespace LiteDB.Tests.QueryTest
                 setup.Checkpoint();
             }
 
-            using var db = new LiteDatabase(file);
+            using var db = new LiteDatabase(file, plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
 
             var (inlineDetected, mismatches) = InspectVectorIndex(db, "vectors", (snapshot, collation, metadata) =>

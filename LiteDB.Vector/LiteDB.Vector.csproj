@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <Authors>Maurício David</Authors>
+    <Product>LiteDB Vector Extensions</Product>
+    <Description>Vector search extensions for LiteDB powered by the plugin system.</Description>
+    <RootNamespace>LiteDB.Vector</RootNamespace>
+    <AssemblyName>LiteDB.Vector</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LiteDB\LiteDB.csproj" />
+  </ItemGroup>
+
+</Project>
