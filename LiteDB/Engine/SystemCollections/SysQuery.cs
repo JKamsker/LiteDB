@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -23,7 +24,8 @@ namespace LiteDB.Engine
         {
             var query = options?.AsString ?? throw new LiteException(0, $"Collection $query(sql) requires `sql` string parameter");
 
-            var sql = new SqlParser(_engine, new Tokenizer(query), null);
+            var expressions = (_engine as LiteEngine)?.PluginContext?.Expressions ?? throw new LiteException(0, "$query requires access to expression registry");
+            var sql = new SqlParser(_engine, new Tokenizer(query, expressions), null, expressions);
 
             using (var reader = sql.Execute())
             {

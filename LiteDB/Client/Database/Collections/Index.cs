@@ -129,7 +129,7 @@ namespace LiteDB
         /// </summary>
         private BsonExpression GetIndexExpression<K>(Expression<Func<T, K>> keySelector, bool convertEnumerableToMultiKey = true)
         {
-            var expression = _mapper.GetIndexExpression(keySelector);
+            var expression = _mapper.GetIndexExpression(keySelector, _expressions);
 
             if (convertEnumerableToMultiKey && typeof(K).IsEnumerable() && expression.IsScalar == true)
             {

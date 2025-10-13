@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -6,6 +6,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -169,13 +170,14 @@ namespace LiteDB
         /// </summary>
         public BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            return this.GetExpressionInternal(predicate, typeof(K) == typeof(bool), null);
+        }
 
-            var expr = visitor.Resolve(typeof(K) == typeof(bool));
+        internal BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry expressions)
+        {
+            if (expressions == null) throw new ArgumentNullException(nameof(expressions));
 
-            LOG($"`{predicate.ToString()}` -> `{expr.Source}`", "LINQ");
-
-            return expr;
+            return this.GetExpressionInternal(predicate, typeof(K) == typeof(bool), expressions);
         }
 
         /// <summary>
@@ -183,9 +185,21 @@ namespace LiteDB
         /// </summary>
         public BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            return this.GetExpressionInternal(predicate, false, null);
+        }
 
-            var expr = visitor.Resolve(false);
+        internal BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry expressions)
+        {
+            if (expressions == null) throw new ArgumentNullException(nameof(expressions));
+
+            return this.GetExpressionInternal(predicate, false, expressions);
+        }
+
+        private BsonExpression GetExpressionInternal<T, K>(Expression<Func<T, K>> predicate, bool expectPredicate, IExpressionRegistry expressions)
+        {
+            var visitor = new LinqExpressionVisitor(this, predicate, expressions);
+
+            var expr = visitor.Resolve(expectPredicate);
 
             LOG($"`{predicate.ToString()}` -> `{expr.Source}`", "LINQ");
 

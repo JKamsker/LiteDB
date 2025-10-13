@@ -24,9 +24,16 @@ namespace LiteDB
         private readonly DefaultPluginContext _pluginContext;
 
         /// <summary>
+        /// Gets the plugin services registered for this database instance.
+        /// </summary>
+        public ILitePluginContext Services => _pluginContext;
+
+        /// <summary>
         /// Get current instance of BsonMapper used in this database instance (can be BsonMapper.Global)
         /// </summary>
         public BsonMapper Mapper => _mapper;
+
+        internal IExpressionRegistry ExpressionRegistry => _pluginContext.Expressions;
 
         #endregion
 
@@ -161,11 +168,6 @@ namespace LiteDB
             return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions);
         }
 
-        internal IDisposable EnterExpressionScope()
-        {
-            return BsonExpression.UseRegistry(_pluginContext.Expressions);
-        }
-
         #endregion
 
         private void InitializePlugins(IEnumerable<ILitePlugin> plugins)
@@ -298,8 +300,8 @@ namespace LiteDB
         {
             if (commandReader == null) throw new ArgumentNullException(nameof(commandReader));
 
-            var tokenizer = new Tokenizer(commandReader);
-            var sql = new SqlParser(_engine, tokenizer, parameters);
+            var tokenizer = new Tokenizer(commandReader, _pluginContext.Expressions);
+            var sql = new SqlParser(_engine, tokenizer, parameters, _pluginContext.Expressions);
             var reader = sql.Execute();
 
             return reader;
@@ -312,8 +314,8 @@ namespace LiteDB
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
 
-            var tokenizer = new Tokenizer(command);
-            var sql = new SqlParser(_engine, tokenizer, parameters);
+            var tokenizer = new Tokenizer(command, _pluginContext.Expressions);
+            var sql = new SqlParser(_engine, tokenizer, parameters, _pluginContext.Expressions);
             var reader = sql.Execute();
 
             return reader;
