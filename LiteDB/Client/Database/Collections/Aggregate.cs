@@ -33,10 +33,7 @@ namespace LiteDB
         /// </summary>
         public int Count(string predicate, BsonDocument parameters)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.Count(BsonExpression.Create(predicate, parameters));
-            }
+            return this.Count(BsonExpression.Create(predicate, parameters, _expressions));
         }
 
         /// <summary>
@@ -44,16 +41,13 @@ namespace LiteDB
         /// </summary>
         public int Count(string predicate, params BsonValue[] args)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.Count(BsonExpression.Create(predicate, args));
-            }
+            return this.Count(BsonExpression.Create(predicate, _expressions, args));
         }
 
         /// <summary>
         /// Count documents matching a query. This method does not deserialize any documents. Needs indexes on query expression
         /// </summary>
-        public int Count(Expression<Func<T, bool>> predicate) => this.Count(_mapper.GetExpression(predicate));
+        public int Count(Expression<Func<T, bool>> predicate) => this.Count(_mapper.GetExpression(predicate, _expressions));
 
         /// <summary>
         /// Get document count in collection using predicate filter expression
@@ -87,10 +81,7 @@ namespace LiteDB
         /// </summary>
         public long LongCount(string predicate, BsonDocument parameters)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.LongCount(BsonExpression.Create(predicate, parameters));
-            }
+            return this.LongCount(BsonExpression.Create(predicate, parameters, _expressions));
         }
 
         /// <summary>
@@ -98,16 +89,13 @@ namespace LiteDB
         /// </summary>
         public long LongCount(string predicate, params BsonValue[] args)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.LongCount(BsonExpression.Create(predicate, args));
-            }
+            return this.LongCount(BsonExpression.Create(predicate, _expressions, args));
         }
 
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public long LongCount(Expression<Func<T, bool>> predicate) => this.LongCount(_mapper.GetExpression(predicate));
+        public long LongCount(Expression<Func<T, bool>> predicate) => this.LongCount(_mapper.GetExpression(predicate, _expressions));
 
         /// <summary>
         /// Get document count in collection using predicate filter expression
@@ -133,10 +121,7 @@ namespace LiteDB
         /// </summary>
         public bool Exists(string predicate, BsonDocument parameters)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.Exists(BsonExpression.Create(predicate, parameters));
-            }
+            return this.Exists(BsonExpression.Create(predicate, parameters, _expressions));
         }
 
         /// <summary>
@@ -144,16 +129,13 @@ namespace LiteDB
         /// </summary>
         public bool Exists(string predicate, params BsonValue[] args)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.Exists(BsonExpression.Create(predicate, args));
-            }
+            return this.Exists(BsonExpression.Create(predicate, _expressions, args));
         }
 
         /// <summary>
         /// Get true if collection contains at least 1 document that satisfies the predicate expression
         /// </summary>
-        public bool Exists(Expression<Func<T, bool>> predicate) => this.Exists(_mapper.GetExpression(predicate));
+        public bool Exists(Expression<Func<T, bool>> predicate) => this.Exists(_mapper.GetExpression(predicate, _expressions));
 
         /// <summary>
         /// Get true if collection contains at least 1 document that satisfies the predicate expression
@@ -193,7 +175,7 @@ namespace LiteDB
         {
             if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
-            var expr = _mapper.GetExpression(keySelector);
+            var expr = _mapper.GetExpression(keySelector, _expressions);
 
             var value = this.Min(expr);
 
@@ -229,7 +211,7 @@ namespace LiteDB
         {
             if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
-            var expr = _mapper.GetExpression(keySelector);
+            var expr = _mapper.GetExpression(keySelector, _expressions);
 
             var value = this.Max(expr);
 

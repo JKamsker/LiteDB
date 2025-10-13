@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -30,7 +31,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Get BsonExpression from Expression
         /// </summary>
-        public BsonExpression BsonExpr { get; }
+        public BsonExpression BsonExpr { get; private set; }
 
         /// <summary>
         /// Indicate if this index has distinct values only
@@ -74,7 +75,6 @@ namespace LiteDB.Engine
             this.Unique = unique;
             this.FreeIndexPageList = uint.MaxValue;
 
-            this.BsonExpr = BsonExpression.Create(expr);
         }
 
         public CollectionIndex(BufferReader reader)
@@ -89,7 +89,6 @@ namespace LiteDB.Engine
             this.Reserved = reader.ReadByte(); // 1
             this.FreeIndexPageList = reader.ReadUInt32(); // 4
 
-            this.BsonExpr = BsonExpression.Create(this.Expression);
         }
 
         public void UpdateBuffer(BufferWriter writer)
@@ -103,6 +102,11 @@ namespace LiteDB.Engine
             writer.Write(this.Tail);
             writer.Write(this.Reserved);
             writer.Write(this.FreeIndexPageList);
+        }
+
+        internal void BindExpressionRegistry(IExpressionRegistry registry)
+        {
+            this.BsonExpr = BsonExpression.Create(this.Expression, registry);
         }
 
         /// <summary>

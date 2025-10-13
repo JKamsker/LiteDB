@@ -84,6 +84,8 @@ namespace LiteDB.Engine
             // read collection (create if new - load virtual too)
             srv.Get(_collectionName, addIfNotExists, ref _collectionPage);
 
+            _collectionPage?.BindExpressions(_plugins?.Expressions);
+
             // clear local pages (will clear _collectionPage link reference)
             if (_collectionPage != null)
             {
@@ -427,6 +429,11 @@ namespace LiteDB.Engine
             }
 
             var page = BasePage.CreatePage<T>(buffer, pageID);
+
+            if (page is CollectionPage collectionPage)
+            {
+                collectionPage.BindExpressions(_plugins?.Expressions);
+            }
 
             // update local cache with new instance T page type
             if (page.PageType != PageType.Collection)

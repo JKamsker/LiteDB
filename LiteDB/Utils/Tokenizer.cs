@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -112,6 +113,8 @@ namespace LiteDB
         public string Value { get; private set; }
         public long Position { get; private set; }
 
+        internal IExpressionRegistry ExpressionRegistry { get; set; }
+
         /// <summary>
         /// Expect if token is type (if not, throw UnexpectedToken)
         /// </summary>
@@ -192,7 +195,7 @@ namespace LiteDB
                             return true;
                         }
 
-                        var registry = BsonExpression.CurrentRegistry;
+                        var registry = BsonExpression.GetRegistryOrDefault(this.ExpressionRegistry);
 
                         if (registry != null && (registry.ContainsKeyword(Value) || registry.ContainsOperator(Value)))
                         {
@@ -221,6 +224,7 @@ namespace LiteDB
     internal class Tokenizer
     {
         private readonly TextReader _reader;
+        private readonly IExpressionRegistry _expressionRegistry;
         private char _char = '\0';
         private Token _ahead = null;
         private bool _eof = false;
@@ -228,6 +232,8 @@ namespace LiteDB
         public bool EOF => _eof && _ahead == null;
         public long Position { get; private set; }
         public Token Current { get; private set; }
+
+        internal IExpressionRegistry ExpressionRegistry => _expressionRegistry;
 
         /// <summary>
         /// If EOF throw an invalid token exception (used in while()) otherwise return "false" (not EOF)
@@ -239,14 +245,15 @@ namespace LiteDB
             return false;
         }
 
-        public Tokenizer(string source)
-            : this(new StringReader(source))
+        public Tokenizer(string source, IExpressionRegistry registry = null)
+            : this(new StringReader(source), registry)
         {
         }
 
-        public Tokenizer(TextReader reader)
+        public Tokenizer(TextReader reader, IExpressionRegistry registry = null)
         {
-            _reader = reader;
+            _reader = reader ?? throw new ArgumentNullException(nameof(reader));
+            _expressionRegistry = registry;
 
             this.Position = 0;
             this.ReadChar();
@@ -553,7 +560,10 @@ namespace LiteDB
                     break;
             }
 
-            return token ?? new Token(TokenType.Unknown, _char.ToString(), this.Position);
+            var result = token ?? new Token(TokenType.Unknown, _char.ToString(), this.Position);
+            result.ExpressionRegistry = _expressionRegistry;
+
+            return result;
         }
 
         /// <summary>

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -167,9 +168,9 @@ namespace LiteDB
         /// <summary>
         /// Resolve LINQ expression into BsonExpression
         /// </summary>
-        public BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate)
+        public BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry registry = null)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            var visitor = new LinqExpressionVisitor(this, predicate, registry);
 
             var expr = visitor.Resolve(typeof(K) == typeof(bool));
 
@@ -181,9 +182,9 @@ namespace LiteDB
         /// <summary>
         /// Resolve LINQ expression into BsonExpression (for index only)
         /// </summary>
-        public BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate)
+        public BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry registry = null)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            var visitor = new LinqExpressionVisitor(this, predicate, registry);
 
             var expr = visitor.Resolve(false);
 

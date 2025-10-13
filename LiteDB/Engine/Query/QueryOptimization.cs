@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -15,6 +16,7 @@ namespace LiteDB.Engine
         private readonly Collation _collation;
         private readonly QueryPlan _queryPlan;
         private readonly List<BsonExpression> _terms = new List<BsonExpression>();
+        private readonly IExpressionRegistry _registry;
         private bool _vectorOrderConsumed;
 
         public QueryOptimization(Snapshot snapshot, Query query, IEnumerable<BsonDocument> source, Collation collation)
@@ -24,6 +26,7 @@ namespace LiteDB.Engine
             _snapshot = snapshot;
             _query = query;
             _collation = collation;
+            _registry = snapshot?.Plugins?.Expressions;
 
             _queryPlan = new QueryPlan(snapshot.CollectionName)
             {
@@ -128,7 +131,7 @@ namespace LiteDB.Engine
                     term.Type == BsonExpressionType.Equal &&
                     term.Right?.Type == BsonExpressionType.Path)
                 {
-                    _terms[i] = BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters);
+                    _terms[i] = BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters, _registry);
                 }
             }
         }
@@ -300,7 +303,7 @@ namespace LiteDB.Engine
 
                 if (index != null)
                 {
-                    lowest = new IndexCost(index);
+                    lowest = new IndexCost(index, _registry);
                 }
             }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -15,12 +16,14 @@ namespace LiteDB
         private readonly ILiteDatabase _db;
         private readonly ILiteCollection<LiteFileInfo<TFileId>> _files;
         private readonly ILiteCollection<BsonDocument> _chunks;
+        private readonly IExpressionRegistry _expressions;
 
         public LiteStorage(ILiteDatabase db, string filesCollection, string chunksCollection)
         {
             _db = db;
             _files = db.GetCollection<LiteFileInfo<TFileId>>(filesCollection);
             _chunks = db.GetCollection(chunksCollection);
+            _expressions = (db as LiteDatabase)?.Services.ExpressionRegistry;
         }
 
         #region Find Files
@@ -68,17 +71,17 @@ namespace LiteDB
         /// <summary>
         /// Find all files that match with predicate expression.
         /// </summary>
-        public IEnumerable<LiteFileInfo<TFileId>> Find(string predicate, BsonDocument parameters) => this.Find(BsonExpression.Create(predicate, parameters));
+        public IEnumerable<LiteFileInfo<TFileId>> Find(string predicate, BsonDocument parameters) => this.Find(BsonExpression.Create(predicate, parameters, _expressions));
 
         /// <summary>
         /// Find all files that match with predicate expression.
         /// </summary>
-        public IEnumerable<LiteFileInfo<TFileId>> Find(string predicate, params BsonValue[] args) => this.Find(BsonExpression.Create(predicate, args));
+        public IEnumerable<LiteFileInfo<TFileId>> Find(string predicate, params BsonValue[] args) => this.Find(BsonExpression.Create(predicate, _expressions, args));
 
         /// <summary>
         /// Find all files that match with predicate expression.
         /// </summary>
-        public IEnumerable<LiteFileInfo<TFileId>> Find(Expression<Func<LiteFileInfo<TFileId>, bool>> predicate) => this.Find(_db.Mapper.GetExpression(predicate));
+        public IEnumerable<LiteFileInfo<TFileId>> Find(Expression<Func<LiteFileInfo<TFileId>, bool>> predicate) => this.Find(_db.Mapper.GetExpression(predicate, _expressions));
 
         /// <summary>
         /// Find all files inside file collections

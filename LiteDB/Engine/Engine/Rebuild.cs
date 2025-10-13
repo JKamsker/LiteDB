@@ -66,6 +66,8 @@ namespace LiteDB.Engine
                     var data = new DataService(snapshot, _disk.MAX_ITEMS_COUNT);
                     var pluginStrategies = _plugins?.Indexes?.All ?? Array.Empty<IIndexStrategy>();
 
+                    var expressions = _plugins?.Expressions;
+
                     // get all documents from current collection
                     var docs = reader.GetDocuments(collection);
 
@@ -85,7 +87,7 @@ namespace LiteDB.Engine
                             this.EnsureVectorIndex(
                                 collection,
                                 index.Name,
-                                BsonExpression.Create(index.Expression),
+                                BsonExpression.Create(index.Expression, expressions),
                                 new VectorIndexOptions(index.VectorMetadata.Dimensions, index.VectorMetadata.Metric));
                         }
                         else
@@ -93,7 +95,7 @@ namespace LiteDB.Engine
                             this.EnsureIndex(
                                 collection,
                                 index.Name,
-                                BsonExpression.Create(index.Expression),
+                                BsonExpression.Create(index.Expression, expressions),
                                 index.Unique);
                         }
                     }

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -185,7 +186,8 @@ namespace LiteDB.Engine
             // if collection starts with $ it's system collection
             if (into.StartsWith("$"))
             {
-                SqlParser.ParseCollection(new Tokenizer(into), out var name, out var options);
+                var expressions = this.ResolveExpressions();
+                SqlParser.ParseCollection(new Tokenizer(into, expressions), out var name, out var options);
 
                 var sys = _engine.GetSystemCollection(name);
 
@@ -198,6 +200,11 @@ namespace LiteDB.Engine
             }
 
             return new BsonDataReader(result);
+        }
+
+        private IExpressionRegistry ResolveExpressions()
+        {
+            return _engine.PluginContext?.Expressions;
         }
     }
 }

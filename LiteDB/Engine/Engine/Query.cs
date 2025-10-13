@@ -22,7 +22,7 @@ namespace LiteDB.Engine
             // test if is an system collection
             if (collection.StartsWith("$"))
             {
-                SqlParser.ParseCollection(new Tokenizer(collection), out var name, out var options);
+                SqlParser.ParseCollection(new Tokenizer(collection, _plugins?.Expressions), out var name, out var options);
 
                 // get registered system collection to get data source
                 var sys = this.GetSystemCollection(name);

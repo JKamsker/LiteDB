@@ -74,8 +74,8 @@ namespace LiteDB
             if (extend == null) throw new ArgumentNullException(nameof(extend));
             if (predicate == null) throw new ArgumentNullException(nameof(predicate));
 
-            var ext = _mapper.GetExpression(extend);
-            var pred = _mapper.GetExpression(predicate);
+            var ext = _mapper.GetExpression(extend, _expressions);
+            var pred = _mapper.GetExpression(predicate, _expressions);
 
             if (ext.Type != BsonExpressionType.Document)
             {
