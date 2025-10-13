@@ -124,11 +124,7 @@ public class BsonVector_Tests
         col.EnsureIndex(x => x.Embedding, new VectorIndexOptions(2));
 
         var target = new float[] { 1.0f, 0.0f };
-        BsonExpression fieldExpr;
-        using (db.EnterExpressionScope())
-        {
-            fieldExpr = BsonExpression.Create("$.Embedding");
-        }
+        var fieldExpr = BsonExpression.Create("$.Embedding", db.ExpressionRegistry);
 
         var results = col.Query()
             .WhereNear(fieldExpr, target, maxDistance: .28)
@@ -159,16 +155,12 @@ public class BsonVector_Tests
             ["Embedding"] = new BsonVector(new float[] { 1.0f, 1.0f })
         });
 
-        using (db.EnterExpressionScope())
-        {
-            col.EnsureIndex(
-                "embedding_idx",
-                BsonExpression.Create("$.Embedding"),
-                new VectorIndexOptions(2));
-        }
+        col.EnsureIndex(
+            "embedding_idx",
+            BsonExpression.Create("$.Embedding", db.ExpressionRegistry),
+            new VectorIndexOptions(2));
 
         var query = "SELECT * FROM vectors WHERE ($.Embedding VECTOR_SIM [1.0, 0.0]) <= 0.25";
-        using var _ = db.EnterExpressionScope();
         var rawResults = db.Execute(query).ToList();
 
         var docs = rawResults
@@ -196,11 +188,7 @@ public class BsonVector_Tests
     public void VectorSim_InfixExpression_ParsesAndEvaluates()
     {
         using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
-        BsonExpression expr;
-        using (db.EnterExpressionScope())
-        {
-            expr = BsonExpression.Create("$.Embedding VECTOR_SIM [1.0, 0.0]");
-        }
+        var expr = BsonExpression.Create("$.Embedding VECTOR_SIM [1.0, 0.0]", db.ExpressionRegistry);
 
         expr.Type.Should().Be(BsonExpressionType.VectorSim);
 
@@ -219,11 +207,7 @@ public class BsonVector_Tests
     public void VectorSim_FunctionCall_ParsesAndEvaluates()
     {
         using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
-        BsonExpression expr;
-        using (db.EnterExpressionScope())
-        {
-            expr = BsonExpression.Create("VECTOR_SIM($.Embedding, [1.0, 0.0])");
-        }
+        var expr = BsonExpression.Create("VECTOR_SIM($.Embedding, [1.0, 0.0])", db.ExpressionRegistry);
 
         expr.Type.Should().Be(BsonExpressionType.VectorSim);
 

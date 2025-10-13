@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using LiteDB.Engine;
+using LiteDB.Plugins;
 
 namespace LiteDB
 {
@@ -11,6 +12,11 @@ namespace LiteDB
         /// Get current instance of BsonMapper used in this database instance (can be BsonMapper.Global)
         /// </summary>
         BsonMapper Mapper { get; }
+
+        /// <summary>
+        /// Gets the expression registry associated with this database instance.
+        /// </summary>
+        IExpressionRegistry ExpressionRegistry { get; }
 
         /// <summary>
         /// Returns a special collection for storage files/stream inside datafile. Use _files and _chunks collection names. FileId is implemented as string. Use "GetStorage" for custom options

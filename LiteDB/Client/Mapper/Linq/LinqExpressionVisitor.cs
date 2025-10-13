@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -38,6 +39,7 @@ namespace LiteDB
         private readonly BsonMapper _mapper;
         private readonly Expression _expr;
         private readonly ParameterExpression _rootParameter = null;
+        private readonly IExpressionRegistry _registry;
 
         private readonly BsonDocument _parameters = new BsonDocument();
         private int _paramIndex = 0;
@@ -46,10 +48,11 @@ namespace LiteDB
         private readonly StringBuilder _builder = new StringBuilder();
         private readonly Stack<Expression> _nodes = new Stack<Expression>();
 
-        public LinqExpressionVisitor(BsonMapper mapper, Expression expr)
+        public LinqExpressionVisitor(BsonMapper mapper, Expression expr, IExpressionRegistry registry)
         {
             _mapper = mapper;
             _expr = expr;
+            _registry = registry;
 
             if (expr is LambdaExpression lambda)
             {
@@ -71,14 +74,15 @@ namespace LiteDB
 
             try
             {
-                var e = BsonExpression.Create(expression, _parameters);
+                var registry = _registry ?? BsonExpression.DefaultRegistry;
+                var e = BsonExpression.Create(expression, _parameters, registry);
 
                 // if expression must return an predicate but expression result is Path/Parameter/Call add `= true`
                 if (predicate && (e.Type == BsonExpressionType.Path || e.Type == BsonExpressionType.Call || e.Type == BsonExpressionType.Parameter))
                 {
                     expression = "(" + expression + " = true)";
 
-                    e = BsonExpression.Create(expression, _parameters);
+                    e = BsonExpression.Create(expression, _parameters, registry);
                 }
 
                 return e;

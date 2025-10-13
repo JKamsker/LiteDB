@@ -103,7 +103,7 @@ namespace LiteDB.Engine
                 }
 
                 // execute optimization before run query (will fill missing _query properties instance)
-                var optimizer = new QueryOptimization(snapshot, _query, _source, _pragmas.Collation);
+                var optimizer = new QueryOptimization(snapshot, _query, _source, _pragmas.Collation, _engine.PluginContext?.Expressions);
 
                 var queryPlan = optimizer.ProcessQuery();
 

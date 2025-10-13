@@ -80,10 +80,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(string predicate, BsonDocument parameters)
         {
-            using (BsonExpression.UseRegistry(_expressions))
-            {
-                _query.Where.Add(BsonExpression.Create(predicate, parameters));
-            }
+            _query.Where.Add(BsonExpression.Create(predicate, parameters, _expressions));
             return this;
         }
 
@@ -92,10 +89,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(string predicate, params BsonValue[] args)
         {
-            using (BsonExpression.UseRegistry(_expressions))
-            {
-                _query.Where.Add(BsonExpression.Create(predicate, args));
-            }
+            _query.Where.Add(BsonExpression.Create(predicate, _expressions, args));
             return this;
         }
 
@@ -260,18 +254,14 @@ namespace LiteDB
             ValidateVectorArguments(target, maxDistance);
 
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
-            using (BsonExpression.UseRegistry(_expressions))
-            {
-                return BsonExpression.Create($"({fieldExpr.Source} VECTOR_SIM @0) <= @1", targetArray, new BsonValue(maxDistance));
-            }
+            return BsonExpression.Create($"({fieldExpr.Source} VECTOR_SIM @0) <= @1", _expressions, targetArray, new BsonValue(maxDistance));
         }
 
         internal ILiteQueryable<T> VectorWhereNear(string vectorField, float[] target, double maxDistance)
         {
             if (string.IsNullOrWhiteSpace(vectorField)) throw new ArgumentNullException(nameof(vectorField));
 
-            using var _ = BsonExpression.UseRegistry(_expressions);
-            var fieldExpr = BsonExpression.Create($"$.{vectorField}");
+            var fieldExpr = BsonExpression.Create($"$.{vectorField}", _expressions);
             return this.VectorWhereNear(fieldExpr, target, maxDistance);
         }
 
@@ -304,8 +294,7 @@ namespace LiteDB
 
         internal ILiteQueryableResult<T> VectorTopKNear(string field, float[] target, int k)
         {
-            using var _ = BsonExpression.UseRegistry(_expressions);
-            var fieldExpr = BsonExpression.Create($"$.{field}");
+            var fieldExpr = BsonExpression.Create($"$.{field}", _expressions);
             return this.VectorTopKNear(fieldExpr, target, k);
         }
 
@@ -318,18 +307,15 @@ namespace LiteDB
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
 
             // Build VECTOR_SIM as order clause
-            using (BsonExpression.UseRegistry(_expressions))
-            {
-                var simExpr = BsonExpression.Create($"VECTOR_SIM({fieldExpr.Source}, @0)", targetArray);
+            var simExpr = BsonExpression.Create($"VECTOR_SIM({fieldExpr.Source}, @0)", _expressions, targetArray);
 
-                _query.VectorField = fieldExpr.Source;
-                _query.VectorTarget = target?.ToArray();
-                _query.VectorMaxDistance = double.MaxValue;
+            _query.VectorField = fieldExpr.Source;
+            _query.VectorTarget = target?.ToArray();
+            _query.VectorMaxDistance = double.MaxValue;
 
-                return this
-                    .OrderBy(simExpr, Query.Ascending)
-                    .Limit(k);
-            }
+            return this
+                .OrderBy(simExpr, Query.Ascending)
+                .Limit(k);
         }
 
         [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]
