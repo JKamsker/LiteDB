@@ -33,10 +33,7 @@ namespace LiteDB
         /// </summary>
         public int Count(string predicate, BsonDocument parameters)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.Count(BsonExpression.Create(predicate, parameters));
-            }
+            return this.Count(BsonExpression.Create(predicate, parameters, _expressions));
         }
 
         /// <summary>
@@ -44,10 +41,7 @@ namespace LiteDB
         /// </summary>
         public int Count(string predicate, params BsonValue[] args)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.Count(BsonExpression.Create(predicate, args));
-            }
+            return this.Count(BsonExpression.Create(predicate, _expressions, args));
         }
 
         /// <summary>
@@ -87,10 +81,7 @@ namespace LiteDB
         /// </summary>
         public long LongCount(string predicate, BsonDocument parameters)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.LongCount(BsonExpression.Create(predicate, parameters));
-            }
+            return this.LongCount(BsonExpression.Create(predicate, parameters, _expressions));
         }
 
         /// <summary>
@@ -98,10 +89,7 @@ namespace LiteDB
         /// </summary>
         public long LongCount(string predicate, params BsonValue[] args)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.LongCount(BsonExpression.Create(predicate, args));
-            }
+            return this.LongCount(BsonExpression.Create(predicate, _expressions, args));
         }
 
         /// <summary>
@@ -133,10 +121,7 @@ namespace LiteDB
         /// </summary>
         public bool Exists(string predicate, BsonDocument parameters)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.Exists(BsonExpression.Create(predicate, parameters));
-            }
+            return this.Exists(BsonExpression.Create(predicate, parameters, _expressions));
         }
 
         /// <summary>
@@ -144,10 +129,7 @@ namespace LiteDB
         /// </summary>
         public bool Exists(string predicate, params BsonValue[] args)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.Exists(BsonExpression.Create(predicate, args));
-            }
+            return this.Exists(BsonExpression.Create(predicate, _expressions, args));
         }
 
         /// <summary>

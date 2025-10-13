@@ -69,7 +69,7 @@ namespace LiteDB.Engine
         // used when full index search
         public IndexCost(CollectionIndex index)
         {
-            this.Expression = BsonExpression.Create(index.Expression);
+            this.Expression = index.BsonExpr;
             this.Index = new IndexAll(index.Name, Query.Ascending);
             this.Cost = this.Index.GetCost(index);
             this.IndexExpression = index.Expression;

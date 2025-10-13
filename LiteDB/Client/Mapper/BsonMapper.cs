@@ -6,6 +6,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -100,6 +101,8 @@ namespace LiteDB
         /// </summary>
         public Func<Type, string> ResolveCollectionName;
 
+        internal IExpressionRegistry ExpressionRegistry { get; set; }
+
         #endregion
 
         public BsonMapper(Func<Type, object> customTypeInstantiator = null, ITypeNameBinder typeNameBinder = null)
@@ -113,6 +116,8 @@ namespace LiteDB
             this.ResolveCollectionName = (t) => Reflection.IsEnumerable(t) ? Reflection.GetListItemType(t).Name : t.Name;
             this.IncludeFields = false;
             this.MaxDepth = 20;
+
+            this.ExpressionRegistry = BsonExpression.DefaultRegistry;
 
             _typeInstantiator = customTypeInstantiator ?? ((Type t) => null);
             _typeNameBinder = typeNameBinder ?? DefaultTypeNameBinder.Instance;
@@ -169,7 +174,7 @@ namespace LiteDB
         /// </summary>
         public BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            var visitor = new LinqExpressionVisitor(this, predicate, this.ExpressionRegistry);
 
             var expr = visitor.Resolve(typeof(K) == typeof(bool));
 
@@ -183,7 +188,7 @@ namespace LiteDB
         /// </summary>
         public BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            var visitor = new LinqExpressionVisitor(this, predicate, this.ExpressionRegistry);
 
             var expr = visitor.Resolve(false);
 

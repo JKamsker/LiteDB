@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 using static LiteDB.Constants;
 
@@ -29,21 +31,29 @@ namespace LiteDB.Engine
         private readonly Dictionary<string, CollectionIndex> _indexes = new Dictionary<string, CollectionIndex>();
         private readonly Dictionary<string, VectorIndexMetadata> _vectorIndexes = new Dictionary<string, VectorIndexMetadata>();
 
-        public CollectionPage(PageBuffer buffer, uint pageID)
+        private readonly IExpressionRegistry _expressionRegistry;
+
+        public IExpressionRegistry ExpressionRegistry => _expressionRegistry;
+
+        public CollectionPage(PageBuffer buffer, uint pageID, IExpressionRegistry registry = null)
             : base(buffer, pageID, PageType.Collection)
         {
+            _expressionRegistry = registry ?? BsonExpression.DefaultRegistry;
+
             for(var i = 0; i < PAGE_FREE_LIST_SLOTS; i++)
             {
                 this.FreeDataPageList[i] = uint.MaxValue;
             }
         }
 
-        public CollectionPage(PageBuffer buffer)
+        public CollectionPage(PageBuffer buffer, IExpressionRegistry registry = null)
             : base(buffer)
         {
             ENSURE(this.PageType == PageType.Collection, "page type must be collection page");
 
             if (this.PageType != PageType.Collection) throw LiteException.InvalidPageType(PageType.Collection, this);
+
+            _expressionRegistry = registry ?? BsonExpression.DefaultRegistry;
 
             // create new buffer area to store BsonDocument indexes
             var area = _buffer.Slice(PAGE_HEADER_SIZE, PAGE_SIZE - PAGE_HEADER_SIZE);
@@ -63,7 +73,7 @@ namespace LiteDB.Engine
 
                 for(var i = 0; i < count; i++)
                 {
-                    var index = new CollectionIndex(r);
+                    var index = new CollectionIndex(r, _expressionRegistry);
 
                     _indexes[index.Name] = index;
                 }
@@ -204,7 +214,7 @@ namespace LiteDB.Engine
 
             var slot = (byte)(_indexes.Count == 0 ? 0 : (_indexes.Max(x => x.Value.Slot) + 1));
 
-            var index = new CollectionIndex(slot, 0, name, expr, unique);
+            var index = new CollectionIndex(slot, 0, name, expr, unique, _expressionRegistry);
 
             _indexes[name] = index;
 
@@ -226,7 +236,7 @@ namespace LiteDB.Engine
 
             var slot = (byte)(_indexes.Count == 0 ? 0 : (_indexes.Max(x => x.Value.Slot) + 1));
 
-            var index = new CollectionIndex(slot, 1, name, expr, false);
+            var index = new CollectionIndex(slot, 1, name, expr, false, _expressionRegistry);
             var metadata = new VectorIndexMetadata(slot, dimensions, metric);
 
             _indexes[name] = index;

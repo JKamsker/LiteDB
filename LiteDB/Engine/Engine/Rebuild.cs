@@ -78,6 +78,8 @@ namespace LiteDB.Engine
                     }
 
                     // first create all user indexes (exclude _id index)
+                    var expressions = _plugins?.Expressions ?? BsonExpression.DefaultRegistry;
+
                     foreach (var index in reader.GetIndexes(collection))
                     {
                         if (index.IndexType == 1 && index.VectorMetadata != null)
@@ -85,7 +87,7 @@ namespace LiteDB.Engine
                             this.EnsureVectorIndex(
                                 collection,
                                 index.Name,
-                                BsonExpression.Create(index.Expression),
+                                BsonExpression.Create(index.Expression, expressions),
                                 new VectorIndexOptions(index.VectorMetadata.Dimensions, index.VectorMetadata.Metric));
                         }
                         else
@@ -93,7 +95,7 @@ namespace LiteDB.Engine
                             this.EnsureIndex(
                                 collection,
                                 index.Name,
-                                BsonExpression.Create(index.Expression),
+                                BsonExpression.Create(index.Expression, expressions),
                                 index.Unique);
                         }
                     }

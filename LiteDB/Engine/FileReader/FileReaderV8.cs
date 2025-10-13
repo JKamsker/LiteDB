@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LiteDB;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -374,7 +375,7 @@ namespace LiteDB.Engine
                 try
                 {
                     var page = result.Value;
-                    var collectionPage = new CollectionPage(page.Buffer);
+                    var collectionPage = new CollectionPage(page.Buffer, BsonExpression.DefaultRegistry);
 
                     foreach (var index in collectionPage.GetCollectionIndexes())
                     {
