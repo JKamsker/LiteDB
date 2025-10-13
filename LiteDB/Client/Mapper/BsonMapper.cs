@@ -1,3 +1,4 @@
+using LiteDB.Plugins;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -167,9 +168,17 @@ namespace LiteDB
         /// <summary>
         /// Resolve LINQ expression into BsonExpression
         /// </summary>
+        [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            return this.GetExpression(predicate, BsonExpression.LegacyRegistry);
+        }
+
+        public BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry registry)
+        {
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+
+            var visitor = new LinqExpressionVisitor(this, predicate, registry);
 
             var expr = visitor.Resolve(typeof(K) == typeof(bool));
 
@@ -181,9 +190,17 @@ namespace LiteDB
         /// <summary>
         /// Resolve LINQ expression into BsonExpression (for index only)
         /// </summary>
+        [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            return this.GetIndexExpression(predicate, BsonExpression.LegacyRegistry);
+        }
+
+        public BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry registry)
+        {
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+
+            var visitor = new LinqExpressionVisitor(this, predicate, registry);
 
             var expr = visitor.Resolve(false);
 

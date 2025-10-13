@@ -40,7 +40,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Include<K>(Expression<Func<T, K>> path)
         {
-            _query.Includes.Add(_mapper.GetExpression(path));
+            _query.Includes.Add(_mapper.GetExpression(path, _expressions));
             return this;
         }
 
@@ -80,10 +80,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(string predicate, BsonDocument parameters)
         {
-            using (BsonExpression.UseRegistry(_expressions))
-            {
-                _query.Where.Add(BsonExpression.Create(predicate, parameters));
-            }
+            _query.Where.Add(BsonExpression.Create(predicate, parameters, _expressions));
             return this;
         }
 
@@ -92,10 +89,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(string predicate, params BsonValue[] args)
         {
-            using (BsonExpression.UseRegistry(_expressions))
-            {
-                _query.Where.Add(BsonExpression.Create(predicate, args));
-            }
+            _query.Where.Add(BsonExpression.Create(predicate, _expressions, args));
             return this;
         }
 
@@ -104,7 +98,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(Expression<Func<T, bool>> predicate)
         {
-            return this.Where(_mapper.GetExpression(predicate));
+            return this.Where(_mapper.GetExpression(predicate, _expressions));
         }
 
         #endregion
@@ -127,7 +121,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> OrderBy<K>(Expression<Func<T, K>> keySelector, int order = Query.Ascending)
         {
-            return this.OrderBy(_mapper.GetExpression(keySelector), order);
+            return this.OrderBy(_mapper.GetExpression(keySelector, _expressions), order);
         }
 
         /// <summary>
@@ -156,7 +150,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> ThenBy<K>(Expression<Func<T, K>> keySelector)
         {
-            return this.ThenBy(_mapper.GetExpression(keySelector));
+            return this.ThenBy(_mapper.GetExpression(keySelector, _expressions));
         }
 
         /// <summary>
@@ -175,7 +169,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> ThenByDescending<K>(Expression<Func<T, K>> keySelector)
         {
-            return this.ThenByDescending(_mapper.GetExpression(keySelector));
+            return this.ThenByDescending(_mapper.GetExpression(keySelector, _expressions));
         }
 
         #endregion
@@ -187,7 +181,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<IGrouping<K, T>> GroupBy<K>(Expression<Func<T, K>> keySelector)
         {
-            var expression = _mapper.GetExpression(keySelector);
+            var expression = _mapper.GetExpression(keySelector, _expressions);
 
             this.GroupBy(expression);
 
@@ -241,7 +235,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<K> Select<K>(Expression<Func<T, K>> selector)
         {
-            _query.Select = _mapper.GetExpression(selector);
+            _query.Select = _mapper.GetExpression(selector, _expressions);
 
             return new LiteQueryable<K>(_engine, _mapper, _collection, _query, _expressions);
         }
@@ -260,18 +254,14 @@ namespace LiteDB
             ValidateVectorArguments(target, maxDistance);
 
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
-            using (BsonExpression.UseRegistry(_expressions))
-            {
-                return BsonExpression.Create($"({fieldExpr.Source} VECTOR_SIM @0) <= @1", targetArray, new BsonValue(maxDistance));
-            }
+            return BsonExpression.Create($"({fieldExpr.Source} VECTOR_SIM @0) <= @1", _expressions, targetArray, new BsonValue(maxDistance));
         }
 
         internal ILiteQueryable<T> VectorWhereNear(string vectorField, float[] target, double maxDistance)
         {
             if (string.IsNullOrWhiteSpace(vectorField)) throw new ArgumentNullException(nameof(vectorField));
 
-            using var _ = BsonExpression.UseRegistry(_expressions);
-            var fieldExpr = BsonExpression.Create($"$.{vectorField}");
+            var fieldExpr = BsonExpression.Create($"$.{vectorField}", _expressions);
             return this.VectorWhereNear(fieldExpr, target, maxDistance);
         }
 
@@ -292,20 +282,19 @@ namespace LiteDB
         {
             if (field == null) throw new ArgumentNullException(nameof(field));
 
-            var fieldExpr = _mapper.GetExpression(field);
+            var fieldExpr = _mapper.GetExpression(field, _expressions);
             return this.VectorWhereNear(fieldExpr, target, maxDistance);
         }
 
         internal ILiteQueryableResult<T> VectorTopKNear<K>(Expression<Func<T, K>> field, float[] target, int k)
         {
-            var fieldExpr = _mapper.GetExpression(field);
+            var fieldExpr = _mapper.GetExpression(field, _expressions);
             return this.VectorTopKNear(fieldExpr, target, k);
         }
 
         internal ILiteQueryableResult<T> VectorTopKNear(string field, float[] target, int k)
         {
-            using var _ = BsonExpression.UseRegistry(_expressions);
-            var fieldExpr = BsonExpression.Create($"$.{field}");
+            var fieldExpr = BsonExpression.Create($"$.{field}", _expressions);
             return this.VectorTopKNear(fieldExpr, target, k);
         }
 
@@ -318,18 +307,15 @@ namespace LiteDB
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
 
             // Build VECTOR_SIM as order clause
-            using (BsonExpression.UseRegistry(_expressions))
-            {
-                var simExpr = BsonExpression.Create($"VECTOR_SIM({fieldExpr.Source}, @0)", targetArray);
+            var simExpr = BsonExpression.Create($"VECTOR_SIM({fieldExpr.Source}, @0)", _expressions, targetArray);
 
-                _query.VectorField = fieldExpr.Source;
-                _query.VectorTarget = target?.ToArray();
-                _query.VectorMaxDistance = double.MaxValue;
+            _query.VectorField = fieldExpr.Source;
+            _query.VectorTarget = target?.ToArray();
+            _query.VectorMaxDistance = double.MaxValue;
 
-                return this
-                    .OrderBy(simExpr, Query.Ascending)
-                    .Limit(k);
-            }
+            return this
+                .OrderBy(simExpr, Query.Ascending)
+                .Limit(k);
         }
 
         [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]

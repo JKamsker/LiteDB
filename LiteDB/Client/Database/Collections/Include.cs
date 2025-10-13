@@ -15,7 +15,7 @@ namespace LiteDB
         {
             if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
-            var path = _mapper.GetExpression(keySelector);
+            var path = _mapper.GetExpression(keySelector, _expressions);
 
             return this.Include(path);
         }

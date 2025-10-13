@@ -1,4 +1,5 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 
 using System;
 using System.Collections.Generic;
@@ -13,6 +14,8 @@ namespace LiteDB
     /// </summary>
     public partial class Query
     {
+        private readonly IExpressionRegistry _expressions;
+
         /// <summary>
         /// Indicate when a query must execute in ascending order
         /// </summary>
@@ -22,6 +25,31 @@ namespace LiteDB
         /// Indicate when a query must execute in descending order
         /// </summary>
         public const int Descending = -1;
+
+        /// <summary>
+        /// Returns all documents
+        /// </summary>
+        public Query()
+            : this(BsonExpression.LegacyRegistry)
+        {
+        }
+
+        internal Query(IExpressionRegistry expressions)
+        {
+            _expressions = expressions ?? BsonExpression.LegacyRegistry;
+        }
+
+        internal IExpressionRegistry Expressions => _expressions;
+
+        private BsonExpression CreateExpression(string expression)
+        {
+            return BsonExpression.Create(expression, _expressions);
+        }
+
+        private BsonExpression CreateExpression(string expression, params BsonValue[] args)
+        {
+            return BsonExpression.Create(expression, _expressions, args);
+        }
 
         /// <summary>
         /// Returns all documents
@@ -37,7 +65,7 @@ namespace LiteDB
         public static Query All(int order = Ascending)
         {
             var query = new Query();
-            query.OrderBy.Add(new QueryOrder(BsonExpression.Create("_id"), order));
+            query.OrderBy.Add(new QueryOrder(query.CreateExpression("_id"), order));
             return query;
         }
 
@@ -47,7 +75,7 @@ namespace LiteDB
         public static Query All(string field, int order = Ascending)
         {
             var query = new Query();
-            query.OrderBy.Add(new QueryOrder(BsonExpression.Create(field), order));
+            query.OrderBy.Add(new QueryOrder(query.CreateExpression(field), order));
             return query;
         }
 
@@ -58,7 +86,7 @@ namespace LiteDB
         {
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
 
-            return BsonExpression.Create($"{field} = {value ?? BsonValue.Null}");
+            return BsonExpression.Create($"{field} = {value ?? BsonValue.Null}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -68,7 +96,7 @@ namespace LiteDB
         {
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
 
-            return BsonExpression.Create($"{field} < {value ?? BsonValue.Null}");
+            return BsonExpression.Create($"{field} < {value ?? BsonValue.Null}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -78,7 +106,7 @@ namespace LiteDB
         {
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
 
-            return BsonExpression.Create($"{field} <= {value ?? BsonValue.Null}");
+            return BsonExpression.Create($"{field} <= {value ?? BsonValue.Null}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -88,7 +116,7 @@ namespace LiteDB
         {
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
 
-            return BsonExpression.Create($"{field} > {value ?? BsonValue.Null}");
+            return BsonExpression.Create($"{field} > {value ?? BsonValue.Null}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -98,7 +126,7 @@ namespace LiteDB
         {
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
 
-            return BsonExpression.Create($"{field} >= {value ?? BsonValue.Null}");
+            return BsonExpression.Create($"{field} >= {value ?? BsonValue.Null}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -108,7 +136,7 @@ namespace LiteDB
         {
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
 
-            return BsonExpression.Create($"{field} BETWEEN {start ?? BsonValue.Null} AND {end ?? BsonValue.Null}");
+            return BsonExpression.Create($"{field} BETWEEN {start ?? BsonValue.Null} AND {end ?? BsonValue.Null}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -119,7 +147,7 @@ namespace LiteDB
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
             if (value.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(value));
 
-            return BsonExpression.Create($"{field} LIKE {(new BsonValue(value + "%"))}");
+            return BsonExpression.Create($"{field} LIKE {(new BsonValue(value + "%"))}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -130,7 +158,7 @@ namespace LiteDB
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
             if (value.IsNullOrEmpty()) throw new ArgumentNullException(nameof(value));
 
-            return BsonExpression.Create($"{field} LIKE {(new BsonValue("%" + value + "%"))}");
+            return BsonExpression.Create($"{field} LIKE {(new BsonValue("%" + value + "%"))}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -140,7 +168,7 @@ namespace LiteDB
         {
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
 
-            return BsonExpression.Create($"{field} != {value ?? BsonValue.Null}");
+            return BsonExpression.Create($"{field} != {value ?? BsonValue.Null}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
@@ -151,7 +179,7 @@ namespace LiteDB
             if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
             if (value == null) throw new ArgumentNullException(nameof(value));
 
-            return BsonExpression.Create($"{field} IN {value}");
+            return BsonExpression.Create($"{field} IN {value}", BsonExpression.LegacyRegistry);
         }
 
         /// <summary>
