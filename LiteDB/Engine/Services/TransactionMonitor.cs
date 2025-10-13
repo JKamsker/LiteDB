@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LiteDB.Plugins;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,7 @@ namespace LiteDB.Engine
         private readonly LockService _locker;
         private readonly DiskService _disk;
         private readonly WalIndexService _walIndex;
+        private ILitePluginContext _plugins;
 
         private int _freePages;
         private readonly int _initialSize;
@@ -30,12 +32,13 @@ namespace LiteDB.Engine
         public int FreePages => _freePages;
         public int InitialSize => _initialSize;
 
-        public TransactionMonitor(HeaderPage header, LockService locker, DiskService disk, WalIndexService walIndex)
+        public TransactionMonitor(HeaderPage header, LockService locker, DiskService disk, WalIndexService walIndex, ILitePluginContext plugins)
         {
             _header = header;
             _locker = locker;
             _disk = disk;
             _walIndex = walIndex;
+            _plugins = plugins;
 
             // initialize free pages with all avaiable pages in memory
             _freePages = MAX_TRANSACTION_SIZE;
@@ -44,6 +47,11 @@ namespace LiteDB.Engine
             _initialSize = MAX_TRANSACTION_SIZE / MAX_OPEN_TRANSACTIONS;
         }
 
+
+        public void SetPluginContext(ILitePluginContext plugins)
+        {
+            _plugins = plugins;
+        }
         public TransactionService GetTransaction(bool create, bool queryOnly, out bool isNew)
         {
             var transaction = _slot.Value;
@@ -64,7 +72,7 @@ namespace LiteDB.Engine
                     // check if current thread contains any transaction
                     alreadyLock = _transactions.Values.Any(x => x.ThreadID == Environment.CurrentManagedThreadId);
 
-                    transaction = new TransactionService(_header, _locker, _disk, _walIndex, initialSize, this, queryOnly);
+                    transaction = new TransactionService(_header, _locker, _disk, _walIndex, initialSize, this, queryOnly, _plugins);
 
                     // add transaction to execution transaction dict
                     _transactions[transaction.TransactionID] = transaction;
