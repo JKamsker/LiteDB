@@ -13,6 +13,11 @@ namespace LiteDB
         BsonMapper Mapper { get; }
 
         /// <summary>
+        /// Provides access to per-database services such as expression registries and plugins.
+        /// </summary>
+        LiteDatabaseServices Services { get; }
+
+        /// <summary>
         /// Returns a special collection for storage files/stream inside datafile. Use _files and _chunks collection names. FileId is implemented as string. Use "GetStorage" for custom options
         /// </summary>
         ILiteStorage<string> FileStorage { get; }

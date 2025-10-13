@@ -23,7 +23,9 @@ namespace LiteDB.Engine
         {
             var query = options?.AsString ?? throw new LiteException(0, $"Collection $query(sql) requires `sql` string parameter");
 
-            var sql = new SqlParser(_engine, new Tokenizer(query), null);
+            var pluginContext = (_engine as LiteEngine)?.PluginContext;
+            var registry = pluginContext?.Expressions;
+            var sql = new SqlParser(_engine, new Tokenizer(query, registry), null, registry);
 
             using (var reader = sql.Execute())
             {

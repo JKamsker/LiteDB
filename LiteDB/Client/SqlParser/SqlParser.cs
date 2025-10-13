@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+
 using LiteDB.Engine;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -16,13 +18,15 @@ namespace LiteDB
         private readonly Tokenizer _tokenizer;
         private readonly BsonDocument _parameters;
         private readonly Lazy<Collation> _collation;
+        private readonly IExpressionRegistry _expressions;
 
-        public SqlParser(ILiteEngine engine, Tokenizer tokenizer, BsonDocument parameters)
+        public SqlParser(ILiteEngine engine, Tokenizer tokenizer, BsonDocument parameters, IExpressionRegistry expressions)
         {
             _engine = engine;
             _tokenizer = tokenizer;
             _parameters = parameters ?? new BsonDocument();
             _collation = new Lazy<Collation>(() => new Collation(_engine.Pragma(Pragmas.COLLATION)));
+            _expressions = expressions;
         }
 
         public IBsonDataReader Execute()
