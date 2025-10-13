@@ -8,9 +8,9 @@ on:
         type: string
         default: |
           [
-            { "display": ".NET 8",  "sdk": "8.0.x",           "framework": "net8.0", "includePrerelease": false, "msbuildProps": "" },
-            { "display": ".NET 9",  "sdk": "9.0.x\n8.0.x",    "framework": "net8.0", "includePrerelease": true,  "msbuildProps": "" },
-            { "display": ".NET 10", "sdk": "10.0.x\n8.0.x",   "framework": "net10.0", "includePrerelease": true, "msbuildProps": "-p:LiteDBTestsEnableNet10=true" }
+            { "display": ".NET 8",  "sdk": "8.0.x",           "framework": "net8.0", "includePrerelease": false, "msbuildProps": "", "artifactSuffix": "dotnet-8" },
+            { "display": ".NET 9",  "sdk": "9.0.x\n8.0.x",    "framework": "net8.0", "includePrerelease": true,  "msbuildProps": "", "artifactSuffix": "dotnet-9" },
+            { "display": ".NET 10", "sdk": "10.0.x\n8.0.x",   "framework": "net10.0", "includePrerelease": true, "msbuildProps": "-p:LiteDBTestsEnableNet10=true", "artifactSuffix": "dotnet-10" }
           ]
 
 jobs:
@@ -151,7 +151,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-dotnet-${{ replace(matrix.item.display, '.NET ', '') }}
+          name: test-results-${{ matrix.item.artifactSuffix }}
           path: artifacts/${{ matrix.item.framework }}
           if-no-files-found: ignore
 
