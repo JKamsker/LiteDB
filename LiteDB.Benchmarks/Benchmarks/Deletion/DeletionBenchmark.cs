@@ -4,6 +4,7 @@ using System.Linq;
 using BenchmarkDotNet.Attributes;
 using LiteDB.Benchmarks.Models;
 using LiteDB.Benchmarks.Models.Generators;
+using LiteDB.Plugins;
 
 namespace LiteDB.Benchmarks.Benchmarks.Deletion
 {
@@ -62,7 +63,7 @@ namespace LiteDB.Benchmarks.Benchmarks.Deletion
 			foreach (var indexInfo in droppedCollectionIndexes)
 			{
 				DatabaseInstance.GetCollection(collectionName)
-					.EnsureIndex(indexInfo["name"], BsonExpression.Create(indexInfo["expression"]), indexInfo["unique"]);
+					.EnsureIndex(indexInfo["name"], BsonExpression.Create(indexInfo["expression"], (IExpressionRegistry)null), indexInfo["unique"]);
 			}
 
 			DatabaseInstance.Checkpoint();

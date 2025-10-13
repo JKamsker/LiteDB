@@ -6,6 +6,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -46,6 +47,8 @@ namespace LiteDB
         /// Global instance used when no BsonMapper are passed in LiteDatabase ctor
         /// </summary>
         public static BsonMapper Global = new BsonMapper();
+
+        internal IExpressionRegistry ExpressionRegistry { get; set; }
 
         /// <summary>
         /// A resolver name for field
@@ -169,7 +172,7 @@ namespace LiteDB
         /// </summary>
         public BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            var visitor = new LinqExpressionVisitor(this, predicate, this.ExpressionRegistry);
 
             var expr = visitor.Resolve(typeof(K) == typeof(bool));
 
@@ -183,7 +186,7 @@ namespace LiteDB
         /// </summary>
         public BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate);
+            var visitor = new LinqExpressionVisitor(this, predicate, this.ExpressionRegistry);
 
             var expr = visitor.Resolve(false);
 

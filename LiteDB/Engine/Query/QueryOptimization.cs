@@ -128,7 +128,7 @@ namespace LiteDB.Engine
                     term.Type == BsonExpressionType.Equal &&
                     term.Right?.Type == BsonExpressionType.Path)
                 {
-                    _terms[i] = BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters);
+                    _terms[i] = BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters, _snapshot.Plugins?.Expressions);
                 }
             }
         }
@@ -281,7 +281,7 @@ namespace LiteDB.Engine
                 if (index == null) continue;
 
                 // calculate index score and store highest score
-                var current = new IndexCost(index.Item1, expr, index.Item2, _collation);
+                var current = new IndexCost(index.Item1, expr, index.Item2, _collation, _snapshot.Plugins?.Expressions);
 
                 if (lowest == null || current.Cost < lowest.Cost)
                 {
@@ -300,7 +300,7 @@ namespace LiteDB.Engine
 
                 if (index != null)
                 {
-                    lowest = new IndexCost(index);
+                    lowest = new IndexCost(index, _snapshot.Plugins?.Expressions);
                 }
             }
 

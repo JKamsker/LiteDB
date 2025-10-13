@@ -85,7 +85,7 @@ namespace LiteDB.Engine
                             this.EnsureVectorIndex(
                                 collection,
                                 index.Name,
-                                BsonExpression.Create(index.Expression),
+                                BsonExpression.Create(index.Expression, _plugins?.Expressions),
                                 new VectorIndexOptions(index.VectorMetadata.Dimensions, index.VectorMetadata.Metric));
                         }
                         else
@@ -93,7 +93,7 @@ namespace LiteDB.Engine
                             this.EnsureIndex(
                                 collection,
                                 index.Name,
-                                BsonExpression.Create(index.Expression),
+                                BsonExpression.Create(index.Expression, _plugins?.Expressions),
                                 index.Unique);
                         }
                     }

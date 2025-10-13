@@ -1,4 +1,5 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,14 +12,17 @@ namespace LiteDB
 {
     internal class ExpressionContext
     {
-        public ExpressionContext()
+        public ExpressionContext(IExpressionRegistry registry)
         {
+            this.Registry = registry;
             this.Source = Expression.Parameter(typeof(IEnumerable<BsonDocument>), "source");
             this.Root = Expression.Parameter(typeof(BsonDocument), "root");
             this.Current = Expression.Parameter(typeof(BsonValue), "current");
             this.Collation = Expression.Parameter(typeof(Collation), "collation");
             this.Parameters = Expression.Parameter(typeof(BsonDocument), "parameters");
         }
+
+        public IExpressionRegistry Registry { get; }
 
         public ParameterExpression Source { get; }
         public ParameterExpression Root { get; }

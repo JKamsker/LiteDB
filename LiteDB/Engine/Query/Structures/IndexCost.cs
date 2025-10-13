@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -28,7 +29,7 @@ namespace LiteDB.Engine
         /// </summary>
         public Index Index { get; }
 
-        public IndexCost(CollectionIndex index, BsonExpression expr, BsonExpression value, Collation collation)
+        public IndexCost(CollectionIndex index, BsonExpression expr, BsonExpression value, Collation collation, IExpressionRegistry registry)
         {
             this.IndexExpression = index.Expression;
             this.Expression = expr;
@@ -67,9 +68,9 @@ namespace LiteDB.Engine
         }
 
         // used when full index search
-        public IndexCost(CollectionIndex index)
+        public IndexCost(CollectionIndex index, IExpressionRegistry registry)
         {
-            this.Expression = BsonExpression.Create(index.Expression);
+            this.Expression = index.GetExpression(registry);
             this.Index = new IndexAll(index.Name, Query.Ascending);
             this.Cost = this.Index.GetCost(index);
             this.IndexExpression = index.Expression;

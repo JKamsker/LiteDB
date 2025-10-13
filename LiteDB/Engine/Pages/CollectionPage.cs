@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 using static LiteDB.Constants;
 
@@ -156,6 +157,15 @@ namespace LiteDB.Engine
             }
 
             return indexes;
+        }
+
+        public void BindExpressions(IExpressionRegistry registry)
+        {
+            foreach (var index in _indexes.Values)
+            {
+                index.ResetExpression();
+                index.GetExpression(registry);
+            }
         }
 
         private int GetSerializedLength(int additionalIndexLength, int additionalVectorLength)

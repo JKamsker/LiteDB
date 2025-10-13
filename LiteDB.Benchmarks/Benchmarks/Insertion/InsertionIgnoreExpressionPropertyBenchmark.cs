@@ -4,6 +4,7 @@ using System.Linq;
 using BenchmarkDotNet.Attributes;
 using LiteDB.Benchmarks.Models;
 using LiteDB.Benchmarks.Models.Generators;
+using LiteDB.Plugins;
 
 namespace LiteDB.Benchmarks.Benchmarks.Insertion
 {
@@ -71,7 +72,7 @@ namespace LiteDB.Benchmarks.Benchmarks.Insertion
 			foreach (var indexInfo in droppedCollectionIndexes)
 			{
 				DatabaseInstance.GetCollection(indexInfo["collection"])
-					.EnsureIndex(indexInfo["name"], BsonExpression.Create(indexInfo["expression"]), indexInfo["unique"]);
+					.EnsureIndex(indexInfo["name"], BsonExpression.Create(indexInfo["expression"], (IExpressionRegistry)null), indexInfo["unique"]);
 			}
 
 			DatabaseInstance.Checkpoint();

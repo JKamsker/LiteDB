@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -168,41 +169,36 @@ namespace LiteDB
                 value.Equals(this.Value, ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
         }
 
-        public bool IsOperand
+        public bool IsOperand(IExpressionRegistry registry)
         {
-            get
+            switch (this.Type)
             {
-                switch (this.Type)
-                {
-                    case TokenType.Percent:
-                    case TokenType.Slash:
-                    case TokenType.Asterisk:
-                    case TokenType.Plus:
-                    case TokenType.Minus:
-                    case TokenType.Equals:
-                    case TokenType.Greater:
-                    case TokenType.GreaterOrEquals:
-                    case TokenType.Less:
-                    case TokenType.LessOrEquals:
-                    case TokenType.NotEquals:
+                case TokenType.Percent:
+                case TokenType.Slash:
+                case TokenType.Asterisk:
+                case TokenType.Plus:
+                case TokenType.Minus:
+                case TokenType.Equals:
+                case TokenType.Greater:
+                case TokenType.GreaterOrEquals:
+                case TokenType.Less:
+                case TokenType.LessOrEquals:
+                case TokenType.NotEquals:
+                    return true;
+                case TokenType.Word:
+                    if (_keywords.Contains(Value))
+                    {
                         return true;
-                    case TokenType.Word:
-                        if (_keywords.Contains(Value))
-                        {
-                            return true;
-                        }
+                    }
 
-                        var registry = BsonExpression.CurrentRegistry;
+                    if (registry != null && (registry.ContainsKeyword(Value) || registry.ContainsOperator(Value)))
+                    {
+                        return true;
+                    }
 
-                        if (registry != null && (registry.ContainsKeyword(Value) || registry.ContainsOperator(Value)))
-                        {
-                            return true;
-                        }
-
-                        return false;
-                    default:
-                        return false;
-                }
+                    return false;
+                default:
+                    return false;
             }
         }
 
