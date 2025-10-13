@@ -43,6 +43,7 @@ namespace LiteDB.Engine
             if (pageID != uint.MaxValue)
             {
                 collectionPage = _snapshot.GetPage<CollectionPage>(pageID);
+                collectionPage.BindExpressionRegistry(_snapshot.Plugins?.Expressions);
 
                 return false;
             }
@@ -66,6 +67,7 @@ namespace LiteDB.Engine
 
             // create new collection page
             collectionPage = _snapshot.NewPage<CollectionPage>();
+            collectionPage.BindExpressionRegistry(_snapshot.Plugins?.Expressions);
             var pageID = collectionPage.PageID;
 
             // insert collection name/pageID in header only in commit operation

@@ -39,10 +39,7 @@ namespace LiteDB
         /// </summary>
         public int DeleteMany(string predicate, BsonDocument parameters)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.DeleteMany(BsonExpression.Create(predicate, parameters));
-            }
+            return this.DeleteMany(this.CreateExpression(predicate, parameters));
         }
 
         /// <summary>
@@ -50,15 +47,12 @@ namespace LiteDB
         /// </summary>
         public int DeleteMany(string predicate, params BsonValue[] args)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.DeleteMany(BsonExpression.Create(predicate, args));
-            }
+            return this.DeleteMany(this.CreateExpression(predicate, args));
         }
 
         /// <summary>
         /// Delete all documents based on predicate expression. Returns how many documents was deleted
         /// </summary>
-        public int DeleteMany(Expression<Func<T, bool>> predicate) => this.DeleteMany(_mapper.GetExpression(predicate));
+        public int DeleteMany(Expression<Func<T, bool>> predicate) => this.DeleteMany(_mapper.GetExpression(predicate, _expressions));
     }
 }

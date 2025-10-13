@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using LiteDB.Utils.Extensions;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -684,7 +685,7 @@ namespace LiteDB.Engine
             var indexPages = new HashSet<uint>();
 
             // getting all indexes pages from all indexes
-            foreach(var index in _collectionPage.GetCollectionIndexes())
+            foreach(var index in _collectionPage.GetCollectionIndexes().PreventChangeFullFX())
             {
                 if (index.IndexType != 0)
                 {
