@@ -28,6 +28,11 @@ namespace LiteDB
         /// </summary>
         public BsonMapper Mapper => _mapper;
 
+        /// <summary>
+        /// Gets the service container associated with this database instance.
+        /// </summary>
+        public LiteDatabaseServices Services { get; }
+
         #endregion
 
         #region Ctor
@@ -52,6 +57,7 @@ namespace LiteDB
             _disposeOnClose = true;
 
             _pluginContext = new DefaultPluginContext(connectionString, NullServiceProvider.Instance, NullLogger.Instance);
+            this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(plugins);
         }
@@ -76,6 +82,7 @@ namespace LiteDB
             _disposeOnClose = true;
 
             _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(plugins);
 
@@ -115,6 +122,7 @@ namespace LiteDB
             _disposeOnClose = disposeOnClose;
 
             _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(plugins);
         }
@@ -159,11 +167,6 @@ namespace LiteDB
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 
             return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions);
-        }
-
-        internal IDisposable EnterExpressionScope()
-        {
-            return BsonExpression.UseRegistry(_pluginContext.Expressions);
         }
 
         #endregion
@@ -298,8 +301,8 @@ namespace LiteDB
         {
             if (commandReader == null) throw new ArgumentNullException(nameof(commandReader));
 
-            var tokenizer = new Tokenizer(commandReader);
-            var sql = new SqlParser(_engine, tokenizer, parameters);
+            var tokenizer = new Tokenizer(commandReader, this.Services.ExpressionRegistry);
+            var sql = new SqlParser(_engine, tokenizer, parameters, this.Services.ExpressionRegistry);
             var reader = sql.Execute();
 
             return reader;
@@ -312,8 +315,8 @@ namespace LiteDB
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
 
-            var tokenizer = new Tokenizer(command);
-            var sql = new SqlParser(_engine, tokenizer, parameters);
+            var tokenizer = new Tokenizer(command, this.Services.ExpressionRegistry);
+            var sql = new SqlParser(_engine, tokenizer, parameters, this.Services.ExpressionRegistry);
             var reader = sql.Execute();
 
             return reader;

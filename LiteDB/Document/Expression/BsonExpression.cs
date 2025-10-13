@@ -6,9 +6,9 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using LiteDB.Plugins;
 using static LiteDB.Constants;
 
@@ -126,16 +126,33 @@ namespace LiteDB
         /// </summary>
         private BsonExpressionScalarDelegate _funcScalar;
 
-        private static readonly AsyncLocal<IExpressionRegistry> _currentRegistry = new AsyncLocal<IExpressionRegistry>();
+        private static readonly IExpressionRegistry _builtInRegistry = new ExpressionRegistry();
+        private static Func<IExpressionRegistry> _defaultRegistryResolver = () => _builtInRegistry;
 
-        internal static IDisposable UseRegistry(IExpressionRegistry registry)
+        internal static IExpressionRegistry ResolveRegistry(IExpressionRegistry registry)
         {
-            var previous = _currentRegistry.Value;
-            _currentRegistry.Value = registry;
-            return new RegistryScope(previous);
+            if (registry != null)
+            {
+                return registry;
+            }
+
+            var resolved = _defaultRegistryResolver?.Invoke();
+
+            if (resolved == null)
+            {
+                throw new LiteException(0, "No default expression registry is available. Use overloads that accept IExpressionRegistry explicitly.");
+            }
+
+            return resolved;
         }
 
-        internal static IExpressionRegistry CurrentRegistry => _currentRegistry.Value;
+        internal static IExpressionRegistry BuiltInRegistry => _builtInRegistry;
+
+        internal static Func<IExpressionRegistry> DefaultRegistryResolver
+        {
+            get => _defaultRegistryResolver;
+            set => _defaultRegistryResolver = value ?? (() => _builtInRegistry);
+        }
 
         /// <summary>
         /// Get default field name when need convert simple BsonValue into BsonDocument
@@ -292,88 +309,172 @@ namespace LiteDB
 
         #region Static method
 
-        private static readonly ConcurrentDictionary<string, BsonExpressionEnumerableDelegate> _cacheEnumerable = new ConcurrentDictionary<string, BsonExpressionEnumerableDelegate>();
-        private static readonly ConcurrentDictionary<string, BsonExpressionScalarDelegate> _cacheScalar = new ConcurrentDictionary<string, BsonExpressionScalarDelegate>();
-
-        /// <summary>
-        /// Parse string and create new instance of BsonExpression - can be cached
-        /// </summary>
-        public static BsonExpression Create(string expression)
+        private readonly struct CacheKey : IEquatable<CacheKey>
         {
-            return Create(expression, new BsonDocument());
-        }
+            private readonly IExpressionRegistry _registry;
+            private readonly string _source;
 
-        /// <summary>
-        /// Parse string and create new instance of BsonExpression - can be cached
-        /// </summary>
-        public static BsonExpression Create(string expression, params BsonValue[] args)
-        {
-            var parameters = new BsonDocument();
-
-            for(var i = 0; i < args.Length; i++)
+            public CacheKey(IExpressionRegistry registry, string source)
             {
-                parameters[i.ToString()] = args[i];
+                _registry = registry;
+                _source = source;
             }
 
-            return Create(expression, parameters);
+            public bool Equals(CacheKey other)
+            {
+                return ReferenceEquals(_registry, other._registry) && string.Equals(_source, other._source, StringComparison.Ordinal);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is CacheKey other && this.Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = _registry != null ? RuntimeHelpers.GetHashCode(_registry) : 0;
+                    hash = (hash * 397) ^ (_source != null ? _source.GetHashCode() : 0);
+                    return hash;
+                }
+            }
+        }
+
+        private static readonly ConcurrentDictionary<CacheKey, BsonExpressionEnumerableDelegate> _cacheEnumerable = new ConcurrentDictionary<CacheKey, BsonExpressionEnumerableDelegate>();
+        private static readonly ConcurrentDictionary<CacheKey, BsonExpressionScalarDelegate> _cacheScalar = new ConcurrentDictionary<CacheKey, BsonExpressionScalarDelegate>();
+
+        /// <summary>
+        /// Parse string and create new instance of BsonExpression - can be cached
+        /// </summary>
+        [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
+        public static BsonExpression Create(string expression)
+        {
+            return Create(expression, new BsonDocument(), null);
         }
 
         /// <summary>
         /// Parse string and create new instance of BsonExpression - can be cached
         /// </summary>
+        [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
+        public static BsonExpression Create(string expression, params BsonValue[] args)
+        {
+            return Create(expression, ResolveRegistry(null), args);
+        }
+
+        [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
+        public static BsonExpression Create(BsonExpression expression, params BsonValue[] args)
+        {
+            return Create(expression, ResolveRegistry(null), args);
+        }
+
+        /// <summary>
+        /// Parse string and create new instance of BsonExpression - can be cached
+        /// </summary>
+        [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression Create(string expression, BsonDocument parameters)
+        {
+            return Create(expression, parameters, null);
+        }
+
+        public static BsonExpression Create(string expression, IExpressionRegistry registry)
+        {
+            return Create(expression, new BsonDocument(), registry);
+        }
+
+        public static BsonExpression Create(string expression, BsonDocument parameters, IExpressionRegistry registry)
         {
             if (string.IsNullOrWhiteSpace(expression)) throw new ArgumentNullException(nameof(expression));
 
-            var tokenizer = new Tokenizer(expression);
+            var resolvedRegistry = ResolveRegistry(registry);
+            var tokenizer = new Tokenizer(expression, resolvedRegistry);
 
-            var expr = Create(tokenizer, BsonExpressionParserMode.Full, parameters);
+            var expr = Create(tokenizer, BsonExpressionParserMode.Full, parameters, resolvedRegistry);
 
             tokenizer.LookAhead().Expect(TokenType.EOF);
 
             return expr;
         }
 
+        public static BsonExpression Create(string expression, IExpressionRegistry registry, params BsonValue[] args)
+        {
+            var parameters = new BsonDocument();
+
+            for (var i = 0; i < args.Length; i++)
+            {
+                parameters[i.ToString()] = args[i];
+            }
+
+            return Create(expression, parameters, registry);
+        }
+
+        public static BsonExpression Create(BsonExpression expression, IExpressionRegistry registry, params BsonValue[] args)
+        {
+            if (expression == null) throw new ArgumentNullException(nameof(expression));
+
+            var parameters = new BsonDocument();
+
+            for (var i = 0; i < args.Length; i++)
+            {
+                parameters[i.ToString()] = args[i];
+            }
+
+            return Create(expression.Source, parameters, registry);
+        }
+
+        public static BsonExpression Compile(string expression, IExpressionRegistry registry)
+        {
+            return Create(expression, registry);
+        }
+
         /// <summary>
         /// Parse tokenizer and create new instance of BsonExpression - for now, do not use cache
         /// </summary>
-        internal static BsonExpression Create(Tokenizer tokenizer, BsonExpressionParserMode mode, BsonDocument parameters)
+        internal static BsonExpression Create(Tokenizer tokenizer, BsonExpressionParserMode mode, BsonDocument parameters, IExpressionRegistry registry)
         {
             if (tokenizer == null) throw new ArgumentNullException(nameof(tokenizer));
 
-            return ParseAndCompile(tokenizer, mode, parameters, DocumentScope.Root);
+            var resolvedRegistry = ResolveRegistry(registry);
+
+            return ParseAndCompile(tokenizer, mode, parameters, DocumentScope.Root, resolvedRegistry);
         }
 
         /// <summary>
         /// Parse and compile string expression and return BsonExpression
         /// </summary>
-        internal static BsonExpression ParseAndCompile(Tokenizer tokenizer, BsonExpressionParserMode mode, BsonDocument parameters, DocumentScope scope)
+        internal static BsonExpression ParseAndCompile(Tokenizer tokenizer, BsonExpressionParserMode mode, BsonDocument parameters, DocumentScope scope, IExpressionRegistry registry)
         {
             if (tokenizer == null) throw new ArgumentNullException(nameof(tokenizer));
 
             var context = new ExpressionContext();
 
+            var parser = new BsonExpressionParser(registry);
+
             var expr =
-                mode == BsonExpressionParserMode.Full ? BsonExpressionParser.ParseFullExpression(tokenizer, context, parameters, scope) :
-                mode == BsonExpressionParserMode.Single ? BsonExpressionParser.ParseSingleExpression(tokenizer, context, parameters, scope) :
-                mode == BsonExpressionParserMode.SelectDocument ? BsonExpressionParser.ParseSelectDocumentBuilder(tokenizer, context, parameters) :
-                BsonExpressionParser.ParseUpdateDocumentBuilder(tokenizer, context, parameters);
+                mode == BsonExpressionParserMode.Full ? parser.ParseFullExpression(tokenizer, context, parameters, scope) :
+                mode == BsonExpressionParserMode.Single ? parser.ParseSingleExpression(tokenizer, context, parameters, scope) :
+                mode == BsonExpressionParserMode.SelectDocument ? parser.ParseSelectDocumentBuilder(tokenizer, context, parameters) :
+                parser.ParseUpdateDocumentBuilder(tokenizer, context, parameters);
 
             // compile linq expression (with left+right expressions)
-            Compile(expr, context);
+            Compile(expr, context, registry);
 
             return expr;
         }
 
-        internal static void Compile(BsonExpression expr, ExpressionContext context)
+        internal static void Compile(BsonExpression expr, ExpressionContext context, IExpressionRegistry registry)
         {
             // compile linq expression according with return type (scalar or enumerable)
             // in both case, try use cached compiled version
+            var cacheKey = new CacheKey(registry, expr.Source);
+
+            var body = NormalizeParameters(expr.Expression, context);
+
             if (expr.IsScalar)
             {
-                var cached = _cacheScalar.GetOrAdd(expr.Source, s =>
+                var cached = _cacheScalar.GetOrAdd(cacheKey, s =>
                 {
-                    var lambda = System.Linq.Expressions.Expression.Lambda<BsonExpressionScalarDelegate>(expr.Expression, context.Source, context.Root, context.Current, context.Collation, context.Parameters);
+                    var lambda = System.Linq.Expressions.Expression.Lambda<BsonExpressionScalarDelegate>(body, context.Source, context.Root, context.Current, context.Collation, context.Parameters);
 
                     return lambda.Compile();
                 });
@@ -382,9 +483,9 @@ namespace LiteDB
             }
             else
             {
-                var cached = _cacheEnumerable.GetOrAdd(expr.Source, s =>
+                var cached = _cacheEnumerable.GetOrAdd(cacheKey, s =>
                 {
-                    var lambda = System.Linq.Expressions.Expression.Lambda<BsonExpressionEnumerableDelegate>(expr.Expression, context.Source, context.Root, context.Current, context.Collation, context.Parameters);
+                    var lambda = System.Linq.Expressions.Expression.Lambda<BsonExpressionEnumerableDelegate>(body, context.Source, context.Root, context.Current, context.Collation, context.Parameters);
 
                     return lambda.Compile();
                 });
@@ -393,8 +494,66 @@ namespace LiteDB
             }
 
             // compile child expressions (left/right)
-            if (expr.Left != null) Compile(expr.Left, context);
-            if (expr.Right != null) Compile(expr.Right, context);
+            if (expr.Left != null) Compile(expr.Left, context, registry);
+            if (expr.Right != null) Compile(expr.Right, context, registry);
+        }
+
+        private static Expression NormalizeParameters(Expression expression, ExpressionContext context)
+        {
+            if (expression == null) throw new ArgumentNullException(nameof(expression));
+            if (context == null) throw new ArgumentNullException(nameof(context));
+
+            return new ParameterNormalizer(context).Visit(expression);
+        }
+
+        private sealed class ParameterNormalizer : ExpressionVisitor
+        {
+            private readonly ExpressionContext _context;
+
+            public ParameterNormalizer(ExpressionContext context)
+            {
+                _context = context ?? throw new ArgumentNullException(nameof(context));
+            }
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                if (node == null)
+                {
+                    return base.VisitParameter(node);
+                }
+
+                if (node == _context.Source || node == _context.Root || node == _context.Current || node == _context.Collation || node == _context.Parameters)
+                {
+                    return node;
+                }
+
+                if (string.Equals(node.Name, "source", StringComparison.OrdinalIgnoreCase) && node.Type == typeof(IEnumerable<BsonDocument>))
+                {
+                    return _context.Source;
+                }
+
+                if (string.Equals(node.Name, "root", StringComparison.OrdinalIgnoreCase) && node.Type == typeof(BsonDocument))
+                {
+                    return _context.Root;
+                }
+
+                if (string.Equals(node.Name, "current", StringComparison.OrdinalIgnoreCase) && node.Type == typeof(BsonValue))
+                {
+                    return _context.Current;
+                }
+
+                if (string.Equals(node.Name, "collation", StringComparison.OrdinalIgnoreCase) && node.Type == typeof(Collation))
+                {
+                    return _context.Collation;
+                }
+
+                if (string.Equals(node.Name, "parameters", StringComparison.OrdinalIgnoreCase) && node.Type == typeof(BsonDocument))
+                {
+                    return _context.Parameters;
+                }
+
+                return base.VisitParameter(node);
+            }
         }
 
         /// <summary>
@@ -473,24 +632,5 @@ namespace LiteDB
             return $"`{this.Source}` [{this.Type}]";
         }
 
-        private sealed class RegistryScope : IDisposable
-        {
-            private readonly IExpressionRegistry _previous;
-            private bool _disposed;
-
-            public RegistryScope(IExpressionRegistry previous)
-            {
-                _previous = previous;
-            }
-
-            public void Dispose()
-            {
-                if (!_disposed)
-                {
-                    _currentRegistry.Value = _previous;
-                    _disposed = true;
-                }
-            }
-        }
     }
 }

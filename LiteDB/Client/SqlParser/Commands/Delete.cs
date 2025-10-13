@@ -24,7 +24,7 @@ namespace LiteDB
                 // read WHERE
                 _tokenizer.ReadToken();
 
-                where = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters);
+                where = BsonExpression.Create(_tokenizer, BsonExpressionParserMode.Full, _parameters, _expressions);
             }
 
             _tokenizer.ReadToken().Expect(TokenType.EOF, TokenType.SemiColon);
