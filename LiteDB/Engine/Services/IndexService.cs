@@ -37,7 +37,7 @@ namespace LiteDB.Engine
             var indexPage = _snapshot.NewPage<IndexPage>();
 
             // create index ref
-            var index = _snapshot.CollectionPage.InsertCollectionIndex(name, expr, unique);
+            var index = _snapshot.CollectionPage.InsertCollectionIndex(name, expr, unique, _snapshot.Plugins?.Expressions);
 
             // insert head/tail nodes
             var head = indexPage.InsertIndexNode(index.Slot, MAX_LEVEL_LENGTH, BsonValue.MinValue, PageAddress.Empty, bytesLength);

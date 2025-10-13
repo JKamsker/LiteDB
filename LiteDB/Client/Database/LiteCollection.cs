@@ -32,11 +32,6 @@ namespace LiteDB
         /// </summary>
         public EntityMapper EntityMapper => _entity;
 
-        internal IDisposable EnterExpressionScope()
-        {
-            return BsonExpression.UseRegistry(_expressions);
-        }
-
         internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper, IExpressionRegistry expressions)
         {
             _collection = name ?? mapper.ResolveCollectionName(typeof(T));
@@ -72,6 +67,16 @@ namespace LiteDB
                     _autoId = autoId;
                 }
             }
+        }
+
+        private BsonExpression CreateExpression(string expression, BsonDocument parameters)
+        {
+            return BsonExpression.Create(expression, parameters, _expressions);
+        }
+
+        private BsonExpression CreateExpression(string expression, params BsonValue[] args)
+        {
+            return BsonExpression.Create(expression, _expressions, args ?? Array.Empty<BsonValue>());
         }
     }
 }

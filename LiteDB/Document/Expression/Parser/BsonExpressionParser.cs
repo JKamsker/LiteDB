@@ -111,11 +111,9 @@ namespace LiteDB
             new OperatorDefinition("OR", " OR ", null, BsonExpressionType.Or, (int)BinaryOperatorPrecedence.LogicalOr)
         };
 
-        private static List<OperatorDefinition> GetOperatorTable()
+        private static List<OperatorDefinition> GetOperatorTable(IExpressionRegistry registry)
         {
             var table = new List<OperatorDefinition>(_builtInOperators);
-
-            var registry = BsonExpression.CurrentRegistry;
 
             if (registry != null)
             {
@@ -188,7 +186,7 @@ namespace LiteDB
             }
 
             var order = 0;
-            var operatorTable = GetOperatorTable();
+            var operatorTable = GetOperatorTable(context.Registry);
 
             // now, process operator in correct order
             while (values.Count >= 2)
@@ -798,7 +796,7 @@ namespace LiteDB
             {
                 tokenizer.ReadToken(); // consume .
 
-                var pathExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Source);
+                var pathExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Source, context.Registry, context);
 
                 if (pathExpr == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1131,7 +1129,7 @@ namespace LiteDB
             {
                 tokenizer.ReadToken(); // consume .
 
-                var mapExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Current);
+                var mapExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Current, context.Registry, context);
 
                 if (mapExpr == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1207,7 +1205,7 @@ namespace LiteDB
                 else
                 {
                     // inner expression
-                    inner = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters, DocumentScope.Current);
+                    inner = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters, DocumentScope.Current, context.Registry, context);
 
                     if (inner == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1257,9 +1255,11 @@ namespace LiteDB
                 case "SORT": return ParseFunction(token, BsonExpressionType.Sort, tokenizer, context, parameters, scope);
             }
 
-            if (BsonExpression.CurrentRegistry is ExpressionRegistry registry)
+            var registry = context.Registry;
+
+            if (registry != null)
             {
-                var registration = registry.FindByName(token);
+                var registration = registry.Functions.FirstOrDefault(f => f.Name.Equals(token, StringComparison.OrdinalIgnoreCase));
 
                 if (registration != null)
                 {
@@ -1316,7 +1316,7 @@ namespace LiteDB
                 tokenizer.ReadToken().Expect(TokenType.Greater);
 
                 var right = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters,
-                    left.Type == BsonExpressionType.Source ? DocumentScope.Source : DocumentScope.Current);
+                    left.Type == BsonExpressionType.Source ? DocumentScope.Source : DocumentScope.Current, context.Registry, context);
 
                 src.Append("=>" + right.Source);
                 args.Add(Expression.Constant(right));
