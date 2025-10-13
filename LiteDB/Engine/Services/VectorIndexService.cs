@@ -41,7 +41,7 @@ namespace LiteDB.Engine
 
         public void Upsert(CollectionIndex index, VectorIndexMetadata metadata, BsonDocument document, PageAddress dataBlock)
         {
-            var value = index.BsonExpr.ExecuteScalar(document, _collation);
+            var value = index.GetExpression(_snapshot.Plugins?.Expressions).ExecuteScalar(document, _collation);
 
             if (!TryExtractVector(value, metadata.Dimensions, out var vector))
             {

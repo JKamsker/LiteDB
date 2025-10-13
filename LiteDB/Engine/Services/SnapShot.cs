@@ -87,6 +87,7 @@ namespace LiteDB.Engine
             // clear local pages (will clear _collectionPage link reference)
             if (_collectionPage != null)
             {
+                _collectionPage.BindExpressions(_plugins?.Expressions);
                 // local pages contains only data/index pages
                 _localPages.Remove(_collectionPage.PageID);
             }

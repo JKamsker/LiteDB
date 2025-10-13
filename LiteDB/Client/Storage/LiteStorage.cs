@@ -68,12 +68,28 @@ namespace LiteDB
         /// <summary>
         /// Find all files that match with predicate expression.
         /// </summary>
-        public IEnumerable<LiteFileInfo<TFileId>> Find(string predicate, BsonDocument parameters) => this.Find(BsonExpression.Create(predicate, parameters));
+        public IEnumerable<LiteFileInfo<TFileId>> Find(string predicate, BsonDocument parameters)
+        {
+            if (_files is LiteCollection<LiteFileInfo<TFileId>> liteCollection)
+            {
+                return this.Find(liteCollection.CreateExpression(predicate, parameters));
+            }
+
+            return this.Find(BsonExpression.Create(predicate, parameters));
+        }
 
         /// <summary>
         /// Find all files that match with predicate expression.
         /// </summary>
-        public IEnumerable<LiteFileInfo<TFileId>> Find(string predicate, params BsonValue[] args) => this.Find(BsonExpression.Create(predicate, args));
+        public IEnumerable<LiteFileInfo<TFileId>> Find(string predicate, params BsonValue[] args)
+        {
+            if (_files is LiteCollection<LiteFileInfo<TFileId>> liteCollection)
+            {
+                return this.Find(liteCollection.CreateExpression(predicate, args));
+            }
+
+            return this.Find(BsonExpression.Create(predicate, args));
+        }
 
         /// <summary>
         /// Find all files that match with predicate expression.

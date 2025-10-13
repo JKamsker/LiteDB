@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -12,18 +13,20 @@ namespace LiteDB.Engine
     /// </summary>
     internal class SysQuery : SystemCollection
     {
-        private readonly ILiteEngine _engine;
+        private readonly LiteEngine _engine;
+        private readonly IExpressionRegistry _expressions;
 
-        public SysQuery(ILiteEngine engine) : base("$query")
+        public SysQuery(LiteEngine engine) : base("$query")
         {
-            _engine = engine; 
+            _engine = engine;
+            _expressions = engine.PluginContext?.Expressions;
         }
 
         public override IEnumerable<BsonDocument> Input(BsonValue options)
         {
             var query = options?.AsString ?? throw new LiteException(0, $"Collection $query(sql) requires `sql` string parameter");
 
-            var sql = new SqlParser(_engine, new Tokenizer(query), null);
+            var sql = new SqlParser(_engine, new Tokenizer(query), null, _expressions);
 
             using (var reader = sql.Execute())
             {
