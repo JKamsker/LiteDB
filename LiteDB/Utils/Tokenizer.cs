@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -108,6 +109,8 @@ namespace LiteDB
             this.Type = tokenType;
         }
 
+        internal IExpressionRegistry Registry { get; set; }
+
         public TokenType Type { get; private set; }
         public string Value { get; private set; }
         public long Position { get; private set; }
@@ -192,7 +195,7 @@ namespace LiteDB
                             return true;
                         }
 
-                        var registry = BsonExpression.CurrentRegistry;
+                        var registry = this.Registry;
 
                         if (registry != null && (registry.ContainsKeyword(Value) || registry.ContainsOperator(Value)))
                         {
@@ -221,6 +224,7 @@ namespace LiteDB
     internal class Tokenizer
     {
         private readonly TextReader _reader;
+        private readonly IExpressionRegistry _registry;
         private char _char = '\0';
         private Token _ahead = null;
         private bool _eof = false;
@@ -239,14 +243,15 @@ namespace LiteDB
             return false;
         }
 
-        public Tokenizer(string source)
-            : this(new StringReader(source))
+        public Tokenizer(string source, IExpressionRegistry registry = null)
+            : this(new StringReader(source ?? throw new ArgumentNullException(nameof(source))), registry)
         {
         }
 
-        public Tokenizer(TextReader reader)
+        public Tokenizer(TextReader reader, IExpressionRegistry registry = null)
         {
-            _reader = reader;
+            _reader = reader ?? throw new ArgumentNullException(nameof(reader));
+            _registry = registry;
 
             this.Position = 0;
             this.ReadChar();
@@ -337,7 +342,7 @@ namespace LiteDB
 
             if (_eof)
             {
-                return new Token(TokenType.EOF, null, this.Position);
+                return this.AttachRegistry(new Token(TokenType.EOF, null, this.Position));
             }
 
             Token token = null;
@@ -553,7 +558,17 @@ namespace LiteDB
                     break;
             }
 
-            return token ?? new Token(TokenType.Unknown, _char.ToString(), this.Position);
+            return this.AttachRegistry(token ?? new Token(TokenType.Unknown, _char.ToString(), this.Position));
+        }
+
+        private Token AttachRegistry(Token token)
+        {
+            if (token != null)
+            {
+                token.Registry = _registry;
+            }
+
+            return token;
         }
 
         /// <summary>

@@ -19,18 +19,12 @@ namespace LiteDB.Tests.QueryTest
     {
         private static BsonExpression CreateExpression(LiteDatabase db, string expression)
         {
-            using (db.EnterExpressionScope())
-            {
-                return BsonExpression.Create(expression);
-            }
+            return BsonExpression.Create(expression, db.Services.Expressions);
         }
 
         private static BsonExpression CreateExpression(LiteDatabase db, string expression, params BsonValue[] args)
         {
-            using (db.EnterExpressionScope())
-            {
-                return BsonExpression.Create(expression, args);
-            }
+            return BsonExpression.Create(expression, db.Services.Expressions, args);
         }
 
         private class VectorDocument

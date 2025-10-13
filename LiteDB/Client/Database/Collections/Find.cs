@@ -51,7 +51,7 @@ namespace LiteDB
         /// <summary>
         /// Find documents inside a collection using predicate expression.
         /// </summary>
-        public IEnumerable<T> Find(Expression<Func<T, bool>> predicate, int skip = 0, int limit = int.MaxValue) => this.Find(_mapper.GetExpression(predicate), skip, limit);
+        public IEnumerable<T> Find(Expression<Func<T, bool>> predicate, int skip = 0, int limit = int.MaxValue) => this.Find(_mapper.GetExpression(predicate, _expressions), skip, limit);
 
         #endregion
 
@@ -64,10 +64,9 @@ namespace LiteDB
         {
             if (id == null || id.IsNull) throw new ArgumentNullException(nameof(id));
 
-            using (this.EnterExpressionScope())
-            {
-                return this.Find(BsonExpression.Create("_id = @0", id)).FirstOrDefault();
-            }
+            var filter = BsonExpression.Create("_id = @0", _expressions, id);
+
+            return this.Find(filter).FirstOrDefault();
         }
 
         /// <summary>
@@ -80,10 +79,9 @@ namespace LiteDB
         /// </summary>
         public T FindOne(string predicate, BsonDocument parameters)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.FindOne(BsonExpression.Create(predicate, parameters));
-            }
+            var expression = BsonExpression.Create(predicate, parameters, _expressions);
+
+            return this.FindOne(expression);
         }
 
         /// <summary>
@@ -91,16 +89,15 @@ namespace LiteDB
         /// </summary>
         public T FindOne(BsonExpression predicate, params BsonValue[] args)
         {
-            using (this.EnterExpressionScope())
-            {
-                return this.FindOne(BsonExpression.Create(predicate, args));
-            }
+            var expression = BsonExpression.Create(predicate, _expressions, args);
+
+            return this.FindOne(expression);
         }
 
         /// <summary>
         /// Find the first document using predicate expression. Returns null if not found
         /// </summary>
-        public T FindOne(Expression<Func<T, bool>> predicate) => this.FindOne(_mapper.GetExpression(predicate));
+        public T FindOne(Expression<Func<T, bool>> predicate) => this.FindOne(_mapper.GetExpression(predicate, _expressions));
 
         /// <summary>
         /// Find the first document using defined query structure. Returns null if not found

@@ -58,6 +58,8 @@ namespace LiteDB.Engine
 
             try
             {
+                var expressions = _plugins?.Expressions;
+
                 foreach (var collection in reader.GetCollections())
                 {
                     // get snapshot, indexer and data services
@@ -85,7 +87,9 @@ namespace LiteDB.Engine
                             this.EnsureVectorIndex(
                                 collection,
                                 index.Name,
-                                BsonExpression.Create(index.Expression),
+                                expressions != null
+                                    ? BsonExpression.Create(index.Expression, expressions)
+                                    : BsonExpression.Create(index.Expression),
                                 new VectorIndexOptions(index.VectorMetadata.Dimensions, index.VectorMetadata.Metric));
                         }
                         else
@@ -93,7 +97,9 @@ namespace LiteDB.Engine
                             this.EnsureIndex(
                                 collection,
                                 index.Name,
-                                BsonExpression.Create(index.Expression),
+                                expressions != null
+                                    ? BsonExpression.Create(index.Expression, expressions)
+                                    : BsonExpression.Create(index.Expression),
                                 index.Unique);
                         }
                     }

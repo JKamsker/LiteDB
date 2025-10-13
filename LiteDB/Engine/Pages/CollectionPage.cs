@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 using static LiteDB.Constants;
 
@@ -28,19 +29,29 @@ namespace LiteDB.Engine
         /// </summary>
         private readonly Dictionary<string, CollectionIndex> _indexes = new Dictionary<string, CollectionIndex>();
         private readonly Dictionary<string, VectorIndexMetadata> _vectorIndexes = new Dictionary<string, VectorIndexMetadata>();
+        private readonly IExpressionRegistry _expressions;
 
-        public CollectionPage(PageBuffer buffer, uint pageID)
+        public CollectionPage(PageBuffer buffer, uint pageID, IExpressionRegistry expressions)
             : base(buffer, pageID, PageType.Collection)
         {
+            _expressions = expressions;
+
             for(var i = 0; i < PAGE_FREE_LIST_SLOTS; i++)
             {
                 this.FreeDataPageList[i] = uint.MaxValue;
             }
         }
 
-        public CollectionPage(PageBuffer buffer)
+        public CollectionPage(PageBuffer buffer, uint pageID)
+            : this(buffer, pageID, null)
+        {
+        }
+
+        public CollectionPage(PageBuffer buffer, IExpressionRegistry expressions)
             : base(buffer)
         {
+            _expressions = expressions;
+
             ENSURE(this.PageType == PageType.Collection, "page type must be collection page");
 
             if (this.PageType != PageType.Collection) throw LiteException.InvalidPageType(PageType.Collection, this);
@@ -63,7 +74,7 @@ namespace LiteDB.Engine
 
                 for(var i = 0; i < count; i++)
                 {
-                    var index = new CollectionIndex(r);
+                    var index = new CollectionIndex(r, _expressions);
 
                     _indexes[index.Name] = index;
                 }
@@ -78,6 +89,11 @@ namespace LiteDB.Engine
                     _vectorIndexes[name] = metadata;
                 }
             }
+        }
+
+        public CollectionPage(PageBuffer buffer)
+            : this(buffer, null)
+        {
         }
 
         public override PageBuffer UpdateBuffer()
@@ -204,7 +220,7 @@ namespace LiteDB.Engine
 
             var slot = (byte)(_indexes.Count == 0 ? 0 : (_indexes.Max(x => x.Value.Slot) + 1));
 
-            var index = new CollectionIndex(slot, 0, name, expr, unique);
+            var index = new CollectionIndex(slot, 0, name, expr, unique, _expressions);
 
             _indexes[name] = index;
 
@@ -226,7 +242,7 @@ namespace LiteDB.Engine
 
             var slot = (byte)(_indexes.Count == 0 ? 0 : (_indexes.Max(x => x.Value.Slot) + 1));
 
-            var index = new CollectionIndex(slot, 1, name, expr, false);
+            var index = new CollectionIndex(slot, 1, name, expr, false, _expressions);
             var metadata = new VectorIndexMetadata(slot, dimensions, metric);
 
             _indexes[name] = index;

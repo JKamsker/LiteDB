@@ -117,6 +117,8 @@ namespace LiteDB.Engine
         private void OptimizeTerms()
         {
             // simple optimization
+            var expressions = _snapshot.Plugins?.Expressions;
+
             for (var i = 0; i < _terms.Count; i++)
             {
                 var term = _terms[i];
@@ -128,7 +130,9 @@ namespace LiteDB.Engine
                     term.Type == BsonExpressionType.Equal &&
                     term.Right?.Type == BsonExpressionType.Path)
                 {
-                    _terms[i] = BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters);
+                    _terms[i] = expressions != null
+                        ? BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters, expressions)
+                        : BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters);
                 }
             }
         }
