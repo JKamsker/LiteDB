@@ -1,4 +1,5 @@
-﻿using LiteDB.Utils;
+﻿using LiteDB.Plugins;
+using LiteDB.Utils;
 
 using System;
 using System.Collections.Concurrent;
@@ -16,7 +17,7 @@ namespace LiteDB.Engine
     /// Its isolated from complete solution - works on low level only (no linq, no poco... just BSON objects)
     /// [ThreadSafe]
     /// </summary>
-    public partial class LiteEngine : ILiteEngine
+    public partial class LiteEngine : ILiteEngine, IPluginHost
     {
         #region Services instances
 
@@ -36,6 +37,16 @@ namespace LiteDB.Engine
 
         // immutable settings
         private readonly EngineSettings _settings;
+
+        private ILitePluginContext _plugins;
+
+        internal ILitePluginContext PluginContext => _plugins;
+
+        void IPluginHost.SetPluginContext(ILitePluginContext context)
+        {
+            _plugins = context;
+            _monitor?.SetPluginContext(context);
+        }
 
         /// <summary>
         /// All system read-only collections for get metadata database information
@@ -149,7 +160,7 @@ namespace LiteDB.Engine
                 _sortDisk = new SortDisk(_settings.CreateTempFactory(), CONTAINER_SORT_SIZE, _header.Pragmas);
 
                 // initialize transaction monitor as last service
-                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex);
+                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _plugins);
 
                 // register system collections
                 this.InitializeSystemCollections();

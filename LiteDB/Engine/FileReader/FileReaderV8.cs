@@ -390,6 +390,8 @@ namespace LiteDB.Engine
                             VectorMetadata = index.IndexType == 1 ? collectionPage.GetVectorIndexMetadata(index.Name) : null
                         };
 
+                        info.BindExpressionRegistry(index.Registry);
+
                         if (_indexes.TryGetValue(collection.Key, out var indexInfos))
                         {
                             indexInfos.Add(info);

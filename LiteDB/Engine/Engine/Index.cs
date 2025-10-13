@@ -1,8 +1,9 @@
-﻿using System;
+﻿using LiteDB.Plugins;
+using LiteDB.Vector;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using LiteDB.Vector;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -110,55 +111,25 @@ namespace LiteDB.Engine
             if (!name.IsWord()) throw LiteException.InvalidIndexName(name, collection, "Use only [a-Z$_]");
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
 
+            var strategy = _plugins?.Indexes?.GetByKind("vector");
+
+            if (strategy == null)
+            {
+                throw new LiteException(0, "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase.");
+            }
+
             return this.AutoTransaction(transaction =>
             {
                 var snapshot = transaction.CreateSnapshot(LockMode.Write, collection, true);
                 var collectionPage = snapshot.CollectionPage;
-                var indexer = new IndexService(snapshot, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
-                var data = new DataService(snapshot, _disk.MAX_ITEMS_COUNT);
-                var vectorService = new VectorIndexService(snapshot, _header.Pragmas.Collation);
 
-                var existing = collectionPage.GetCollectionIndex(name);
-                var existingMetadata = collectionPage.GetVectorIndexMetadata(name);
-
-                if (existing != null && existing.IndexType != 1)
+                var optionDocument = new BsonDocument
                 {
-                    throw LiteException.IndexAlreadyExist(name);
-                }
+                    ["dimensions"] = (int)options.Dimensions,
+                    ["metric"] = (int)options.Metric
+                };
 
-                if (existing != null && existingMetadata != null)
-                {
-                    if (existing.Expression != expression.Source)
-                    {
-                        throw LiteException.IndexAlreadyExist(name);
-                    }
-
-                    if (existingMetadata.Dimensions != options.Dimensions || existingMetadata.Metric != options.Metric)
-                    {
-                        throw new LiteException(0, $"Vector index '{name}' already exists with different options.");
-                    }
-
-                    return false;
-                }
-
-                LOG($"create vector index `{collection}.{name}`", "COMMAND");
-
-                var tuple = collectionPage.InsertVectorIndex(name, expression.Source, options.Dimensions, options.Metric);
-
-                foreach (var pkNode in new IndexAll("_id", LiteDB.Query.Ascending).Run(collectionPage, indexer))
-                {
-                    _state.Validate();
-
-                    using (var reader = new BufferReader(data.Read(pkNode.DataBlock)))
-                    {
-                        var doc = reader.ReadDocument(expression.Fields).GetValue();
-                        vectorService.Upsert(tuple.Index, tuple.Metadata, doc, pkNode.DataBlock);
-                    }
-
-                    transaction.Safepoint();
-                }
-
-                return true;
+                return strategy.EnsureIndex(snapshot, collectionPage, name, expression, optionDocument);
             });
         }
 
@@ -187,17 +158,16 @@ namespace LiteDB.Engine
                 // no index, no drop
                 if (index == null) return false;
 
-                if (index.IndexType == 1)
+                if (index.IndexType != 0)
                 {
-                    var metadata = col.GetVectorIndexMetadata(name);
-                    if (metadata != null)
+                    var strategy = _plugins?.Indexes?.GetByType(index.IndexType);
+
+                    if (strategy == null)
                     {
-                        var vectorService = new VectorIndexService(snapshot, _header.Pragmas.Collation);
-                        vectorService.Drop(metadata);
+                        throw new LiteException(0, $"Index '{name}' requires a registered plugin to be dropped.");
                     }
 
-                    snapshot.CollectionPage.DeleteCollectionIndex(name);
-                    return true;
+                    return strategy.DropIndex(snapshot, col, name);
                 }
 
                 // delete all data pages + indexes pages

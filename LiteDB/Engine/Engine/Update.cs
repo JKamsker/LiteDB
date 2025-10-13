@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LiteDB.Plugins;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using static LiteDB.Constants;
@@ -21,7 +22,7 @@ namespace LiteDB.Engine
                 var collectionPage = snapshot.CollectionPage;
                 var indexer = new IndexService(snapshot, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
                 var data = new DataService(snapshot, _disk.MAX_ITEMS_COUNT);
-                var vectorService = new VectorIndexService(snapshot, _header.Pragmas.Collation);
+                var pluginStrategies = _plugins?.Indexes?.All ?? Array.Empty<IIndexStrategy>();
                 var count = 0;
 
                 if (collectionPage == null) return 0;
@@ -34,7 +35,7 @@ namespace LiteDB.Engine
 
                     transaction.Safepoint();
 
-                    if (this.UpdateDocument(snapshot, collectionPage, doc, indexer, data, vectorService))
+                    if (this.UpdateDocument(snapshot, collectionPage, doc, indexer, data, pluginStrategies))
                     {
                         count++;
                     }
@@ -95,7 +96,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Implement internal update document
         /// </summary>
-        private bool UpdateDocument(Snapshot snapshot, CollectionPage col, BsonDocument doc, IndexService indexer, DataService data, VectorIndexService vectorService)
+        private bool UpdateDocument(Snapshot snapshot, CollectionPage col, BsonDocument doc, IndexService indexer, DataService data, IEnumerable<IIndexStrategy> pluginStrategies)
         {
             // normalize id before find
             var id = doc["_id"];
@@ -114,9 +115,9 @@ namespace LiteDB.Engine
             
             // update data storage
             data.Update(col, pkNode.DataBlock, doc);
-            foreach (var (vectorIndex, metadata) in col.GetVectorIndexes())
+            foreach (var strategy in pluginStrategies)
             {
-                vectorService.Upsert(vectorIndex, metadata, doc, pkNode.DataBlock);
+                strategy.OnDocumentUpsert(snapshot, col, pkNode.DataBlock, doc);
             }
             
             // get all current non-pk index nodes from this data block (slot, key, nodePosition)

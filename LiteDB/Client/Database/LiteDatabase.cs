@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using LiteDB.Engine;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -20,6 +21,12 @@ namespace LiteDB
         private readonly BsonMapper _mapper;
         private readonly bool _disposeOnClose;
         private readonly int? _checkpointOverride;
+        private readonly DefaultPluginContext _pluginContext;
+
+        /// <summary>
+        /// Provides access to plugin services registered for this database instance.
+        /// </summary>
+        public LiteDatabaseServices Services { get; }
 
         /// <summary>
         /// Get current instance of BsonMapper used in this database instance (can be BsonMapper.Global)
@@ -33,21 +40,26 @@ namespace LiteDB
         /// <summary>
         /// Starts LiteDB database using a connection string for file system database
         /// </summary>
-        public LiteDatabase(string connectionString, BsonMapper mapper = null)
-            : this(new ConnectionString(connectionString), mapper)
+        public LiteDatabase(string connectionString, BsonMapper mapper = null, IEnumerable<ILitePlugin> plugins = null)
+            : this(new ConnectionString(connectionString), mapper, plugins)
         {
         }
 
         /// <summary>
         /// Starts LiteDB database using a connection string for file system database
         /// </summary>
-        public LiteDatabase(ConnectionString connectionString, BsonMapper mapper = null)
+        public LiteDatabase(ConnectionString connectionString, BsonMapper mapper = null, IEnumerable<ILitePlugin> plugins = null)
         {
             if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
 
             _engine = connectionString.CreateEngine();
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
+
+            _pluginContext = new DefaultPluginContext(connectionString, NullServiceProvider.Instance, NullLogger.Instance);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePlugins(plugins);
         }
 
         /// <summary>
@@ -56,7 +68,8 @@ namespace LiteDB
         /// <param name="stream">DataStream reference </param>
         /// <param name="mapper">BsonMapper mapper reference</param>
         /// <param name="logStream">LogStream reference </param>
-        public LiteDatabase(Stream stream, BsonMapper mapper = null, Stream logStream = null)
+        /// <param name="plugins">Optional plugins that will be initialized for this database instance.</param>
+        public LiteDatabase(Stream stream, BsonMapper mapper = null, Stream logStream = null, IEnumerable<ILitePlugin> plugins = null)
         {
             var settings = new EngineSettings
             {
@@ -67,6 +80,11 @@ namespace LiteDB
             _engine = new LiteEngine(settings);
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
+
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePlugins(plugins);
 
             if (logStream == null && stream is not MemoryStream)
             {
@@ -93,11 +111,20 @@ namespace LiteDB
         /// <summary>
         /// Start LiteDB database using a pre-exiting engine. When LiteDatabase instance dispose engine instance will be disposed too
         /// </summary>
-        public LiteDatabase(ILiteEngine engine, BsonMapper mapper = null, bool disposeOnClose = true)
+        /// <param name="engine">Existing engine instance.</param>
+        /// <param name="mapper">Optional mapper reference.</param>
+        /// <param name="disposeOnClose">Indicates whether the database should dispose the engine when closed.</param>
+        /// <param name="plugins">Optional plugins that will be initialized for this database instance.</param>
+        public LiteDatabase(ILiteEngine engine, BsonMapper mapper = null, bool disposeOnClose = true, IEnumerable<ILitePlugin> plugins = null)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = disposeOnClose;
+
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePlugins(plugins);
         }
 
         #endregion
@@ -111,7 +138,7 @@ namespace LiteDB
         /// <param name="autoId">Define autoId data type (when object contains no id field)</param>
         public ILiteCollection<T> GetCollection<T>(string name, BsonAutoId autoId = BsonAutoId.ObjectId)
         {
-            return new LiteCollection<T>(name, autoId, _engine, _mapper);
+            return new LiteCollection<T>(name, autoId, _engine, _mapper, _pluginContext.Expressions);
         }
 
         /// <summary>
@@ -139,10 +166,38 @@ namespace LiteDB
         {
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 
-            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper);
+            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions);
         }
 
         #endregion
+
+        private void InitializePlugins(IEnumerable<ILitePlugin> plugins)
+        {
+            var initialized = new HashSet<Type>();
+
+            if (plugins != null)
+            {
+                foreach (var plugin in plugins)
+                {
+                    if (plugin == null)
+                    {
+                        continue;
+                    }
+
+                    var type = plugin.GetType();
+
+                    if (initialized.Add(type))
+                    {
+                        plugin.Initialize(this, _pluginContext);
+                    }
+                }
+            }
+
+            if (_engine is IPluginHost host)
+            {
+                host.SetPluginContext(_pluginContext);
+            }
+        }
 
         #region Transaction
 
@@ -246,7 +301,7 @@ namespace LiteDB
         {
             if (commandReader == null) throw new ArgumentNullException(nameof(commandReader));
 
-            var tokenizer = new Tokenizer(commandReader);
+            var tokenizer = new Tokenizer(commandReader, _pluginContext.Expressions);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 
@@ -260,7 +315,7 @@ namespace LiteDB
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
 
-            var tokenizer = new Tokenizer(command);
+            var tokenizer = new Tokenizer(command, _pluginContext.Expressions);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 
