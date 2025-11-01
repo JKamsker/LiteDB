@@ -6,10 +6,42 @@ dotnet add package LiteDB --version <next-version-without-spatial>
 dotnet add package LiteDB.Spatial --version <aligned-plugin-version>
 ```
 
-- Ensure the application targets `netstandard2.0` or later (for libraries) and `net8.0` where applicable.
-- Remove any direct references to `LiteDB/Spatial` namespaces migrated from earlier prototypes.
+- Target `netstandard2.0` (libraries) or `net8.0` (apps) and remove any direct references to the retired `LiteDB.Spatial` namespaces from core.
+- Lock both packages to the same version so the plugin and core share the same surface area.
 
-## 2. Enable the Spatial Plugin
+## 2. Declare Spatial Options
+
+Annotate spatial members or configure them through the entity builder so the plugin can provision metadata when `EnsureIndex` is called.
+
+### Attribute-based configuration
+```csharp
+public sealed class Place
+{
+    public int Id { get; set; }
+
+    [SpatialOptions(
+        Engine = SpatialEngineKind.Geographic2D,
+        PrecisionBits = 40,
+        DistanceMode = GeographicDistanceMode.Vincenty)]
+    public GeoPoint Location { get; set; } = default!;
+}
+```
+
+### Fluent mapper configuration
+```csharp
+BsonMapper.Global.Entity<Place>()
+    .WithSpatialOptions(p => p.Location, options =>
+    {
+        options.UseEngine(SpatialEngineKind.Geographic2D);
+        options.WithPrecisionBits(40);
+        options.WithDistanceTolerance(15);
+    });
+```
+
+- Declare a domain (`WithDomain`) for Cartesian datasets so the plugin can build Morton keys.
+- Existing metadata stored in `_spatial_meta` remains valid and is reused automatically.
+
+## 3. Enable the Spatial Plugin
 ```csharp
 using LiteDB;
 using LiteDB.Plugins;
@@ -22,34 +54,43 @@ using var db = new LiteDatabase(connection, plugins: new ILitePlugin[]
 });
 ```
 
-- The plugin registers spatial LINQ resolvers, expression functions, and index strategies during `LiteDatabase` construction.
-- If additional plugins (e.g., vector search) are used, order them according to desired planning priority.
+- The plugin registers LINQ resolver factories, expression functions, planners, and the index interceptor at construction time.
+- Compose multiple plugins by ordering them by priority; spatial works alongside vector search and other opt-in modules.
 
-## 3. Configure Collections
+## 4. Provision Indexes via `EnsureIndex`
 ```csharp
-var collection = db.GetCollection<PointDocument>("points");
+var points = db.GetCollection<Place>("places");
 
-collection.EnsureIndex(x => x.Location); // Spatial plugin intercepts GeoPoint indexes
-collection.Insert(new PointDocument { Id = 1, Location = new GeoPoint(48.8583, 2.2945) });
+// Triggers the spatial interceptor: metadata is created and indexes are built/backfilled.
+points.EnsureIndex(x => x.Location);
+```
 
-var nearby = collection.Query()
-    .WhereNear(x => x.Location, new GeoPoint(48.8583, 2.2945), 500)
+- The interceptor inspects the mapped member, merges the declared options, writes `_spatial_meta`, and backfills `_idx`/`_mbb` as needed.
+- If configuration is missing, the plugin logs actionable warnings and falls back to the core `EnsureIndex` behavior.
+
+## 5. Query with `WhereNear`
+```csharp
+var center = new GeoPoint(48.8583, 2.2945);
+
+var nearby = points.Query()
+    .WhereNear(x => x.Location, center, radius: 500,
+        distanceMode: GeographicDistanceMode.Haversine)
     .ToList();
 ```
 
-- The spatial plugin registers an index interceptor that recognizes `GeoPoint` (and related) types and routes `EnsureIndex` calls to the spatial index builder—no additional helpers required.
-- LINQ extension methods such as `WhereNear` wrap the underlying expressions to avoid namespace collisions while `SpatialExpressions.*` remains available for advanced scenarios.
-- Without the plugin, the query throws a descriptive `LiteException` requesting plugin enablement.
+- `WhereNear`, `WhereWithinBox`, and other helpers produce spatial expressions while keeping LINQ queries readable.
+- Equivalent string/BsonExpression overloads allow dynamic field targeting when the geometry path is not strongly typed.
 
-## 4. Verify Installation
+## 6. Verify Installation
 ```bash
 dotnet test LiteDB.sln --settings tests.runsettings
 dotnet test LiteDB.Spatial.Core.Tests
 ```
 
-- Core solution tests should pass with the plugin absent.
-- Spatial test suites should be executed with the plugin referenced to validate functional parity.
+- Core solution tests should pass even if the plugin assembly is absent.
+- Run spatial suites with the plugin referenced to validate the interceptor and query planner.
 
-## 5. Review Documentation
-- Reference updated docs under `docs/spatial-*.md` for migration notes and limitations.
-- Ensure release notes call out the plugin dependency and enabling instructions.
+## 7. Migration Checklist
+- Remove calls to `Spatial.Use*` helpers once `EnsureIndex` is guarded by the plugin.
+- Confirm README/samples instruct consumers to register `SpatialPlugin`.
+- Capture explain output with `docs/spatial-diagnostics.md` if query behavior changes.

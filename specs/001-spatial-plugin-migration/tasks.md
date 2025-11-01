@@ -45,7 +45,7 @@
 
 **Independent Test**: Follow quickstart/migration doc in clean project; plugin works, no spatial references remain in core.
 
-- [ ] T019 [US3] Update quickstart/migration docs including `EnsureIndex` interceptor and `WhereNear` usage (`docs/spatial-*.md`, `specs/001-spatial-plugin-migration/quickstart.md`)
+- [X] T019 [US3] Update quickstart/migration docs including `EnsureIndex` interceptor and `WhereNear` usage (`docs/spatial-*.md`, `specs/001-spatial-plugin-migration/quickstart.md`)
 - [ ] T020 [US3] Generate release notes highlighting plugin requirement and migration steps (`docs/spatial-plugin-migration-plan.md`, release template)
 - [ ] T021 [US3] Coordinate internal enablement checklist (link to docs in repository README/samples)
 

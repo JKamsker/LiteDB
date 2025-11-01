@@ -1,104 +1,116 @@
 # Spatial Indexing Guide
 
-LiteDB's spatial revamp introduces engine-specific configuration helpers, metadata-driven dispatch, and diagnostics that keep query plans transparent. This guide walks through configuring collections, executing queries, and inspecting plans using the new facade.
+LiteDB’s spatial plugin intercepts `EnsureIndex` to configure metadata, build spatial indexes, and keep query plans transparent. Use this guide to declare spatial options, index collections, and execute queries with the new opt-in module.
 
-## 1. Configuring collections
-
-### Geographic (WGS84)
+## 1. Enable the Plugin and Declare Options
 
 ```csharp
 using LiteDB;
+using LiteDB.Plugins;
 using LiteDB.Spatial;
 
-using var db = new LiteDatabase("Filename=places.db;Mode=Shared");
-var places = db.GetCollection<Place>("places");
-
-// Persist metadata, create indexes, and backfill existing documents.
-Spatial.UseGeographic(places, x => x.Location,
-    options: new SpatialIndexOptions(precisionBits: 40),
-    distanceMode: GeographicDistanceMode.Vincenty);
+var connection = new ConnectionString("Filename=places.db;Mode=Shared");
+using var db = new LiteDatabase(connection, plugins: new ILitePlugin[]
+{
+    new SpatialPlugin()
+});
 ```
 
-`UseGeographic` stores the engine choice, precision, and distance mode in `_spatial_meta`, builds the `_idx` and `_mbb` indexes, and runs the backfill utility so existing documents pick up the new fields.
-
-### Cartesian engines
-
-Flat coordinate systems use the `UseCartesian*` helpers and must supply a domain describing the valid coordinate range:
+Tell the interceptor how to provision metadata by annotating your entity or registering options with the mapper:
 
 ```csharp
-var measurements2D = db.GetCollection<SensorReading>("grid");
-Spatial.UseCartesian2D(measurements2D, r => r.Position, BoundingBox.From2D(-1000, -1000, 1000, 1000));
+public sealed class Place
+{
+    public int Id { get; set; }
 
-var measurements3D = db.GetCollection<Point3DRecord>("cloud");
-Spatial.UseCartesian3D(measurements3D, r => r.Position, BoundingBox.From3D(-50, -50, -50, 50, 50, 50));
+    [SpatialOptions(
+        Engine = SpatialEngineKind.Geographic2D,
+        PrecisionBits = 40,
+        DistanceMode = GeographicDistanceMode.Vincenty)]
+    public GeoPoint Location { get; set; } = default!;
+}
+
+BsonMapper.Global.Entity<Place>()
+    .WithSpatialOptions(x => x.Location, options =>
+    {
+        options.WithDistanceTolerance(15);
+        options.WithIndexFieldName("_idx");
+        options.WithBoundingBoxFieldName("_mbb");
+    });
 ```
 
-> **Note:** Three-dimensional Morton keys fit within 64 bits when each axis uses at
-> most 21 precision bits. Higher values are automatically clamped to keep range
-> scans accurate.
+- Geographic datasets default to the geographic engine when a `GeoPoint` member is discovered.
+- Cartesian datasets must declare a domain via `options.WithDomain(...)` (2D or 3D) to build valid Morton keys.
+- Existing `_spatial_meta` descriptors are reused automatically—attributes and mapper overrides only apply to new collections.
 
-After configuration you can call `Spatial.EnsurePointIndex(collection)` whenever you need to rebuild the computed fields (for example after bulk imports that bypassed the mapper). The helper reads the metadata, instantiates the correct engine, and replays the backfill.
+## 2. Provision Indexes with `EnsureIndex`
 
-## 2. Querying data
+```csharp
+var places = db.GetCollection<Place>("places");
+
+// Spatial interceptor provisions metadata, backfills indexes, and caches descriptors.
+places.EnsureIndex(p => p.Location);
+```
+
+- `EnsureIndex` logs warnings if configuration is incomplete (e.g., missing domain for Cartesian datasets) and falls back to the core implementation instead of mutating data blindly.
+- The plugin writes metadata to `_spatial_meta`, creates `_idx` and `_mbb` fields, and backfills existing documents for you.
+- Legacy helpers such as `Spatial.UseGeographic` remain available for fine-grained control, but the interceptor is the preferred path.
+
+## 3. Querying Data
 
 ### Radius searches
 
-`Spatial.Near` combines Morton range scans with `_mbb` filtering before falling back to exact distance checks using the configured engine.
-
 ```csharp
 var center = new GeoPoint(16.3738, 48.2082); // (longitude, latitude)
-var withinFiveKilometers = Spatial.Near(places, x => x.Location, center, radius: 5_000);
-```
 
-Results are sorted by distance and the tolerance configured in `SpatialIndexOptions` is honoured automatically.
-
-### Bounding boxes
-
-Bounding-box queries rely on the engine's covering logic and support anti-meridian ranges out of the box:
-
-```csharp
-var bounds = BoundingBox.From2D(170, -10, 190, 10); // crosses the anti-meridian
-var crossing = Spatial.WithinBoundingBox(places, x => x.Location, bounds);
-```
-
-For Cartesian datasets the same API accepts both 2D and 3D boxes created via `BoundingBox.From2D`/`From3D`.
-
-## 3. LINQ & expressions
-
-The `LiteDB.Spatial.Core` package still exposes `SpatialExpressions` for LINQ queries. Once a collection is configured, register the descriptors with the resolver and issue LINQ queries that reference the expression helpers:
-
-```csharp
-var resolver = new SpatialResolver(new[]
-{
-    new SpatialMetadataStore(db).GetRequiredDescriptor("places")
-});
-
-var query = places.Query()
-    .Where(p => SpatialExpressions.Near(p.Location, center, 5_000))
+var withinFiveKilometers = places.Query()
+    .WhereNear(p => p.Location, center, radius: 5_000,
+        distanceMode: GeographicDistanceMode.Haversine)
     .ToList();
 ```
 
-The metadata-driven planner keeps index usage consistent whether you issue imperative or LINQ-based queries.
+- `WhereNear` composes the spatial predicate, allowing the plugin’s query planner to pick the best index strategy.
+- String and `BsonExpression` overloads exist when the geometry path is resolved at runtime.
+- Prefer the extension methods for readability; `Spatial.Near` remains for imperative callers.
 
-## 4. Inspecting plans
+### Bounding boxes
 
-To see how a query will execute, call `SpatialDiagnostics.Explain(plan, descriptor)` after building a plan via the engine-specific helpers:
+```csharp
+var bounds = BoundingBox.From2D(170, -10, 190, 10); // crosses the anti-meridian
+
+var crossing = places.Query()
+    .WhereWithinBox(p => p.Location, bounds)
+    .ToList();
+```
+
+`WhereWithinBox` handles two- and three-dimensional domains and respects anti-meridian wrapping for geographic datasets.
+
+## 4. LINQ & Expressions
+
+- The plugin registers LINQ resolver factories, so `LiteDatabase.Query()` pipelines automatically resolve spatial members once `EnsureIndex` has provisioned metadata.
+- `SpatialExpressions` continues to expose low-level helpers for advanced scenarios, but extension methods cover common predicates without manual resolver wiring.
+- When no descriptor is found, the plugin produces a descriptive `LiteException` pointing back to `EnsureIndex`.
+
+## 5. Inspecting Plans
+
+Inspect how a query executes by combining the planner output with the diagnostics helpers:
 
 ```csharp
 var store = new SpatialMetadataStore(db);
 var descriptor = store.GetRequiredDescriptor("places");
-var engine = SpatialDiagnostics.Explain(
+
+var explain = SpatialDiagnostics.Explain(
     SpatialGeographic.Near(descriptor, center, 5_000),
     descriptor);
 
-Console.WriteLine(engine);
+Console.WriteLine(explain);
 ```
 
-A dedicated [Diagnostics reference](spatial-diagnostics.md) dives deeper into the explain output structure.
+See [spatial-diagnostics.md](spatial-diagnostics.md) for a detailed breakdown of each planning stage.
 
-## 5. Sample API
+## 6. Sample API
 
-`samples/SpatialApiSample` wires everything together with minimal endpoints:
+`samples/SpatialApiSample` showcases the full flow:
 
 ```bash
 dotnet run --project samples/SpatialApiSample
@@ -106,17 +118,12 @@ curl -X POST "http://localhost:5000/seed"
 curl "http://localhost:5000/places/near?lat=48.2&lon=16.37&radiusKm=5"
 ```
 
-The `/seed` endpoint calls `Spatial.UseGeographic` to configure the collection, and the `/places/near` and `/places/within` endpoints call the top-level helpers shown above.
+- `/seed` registers the plugin, annotates the entity, and calls `EnsureIndex` to provision metadata.
+- `/places/near` and `/places/within` rely on `WhereNear`/`WhereWithinBox`, ensuring the sample stays aligned with production guidance.
 
-## 6. Next steps
+## 7. Next steps
 
-* Read the [upgrade guide](spatial-upgrade.md) to migrate existing collections that relied on `_gh`.
-* Capture baselines with the refreshed `SpatialQueryBenchmarks` suite (see [benchmarks](spatial-benchmarks.md)).
-* Keep a metadata snapshot handy by querying the `_spatial_meta` collection:
-
-```csharp
-var meta = db.GetCollection("_spatial_meta").FindAll().ToList();
-```
-
-This helps confirm options, distance modes, and domains before running troubleshooting commands.
+- Follow the [upgrade guide](spatial-upgrade.md) to migrate collections created before the plugin era.
+- Capture baselines with the refreshed `SpatialQueryBenchmarks` suite (see [spatial-benchmarks.md](spatial-benchmarks.md)).
+- Keep a metadata snapshot handy by querying `_spatial_meta` for troubleshooting.
 

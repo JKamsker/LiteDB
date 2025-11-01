@@ -52,6 +52,7 @@
   - Refreshed `samples/SpatialApiSample` to instantiate `LiteDatabase` with `SpatialPlugin`, rely on interceptor-driven `EnsureIndex`, and expose REST endpoints using `Query().WhereNear`/`WhereWithinBox`.
   - Added a `LiteDB.Spatial` project reference to the sample and validated `dotnet build samples/SpatialApiSample/SpatialApiSample.csproj`, confirming the plugin-only integration flow compiles cleanly.
   - Outstanding Phase 4 follow-up is focused on capturing test evidence in `LiteDB.Spatial.Core.Tests` and enhancing diagnostic coverage, with docs and release prep queued for Phase 5.
+  - Completed the first release-readiness documentation pass (`specs/001-spatial-plugin-migration/quickstart.md`, `docs/spatial-guide.md`, `docs/spatial-upgrade.md`) so adoptors learn about the `EnsureIndex` interceptor and `WhereNear` extensions; Phase 5 now tracks release notes (T020) and repository enablement touchpoints (T021).
 - **Partially scaffolded**:
   - Added `LiteDB.Spatial.Plugin.SpatialPlugin` with placeholder registration for expression functions, LINQ resolvers, query planning rules, and index interceptors.
   - Created `SpatialPluginServices`, `SpatialPluginRegistry`, and supporting runtime helpers (e.g., `SpatialInitializer`, `SpatialExpressionFunctions`) to bridge plugin extensions with core metadata (`SpatialMetadataStore`) and enable on-demand descriptor provisioning.
@@ -64,7 +65,9 @@
   - Wire in diagnostics for misconfiguration (e.g., missing descriptors, conflicting engines) and integrate sample usage (`samples/SpatialApiSample`).
 
 ### Phase 5 – Documentation (T019–T021)
-- Not started; quickstart and migration docs still reference the old in-core spatial model.
+- ✅ T019 – Quickstart and migration docs now teach the plugin-based `EnsureIndex` interception flow, LINQ `WhereNear` helpers, and attribute-based configuration.
+- ⏳ T020 – Draft release notes summarising plugin requirements and migration steps.
+- ⏳ T021 – Update README/samples with enablement pointers to the refreshed docs.
 
 ### Phase 6 – Cross-cutting polish (T022–T025)
 - Benchmarks/stress comparisons, packaging adjustments, final validation, and documentation review are pending future work.
@@ -75,31 +78,16 @@
 - All Phase 1-3 TODO items are marked complete in `tasks.md`; Phases 4-6 remain open.
 
 ## Detailed Next Steps
-1. **T013 - Complete descriptor + index interception loop**  
-   1.1 Extend `SpatialPluginServices.TryCreateDescriptor` to inspect the entity member’s attributes/configured mapper settings and choose the appropriate initializer (enumerable + nullable unwrap in place as of 2025-11-02; still need attribute-driven overrides and non-point geometries).  
-   - Support `GeoPoint`, `GeoPoint3D`, and `BoundingBox` members plus list/array wrappers (`IEnumerable<GeoPoint>` etc.) by peeling collection types before dispatch.  
-   - Honor `[SpatialOptions]` attributes or fluent mapper overrides to capture custom engine/precision overrides when calling `SpatialInitializer.Ensure*`.  
-   1.2 When a descriptor is created, persist it immediately via `_metadataStore.SaveDescriptor` and re-query to ensure cached state matches on-disk metadata.  
-   1.3 Call into `SpatialInitializer` to materialize the Morton index/bounds field; capture both the generated index name and any auxiliary field names in `_geometryFieldsByIndex` for later reuse.  
-   1.4 Add defensive logging around unsupported member shapes (e.g., nullable structs, tuples) to aid diagnostics and return `false` so `EnsureIndex` falls back gracefully. *(Implemented 2025-11-02.)*
+1. **T020 – Release notes**  
+   - Summarise the spatial plugin split, mandatory plugin registration, and the new `EnsureIndex` interception workflow.  
+   - Call out migration steps (attributes/fluent options, `WhereNear` replacements) and link to `docs/spatial-upgrade.md`, `docs/spatial-guide.md`, and the quickstart.  
+   - Update `docs/spatial-plugin-migration-plan.md` and the release template to include these talking points.
 
-2. **T014 - Surface LINQ-friendly extensions**  
-   2.1 Finish `SpatialQueryableExtensions` by:  
-   - Allowing nullable geometry selectors by inserting `Expression.Convert` where needed. *(Implemented 2025-11-02 — GeoPoint?/GeoPoint3D? overloads now flow through resolver.)*  
-   - Providing overloads that accept raw field names (`string geometryField`) for dynamic scenarios and route them through `Where(Expression<Func<T,bool>>)` using `BsonExpression.Create`.  
-   2.2 Update `SpatialLinqResolver` so `SpatialExpressions.Near/InBox` and the new extension entry points both map to `SPATIAL_NEAR` / `SPATIAL_IN_BOX`.  
-   2.3 Add unit coverage in `LiteDB.Spatial.Core.Tests/Linq/SpatialQueryableExtensionsTests.cs` verifying the expression tree translation results in the expected call expressions and that null arguments throw.
+2. **T021 – Enablement checklist**  
+   - Add README and sample repository pointers that direct teams to the refreshed docs.  
+   - Ensure internal enablement checklists reference the quickstart, upgrade guide, and diagnostics documentation for first-line support.
 
-3. **T015 - Finalize query-planning rule mechanics**  
-   3.1 Ensure `SpatialPredicate.TryParse` understands aliases introduced by `Select` projections (e.g., `$._id` vs. `$._source.Geo`).  
-   3.2 Feed descriptor metadata back into the plan: choose geographic vs. Cartesian plan builders, compute radius conversions (meters <-> degrees) using `descriptor.Settings`.  
-   3.3 Populate `context.UseIndex(...)` with an `IndexCost` derived from range count and estimated result set; prefer multi-range indexes to highlight partial coverage.  
-   3.4 Write regression tests under `LiteDB.Spatial.Core.Tests/Planning/SpatialQueryPlanningRuleTests.cs` using an in-memory database with seeded descriptors; assert `Explain()` returns the plugin range results.  
-   3.5 Introduce verbose logging (guarded by plugin log level) to emit the computed ranges and filters for troubleshooting.
-
-4. **T016/T017 - Validation & diagnostics**  
-   4.1 Port historical spatial tests to plugin form, splitting into:  
-   - Interceptor tests covering automatic index materialization (`EnsureIndex` -> descriptor + metadata).  
-   - Query tests for `WhereNear`/`WhereWithinBox` across geographic and 3D datasets, validating both result sets and `Explain()` output.  
-   4.2 Implement diagnostic hooks in `SpatialPlugin` to surface missing descriptors or disabled interceptors via context logger and optional exception if `throwOnFailure` flag is set.  
-   4.3 Capture test run commands/results in this progress log once suites are passing to satisfy Phase 4 acceptance evidence.
+3. **Phase 6 preparation (T022–T025)**  
+   - Plan benchmark/stress comparisons once docs/release notes are finalised.  
+   - Audit packaging scripts so core packages exclude spatial binaries while plugin nupkgs continue to ship required assets.  
+   - Schedule final validation runs (core without plugin, spatial with plugin) and documentation/code review sweep before opening the PR.
