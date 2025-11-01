@@ -27,3 +27,10 @@ This document captures the high-level plan for moving spatial features out of th
 - Prepare documentation (`docs/spatial-*.md`, README snippets, sample programs) that introduces the spatial plugin and explains how to enable it for its first NuGet release—no migration guide is needed because this is the initial launch.
 - Adjust packaging metadata and CI workflows so the inaugural `LiteDB.Spatial` package ships as a plugin-aligned NuGet that depends on the plugin-friendly core.
 - Draft release notes announcing spatial’s initial availability and providing activation guidance for new adopters.
+
+## Release Notes Highlights (Draft)
+- **Spatial plugin now mandatory for spatial features** – Core packages (`LiteDB`, `LiteDB.Tests`) no longer ship spatial assemblies. Register `new SpatialPlugin()` via the `LiteDatabase` constructor to restore spatial indexes, expressions, and LINQ support.
+- **`EnsureIndex` interception replaces legacy helpers** – The plugin-managed interceptor provisions `_spatial_meta`, `_idx`, and `_mbb` automatically. Call `EnsureIndex` on spatial members after declaring [`SpatialOptions`](spatial-guide.md#1-enable-the-plugin-and-declare-options) to initialise metadata.
+- **Updated querying surface** – LINQ extension methods such as `WhereNear`/`WhereWithinBox` live in `LiteDB.Spatial`. Replace direct `Spatial.*` calls with the extensions for ergonomic queries; string and `BsonExpression` overloads remain available for dynamic scenarios.
+- **Migration guidance available** – Follow the [quickstart](../specs/001-spatial-plugin-migration/quickstart.md) for fresh projects, the [spatial guide](spatial-guide.md) for day-to-day usage, and the [upgrade guide](spatial-upgrade.md) when transitioning legacy collections that used `_gh` indices.
+- **Diagnostics and samples refreshed** – Leverage the [spatial diagnostics](spatial-diagnostics.md) tooling and the `samples/SpatialApiSample` project to validate plugin registration, index provisioning, and query plans before shipping.

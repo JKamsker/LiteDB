@@ -53,6 +53,9 @@
   - Added a `LiteDB.Spatial` project reference to the sample and validated `dotnet build samples/SpatialApiSample/SpatialApiSample.csproj`, confirming the plugin-only integration flow compiles cleanly.
   - Outstanding Phase 4 follow-up is focused on capturing test evidence in `LiteDB.Spatial.Core.Tests` and enhancing diagnostic coverage, with docs and release prep queued for Phase 5.
   - Completed the first release-readiness documentation pass (`specs/001-spatial-plugin-migration/quickstart.md`, `docs/spatial-guide.md`, `docs/spatial-upgrade.md`) so adoptors learn about the `EnsureIndex` interceptor and `WhereNear` extensions; Phase 5 now tracks release notes (T020) and repository enablement touchpoints (T021).
+- **2025-11-05 update**:
+  - Drafted spatial plugin release notes in `docs/spatial-plugin-migration-plan.md` and captured the copyable bullet list in `docs/release-template.md` so GitHub releases highlight plugin registration, `EnsureIndex` interception, and the new LINQ extensions.
+  - Marked T020 complete in `tasks.md`; Phase 5 now focuses on the enablement checklist (T021).
 - **Partially scaffolded**:
   - Added `LiteDB.Spatial.Plugin.SpatialPlugin` with placeholder registration for expression functions, LINQ resolvers, query planning rules, and index interceptors.
   - Created `SpatialPluginServices`, `SpatialPluginRegistry`, and supporting runtime helpers (e.g., `SpatialInitializer`, `SpatialExpressionFunctions`) to bridge plugin extensions with core metadata (`SpatialMetadataStore`) and enable on-demand descriptor provisioning.
@@ -66,7 +69,7 @@
 
 ### Phase 5 – Documentation (T019–T021)
 - ✅ T019 – Quickstart and migration docs now teach the plugin-based `EnsureIndex` interception flow, LINQ `WhereNear` helpers, and attribute-based configuration.
-- ⏳ T020 – Draft release notes summarising plugin requirements and migration steps.
+- ✅ T020 – Release notes template and plan now call out plugin registration, `EnsureIndex` interception, and the new query extensions.
 - ⏳ T021 – Update README/samples with enablement pointers to the refreshed docs.
 
 ### Phase 6 – Cross-cutting polish (T022–T025)
@@ -78,16 +81,11 @@
 - All Phase 1-3 TODO items are marked complete in `tasks.md`; Phases 4-6 remain open.
 
 ## Detailed Next Steps
-1. **T020 – Release notes**  
-   - Summarise the spatial plugin split, mandatory plugin registration, and the new `EnsureIndex` interception workflow.  
-   - Call out migration steps (attributes/fluent options, `WhereNear` replacements) and link to `docs/spatial-upgrade.md`, `docs/spatial-guide.md`, and the quickstart.  
-   - Update `docs/spatial-plugin-migration-plan.md` and the release template to include these talking points.
-
-2. **T021 – Enablement checklist**  
+1. **T021 – Enablement checklist**  
    - Add README and sample repository pointers that direct teams to the refreshed docs.  
    - Ensure internal enablement checklists reference the quickstart, upgrade guide, and diagnostics documentation for first-line support.
 
-3. **Phase 6 preparation (T022–T025)**  
+2. **Phase 6 preparation (T022–T025)**  
    - Plan benchmark/stress comparisons once docs/release notes are finalised.  
    - Audit packaging scripts so core packages exclude spatial binaries while plugin nupkgs continue to ship required assets.  
    - Schedule final validation runs (core without plugin, spatial with plugin) and documentation/code review sweep before opening the PR.
