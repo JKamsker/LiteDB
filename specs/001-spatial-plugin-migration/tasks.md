@@ -1,16 +1,16 @@
 # Tasks – Spatial Plugin Migration
 
 ## Phase 1 – Setup
-- [ ] T001 Verify branch `001-spatial-plugin-migration` is active and spec artifacts in `specs/001-spatial-plugin-migration/` remain up to date
-- [ ] T002 Align solution/package references to remove in-core spatial dependencies (update `LiteDB/LiteDB.csproj`, `LiteDB.Tests/LiteDB.Tests.csproj`, etc.)
-- [ ] T003 Prepare benchmark and stress harness baselines for comparison (`LiteDB.Benchmarks`, `LiteDB.Stress`)
+- [X] T001 Verify branch `001-spatial-plugin-migration` is active and spec artifacts in `specs/001-spatial-plugin-migration/` remain up to date
+- [X] T002 Align solution/package references to remove in-core spatial dependencies (update `LiteDB/LiteDB.csproj`, `LiteDB.Tests/LiteDB.Tests.csproj`, etc.)
+- [X] T003 Prepare benchmark and stress harness baselines for comparison (`LiteDB.Benchmarks`, `LiteDB.Stress`)
 
 ## Phase 2 – Foundational Infrastructure
-- [ ] T004 Introduce LINQ resolver factory registry on plugin context (`LiteDB/Plugins/ILitePluginContext.cs`, `LiteDB/Plugins/DefaultPluginContext.cs`)
-- [ ] T005 Extend `LiteDB/Client/Mapper/Linq/LinqExpressionVisitor.cs` to utilize plugin-provided resolvers with memoization cache
-- [ ] T006 Expand `LiteDB/Plugins/IQueryPlanningRule` and `LiteDB/Engine/Query/QueryOptimization.cs` to pass structured context and iterate plugin rules
-- [ ] T007 Implement plugin-managed index interceptor pipeline (`LiteDB/Plugins/DefaultPluginContext.cs`, ensure hooks in `LiteDB/Client/Database/LiteCollection.cs`)
-- [ ] T008 Ensure `LiteDB.Tests` include regression coverage for plugin-disabled scenarios after hook changes
+- [X] T004 Introduce LINQ resolver factory registry on plugin context (`LiteDB/Plugins/ILitePluginContext.cs`, `LiteDB/Plugins/DefaultPluginContext.cs`)
+- [X] T005 Extend `LiteDB/Client/Mapper/Linq/LinqExpressionVisitor.cs` to utilize plugin-provided resolvers with memoization cache
+- [X] T006 Expand `LiteDB/Plugins/IQueryPlanningRule` and `LiteDB/Engine/Query/QueryOptimization.cs` to pass structured context and iterate plugin rules
+- [X] T007 Implement plugin-managed index interceptor pipeline (`LiteDB/Plugins/DefaultPluginContext.cs`, ensure hooks in `LiteDB/Client/Database/LiteCollection.cs`)
+- [X] T008 Ensure `LiteDB.Tests` include regression coverage for plugin-disabled scenarios after hook changes
 
 ## Phase 3 – User Story 1: Core build without spatial baggage (Priority P1)
 
@@ -18,10 +18,10 @@
 
 **Independent Test**: `dotnet build LiteDB.sln -c Release` and `dotnet test LiteDB.sln --settings tests.runsettings` run without spatial plugin references.
 
-- [ ] T009 [US1] Remove spatial namespaces/code from core (`LiteDB/Spatial/*`, references in `LiteDB.csproj`)
-- [ ] T010 [US1] Update client/document/query code to eliminate spatial-specific logic (e.g., remove `IsSpatialPredicate`, tidy `SpatialResolver` references)
-- [ ] T011 [US1] Adjust tests to skip or re-target spatial cases when plugin disabled (`LiteDB.Tests/Spatial/*`, ensure clear error messaging)
-- [ ] T012 [US1] Validate build/test pipelines post-removal (record size change of core package)
+- [X] T009 [US1] Remove spatial namespaces/code from core (`LiteDB/Spatial/*`, references in `LiteDB.csproj`)
+- [X] T010 [US1] Update client/document/query code to eliminate spatial-specific logic (e.g., remove `IsSpatialPredicate`, tidy `SpatialResolver` references)
+- [X] T011 [US1] Adjust tests to skip or re-target spatial cases when plugin disabled (`LiteDB.Tests/Spatial/*`, ensure clear error messaging)
+- [X] T012 [US1] Validate build/test pipelines post-removal (record size change of core package)
 
 ## Phase 4 – User Story 2: Opt-in spatial plugin restoration (Priority P2)
 
@@ -63,4 +63,3 @@
 
 ## MVP Scope
 - Completing Phase 3 (Tasks T009–T012) delivers an MVP where core builds without spatial baggage and ensures plugin hooks exist, even if spatial functionality is not yet restored.
-

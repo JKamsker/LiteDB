@@ -10,12 +10,15 @@ namespace LiteDB
     {
         private readonly string _collection;
         private readonly ILiteEngine _engine;
+        private readonly LiteDatabase _database;
         private readonly List<BsonExpression> _includes;
         private readonly BsonMapper _mapper;
         private readonly EntityMapper _entity;
         private readonly MemberMapper _id;
         private readonly BsonAutoId _autoId;
         private readonly IExpressionRegistry _expressions;
+        private readonly ILinqResolverRegistry _linqResolvers;
+        private readonly IIndexInterceptorRegistry _indexInterceptors;
 
         /// <summary>
         /// Get collection name
@@ -32,13 +35,16 @@ namespace LiteDB
         /// </summary>
         public EntityMapper EntityMapper => _entity;
 
-        internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper, IExpressionRegistry expressions)
+        internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper, IExpressionRegistry expressions, LiteDatabase database, ILinqResolverRegistry linqResolvers, IIndexInterceptorRegistry indexInterceptors)
         {
             _collection = name ?? mapper.ResolveCollectionName(typeof(T));
             _engine = engine;
             _mapper = mapper;
             _includes = new List<BsonExpression>();
             _expressions = expressions;
+            _database = database;
+            _linqResolvers = linqResolvers;
+            _indexInterceptors = indexInterceptors;
 
             // if strong typed collection, get _id member mapped (if exists)
             if (typeof(T) == typeof(BsonDocument))
