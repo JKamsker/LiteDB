@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../LiteDB/LiteDB.csproj" />
+    <ProjectReference Include="../../LiteDB.Spatial/LiteDB.Spatial.csproj" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,7 @@
 using LiteDB;
+using LiteDB.Plugins;
 using LiteDB.Spatial;
+using LiteDB.Spatial.Plugin;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
@@ -8,9 +10,9 @@ const string DatabasePath = "spatial-sample.db";
 
 app.MapPost("/seed", () =>
 {
-    using var db = new LiteDatabase(DatabasePath);
+    using var db = CreateDatabase();
     var places = db.GetCollection<Place>("places");
-    Spatial.UseGeographic(places, x => x.Location);
+    places.EnsureIndex(x => x.Location);
 
     if (places.Count() > 0)
     {
@@ -36,14 +38,16 @@ app.MapPost("/seed", () =>
 
 app.MapGet("/places/near", (double lat, double lon, double radiusKm) =>
 {
-    using var db = new LiteDatabase(DatabasePath);
+    using var db = CreateDatabase();
     var places = db.GetCollection<Place>("places");
-    Spatial.EnsurePointIndex(places);
+    places.EnsureIndex(x => x.Location);
 
     var center = new GeoPoint(lon, lat);
     var radiusMeters = radiusKm * 1000;
 
-    var results = Spatial.Near(places, x => x.Location, center, radiusMeters)
+    var results = places
+        .Query()
+        .WhereNear(x => x.Location, center, radiusMeters)
         .Select(x => new { x.Name, x.Location.Latitude, x.Location.Longitude })
         .ToList();
 
@@ -52,13 +56,15 @@ app.MapGet("/places/near", (double lat, double lon, double radiusKm) =>
 
 app.MapGet("/places/within", (double minLon, double minLat, double maxLon, double maxLat) =>
 {
-    using var db = new LiteDatabase(DatabasePath);
+    using var db = CreateDatabase();
     var places = db.GetCollection<Place>("places");
-    Spatial.EnsurePointIndex(places);
+    places.EnsureIndex(x => x.Location);
 
     var bounds = BoundingBox.From2D(minLon, minLat, maxLon, maxLat);
 
-    var results = Spatial.WithinBoundingBox(places, x => x.Location, bounds)
+    var results = places
+        .Query()
+        .WhereWithinBox(x => x.Location, bounds)
         .Select(x => new { x.Name, x.Location.Latitude, x.Location.Longitude })
         .ToList();
 
@@ -66,6 +72,14 @@ app.MapGet("/places/within", (double minLon, double minLat, double maxLon, doubl
 });
 
 app.Run();
+
+LiteDatabase CreateDatabase()
+{
+    return new LiteDatabase(DatabasePath, plugins: new ILitePlugin[]
+    {
+        new SpatialPlugin()
+    });
+}
 
 public class Place
 {
