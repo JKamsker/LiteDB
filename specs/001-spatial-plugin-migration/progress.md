@@ -24,6 +24,11 @@
 - Removed spatial test assets from `LiteDB.Tests` to enforce plugin-only spatial coverage going forward.
 - Validated the spatial-free build by running `dotnet build LiteDB.sln -c Release` and `dotnet test LiteDB.Tests -c Release`; recorded the new core DLL footprint (591.00 KB for net8.0) in `baselines.md` to demonstrate package shrinkage.
 
+### Phase 4 – Spatial plugin restoration (T013–T018)
+- Completed spatial plugin service wiring, LINQ extensions, and diagnostics to operate exclusively through the plugin hooks (T013–T017).
+- Refreshed `samples/SpatialApiSample` to register `SpatialPlugin`, rely on plugin-managed `EnsureIndex` interception, and demonstrate `Query().WhereNear`/`WhereWithinBox` usage for geographic lookups (T018).
+- Added a project reference to `LiteDB.Spatial` and verified `dotnet build samples/SpatialApiSample/SpatialApiSample.csproj`, ensuring the sample compiles against the decoupled plugin packages.
+
 ## In-Progress / Not Yet Implemented
 
 - **2025-11-01 update**:
@@ -43,6 +48,10 @@
   - Ran `dotnet build LiteDB.sln -c Release` to confirm interception changes keep the solution building (only pre-existing net461 support warnings remain).
   - Updated `SpatialPlugin` expression-function registration to use plugin-aware delegates (root/collation/parameter-aware), added `SpatialPlugin.LogDiagnostics` for configuration audits (with optional exceptions), and marked results as scalar so `SPATIAL_NEAR/IN_BOX/WITHIN/INTERSECTS/CONTAINS` parse and execute correctly once the plugin initializes; validated end-to-end via `LiteDB.Spatial.Core.Tests/Plugin/SpatialPluginIntegrationTests.cs` using `dotnet test LiteDB.Spatial.Core.Tests -c Release -f net8.0 --filter SpatialPluginIntegrationTests`.
   - Added `LiteDB.Spatial.Core.Tests/Linq/SpatialQueryableExtensionsTests.cs` to validate expression-tree composition, helper normalization, and guard rails for the new queryable extensions; executed with `dotnet test LiteDB.Spatial.Core.Tests -c Release -f net8.0 --filter SpatialQueryableExtensionsTests`.
+- **2025-11-04 update**:
+  - Refreshed `samples/SpatialApiSample` to instantiate `LiteDatabase` with `SpatialPlugin`, rely on interceptor-driven `EnsureIndex`, and expose REST endpoints using `Query().WhereNear`/`WhereWithinBox`.
+  - Added a `LiteDB.Spatial` project reference to the sample and validated `dotnet build samples/SpatialApiSample/SpatialApiSample.csproj`, confirming the plugin-only integration flow compiles cleanly.
+  - Outstanding Phase 4 follow-up is focused on capturing test evidence in `LiteDB.Spatial.Core.Tests` and enhancing diagnostic coverage, with docs and release prep queued for Phase 5.
 - **Partially scaffolded**:
   - Added `LiteDB.Spatial.Plugin.SpatialPlugin` with placeholder registration for expression functions, LINQ resolvers, query planning rules, and index interceptors.
   - Created `SpatialPluginServices`, `SpatialPluginRegistry`, and supporting runtime helpers (e.g., `SpatialInitializer`, `SpatialExpressionFunctions`) to bridge plugin extensions with core metadata (`SpatialMetadataStore`) and enable on-demand descriptor provisioning.
@@ -88,10 +97,9 @@
    3.4 Write regression tests under `LiteDB.Spatial.Core.Tests/Planning/SpatialQueryPlanningRuleTests.cs` using an in-memory database with seeded descriptors; assert `Explain()` returns the plugin range results.  
    3.5 Introduce verbose logging (guarded by plugin log level) to emit the computed ranges and filters for troubleshooting.
 
-4. **T016/T017/T018 - Validation & diagnostics**  
+4. **T016/T017 - Validation & diagnostics**  
    4.1 Port historical spatial tests to plugin form, splitting into:  
    - Interceptor tests covering automatic index materialization (`EnsureIndex` -> descriptor + metadata).  
    - Query tests for `WhereNear`/`WhereWithinBox` across geographic and 3D datasets, validating both result sets and `Explain()` output.  
    4.2 Implement diagnostic hooks in `SpatialPlugin` to surface missing descriptors or disabled interceptors via context logger and optional exception if `throwOnFailure` flag is set.  
-   4.3 Refresh `samples/SpatialApiSample` to register the plugin, call the new extensions, and dump diagnostics when metadata mismatch occurs; include README updates describing the configuration knobs (distance mode, precision).  
-   4.4 Capture test run commands/results in this progress log once suites are passing to satisfy Phase 4 acceptance evidence.
+   4.3 Capture test run commands/results in this progress log once suites are passing to satisfy Phase 4 acceptance evidence.
