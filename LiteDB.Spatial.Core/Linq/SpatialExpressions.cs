@@ -1,4 +1,5 @@
 using System;
+using LiteDB;
 
 namespace LiteDB.Spatial;
 
@@ -18,10 +19,28 @@ public static class SpatialExpressions
     }
 
     /// <summary>
+    /// Placeholder for a query that selects points near a geographic center using an explicit distance formula.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Always thrown when invoked directly.</exception>
+    public static bool Near(GeoPoint candidate, GeoPoint center, double radius, GeographicDistanceMode? mode)
+    {
+        throw CreateUsageException();
+    }
+
+    /// <summary>
     /// Placeholder for a query that selects points near a three-dimensional center.
     /// </summary>
     /// <exception cref="InvalidOperationException">Always thrown when invoked directly.</exception>
     public static bool Near(GeoPoint3D candidate, GeoPoint3D center, double radius)
+    {
+        throw CreateUsageException();
+    }
+
+    /// <summary>
+    /// Placeholder for a query that selects points near a three-dimensional center.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Always thrown when invoked directly.</exception>
+    public static bool Near(GeoPoint3D candidate, GeoPoint3D center, double radius, GeographicDistanceMode? mode)
     {
         throw CreateUsageException();
     }

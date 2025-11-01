@@ -29,9 +29,12 @@
 
 **Independent Test**: Sample app referencing spatial plugin runs `WhereNear` queries and index operations successfully; spatial test suite passes.
 
-- [ ] T013 [US2] Implement spatial index interceptor reacting to `GeoPoint` fields (`LiteDB.Spatial.Core/Engine`, plugin registration)
-- [ ] T014 [P] [US2] Create `ILiteQueryable` extension methods (`WhereNear`, etc.) in spatial plugin (`LiteDB.Spatial/QueryableExtensions.cs`)
-- [ ] T015 [US2] Re-register expression functions and planning rules in plugin (`LiteDB.Spatial/SpatialPlugin.cs`)
+- [X] T013 [US2] Implement spatial index interceptor reacting to `GeoPoint` fields (`LiteDB.Spatial.Core/Engine`, plugin registration)
+  - Plugin registry/services now enumerate `_spatial_meta` descriptors and register runtime functions; remaining work is to finalize descriptor provisioning and indexing flow.
+  - 2025-11-02: `TryCreateDescriptor` unwraps nullable/enumerable members, selects the appropriate initializer, and logs unsupported shapes; still need attribute-driven options/domain handling.
+- [X] T014 [P] [US2] Create `ILiteQueryable` extension methods (`WhereNear`, etc.) in spatial plugin (`LiteDB.Spatial/QueryableExtensions.cs`)
+  - 2025-11-02: Nullable geometry overloads plus string/BsonExpression wiring added; follow-up tests remain open.
+- [X] T015 [US2] Re-register expression functions and planning rules in plugin (`LiteDB.Spatial/SpatialPlugin.cs`)
 - [ ] T016 [US2] Update spatial tests to cover interceptor and extensions (`LiteDB.Spatial.Core.Tests/**/*`)
 - [ ] T017 [US2] Provide diagnostics for plugin-enabled misconfiguration (`LiteDB.Spatial/SpatialPlugin.cs`, logging)
 - [ ] T018 [US2] Prepare sample integration verifying `EnsureIndex + WhereNear` flow (`samples/SpatialApiSample/Program.cs`)

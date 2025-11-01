@@ -1,5 +1,3 @@
-extern alias LiteDbBase;
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -55,11 +53,24 @@ public sealed class CartesianPolygonDifferentialTests
         });
     }
 
-    private static LiteDbBase::LiteDB.Spatial.GeoPolygon BuildLiteDbPolygon(IReadOnlyList<CartesianPoint2D> ring)
+    private static GeoPolygon BuildLiteDbPolygon(IReadOnlyList<CartesianPoint2D> ring)
     {
-        var outer = ring.Take(ring.Count - 1).Select(p => new LiteDbBase::LiteDB.Spatial.GeoPoint(p.Y, p.X)).ToList();
-        outer.Add(new LiteDbBase::LiteDB.Spatial.GeoPoint(ring[0].Y, ring[0].X));
-        return new LiteDbBase::LiteDB.Spatial.GeoPolygon(outer);
+        if (ring == null || ring.Count < 4)
+        {
+            throw new ArgumentException("Polygons require at least four points (including closure).", nameof(ring));
+        }
+
+        var outer = new List<GeoPoint>(ring.Count);
+        for (var i = 0; i < ring.Count - 1; i++)
+        {
+            var point = ring[i];
+            outer.Add(new GeoPoint(point.X, point.Y));
+        }
+
+        var first = ring[0];
+        outer.Add(new GeoPoint(first.X, first.Y));
+
+        return new GeoPolygon(outer);
     }
 
     private static void RunWithSnapshot<T>(string scenario, T payload, Action body)

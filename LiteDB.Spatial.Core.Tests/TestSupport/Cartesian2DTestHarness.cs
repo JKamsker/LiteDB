@@ -7,8 +7,6 @@ using System.Linq;
 using FluentAssertions;
 using LiteDB.Spatial;
 using BaseLiteDB = LiteDbBase::LiteDB;
-using BaseGeoPoint = LiteDbBase::LiteDB.Spatial.GeoPoint;
-using BaseGeoPolygon = LiteDbBase::LiteDB.Spatial.GeoPolygon;
 
 namespace LiteDB.Spatial.Core.Tests.TestSupport;
 
@@ -92,7 +90,7 @@ internal sealed class Cartesian2DTestHarness : IDisposable
         return candidates.Exact.OrderBy(r => r.Id).ToList();
     }
 
-    public IReadOnlyList<PointRecord> ExecutePolygon(BaseGeoPolygon polygon, Func<CartesianPoint2D, bool> oracle, out CandidateBreakdown breakdown)
+    public IReadOnlyList<PointRecord> ExecutePolygon(GeoPolygon polygon, Func<CartesianPoint2D, bool> oracle, out CandidateBreakdown breakdown)
     {
         var bounds = ComputeBounds(polygon);
         var plan = SpatialCartesian2D.WithinBoundingBox(_descriptor, bounds);
@@ -153,12 +151,13 @@ internal sealed class Cartesian2DTestHarness : IDisposable
         return new CandidateBreakdown(indexHits, prefilterHits, exactHits);
     }
 
-    private static BoundingBox ComputeBounds(BaseGeoPolygon polygon)
+    private static BoundingBox ComputeBounds(GeoPolygon polygon)
     {
-        var minX = polygon.Outer.Min(p => p.Lon);
-        var maxX = polygon.Outer.Max(p => p.Lon);
-        var minY = polygon.Outer.Min(p => p.Lat);
-        var maxY = polygon.Outer.Max(p => p.Lat);
+        var outer = polygon.Outer;
+        var minX = outer.Min(p => p.Longitude);
+        var maxX = outer.Max(p => p.Longitude);
+        var minY = outer.Min(p => p.Latitude);
+        var maxY = outer.Max(p => p.Latitude);
         return BoundingBox.From2D(minX, minY, maxX, maxY);
     }
 
