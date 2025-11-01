@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report:
-- Version Change: 1.1.0 → 1.2.0
+- Version Change: 1.1.0 -> 1.2.0
 - Added Principles:
   - VI. Plugin-First for Non-Core Features - New principle establishing plugin architecture
     for features like vector search, spatial indexing, and other domain-specific extensions
@@ -26,7 +26,7 @@ The `LiteDB/` library is the canonical source of all database functionality. Eve
 - Core library MUST remain self-contained with clear domain separation: `Engine/`, `Document/`, `Client/`, `Utils/`
 - New features MUST be placed in the appropriate domain directory
 - Cross-domain dependencies MUST be minimized and explicitly justified
-- Plugin architecture (e.g., `Plugins/Spatial/`) MUST maintain clear boundaries and not leak into core domains
+- Plugin architecture (framework code under `LiteDB/Plugins/` with concrete plugins shipped as sibling packages such as `LiteDB.Spatial/`) MUST maintain clear boundaries and not leak into core domains
 
 **Rationale**: Maintains architectural integrity and ensures all functionality is independently testable without UI or CLI dependencies.
 
@@ -83,7 +83,8 @@ LiteDB targets both legacy (.NET Standard 2.0) and modern (.NET 8.0) frameworks.
 
 Features that are NOT core to the embedded document database functionality MUST be implemented as plugins when architecturally feasible. Non-core features include domain-specific extensions like spatial indexing, vector search, full-text search, and specialized data types.
 
-- Non-core features MUST be implemented in the `LiteDB/Plugins/` directory or as separate NuGet packages (e.g., `LiteDB.Spatial`, `LiteDB.VectorSearch`)
+- Non-core features MUST ship as external plugin packages (e.g., `LiteDB.Spatial`, `LiteDB.VectorSearch`) that connect through the framework hosted under `LiteDB/Plugins/`
+- The `LiteDB/Plugins/` directory contains shared plugin infrastructure only; feature implementations MUST reside outside the core library
 - Plugins MUST NOT leak implementation details into core domains (`Engine/`, `Document/`, `Client/`, `Utils/`)
 - Plugin interfaces MUST be stable and well-documented for third-party extensions
 - The plugin system itself is in initial development phase; changes to plugin infrastructure are acceptable and encouraged to improve extensibility
@@ -92,6 +93,8 @@ Features that are NOT core to the embedded document database functionality MUST 
 **Core vs. Non-Core Classification**:
 - **Core**: Document CRUD, indexing primitives, transactions, ACID guarantees, query engine, file storage, recovery, collection management
 - **Non-Core**: Spatial/geographic queries, vector similarity search, full-text search, domain-specific data types, specialized aggregations
+
+**Transition Note**: Legacy spatial components remain under `LiteDB/Spatial` while the migration in `docs/spatial-plugin-migration-plan.md` completes. Contributors MUST avoid expanding the legacy folder and implement new non-core features exclusively via plugin packages.
 
 **Rationale**: Plugin architecture keeps the core library focused, maintainable, and lightweight while enabling rich ecosystems of specialized features. Users only pay (in binary size and complexity) for features they actually use.
 
@@ -173,3 +176,5 @@ This constitution supersedes all other development practices and guides. All pul
 This constitution is a living document. As new patterns emerge or architectural decisions change, this file MUST be updated to reflect current project realities. When in doubt, favor clarity and testability over brevity.
 
 **Version**: 1.2.0 | **Ratified**: 2025-11-01 | **Last Amended**: 2025-11-01
+
+
