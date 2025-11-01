@@ -51,6 +51,41 @@ public sealed class SpatialPluginIntegrationTests
         results.Select(x => x.Id).Should().Equal(1);
     }
 
+    [Fact]
+    public void LogDiagnostics_ThrowsWhenPluginMissing()
+    {
+        using var database = new BaseLiteDB.LiteDatabase(new MemoryStream());
+
+        Action act = () => SpatialPlugin.LogDiagnostics(database, throwOnFailure: true);
+
+        act.Should().Throw<BaseLiteDB.LiteException>()
+            .Which.Message.Should().Contain("Spatial plugin is not attached");
+    }
+
+    [Fact]
+    public void LogDiagnostics_ThrowsWhenNoDescriptors()
+    {
+        using var database = CreateDatabase();
+
+        Action act = () => SpatialPlugin.LogDiagnostics(database, throwOnFailure: true);
+
+        act.Should().Throw<BaseLiteDB.LiteException>()
+            .Which.Message.Should().Contain("No spatial descriptors found");
+    }
+
+    [Fact]
+    public void LogDiagnostics_SucceedsWhenDescriptorsPresent()
+    {
+        using var database = CreateDatabase();
+        var collection = database.GetCollection<GeoDocument>("points");
+        collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(10, 10) });
+        collection.EnsureIndex(x => x.Location);
+
+        Action act = () => SpatialPlugin.LogDiagnostics(database, throwOnFailure: true);
+
+        act.Should().NotThrow();
+    }
+
     private static BaseLiteDB.LiteDatabase CreateDatabase()
     {
         var stream = new MemoryStream();

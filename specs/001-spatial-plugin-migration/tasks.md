@@ -36,7 +36,7 @@
   - 2025-11-02: Nullable geometry overloads plus string/BsonExpression wiring added; follow-up tests remain open.
 - [X] T015 [US2] Re-register expression functions and planning rules in plugin (`LiteDB.Spatial/SpatialPlugin.cs`)
 - [X] T016 [US2] Update spatial tests to cover interceptor and extensions (`LiteDB.Spatial.Core.Tests/**/*`)
-- [ ] T017 [US2] Provide diagnostics for plugin-enabled misconfiguration (`LiteDB.Spatial/SpatialPlugin.cs`, logging)
+- [X] T017 [US2] Provide diagnostics for plugin-enabled misconfiguration (`LiteDB.Spatial/SpatialPlugin.cs`, logging)
 - [ ] T018 [US2] Prepare sample integration verifying `EnsureIndex + WhereNear` flow (`samples/SpatialApiSample/Program.cs`)
 
 ## Phase 5 – User Story 3: Release readiness documentation (Priority P3)
