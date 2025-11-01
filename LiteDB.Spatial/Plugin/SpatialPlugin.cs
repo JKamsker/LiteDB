@@ -1,6 +1,7 @@
 extern alias LiteDbBase;
 
 using System;
+using System.Linq;
 using LiteDB.Spatial.Plugin.Linq;
 using LiteDB.Spatial.Plugin.QueryPlanning;
 using LiteDB.Spatial.Plugin.Runtime;
@@ -14,6 +15,8 @@ namespace LiteDB.Spatial.Plugin
     /// </summary>
     public sealed class SpatialPlugin : LiteDbPlugins.ILitePlugin
     {
+        private const string LogPrefix = "[SpatialPlugin]";
+
         public void Initialize(BaseLiteDB.LiteDatabase database, LiteDbPlugins.ILitePluginContext context)
         {
             if (database == null) throw new ArgumentNullException(nameof(database));
@@ -29,6 +32,55 @@ namespace LiteDB.Spatial.Plugin
             context.QueryPlanner.AddRule(services.CreatePlanningRule(), order: 100);
 
             context.IndexInterceptors.Register(ctx => services.TryHandleEnsureIndex(ctx), order: 0);
+        }
+
+        /// <summary>
+        /// Writes diagnostic information about the spatial plugin configuration to the database logger.
+        /// </summary>
+        /// <param name="database">The database to inspect.</param>
+        /// <param name="throwOnFailure">Throw an exception when the plugin is missing or no descriptors are registered.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="database"/> is null.</exception>
+        public static void LogDiagnostics(BaseLiteDB.LiteDatabase database, bool throwOnFailure = false)
+        {
+            if (database == null)
+            {
+                throw new ArgumentNullException(nameof(database));
+            }
+
+            var logger = database.Services?.Logger ?? LiteDbPlugins.NullLogger.Instance;
+
+            if (!SpatialPluginRegistry.TryGetServices(database, out var services))
+            {
+                const string message = LogPrefix + " Spatial plugin is not attached to this database instance. Register `new SpatialPlugin()` when constructing LiteDatabase.";
+                logger.Write(LiteDbPlugins.LogLevel.Warning, message);
+
+                if (throwOnFailure)
+                {
+                    throw new BaseLiteDB.LiteException(BaseLiteDB.LiteException.INVALID_COMMAND, message);
+                }
+
+                return;
+            }
+
+            var descriptors = services.GetDescriptors().ToList();
+            if (descriptors.Count == 0)
+            {
+                const string message = LogPrefix + " No spatial descriptors found. Call EnsureIndex(x => x.GeoField) after enabling the plugin.";
+                logger.Write(LiteDbPlugins.LogLevel.Warning, message);
+
+                if (throwOnFailure)
+                {
+                    throw new BaseLiteDB.LiteException(BaseLiteDB.LiteException.INVALID_COMMAND, message);
+                }
+
+                return;
+            }
+
+            foreach (var descriptor in descriptors)
+            {
+                var engineMessage = $"{LogPrefix} Collection='{descriptor.CollectionName}', Field='{descriptor.GeometryFieldName}', Engine='{descriptor.EngineName}', Dimensions={descriptor.Dimensions}.";
+                logger.Write(LiteDbPlugins.LogLevel.Information, engineMessage);
+            }
         }
 
         private static void RegisterExpressionFunctions(LiteDbPlugins.IExpressionRegistry registry)

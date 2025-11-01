@@ -50,17 +50,24 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                 if (!_services.TryGetDescriptor(collection, out descriptor) ||
                     !string.Equals(descriptor.GeometryFieldName, predicate.GeometryField, StringComparison.OrdinalIgnoreCase))
                 {
+                    Log(LiteDbPlugins.LogLevel.Warning, $"No spatial metadata found for '{collection}.{predicate.GeometryField}'. Ensure EnsureIndex was executed with the spatial plugin enabled.");
                     return false;
                 }
             }
 
             if (!TryBuildPlan(context, descriptor, predicate, out var index, out var indexExpression, out var additionalFilters))
             {
+                Log(LiteDbPlugins.LogLevel.Debug, $"Unable to generate a spatial plan for '{collection}.{predicate.GeometryField}'. Falling back to default query processing.");
                 return false;
             }
 
             context.UseIndex(index, indexExpression, consumedTerms: null, isIndexKeyOnly: false, indexCost: null, additionalFilters: additionalFilters, replaceFilters: false);
             return true;
+        }
+
+        private void Log(LiteDbPlugins.LogLevel level, string message)
+        {
+            _services.Context?.Logger?.Write(level, $"[SpatialPlugin] {message}");
         }
 
         private bool TryBuildPlan(
