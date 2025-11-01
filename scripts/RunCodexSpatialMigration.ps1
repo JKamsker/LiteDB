@@ -35,30 +35,10 @@ function Get-OpenTasks {
         throw "Task file not found: $Path"
     }
 
-    $lines = Get-Content -LiteralPath $Path
-    $unchecked = @($lines | Where-Object { $_ -match '^\s*-\s*\[\s\]\s+' })
-    return (Order-Tasks -Lines $unchecked)
-}
-
-function Order-Tasks {
-    param(
-        [string[]]$Lines
+    return @(
+        Get-Content -LiteralPath $Path |
+        Where-Object { $_ -match '^\s*-\s*\[\s\]\s+' }
     )
-
-    if (-not $Lines) {
-        return @()
-    }
-
-    return ($Lines | Sort-Object -Stable -Property @{
-            Expression = {
-                $match = [regex]::Match($_, 'T(\d{3})')
-                if ($match.Success) {
-                    return [int]$match.Groups[1].Value
-                }
-
-                return [int]::MaxValue
-            }
-        })
 }
 
 function Get-TaskIds {
@@ -105,7 +85,7 @@ $Base
 Remaining unchecked tasks (update $TaskPath and $ProgressPath as you work):
 $remainingText
 
-Work non-interactively, starting from the lowest-numbered task, complete the highest priority open item(s), mark them as done in the task file, and record progress updates.
+Work non-interactively, choose the next task to tackle, mark it as done in the task file, and record progress updates.
 "@
 
     if ($prompt.EndsWith("`n")) {
