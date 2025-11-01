@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -138,7 +138,7 @@ namespace LiteDB
         /// <param name="autoId">Define autoId data type (when object contains no id field)</param>
         public ILiteCollection<T> GetCollection<T>(string name, BsonAutoId autoId = BsonAutoId.ObjectId)
         {
-            return new LiteCollection<T>(name, autoId, _engine, _mapper, _pluginContext.Expressions);
+            return new LiteCollection<T>(name, autoId, _engine, _mapper, _pluginContext.Expressions, this, _pluginContext.LinqResolvers, _pluginContext.IndexInterceptors);
         }
 
         /// <summary>
@@ -166,7 +166,7 @@ namespace LiteDB
         {
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 
-            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions);
+            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions, this, _pluginContext.LinqResolvers, _pluginContext.IndexInterceptors);
         }
 
         #endregion

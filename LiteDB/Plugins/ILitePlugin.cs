@@ -28,6 +28,10 @@ namespace LiteDB.Plugins
 
         IQueryPlannerRegistry QueryPlanner { get; }
 
+        ILinqResolverRegistry LinqResolvers { get; }
+
+        IIndexInterceptorRegistry IndexInterceptors { get; }
+
         IServiceProvider Services { get; }
 
         ILogger Logger { get; }
@@ -115,7 +119,7 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface IQueryPlanningRule
     {
-        bool TryRewrite(object context, out object plannedIndex);
+        bool TryRewrite(QueryPlanningContext context);
     }
 
     /// <summary>
@@ -126,6 +130,42 @@ namespace LiteDB.Plugins
         void AddRule(IQueryPlanningRule rule, int order = 0);
 
         IEnumerable<IQueryPlanningRule> Rules { get; }
+    }
+
+    /// <summary>
+    /// Factory delegate used to construct LINQ type resolvers for a specific database instance.
+    /// </summary>
+    /// <param name="database">The database requesting the resolver.</param>
+    /// <returns>The resolver associated with the requested type.</returns>
+    public delegate ITypeResolver LinqResolverFactory(LiteDatabase database);
+
+    /// <summary>
+    /// Registry that manages LINQ resolver factories contributed by plugins.
+    /// </summary>
+    public interface ILinqResolverRegistry
+    {
+        void Register(Type targetType, LinqResolverFactory factory);
+
+        bool TryGetFactory(Type targetType, out LinqResolverFactory factory);
+
+        IReadOnlyCollection<Type> RegisteredTypes { get; }
+    }
+
+    /// <summary>
+    /// Delegate invoked for index interception during <see cref="ILiteCollection{T}.EnsureIndex"/> execution.
+    /// </summary>
+    /// <param name="context">The interception context.</param>
+    /// <returns>True when the interceptor handled the request and default processing should stop.</returns>
+    public delegate bool IndexInterceptor(EnsureIndexContext context);
+
+    /// <summary>
+    /// Registry responsible for orchestrating index interceptors.
+    /// </summary>
+    public interface IIndexInterceptorRegistry
+    {
+        void Register(IndexInterceptor interceptor, int order = 0);
+
+        IEnumerable<IndexInterceptor> Interceptors { get; }
     }
 
     /// <summary>

@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using LiteDB.Plugins;
@@ -13,7 +15,7 @@ namespace LiteDB
 {
     internal class LinqExpressionVisitor : ExpressionVisitor
     {
-        private static readonly Dictionary<Type, ITypeResolver> _resolver = new Dictionary<Type, ITypeResolver>
+        private static readonly Dictionary<Type, ITypeResolver> _builtInResolvers = new Dictionary<Type, ITypeResolver>
         {
             [typeof(BsonValue)] = new BsonValueResolver(),
             [typeof(BsonArray)] = new BsonValueResolver(),
@@ -33,10 +35,9 @@ namespace LiteDB
             [typeof(Regex)] = new RegexResolver(),
             [typeof(ObjectId)] = new ObjectIdResolver(),
             [typeof(String)] = new StringResolver(),
-            [typeof(Nullable)] = new NullableResolver(),
-            [typeof(LiteDB.Spatial.Spatial)] = new SpatialResolver(),
-            [typeof(LiteDB.SpatialExpressions)] = new SpatialResolver()
+            [typeof(Nullable)] = new NullableResolver()
         };
+        private static readonly ConditionalWeakTable<LiteDatabase, ResolverCache> _resolverCache = new ConditionalWeakTable<LiteDatabase, ResolverCache>();
 
         private readonly BsonMapper _mapper;
         private readonly Expression _expr;
@@ -49,12 +50,16 @@ namespace LiteDB
         private readonly StringBuilder _builder = new StringBuilder();
         private readonly Stack<Expression> _nodes = new Stack<Expression>();
         private readonly IExpressionRegistry _registry;
+        private readonly LiteDatabase _database;
+        private readonly ILinqResolverRegistry _linqResolvers;
 
-        public LinqExpressionVisitor(BsonMapper mapper, Expression expr, IExpressionRegistry registry = null)
+        public LinqExpressionVisitor(BsonMapper mapper, Expression expr, IExpressionRegistry registry = null, LiteDatabase database = null, ILinqResolverRegistry linqResolvers = null)
         {
             _mapper = mapper;
             _expr = expr;
             _registry = registry ?? LiteDatabaseServices.Default.ExpressionRegistry;
+            _database = database;
+            _linqResolvers = linqResolvers ?? LiteDatabaseServices.Default.LinqResolvers;
 
             if (expr is LambdaExpression lambda)
             {
@@ -224,7 +229,7 @@ namespace LiteDB
 
                 if (first.IsGenericType && first.GetGenericTypeDefinition() == typeof(IGrouping<,>))
                 {
-                    type = _resolver[typeof(IGrouping<,>)];
+                    type = _builtInResolvers[typeof(IGrouping<,>)];
                     hasResolver = true;
                 }
             }
@@ -755,6 +760,11 @@ namespace LiteDB
         /// </summary>
         private bool TryGetResolver(Type declaringType, out ITypeResolver typeResolver)
         {
+            if (this.TryGetPluginResolver(declaringType, out typeResolver))
+            {
+                return true;
+            }
+
             // get method declaring type - if is from any kind of list, read as Enumerable
             var isGrouping = declaringType?.IsGenericType == true && declaringType.GetGenericTypeDefinition() == typeof(IGrouping<,>);
             var isCollection = Reflection.IsCollection(declaringType);
@@ -768,7 +778,54 @@ namespace LiteDB
                 isNullable ? typeof(Nullable) :
                 declaringType;
 
-            return _resolver.TryGetValue(type, out typeResolver);
+            if (this.TryGetPluginResolver(type, out typeResolver))
+            {
+                return true;
+            }
+
+            return _builtInResolvers.TryGetValue(type, out typeResolver);
+        }
+
+        private bool TryGetPluginResolver(Type targetType, out ITypeResolver resolver)
+        {
+            resolver = null;
+
+            if (targetType == null)
+            {
+                return false;
+            }
+
+            if (_linqResolvers == null || _database == null)
+            {
+                return false;
+            }
+
+            var cache = _resolverCache.GetValue(_database, static _ => new ResolverCache());
+
+            if (cache.Resolvers.TryGetValue(targetType, out resolver))
+            {
+                return true;
+            }
+
+            if (!_linqResolvers.TryGetFactory(targetType, out var factory))
+            {
+                return false;
+            }
+
+            resolver = factory(_database);
+
+            if (resolver == null)
+            {
+                throw new InvalidOperationException($"Resolver factory for type `{targetType.FullName}` returned null.");
+            }
+
+            cache.Resolvers[targetType] = resolver;
+            return true;
+        }
+
+        private sealed class ResolverCache
+        {
+            public ConcurrentDictionary<Type, ITypeResolver> Resolvers { get; } = new ConcurrentDictionary<Type, ITypeResolver>();
         }
 
         private bool IsSpanImplicitConversion(MethodInfo method)

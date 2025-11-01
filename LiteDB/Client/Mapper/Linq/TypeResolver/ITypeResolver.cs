@@ -10,7 +10,7 @@ using static LiteDB.Constants;
 
 namespace LiteDB
 {
-    internal interface ITypeResolver
+    public interface ITypeResolver
     {
         string ResolveMethod(MethodInfo method);
 

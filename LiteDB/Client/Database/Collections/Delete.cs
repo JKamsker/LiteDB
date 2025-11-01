@@ -53,6 +53,6 @@ namespace LiteDB
         /// <summary>
         /// Delete all documents based on predicate expression. Returns how many documents was deleted
         /// </summary>
-        public int DeleteMany(Expression<Func<T, bool>> predicate) => this.DeleteMany(_mapper.GetExpression(predicate, _expressions));
+        public int DeleteMany(Expression<Func<T, bool>> predicate) => this.DeleteMany(_mapper.GetExpression(predicate, _expressions, _database, _linqResolvers));
     }
 }

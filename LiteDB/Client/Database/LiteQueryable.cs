@@ -20,17 +20,21 @@ namespace LiteDB
         protected readonly string _collection;
         protected readonly Query _query;
         private readonly IExpressionRegistry _expressions;
+        private readonly ILinqResolverRegistry _linqResolvers;
+        private readonly LiteDatabase _database;
 
         // indicate that T type are simple and result are inside first document fields (query always return a BsonDocument)
         private readonly bool _isSimpleType = Reflection.IsSimpleType(typeof(T));
 
-        internal LiteQueryable(ILiteEngine engine, BsonMapper mapper, string collection, Query query, IExpressionRegistry expressions)
+        internal LiteQueryable(ILiteEngine engine, BsonMapper mapper, string collection, Query query, IExpressionRegistry expressions, LiteDatabase database, ILinqResolverRegistry linqResolvers)
         {
             _engine = engine;
             _mapper = mapper;
             _collection = collection;
             _query = query;
             _expressions = expressions;
+            _database = database;
+            _linqResolvers = linqResolvers;
         }
 
         #region Includes
@@ -40,7 +44,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Include<K>(Expression<Func<T, K>> path)
         {
-            _query.Includes.Add(_mapper.GetExpression(path, _expressions));
+            _query.Includes.Add(this.ResolveExpression(path));
             return this;
         }
 
@@ -98,7 +102,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Where(Expression<Func<T, bool>> predicate)
         {
-            return this.Where(_mapper.GetExpression(predicate, _expressions));
+            return this.Where(this.ResolveExpression(predicate));
         }
 
         #endregion
@@ -121,7 +125,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> OrderBy<K>(Expression<Func<T, K>> keySelector, int order = Query.Ascending)
         {
-            return this.OrderBy(_mapper.GetExpression(keySelector, _expressions), order);
+            return this.OrderBy(this.ResolveExpression(keySelector), order);
         }
 
         /// <summary>
@@ -150,7 +154,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> ThenBy<K>(Expression<Func<T, K>> keySelector)
         {
-            return this.ThenBy(_mapper.GetExpression(keySelector, _expressions));
+            return this.ThenBy(this.ResolveExpression(keySelector));
         }
 
         /// <summary>
@@ -169,7 +173,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> ThenByDescending<K>(Expression<Func<T, K>> keySelector)
         {
-            return this.ThenByDescending(_mapper.GetExpression(keySelector, _expressions));
+            return this.ThenByDescending(this.ResolveExpression(keySelector));
         }
 
         #endregion
@@ -181,13 +185,13 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<IGrouping<K, T>> GroupBy<K>(Expression<Func<T, K>> keySelector)
         {
-            var expression = _mapper.GetExpression(keySelector, _expressions);
+            var expression = this.ResolveExpression(keySelector);
 
             this.GroupBy(expression);
 
             _mapper.RegisterGroupingType<K, T>();
 
-            return new LiteQueryable<IGrouping<K, T>>(_engine, _mapper, _collection, _query, _expressions);
+            return new LiteQueryable<IGrouping<K, T>>(_engine, _mapper, _collection, _query, _expressions, _database, _linqResolvers);
         }
 
         /// <summary>
@@ -227,7 +231,7 @@ namespace LiteDB
         {
             _query.Select = selector;
 
-            return new LiteQueryable<BsonDocument>(_engine, _mapper, _collection, _query, _expressions);
+            return new LiteQueryable<BsonDocument>(_engine, _mapper, _collection, _query, _expressions, _database, _linqResolvers);
         }
 
         /// <summary>
@@ -235,9 +239,9 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<K> Select<K>(Expression<Func<T, K>> selector)
         {
-            _query.Select = _mapper.GetExpression(selector, _expressions);
+            _query.Select = this.ResolveExpression(selector);
 
-            return new LiteQueryable<K>(_engine, _mapper, _collection, _query, _expressions);
+            return new LiteQueryable<K>(_engine, _mapper, _collection, _query, _expressions, _database, _linqResolvers);
         }
 
         private static void ValidateVectorArguments(float[] target, double maxDistance)
@@ -282,13 +286,13 @@ namespace LiteDB
         {
             if (field == null) throw new ArgumentNullException(nameof(field));
 
-            var fieldExpr = _mapper.GetExpression(field, _expressions);
+            var fieldExpr = this.ResolveExpression(field);
             return this.VectorWhereNear(fieldExpr, target, maxDistance);
         }
 
         internal ILiteQueryableResult<T> VectorTopKNear<K>(Expression<Func<T, K>> field, float[] target, int k)
         {
-            var fieldExpr = _mapper.GetExpression(field, _expressions);
+            var fieldExpr = this.ResolveExpression(field);
             return this.VectorTopKNear(fieldExpr, target, k);
         }
 
@@ -586,5 +590,10 @@ namespace LiteDB
         }
 
         #endregion
+
+        private BsonExpression ResolveExpression<K>(Expression<Func<T, K>> expression)
+        {
+            return _mapper.GetExpression(expression, _expressions, _database, _linqResolvers);
+        }
     }
 }

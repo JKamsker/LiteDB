@@ -11,6 +11,8 @@ namespace LiteDB.Plugins
             this.Expressions = new ExpressionRegistry();
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
+            this.LinqResolvers = new LinqResolverRegistry();
+            this.IndexInterceptors = new IndexInterceptorRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
             this.Logger = logger ?? NullLogger.Instance;
             this.ConnectionString = connectionString ?? new ConnectionString();
@@ -21,6 +23,10 @@ namespace LiteDB.Plugins
         public IIndexRegistry Indexes { get; }
 
         public IQueryPlannerRegistry QueryPlanner { get; }
+
+        public ILinqResolverRegistry LinqResolvers { get; }
+
+        public IIndexInterceptorRegistry IndexInterceptors { get; }
 
         public IServiceProvider Services { get; }
 
@@ -235,6 +241,77 @@ namespace LiteDB.Plugins
                 lock (_sync)
                 {
                     return _rules.Values.SelectMany(x => x).ToArray();
+                }
+            }
+        }
+    }
+
+    internal sealed class LinqResolverRegistry : ILinqResolverRegistry
+    {
+        private readonly object _sync = new object();
+        private readonly Dictionary<Type, LinqResolverFactory> _factories = new Dictionary<Type, LinqResolverFactory>();
+
+        public void Register(Type targetType, LinqResolverFactory factory)
+        {
+            if (targetType == null) throw new ArgumentNullException(nameof(targetType));
+            if (factory == null) throw new ArgumentNullException(nameof(factory));
+
+            lock (_sync)
+            {
+                _factories[targetType] = factory;
+            }
+        }
+
+        public bool TryGetFactory(Type targetType, out LinqResolverFactory factory)
+        {
+            if (targetType == null) throw new ArgumentNullException(nameof(targetType));
+
+            lock (_sync)
+            {
+                return _factories.TryGetValue(targetType, out factory);
+            }
+        }
+
+        public IReadOnlyCollection<Type> RegisteredTypes
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _factories.Keys.ToArray();
+                }
+            }
+        }
+    }
+
+    internal sealed class IndexInterceptorRegistry : IIndexInterceptorRegistry
+    {
+        private readonly object _sync = new object();
+        private readonly SortedList<int, List<IndexInterceptor>> _interceptors = new SortedList<int, List<IndexInterceptor>>();
+
+        public void Register(IndexInterceptor interceptor, int order = 0)
+        {
+            if (interceptor == null) throw new ArgumentNullException(nameof(interceptor));
+
+            lock (_sync)
+            {
+                if (!_interceptors.TryGetValue(order, out var bucket))
+                {
+                    bucket = new List<IndexInterceptor>();
+                    _interceptors.Add(order, bucket);
+                }
+
+                bucket.Add(interceptor);
+            }
+        }
+
+        public IEnumerable<IndexInterceptor> Interceptors
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _interceptors.Values.SelectMany(x => x).ToArray();
                 }
             }
         }
