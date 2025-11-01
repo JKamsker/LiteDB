@@ -3,10 +3,10 @@
 This document captures the high-level plan for moving spatial features out of the core `LiteDB` project and into the new plugin infrastructure.
 
 ## Phase 1 – Extend Core Plugin Hooks
-- Introduce a LINQ resolver registry on the plugin context so plugins can register `Type -> ITypeResolver` mappings. Adjust `LiteDB/Client/Mapper/Linq/LinqExpressionVisitor.cs` to consult the registry before falling back to its built-in resolver map.
-- Expose an extension point for predicate classification/query rewrites (e.g., through `IQueryPlanningRule` or a new callback) and update `LiteDB/Engine/Query/QueryOptimization.cs` to rely on plugin-provided logic instead of hard-coded spatial checks.
-- Ensure `DefaultPluginContext` owns the new registries and that `LiteDatabase.Services` publishes them, mirroring the existing expression and index registries.
-- Document the new extension points so plugins can discover how to participate.
+- Introduce a LINQ resolver registry on the plugin context that accepts factories (`Type -> Func<LiteDatabase, ITypeResolver>`). Update `LinqExpressionVisitor` to ask the registry for a resolver before falling back to its static map, and memoize per `(LiteDatabase, Type)` for performance.
+- Expand `IQueryPlanningRule` (or add a `QueryPlanningContext`) so plugins can both recognise predicates and contribute full rewrites/index plans. Refactor `QueryOptimization` to surface the context and iterate planning rules instead of hard-coded spatial checks.
+- Ensure `DefaultPluginContext` owns the new registries (LINQ resolver registry and enriched planner) and that `LiteDatabase.Services` exposes them, aligning with the existing expression and index registries.
+- Document the new factory-based LINQ resolver hook and enriched planning rule contract so plugin authors (spatial, vector, future modules) have a consistent model.
 
 ## Phase 2 – Strip Spatial Logic from Core
 - Remove spatial resolvers from the core, including the static entries and `LiteDB/Client/Mapper/Linq/TypeResolver/SpatialResolver.cs`, once registry-based lookups exist.
@@ -15,9 +15,9 @@ This document captures the high-level plan for moving spatial features out of th
 - Remove the entire `LiteDB/Spatial` namespace from the base project, updating `LiteDB.csproj` and clearing related `using` directives.
 
 ## Phase 3 – Build the Spatial Plugin Package
-- Implement an `ILitePlugin` (e.g., `LiteDB.Spatial/SpatialPlugin.cs`) that registers spatial expression functions, keywords, index strategies, and query-planning rules through the expanded plugin context.
+- Implement an `ILitePlugin` (e.g., `LiteDB.Spatial/SpatialPlugin.cs`) that registers spatial expression functions, keywords, index strategies, LINQ resolver factories, and query-planning rules through the expanded plugin context.
 - Move geometry, metadata, and engine code currently under `LiteDB/Spatial` into the plugin projects (`LiteDB.Spatial.Core`, `LiteDB.Spatial.Cartesian2D`, `LiteDB.Spatial.Cartesian3D`, etc.), aligning namespaces with their new home.
-- Register LINQ resolvers (the relocated `SpatialResolver`) using the new registry so spatial LINQ queries continue to translate without direct core dependencies.
+- Register LINQ resolvers (the relocated `SpatialResolver`) using the new factory-based registry so spatial LINQ queries continue to translate without direct core dependencies and can capture per-database descriptors.
 - Ensure the plugin configures BSON mapping for spatial types (e.g., via `database.Mapper.RegisterType`) and provide opt-in helpers for consumers to enable spatial support.
 
 ## Phase 4 – Validation and Rollout
