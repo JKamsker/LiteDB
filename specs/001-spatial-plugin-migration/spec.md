@@ -24,7 +24,7 @@ Repository maintainers need the LiteDB core solution to build, test, and publish
 
 ### User Story 2 - Opt-in spatial plugin restoration (Priority: P2)
 
-Integrators who rely on spatial capabilities need to add the spatial plugin package and receive feature parity (LINQ support, expressions, indexes) through the new plugin extension points.
+Integrators who rely on spatial capabilities need to add the spatial plugin package and receive feature parity (LINQ support, expressions, indexes) through the new plugin extension points, without relying on bespoke configuration helpers.
 
 **Why this priority**: Users must have an easy migration path so removing spatial from core does not break their workloads.
 
@@ -32,8 +32,8 @@ Integrators who rely on spatial capabilities need to add the spatial plugin pack
 
 **Acceptance Scenarios**:
 
-1. **Given** a database configured with the spatial plugin, **When** a query using `SpatialExpressions.Near` is executed, **Then** the plugin registers the necessary LINQ resolver and the query returns expected nearby points.
-2. **Given** the plugin’s ILitePlugin initializer, **When** the database starts, **Then** spatial expression functions, index strategies, and planning rules are registered without errors.
+1. **Given** a database configured with the spatial plugin, **When** a caller invokes `collection.EnsureIndex(x => x.Location)` for a property typed as `GeoPoint`, **Then** the plugin intercepts the call and provisions the appropriate spatial index without extra helpers.
+2. **Given** a queryable collection with the spatial plugin installed, **When** `WhereNear` (or the equivalent plugin-supplied LINQ extension) is used, **Then** the plugin translates the call into the spatial plan and returns the expected nearby points while `SpatialExpressions.Near` remains available for advanced scenarios.
 
 ---
 
@@ -69,9 +69,11 @@ Internal product teams preparing the first public release need authoritative doc
 - **FR-002**: The plugin context MUST expose factory-based LINQ resolver registration and enriched query planning hooks that spatial (and other) plugins can consume.
 - **FR-003**: The spatial plugin MUST re-register all required expression functions, LINQ resolvers, and index strategies so that spatial queries behave identically to pre-migration releases.
 - **FR-004**: When spatial APIs are invoked without the plugin, the system MUST emit a clear, actionable error message and avoid undefined behavior.
-- **FR-005**: Documentation MUST instruct future consumers how to add the spatial plugin, enable it in `LiteDatabase` construction, and understand behavior changes once the feature ships.
-- **FR-006**: Automated test suites MUST cover both the plugin-disabled path (verifying graceful failures) and the plugin-enabled path (verifying functional parity).
-- **FR-007**: Build and packaging pipelines MUST exclude spatial assemblies from core artifacts while producing plugin-specific packages for distribution.
+- **FR-005**: The core/plugin infrastructure MUST allow plugins to register custom index interceptors so that `EnsureIndex` on spatial types automatically delegates to spatial indexing logic.
+- **FR-006**: The spatial plugin MUST provide `ILiteQueryable` extension methods (e.g., `WhereNear`) that wrap the underlying expressions to avoid namespace collisions and deliver ergonomic querying, while keeping `SpatialExpressions` available for advanced use.
+- **FR-007**: Documentation MUST instruct future consumers how to add the spatial plugin, enable it in `LiteDatabase` construction, and understand behavior changes once the feature ships.
+- **FR-008**: Automated test suites MUST cover both the plugin-disabled path (verifying graceful failures) and the plugin-enabled path (verifying functional parity).
+- **FR-009**: Build and packaging pipelines MUST exclude spatial assemblies from core artifacts while producing plugin-specific packages for distribution.
 
 ### Key Entities *(include if feature involves data)*
 

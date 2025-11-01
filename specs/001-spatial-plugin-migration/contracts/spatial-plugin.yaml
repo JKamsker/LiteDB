@@ -1,0 +1,121 @@
+openapi: 3.1.0
+info:
+  title: LiteDB Spatial Plugin Integration API
+  version: 0.1.0
+  description: >
+    Conceptual contract describing the required interactions when enabling the LiteDB spatial plugin.
+    Maps developer actions (plugin registration, collection configuration, diagnostics) to equivalent service operations.
+
+paths:
+  /plugins:
+    post:
+      summary: Enable a plugin for a LiteDB database instance
+      operationId: enablePlugin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginRegistration'
+      responses:
+        '201':
+          description: Plugin registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginContext'
+        '400':
+          description: Missing or invalid plugin payload
+  /collections/{collectionName}/spatial/indexes:
+    post:
+      summary: Configure a spatial index for a collection
+      operationId: configureSpatialIndex
+      parameters:
+        - name: collectionName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpatialIndexRequest'
+      responses:
+        '204':
+          description: Spatial index created or verified
+        '409':
+          description: Conflicting spatial metadata detected
+  /diagnostics/spatial:
+    get:
+      summary: Retrieve spatial plugin diagnostics
+      operationId: getSpatialDiagnostics
+      responses:
+        '200':
+          description: Spatial status information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpatialDiagnostics'
+
+components:
+  schemas:
+    PluginRegistration:
+      type: object
+      required:
+        - pluginType
+      properties:
+        pluginType:
+          type: string
+          enum: [Spatial]
+        options:
+          type: object
+          description: Arbitrary plugin configuration payload
+    PluginContext:
+      type: object
+      properties:
+        expressions:
+          type: array
+          items:
+            type: string
+        indexes:
+          type: array
+          items:
+            type: string
+        queryPlannerRules:
+          type: array
+          items:
+            type: string
+        linqResolvers:
+          type: array
+          items:
+            type: string
+    SpatialIndexRequest:
+      type: object
+      required:
+        - geometryField
+        - engine
+      properties:
+        geometryField:
+          type: string
+        engine:
+          type: string
+          enum: [GeographicPoint, Cartesian2DPoint, Cartesian3DPoint]
+        options:
+          type: object
+          description: Optional spatial index tuning parameters
+    SpatialDiagnostics:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [Enabled, Disabled, Error]
+        registeredRules:
+          type: array
+          items:
+            type: string
+        pendingMigrations:
+          type: array
+          items:
+            type: string
