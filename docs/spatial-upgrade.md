@@ -1,10 +1,10 @@
 # Spatial Upgrade Guide
 
-This guide covers migrating collections that previously relied on the legacy `_gh` index to the new modular spatial stack. The process is safe for live databases and can be performed incrementally per collection.
+This guide walks existing applications from the legacy in-core spatial helpers (`Spatial.Use*`, `_gh` indexes) to the plugin-based interceptor that ships with LiteDB.Spatial. The migration can be performed per collection and does not require downtime when executed carefully.
 
-## 1. Identify spatial collections
+## 1. Identify collections that need migration
 
-Legacy applications typically exposed a `_gh` numeric index and `_mbb` bounding box arrays on documents. Start by checking your collections for those fields:
+Legacy builds stored Morton values in a `_gh` field and bounding boxes in `_mbb`. Scan each collection to determine whether it still relies on the old schema:
 
 ```csharp
 using var db = new LiteDatabase("Filename=data.db;Mode=Exclusive");
@@ -13,120 +13,122 @@ var raw = db.GetCollection("your_collection");
 var hasLegacyFields = raw.Find(Query.Exists("_gh")).Any();
 ```
 
-If the fields are present, the collection should be migrated.
+If either `_gh` or `_mbb` exists and the collection should remain spatial, continue with the migration steps.
 
-## 2. Configure metadata
+## 2. Declare spatial options and enable the plugin
 
-The new facade persists metadata in `_spatial_meta`. For a geographic dataset migrate with:
+Annotate spatial members (or register them with the mapper) so the interceptor knows which engine to use when `EnsureIndex` runs:
+
+```csharp
+public sealed class Place
+{
+    public int Id { get; set; }
+
+    [SpatialOptions(
+        Engine = SpatialEngineKind.Geographic2D,
+        PrecisionBits = 40,
+        DistanceMode = GeographicDistanceMode.Vincenty)]
+    public GeoPoint Location { get; set; } = default!;
+}
+
+BsonMapper.Global.Entity<Place>()
+    .WithSpatialOptions(p => p.Location, options =>
+    {
+        options.WithDistanceTolerance(15);
+        options.WithIndexFieldName("_idx");
+        options.WithBoundingBoxFieldName("_mbb");
+    });
+```
+
+Then create the database with the spatial plugin registered:
+
+```csharp
+using LiteDB;
+using LiteDB.Plugins;
+using LiteDB.Spatial;
+
+var connection = new ConnectionString("Filename=data.db;Mode=Exclusive");
+using var db = new LiteDatabase(connection, plugins: new ILitePlugin[]
+{
+    new SpatialPlugin()
+});
+```
+
+- `GeoPoint` members default to the geographic engine, but Cartesian datasets **must** supply a domain via `options.WithDomain(...)` or the migration will stop with a warning.
+- Existing `_spatial_meta` documents are discovered automatically; attributes are only required for collections that were never configured.
+
+## 3. Provision metadata via `EnsureIndex`
+
+Once options are declared and the plugin is active, call `EnsureIndex` on each spatial field:
 
 ```csharp
 var places = db.GetCollection<Place>("places");
-Spatial.UseGeographic(places, x => x.Location);
+places.EnsureIndex(p => p.Location); // Interceptor provisions metadata and backfills indexes.
 ```
 
-For Cartesian datasets choose the appropriate helper and domain:
+During interception the plugin:
 
-```csharp
-Spatial.UseCartesian2D(points2D, x => x.Position, BoundingBox.From2D(-10_000, -10_000, 10_000, 10_000));
-Spatial.UseCartesian3D(points3D, x => x.Position, BoundingBox.From3D(-100, -100, -100, 100, 100, 100));
-```
+- Writes or updates the descriptor in `_spatial_meta`.
+- Creates the `_idx` Morton column and `_mbb` bounding box column when missing.
+- Backfills existing documents, replacing `_gh` usage transparently.
 
-`Use*` stores engine information, precision, and optional distance modes. It also creates the `_idx` and `_mbb` indexes so future queries are automatically routed through the new planner.
+Monitor the logger output; warnings indicate missing configuration (for example, an undefined Cartesian domain) and the interceptor will fall back to the core implementation instead of mutating data.
 
-Morton encoding for three-dimensional indexes fits inside 64-bit keys when each axis uses
-21 precision bits. The facade clamps higher values automatically so existing code can keep
-passing `SpatialIndexOptions` that were tuned for 2D datasets.
+## 4. Validate the migration
 
-## 3. Backfill `_idx` and `_mbb`
-
-If documents already contained `_gh`, you can safely rebuild the new fields by calling the engine-neutral helper:
-
-```csharp
-Spatial.EnsurePointIndex(places);
-```
-
-The helper reads the metadata, instantiates the correct engine, and replays the backfill pipeline. Documents keep any legacy `_gh` fields until you remove them, so existing consumers can continue to read the old values during the transition.
-
-## 4. Validate
-
-Inspect the `_spatial_meta` collection to confirm the descriptor matches expectations:
+Check metadata and run a query using the new LINQ extensions:
 
 ```csharp
 var meta = db.GetCollection("_spatial_meta").FindById("places");
 Console.WriteLine(meta);
+
+var center = new GeoPoint(16.3738, 48.2082);
+var hits = places.Query()
+    .WhereNear(p => p.Location, center, radius: 5_000)
+    .ToList();
 ```
 
-A typical document contains:
-
-```json
-{
-  "_id": "places",
-  "engine": "Geographic2D",
-  "dimensions": 2,
-  "geometryField": "Location",
-  "options": {
-    "precisionBits": 40,
-    "indexFieldName": "_idx",
-    "boundingBoxFieldName": "_mbb"
-  },
-  "engineSettings": {
-    "distanceMode": "Vincenty"
-  }
-}
-```
-
-Run a smoke test to confirm range scans work as expected:
-
-```csharp
-var hits = Spatial.Near(places, x => x.Location, new GeoPoint(16.3738, 48.2082), 5_000);
-```
+- Descriptors should list the expected engine, precision, index, and bounding box field names.
+- `WhereNear` emits a descriptive exception if the plugin is not registered or `EnsureIndex` never executed, making smoke tests straightforward.
 
 ## 5. Clean up legacy fields (optional)
 
-Once your application has switched to the new helpers you may remove the `_gh` field to avoid confusion:
+After verifying that queries use the plugin-provisioned metadata, remove obsolete `_gh` values to reduce document size:
 
 ```csharp
 raw.UpdateMany("{ _gh: DELETE }", "_gh != null");
 ```
 
-Keep `_mbb` because it is shared with the new engine.
+Keep `_mbb`; the new engines reuse it for bounding boxes.
 
-## 6. Automating migrations
+## 6. Automate large migrations
 
-For large databases consider creating a lightweight migration runner:
+Create a migration runner to iterate collections safely:
 
 ```csharp
-var store = new SpatialMetadataStore(db);
-
-foreach (var collectionName in db.GetCollectionNames())
+foreach (var name in db.GetCollectionNames())
 {
-    if (!store.TryGetDescriptor(collectionName, out _))
+    var collection = db.GetCollection(name);
+    if (collection == null || name.StartsWith("_"))
     {
-        var typed = db.GetCollection<BsonDocument>(collectionName);
-        // Decide which engine to use based on your domain knowledge
-        Spatial.UseGeographic(typed, "Location");
-        Spatial.EnsurePointIndex(typed);
+        continue;
     }
+
+    collection.EnsureIndex(BsonExpression.Create("$.Location"));
 }
 ```
 
-This pattern leaves collections untouched when metadata is already present, making it safe to run during deployment.
+- For strongly typed repositories, prefer `db.GetCollection<YourType>(name).EnsureIndex(x => x.Location);` so the mapper provides attribute data.
+- The interceptor skips collections that already expose compatible metadata, making repeated runs idempotent.
 
 ## 7. Rollback considerations
 
-Because the new fields are additive and metadata lives in a separate collection, rolling back to an older build simply means ignoring `_idx` and `_spatial_meta`. If you removed `_gh`, re-running `Spatial.EnsurePointIndex` in the old version will recreate it.
+Because the plugin only adds `_spatial_meta`, `_idx`, and `_mbb`, rolling back to an older LiteDB build merely requires re-enabling legacy helpers. If `_gh` was removed, calling `Spatial.EnsurePointIndex` in the previous release will reintroduce it.
 
-## 8. Verify backups
+## 8. Troubleshooting
 
-Before migrating production data ensure backups are up to date. The backfill process only touches the target collection and `_spatial_meta`, but being able to restore gives you confidence while testing.
+- **Missing descriptor warnings:** Confirm that annotations or mapper configuration ran before `EnsureIndex`. Cartesian datasets must supply a domain.
+- **No plugin registered:** `WhereNear` throws a `LiteException` that reminds you to add `new SpatialPlugin()` to the `LiteDatabase` constructor.
+- **Unexpected range results:** Use the [spatial diagnostics guide](spatial-diagnostics.md) to capture explain output and verify cover cell counts and distance tolerances.
 
-## 9. Troubleshooting
-
-If `Spatial.EnsurePointIndex` throws a `SpatialMetadataException`:
-
-* Confirm the `Use*` helper was called for the collection.
-* Check that the geometry expression resolves to the correct property name.
-* For Cartesian engines ensure the domain describes two or three dimensions as expected.
-
-Refer to the [diagnostics guide](spatial-diagnostics.md) for explain output examples that help verify range coverage and exact predicates.
-
+Following these steps ensures collections created before the plugin split continue to work with the new interceptor-based flow while modernizing query code to use `WhereNear` and related extensions.
