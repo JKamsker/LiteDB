@@ -33,40 +33,24 @@ namespace LiteDB.Spatial.Plugin
 
         private static void RegisterExpressionFunctions(LiteDbPlugins.IExpressionRegistry registry)
         {
-            registry.RegisterFunction(
-                "SPATIAL_NEAR",
-                (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeNear,
-                BaseLiteDB.BsonExpressionType.Call,
-                convertScalarLeftToEnumerable: false,
-                isScalarResult: true);
+            var globalRegistry = BaseLiteDB.LiteDatabaseServices.Default.ExpressionRegistry;
 
-            registry.RegisterFunction(
-                "SPATIAL_WITHIN",
-                (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeWithin,
-                BaseLiteDB.BsonExpressionType.Call,
-                convertScalarLeftToEnumerable: false,
-                isScalarResult: true);
+            Register("SPATIAL_NEAR", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeNear);
+            Register("SPATIAL_WITHIN", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeWithin);
+            Register("SPATIAL_INTERSECTS", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeIntersects);
+            Register("SPATIAL_CONTAINS", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeContains);
+            Register("SPATIAL_IN_BOX", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeInBox);
 
-            registry.RegisterFunction(
-                "SPATIAL_INTERSECTS",
-                (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeIntersects,
-                BaseLiteDB.BsonExpressionType.Call,
-                convertScalarLeftToEnumerable: false,
-                isScalarResult: true);
+            void Register<TDelegate>(string name, TDelegate implementation)
+                where TDelegate : Delegate
+            {
+                registry.RegisterFunction(name, implementation, BaseLiteDB.BsonExpressionType.Call, convertScalarLeftToEnumerable: false, isScalarResult: true);
 
-            registry.RegisterFunction(
-                "SPATIAL_CONTAINS",
-                (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeContains,
-                BaseLiteDB.BsonExpressionType.Call,
-                convertScalarLeftToEnumerable: false,
-                isScalarResult: true);
-
-            registry.RegisterFunction(
-                "SPATIAL_IN_BOX",
-                (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeInBox,
-                BaseLiteDB.BsonExpressionType.Call,
-                convertScalarLeftToEnumerable: false,
-                isScalarResult: true);
+                if (!ReferenceEquals(registry, globalRegistry))
+                {
+                    globalRegistry.RegisterFunction(name, implementation, BaseLiteDB.BsonExpressionType.Call, convertScalarLeftToEnumerable: false, isScalarResult: true);
+                }
+            }
         }
     }
 }
