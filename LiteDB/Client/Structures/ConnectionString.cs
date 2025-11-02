@@ -97,6 +97,7 @@ namespace LiteDB
 
             this.Upgrade = _values.GetValue("upgrade", this.Upgrade);
             this.AutoRebuild = _values.GetValue("auto-rebuild", this.AutoRebuild);
+
         }
 
         /// <summary>
