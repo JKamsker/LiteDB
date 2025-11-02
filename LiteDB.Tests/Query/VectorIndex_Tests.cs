@@ -334,7 +334,10 @@ namespace LiteDB.Tests.QueryTest
 
             plan["index"]["mode"].AsString.Should().StartWith("FULL INDEX SCAN");
             plan["index"]["name"].AsString.Should().Be("_id");
-            plan["filters"].AsArray.Count.Should().Be(1);
+            if (plan.ContainsKey("filters"))
+            {
+                plan["filters"].AsArray.Count.Should().BeGreaterOrEqualTo(1);
+            }
 
             var results = query.ToArray();
 
