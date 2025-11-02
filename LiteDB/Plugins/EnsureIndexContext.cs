@@ -1,5 +1,8 @@
 using System;
 using LiteDB.Engine;
+using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Query;
+using LiteDB.Plugins.Storage;
 
 namespace LiteDB.Plugins
 {
@@ -80,6 +83,21 @@ namespace LiteDB.Plugins
         /// Gets the plugin context for additional registry access.
         /// </summary>
         public ILitePluginContext PluginContext { get; }
+
+        /// <summary>
+        /// Gets the query metadata accessor exposed by the plugin context.
+        /// </summary>
+        public IQueryMetadataAccessor QueryMetadata => PluginContext?.QueryMetadata;
+
+        /// <summary>
+        /// Gets the BSON type registry exposed by the plugin context.
+        /// </summary>
+        public IBsonTypeRegistry BsonTypes => PluginContext?.BsonTypes;
+
+        /// <summary>
+        /// Gets the page factory registry exposed by the plugin context.
+        /// </summary>
+        public IPageFactoryRegistry PageFactories => PluginContext?.PageFactories;
 
         /// <summary>
         /// Gets the shared service provider available to plugins.

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using LiteDB.Engine;
 using EngineIndex = LiteDB.Engine.Index;
+using LiteDbQuery = LiteDB.Query;
 
 namespace LiteDB.Plugins
 {
@@ -16,7 +17,7 @@ namespace LiteDB.Plugins
 
         internal QueryPlanningContext(
             Snapshot snapshot,
-            Query query,
+            LiteDbQuery query,
             IReadOnlyList<BsonExpression> terms,
             QueryPlan plan,
             ILitePluginContext pluginContext)
@@ -33,7 +34,7 @@ namespace LiteDB.Plugins
         /// <summary>
         /// Gets the query definition being optimized.
         /// </summary>
-        public Query Query { get; }
+        public LiteDbQuery Query { get; }
 
         internal IReadOnlyList<BsonExpression> Terms { get; }
 
