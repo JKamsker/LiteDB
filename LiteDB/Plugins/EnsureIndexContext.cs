@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using LiteDB.Engine;
 using LiteDB.Plugins.Bson;
 using LiteDB.Plugins.Query;
@@ -103,6 +104,54 @@ namespace LiteDB.Plugins
         /// Gets the shared service provider available to plugins.
         /// </summary>
         public IServiceProvider Services => PluginContext?.Services;
+
+        /// <summary>
+        /// Registers a query metadata descriptor for the supplied plugin identifier.
+        /// </summary>
+        /// <param name="pluginId">Identifier of the plugin that owns the descriptor.</param>
+        /// <param name="version">Descriptor schema version.</param>
+        /// <param name="reservedKeys">Reserved metadata keys for the plugin.</param>
+        public void RegisterQueryMetadata(string pluginId, int version, IReadOnlyCollection<string> reservedKeys)
+        {
+            if (PluginContext == null)
+            {
+                throw new InvalidOperationException("Query metadata registration is unavailable because the plugin context has not been configured.");
+            }
+
+            PluginContext.RegisterQueryMetadata(pluginId, version, reservedKeys);
+        }
+
+        /// <summary>
+        /// Attempts to resolve a registered query metadata descriptor.
+        /// </summary>
+        /// <param name="pluginId">Identifier of the plugin that owns the descriptor.</param>
+        /// <param name="descriptor">When successful, receives the descriptor.</param>
+        /// <returns>True when the descriptor exists.</returns>
+        public bool TryGetQueryMetadataDescriptor(string pluginId, out QueryMetadataDescriptor descriptor)
+        {
+            if (PluginContext == null)
+            {
+                descriptor = null;
+                return false;
+            }
+
+            return PluginContext.TryGetQueryMetadataDescriptor(pluginId, out descriptor);
+        }
+
+        /// <summary>
+        /// Gets the query metadata descriptor for the supplied plugin identifier.
+        /// </summary>
+        /// <param name="pluginId">Identifier of the plugin that owns the descriptor.</param>
+        /// <returns>The registered descriptor.</returns>
+        public QueryMetadataDescriptor GetQueryMetadataDescriptor(string pluginId)
+        {
+            if (PluginContext == null)
+            {
+                throw new InvalidOperationException("Query metadata descriptor lookup requires an active plugin context.");
+            }
+
+            return PluginContext.GetQueryMetadataDescriptor(pluginId);
+        }
 
         /// <summary>
         /// Gets a value indicating whether the default handler has been executed.
