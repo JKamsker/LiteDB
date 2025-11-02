@@ -25,12 +25,12 @@ namespace LiteDB.Document.Bson
         /// </summary>
         public bool TryGet(byte typeCode, out BsonTypeRegistration registration)
         {
-            if (_byCode.TryGetValue(typeCode, out registration))
+            if (_pluginRegistry.TryGetByTypeCode(typeCode, out registration))
             {
                 return true;
             }
 
-            return _pluginRegistry.TryGetByTypeCode(typeCode, out registration);
+            return _byCode.TryGetValue(typeCode, out registration);
         }
 
         /// <summary>
@@ -44,12 +44,12 @@ namespace LiteDB.Document.Bson
                 return false;
             }
 
-            if (_byName.TryGetValue(name, out registration))
+            if (_pluginRegistry.TryGetByName(name, out registration))
             {
                 return true;
             }
 
-            return _pluginRegistry.TryGetByName(name, out registration);
+            return _byName.TryGetValue(name, out registration);
         }
 
         /// <summary>

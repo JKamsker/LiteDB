@@ -14,6 +14,7 @@ namespace LiteDB
         internal LiteDatabaseServices(ILitePluginContext context)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
+            BsonTypeResolver.ReplaceFallbackRegistry(context);
         }
 
         /// <summary>
