@@ -1,0 +1,11 @@
+{
+    "id": "infrastructure-gap-id",
+    "category": "QueryState",
+    "description": "Detail the missing plugin extension point or capability blocking migration.",
+    "impact": "Critical",
+    "status": "Open",
+    "workItem": "tracking/issue-or-pr-link",
+    "linkedComponentIds": [
+        "component-id"
+    ]
+}
