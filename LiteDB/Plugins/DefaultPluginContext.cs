@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Query;
+using LiteDB.Plugins.Storage;
 
 namespace LiteDB.Plugins
 {
@@ -11,6 +14,9 @@ namespace LiteDB.Plugins
             this.Expressions = new ExpressionRegistry();
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
+            this.QueryMetadata = new QueryMetadataAccessor();
+            this.BsonTypes = new PluginBsonTypeRegistry();
+            this.PageFactories = new PageFactoryRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
             this.IndexInterceptors = new IndexInterceptorRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
@@ -24,6 +30,12 @@ namespace LiteDB.Plugins
 
         public IQueryPlannerRegistry QueryPlanner { get; }
 
+        public IQueryMetadataAccessor QueryMetadata { get; }
+
+        public IBsonTypeRegistry BsonTypes { get; }
+
+        public IPageFactoryRegistry PageFactories { get; }
+
         public ILinqResolverRegistry LinqResolvers { get; }
 
         public IIndexInterceptorRegistry IndexInterceptors { get; }
@@ -33,6 +45,196 @@ namespace LiteDB.Plugins
         public ILogger Logger { get; }
 
         public ConnectionString ConnectionString { get; }
+
+        public void RegisterQueryMetadata(string pluginId, int version, IReadOnlyCollection<string> reservedKeys)
+        {
+            this.QueryMetadata.Register(pluginId, version, reservedKeys);
+        }
+
+        public bool TryGetQueryMetadataDescriptor(string pluginId, out QueryMetadataDescriptor descriptor)
+        {
+            return this.QueryMetadata.TryGetDescriptor(pluginId, out descriptor);
+        }
+
+        public QueryMetadataDescriptor GetQueryMetadataDescriptor(string pluginId)
+        {
+            return this.QueryMetadata.GetDescriptor(pluginId);
+        }
+
+        public void RegisterBsonType(BsonTypeRegistration registration)
+        {
+            this.BsonTypes.Register(registration);
+        }
+
+        public bool TryGetBsonType(byte typeCode, out BsonTypeRegistration registration)
+        {
+            return this.BsonTypes.TryGetByTypeCode(typeCode, out registration);
+        }
+
+        public bool TryGetBsonType(string name, out BsonTypeRegistration registration)
+        {
+            return this.BsonTypes.TryGetByName(name, out registration);
+        }
+
+        public void RegisterPageFactory(PageFactoryRegistration registration)
+        {
+            this.PageFactories.Register(registration);
+        }
+
+        public bool TryGetPageFactory(string pageType, out PageFactoryRegistration registration)
+        {
+            return this.PageFactories.TryGet(pageType, out registration);
+        }
+    }
+
+    internal sealed class QueryMetadataAccessor : IQueryMetadataAccessor
+    {
+        private readonly object _sync = new object();
+        private readonly Dictionary<string, QueryMetadataDescriptor> _descriptors = new Dictionary<string, QueryMetadataDescriptor>(StringComparer.Ordinal);
+
+        public void Register(string pluginId, int version, IReadOnlyCollection<string> reservedKeys)
+        {
+            var descriptor = new QueryMetadataDescriptor(pluginId, version, reservedKeys);
+
+            lock (_sync)
+            {
+                _descriptors[descriptor.PluginId] = descriptor;
+            }
+        }
+
+        public bool TryGetDescriptor(string pluginId, out QueryMetadataDescriptor descriptor)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId))
+            {
+                descriptor = null;
+                return false;
+            }
+
+            lock (_sync)
+            {
+                return _descriptors.TryGetValue(pluginId, out descriptor);
+            }
+        }
+
+        public QueryMetadataDescriptor GetDescriptor(string pluginId)
+        {
+            if (!TryGetDescriptor(pluginId, out var descriptor))
+            {
+                throw new KeyNotFoundException($"No query metadata descriptor registered for plugin '{pluginId}'.");
+            }
+
+            return descriptor;
+        }
+    }
+
+    internal sealed class PluginBsonTypeRegistry : IBsonTypeRegistry
+    {
+        private readonly object _sync = new object();
+        private readonly Dictionary<byte, BsonTypeRegistration> _typesByCode = new Dictionary<byte, BsonTypeRegistration>();
+        private readonly Dictionary<string, BsonTypeRegistration> _typesByName = new Dictionary<string, BsonTypeRegistration>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<byte, BsonTypeRegistration> _aliases = new Dictionary<byte, BsonTypeRegistration>();
+
+        public void Register(BsonTypeRegistration registration)
+        {
+            if (registration == null) throw new ArgumentNullException(nameof(registration));
+
+            lock (_sync)
+            {
+                _typesByCode[registration.TypeCode] = registration;
+
+                if (!string.IsNullOrWhiteSpace(registration.Name))
+                {
+                    _typesByName[registration.Name] = registration;
+                }
+
+                if (registration.LegacyAliases != null)
+                {
+                    foreach (var alias in registration.LegacyAliases)
+                    {
+                        _aliases[alias] = registration;
+                    }
+                }
+            }
+        }
+
+        public bool TryGetByTypeCode(byte typeCode, out BsonTypeRegistration registration)
+        {
+            lock (_sync)
+            {
+                if (_typesByCode.TryGetValue(typeCode, out registration))
+                {
+                    return true;
+                }
+
+                return _aliases.TryGetValue(typeCode, out registration);
+            }
+        }
+
+        public bool TryGetByName(string name, out BsonTypeRegistration registration)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                registration = null;
+                return false;
+            }
+
+            lock (_sync)
+            {
+                return _typesByName.TryGetValue(name, out registration);
+            }
+        }
+
+        public IReadOnlyCollection<BsonTypeRegistration> Registered
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _typesByCode.Values.ToArray();
+                }
+            }
+        }
+    }
+
+    internal sealed class PageFactoryRegistry : IPageFactoryRegistry
+    {
+        private readonly object _sync = new object();
+        private readonly Dictionary<string, PageFactoryRegistration> _factories = new Dictionary<string, PageFactoryRegistration>(StringComparer.OrdinalIgnoreCase);
+
+        public void Register(PageFactoryRegistration registration)
+        {
+            if (registration == null) throw new ArgumentNullException(nameof(registration));
+
+            lock (_sync)
+            {
+                _factories[registration.PageType] = registration;
+            }
+        }
+
+        public bool TryGet(string pageType, out PageFactoryRegistration registration)
+        {
+            if (string.IsNullOrWhiteSpace(pageType))
+            {
+                registration = null;
+                return false;
+            }
+
+            lock (_sync)
+            {
+                return _factories.TryGetValue(pageType, out registration);
+            }
+        }
+
+        public IReadOnlyCollection<PageFactoryRegistration> Registered
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _factories.Values.ToArray();
+                }
+            }
+        }
     }
 
     internal sealed class ExpressionRegistry : IExpressionRegistry
