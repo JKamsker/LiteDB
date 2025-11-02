@@ -439,6 +439,7 @@ namespace LiteDB.Engine
 
             if (expression == null || target == null)
             {
+                consumedTerm = null;
                 return false;
             }
 
@@ -466,6 +467,7 @@ namespace LiteDB.Engine
                 return true;
             }
 
+            consumedTerm = null;
             return false;
         }
 
