@@ -1,0 +1,17 @@
+{
+    "id": "public-api-surface",
+    "area": "PublicApi",
+    "files": [
+        "LiteDB/Engine/ILiteEngine.cs",
+        "LiteDB/Engine/Engine/Index.cs",
+        "LiteDB/Client/Shared/SharedEngine.cs",
+        "LiteDB/Client/Database/Collections/Index.cs",
+        "LiteDB/Client/Database/LiteRepository.cs",
+        "LiteDB/Client/Database/LiteQueryable.cs"
+    ],
+    "scopeSummary": "Direct EnsureVectorIndex APIs, vector distance LINQ helpers, and repository wrappers expose vector search semantics to consumers",
+    "decisionId": "pending-decision",
+    "requiredGapIds": [],
+    "verificationStepIds": [],
+    "notes": "US2 will bind to concrete migration decisions and verification steps."
+}

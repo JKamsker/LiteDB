@@ -1,0 +1,8 @@
+{
+    "id": "verify-build-release",
+    "category": "Build",
+    "command": "dotnet build LiteDB.sln -c Release",
+    "expectedOutcome": "Solution builds succeed without vector-related compiler warnings or plugin dependency leaks in LiteDB/ targets.",
+    "phase": "PostMigration",
+    "notes": "Use CI Release configuration to ensure both netstandard2.0 and net8.0 targets compile cleanly after vector relocation."
+}

@@ -59,32 +59,32 @@ This feature works with existing LiteDB solution structure:
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Execute comprehensive vector search: `rg "Vector" .\LiteDB > .\artifacts_temp\vector-cleanup\raw-search-results.txt`
-- [ ] T012 [US1] Parse raw search results and extract unique file paths to `.\artifacts_temp\vector-cleanup\affected-files.txt`
-- [ ] T013 [P] [US1] Create VectorComponentRecord for Public API surface area in `.\specs\001-vector-core-cleanup\inventory\public-api.json`
-- [ ] T014 [P] [US1] Create VectorComponentRecord for Query planning & expressions area in `.\specs\001-vector-core-cleanup\inventory\query-planning.json`
-- [ ] T015 [P] [US1] Create VectorComponentRecord for BSON & serialization area in `.\specs\001-vector-core-cleanup\inventory\bson-serialization.json`
-- [ ] T016 [P] [US1] Create VectorComponentRecord for Storage & engine metadata area in `.\specs\001-vector-core-cleanup\inventory\storage-engine.json`
-- [ ] T017 [P] [US1] Create VectorComponentRecord for Service factory & internals area in `.\specs\001-vector-core-cleanup\inventory\service-infrastructure.json`
-- [ ] T018 [US1] Validate each VectorComponentRecord has all required fields (area, files, scopeSummary, decision reference)
-- [ ] T019 [US1] Cross-check inventory files list against raw search results to ensure 100% coverage
-- [ ] T020 [US1] Document Public API surface files in inventory: `LiteDB\Engine\ILiteEngine.cs`, `LiteDB\Engine\Engine\Index.cs`, `LiteDB\Client\Shared\SharedEngine.cs`, `LiteDB\Client\Database\Collections\Index.cs`, `LiteDB\Client\Database\LiteRepository.cs`, `LiteDB\Client\Database\LiteQueryable.cs`
-- [ ] T021 [US1] Document Query planning files in inventory: `LiteDB\Engine\Query\Query.cs`, `LiteDB\Engine\Query\QueryOptimization.cs`, `LiteDB\Plugins\QueryPlanningContext.cs`, `LiteDB\Document\Expression\Parser\BsonExpressionType.cs`
-- [ ] T022 [US1] Document BSON serialization files in inventory: `LiteDB\Document\BsonType.cs`, `LiteDB\Document\BsonValue.cs`, `LiteDB\Document\BsonVector.cs`, `LiteDB\Document\Json\JsonWriter.cs`, `LiteDB\Utils\Extensions\BufferSliceExtensions.cs`, `LiteDB\Engine\Disk\Serializer\BufferReader.cs`, `LiteDB\Engine\Disk\Serializer\BufferWriter.cs`
-- [ ] T023 [US1] Document Storage engine files in inventory: `LiteDB\Engine\Structures\VectorIndexNode.cs`, `LiteDB\Engine\Structures\VectorIndexMetadata.cs`, `LiteDB\Engine\Pages\VectorIndexPage.cs`, `LiteDB\Engine\Pages\BasePage.cs`, `LiteDB\Engine\Pages\CollectionPage.cs`, `LiteDB\Engine\FileReader\IndexInfo.cs`, `LiteDB\Engine\FileReader\FileReaderV8.cs`, `LiteDB\Engine\Services\SnapShot.cs`, `LiteDB\Engine\Engine\Rebuild.cs`
-- [ ] T024 [US1] Document Service infrastructure files in inventory: `LiteDB\Engine\Services\VectorIndexServiceFactory.cs`, `LiteDB\Utils\Constants.cs`
-- [ ] T025 [US1] Add scope summary to Public API record: "Direct EnsureVectorIndex APIs, vector distance LINQ helpers, and repository wrappers expose vector search semantics to consumers"
-- [ ] T026 [US1] Add scope summary to Query planning record: "Stores vector filter state, planning flags, and dedicated expression node types (VectorDist, VectorSim)"
-- [ ] T027 [US1] Add scope summary to BSON serialization record: "Adds BsonType.Vector, conversion helpers, JSON serialization, and binary encoding for float arrays"
-- [ ] T028 [US1] Add scope summary to Storage engine record: "Maintains vector index pages, metadata slots, file reader serialization, rebuild routines, and snapshot free-list management"
-- [ ] T029 [US1] Add scope summary to Service infrastructure record: "Factory wires plugin search service; friend assemblies grant plugin access to internals"
-- [ ] T030 [US1] Create master inventory index document in `.\specs\001-vector-core-cleanup\inventory\README.md`
-- [ ] T031 [US1] Create VerificationStep for post-migration search validation in `.\specs\001-vector-core-cleanup\verification\search-validation.json`
-- [ ] T032 [US1] Create VerificationStep for build validation in `.\specs\001-vector-core-cleanup\verification\build-validation.json`
-- [ ] T033 [US1] Create VerificationStep for plugin compatibility check in `.\specs\001-vector-core-cleanup\verification\plugin-compatibility.json`
-- [ ] T034 [US1] Create VerificationStep for existing database compatibility in `.\specs\001-vector-core-cleanup\verification\database-compatibility.json`
-- [ ] T035 [US1] Update spec.md with final verified inventory table including all 196 matches from search results
-- [ ] T036 [US1] Run final inventory verification: Execute `rg "Vector" .\LiteDB` and confirm output matches documented inventory
+- [X] T011 [US1] Execute comprehensive vector search: `rg "Vector" .\LiteDB > .\artifacts_temp\vector-cleanup\raw-search-results.txt`
+- [X] T012 [US1] Parse raw search results and extract unique file paths to `.\artifacts_temp\vector-cleanup\affected-files.txt`
+- [X] T013 [P] [US1] Create VectorComponentRecord for Public API surface area in `.\specs\001-vector-core-cleanup\inventory\public-api.json`
+- [X] T014 [P] [US1] Create VectorComponentRecord for Query planning & expressions area in `.\specs\001-vector-core-cleanup\inventory\query-planning.json`
+- [X] T015 [P] [US1] Create VectorComponentRecord for BSON & serialization area in `.\specs\001-vector-core-cleanup\inventory\bson-serialization.json`
+- [X] T016 [P] [US1] Create VectorComponentRecord for Storage & engine metadata area in `.\specs\001-vector-core-cleanup\inventory\storage-engine.json`
+- [X] T017 [P] [US1] Create VectorComponentRecord for Service factory & internals area in `.\specs\001-vector-core-cleanup\inventory\service-infrastructure.json`
+- [X] T018 [US1] Validate each VectorComponentRecord has all required fields (area, files, scopeSummary, decision reference)
+- [X] T019 [US1] Cross-check inventory files list against raw search results to ensure 100% coverage
+- [X] T020 [US1] Document Public API surface files in inventory: `LiteDB\Engine\ILiteEngine.cs`, `LiteDB\Engine\Engine\Index.cs`, `LiteDB\Client\Shared\SharedEngine.cs`, `LiteDB\Client\Database\Collections\Index.cs`, `LiteDB\Client\Database\LiteRepository.cs`, `LiteDB\Client\Database\LiteQueryable.cs`
+- [X] T021 [US1] Document Query planning files in inventory: `LiteDB\Engine\Query\Query.cs`, `LiteDB\Engine\Query\QueryOptimization.cs`, `LiteDB\Plugins\QueryPlanningContext.cs`, `LiteDB\Document\Expression\Parser\BsonExpressionType.cs`
+- [X] T022 [US1] Document BSON serialization files in inventory: `LiteDB\Document\BsonType.cs`, `LiteDB\Document\BsonValue.cs`, `LiteDB\Document\BsonVector.cs`, `LiteDB\Document\Json\JsonWriter.cs`, `LiteDB\Utils\Extensions\BufferSliceExtensions.cs`, `LiteDB\Engine\Disk\Serializer\BufferReader.cs`, `LiteDB\Engine\Disk\Serializer\BufferWriter.cs`
+- [X] T023 [US1] Document Storage engine files in inventory: `LiteDB\Engine\Structures\VectorIndexNode.cs`, `LiteDB\Engine\Structures\VectorIndexMetadata.cs`, `LiteDB\Engine\Pages\VectorIndexPage.cs`, `LiteDB\Engine\Pages\BasePage.cs`, `LiteDB\Engine\Pages\CollectionPage.cs`, `LiteDB\Engine\FileReader\IndexInfo.cs`, `LiteDB\Engine\FileReader\FileReaderV8.cs`, `LiteDB\Engine\Services\SnapShot.cs`, `LiteDB\Engine\Engine\Rebuild.cs`
+- [X] T024 [US1] Document Service infrastructure files in inventory: `LiteDB\Engine\Services\VectorIndexServiceFactory.cs`, `LiteDB\Utils\Constants.cs`
+- [X] T025 [US1] Add scope summary to Public API record: "Direct EnsureVectorIndex APIs, vector distance LINQ helpers, and repository wrappers expose vector search semantics to consumers"
+- [X] T026 [US1] Add scope summary to Query planning record: "Stores vector filter state, planning flags, and dedicated expression node types (VectorDist, VectorSim)"
+- [X] T027 [US1] Add scope summary to BSON serialization record: "Adds BsonType.Vector, conversion helpers, JSON serialization, and binary encoding for float arrays"
+- [X] T028 [US1] Add scope summary to Storage engine record: "Maintains vector index pages, metadata slots, file reader serialization, rebuild routines, and snapshot free-list management"
+- [X] T029 [US1] Add scope summary to Service infrastructure record: "Factory wires plugin search service; friend assemblies grant plugin access to internals"
+- [X] T030 [US1] Create master inventory index document in `.\specs\001-vector-core-cleanup\inventory\README.md`
+- [X] T031 [US1] Create VerificationStep for post-migration search validation in `.\specs\001-vector-core-cleanup\verification\search-validation.json`
+- [X] T032 [US1] Create VerificationStep for build validation in `.\specs\001-vector-core-cleanup\verification\build-validation.json`
+- [X] T033 [US1] Create VerificationStep for plugin compatibility check in `.\specs\001-vector-core-cleanup\verification\plugin-compatibility.json`
+- [X] T034 [US1] Create VerificationStep for existing database compatibility in `.\specs\001-vector-core-cleanup\verification\database-compatibility.json`
+- [X] T035 [US1] Update spec.md with final verified inventory table including all 196 matches from search results
+- [X] T036 [US1] Run final inventory verification: Execute `rg "Vector" .\LiteDB` and confirm output matches documented inventory
 
 **Checkpoint**: At this point, User Story 1 should be complete with a verified inventory of all Vector references
 

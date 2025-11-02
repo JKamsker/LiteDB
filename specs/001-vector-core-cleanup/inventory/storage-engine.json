@@ -1,0 +1,20 @@
+{
+    "id": "storage-engine-vector",
+    "area": "StorageEngine",
+    "files": [
+        "LiteDB/Engine/Structures/VectorIndexNode.cs",
+        "LiteDB/Engine/Structures/VectorIndexMetadata.cs",
+        "LiteDB/Engine/Pages/VectorIndexPage.cs",
+        "LiteDB/Engine/Pages/BasePage.cs",
+        "LiteDB/Engine/Pages/CollectionPage.cs",
+        "LiteDB/Engine/FileReader/IndexInfo.cs",
+        "LiteDB/Engine/FileReader/FileReaderV8.cs",
+        "LiteDB/Engine/Services/SnapShot.cs",
+        "LiteDB/Engine/Engine/Rebuild.cs"
+    ],
+    "scopeSummary": "Maintains vector index pages, metadata slots, file reader serialization, rebuild routines, and snapshot free-list management",
+    "decisionId": "pending-decision",
+    "requiredGapIds": [],
+    "verificationStepIds": [],
+    "notes": "Expecting infrastructure dependencies around page factories and metadata bridging to the plugin."
+}

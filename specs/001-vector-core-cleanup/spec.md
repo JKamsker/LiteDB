@@ -75,6 +75,8 @@ As the extensibility architect, I need to understand where current plugin hooks 
 
 #### Vector Code Inventory
 
+Search executed on 2025-11-02 using `rg "Vector" LiteDB` produced **196 matches** spanning 28 unique files under `LiteDB/`. The table below captures every path, grouped by the five VectorComponentRecord documents in `specs/001-vector-core-cleanup/inventory/`.
+
 | Area | Files | Vector Search Scope | Migration Decision | Notes |
 |------|-------|---------------------|--------------------|-------|
 | Public API surface | LiteDB/Engine/ILiteEngine.cs<br>LiteDB/Engine/Engine/Index.cs<br>LiteDB/Client/Shared/SharedEngine.cs<br>LiteDB/Client/Database/Collections/Index.cs<br>LiteDB/Client/Database/LiteRepository.cs<br>LiteDB/Client/Database/LiteQueryable.cs | Direct `EnsureVectorIndex` APIs, vector distance LINQ helpers, and repository wrappers expose vector search semantics to consumers. | Move to plugin (short term) | Replace bespoke methods with plugin-provided extension methods and index interceptors; ensure default core paths return clear errors when plugin absent. |

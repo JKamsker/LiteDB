@@ -1,0 +1,8 @@
+{
+    "id": "verify-plugin-compatibility",
+    "category": "Plugin",
+    "command": "dotnet test LiteDB.Vector.Tests -c Release",
+    "expectedOutcome": "Vector plugin test suite passes when executed against the migrated LiteDB core, confirming public plugin contracts remain intact.",
+    "phase": "PostMigration",
+    "notes": "Covers query, indexing, and service wiring scenarios proven by the plugin regression pack."
+}

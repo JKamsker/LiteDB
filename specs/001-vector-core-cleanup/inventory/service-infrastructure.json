@@ -1,0 +1,13 @@
+{
+    "id": "service-infrastructure-factory",
+    "area": "ServiceInfrastructure",
+    "files": [
+        "LiteDB/Engine/Services/VectorIndexServiceFactory.cs",
+        "LiteDB/Utils/Constants.cs"
+    ],
+    "scopeSummary": "Factory wires plugin search service; friend assemblies grant plugin access to internals",
+    "decisionId": "pending-decision",
+    "requiredGapIds": [],
+    "verificationStepIds": [],
+    "notes": "Tracks factory relocation work and InternalsVisibleTo cleanup now that plugin will own the service."
+}

@@ -1,0 +1,8 @@
+{
+    "id": "verify-search-post-migration",
+    "category": "Search",
+    "command": "rg \"Vector\" LiteDB",
+    "expectedOutcome": "No matches remain under LiteDB/ after relocating vector components; inventory diff is empty and only plugin-side references persist.",
+    "phase": "PostMigration",
+    "notes": "Run after migration to confirm the core library no longer exposes vector-specific identifiers outside agreed extension points."
+}

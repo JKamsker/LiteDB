@@ -1,0 +1,15 @@
+{
+    "id": "query-planning-core",
+    "area": "QueryPlanning",
+    "files": [
+        "LiteDB/Engine/Query/Query.cs",
+        "LiteDB/Engine/Query/QueryOptimization.cs",
+        "LiteDB/Plugins/QueryPlanningContext.cs",
+        "LiteDB/Document/Expression/Parser/BsonExpressionType.cs"
+    ],
+    "scopeSummary": "Stores vector filter state, planning flags, and dedicated expression node types (VectorDist, VectorSim)",
+    "decisionId": "pending-decision",
+    "requiredGapIds": [],
+    "verificationStepIds": [],
+    "notes": "Expect to link to infrastructure gaps for query state extensions in US2."
+}
