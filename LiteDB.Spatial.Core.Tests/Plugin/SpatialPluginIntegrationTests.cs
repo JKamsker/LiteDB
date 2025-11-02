@@ -56,8 +56,8 @@ public sealed class SpatialPluginIntegrationTests
 
         ensured.Should().BeTrue("the plugin short-circuits when metadata is present but reports success");
 
-        var recreatedPrimary = collection.EnsureIndex($"$.{SpatialIndexOptions.DefaultIndexFieldName}");
-        var recreatedBounding = collection.EnsureIndex($"$.{SpatialIndexOptions.DefaultBoundingBoxFieldName}");
+        var recreatedPrimary = collection.EnsureIndex(SpatialIndexOptions.DefaultIndexFieldName);
+        var recreatedBounding = collection.EnsureIndex(SpatialIndexOptions.DefaultBoundingBoxFieldName);
 
         recreatedPrimary.Should().BeFalse("the plugin rebuilds the Morton index when metadata already exists");
         recreatedBounding.Should().BeFalse("the plugin rebuilds the bounding-box index when metadata already exists");

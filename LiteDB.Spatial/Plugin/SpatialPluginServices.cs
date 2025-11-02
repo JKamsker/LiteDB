@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using LiteDB.Spatial;
 using LiteDB.Spatial.Plugin.Linq;
 using LiteDB.Spatial.Plugin.QueryPlanning;
@@ -21,6 +22,7 @@ namespace LiteDB.Spatial.Plugin
         private readonly ConcurrentDictionary<string, string> _geometryFieldsByIndex = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<Type, SpatialLinqResolver> _resolverCache = new ConcurrentDictionary<Type, SpatialLinqResolver>();
         private readonly SpatialMetadataStore _metadataStore;
+        private static readonly Regex IndexNameSanitizer = new Regex(@"[^a-z0-9]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public SpatialPluginServices(BaseLiteDB.LiteDatabase database, LiteDbPlugins.ILitePluginContext context)
         {
@@ -86,18 +88,99 @@ namespace LiteDB.Spatial.Plugin
 
             if (!descriptorCreated)
             {
-                var refreshed = TryRebuildDescriptor(context, descriptor);
-                if (refreshed == null)
-                {
-                    return false;
-                }
+                var ensureFailed = false;
+                var indexesCreated = EnsureBackingIndexes(context, descriptor, out ensureFailed);
 
-                descriptor = refreshed;
+                if (ensureFailed)
+                {
+                    var refreshedOnFailure = TryRebuildDescriptor(context, descriptor);
+                    if (refreshedOnFailure == null)
+                    {
+                        return false;
+                    }
+
+                    descriptor = refreshedOnFailure;
+                }
+                else if (indexesCreated)
+                {
+                    var refreshed = TryRebuildDescriptor(context, descriptor);
+                    if (refreshed == null)
+                    {
+                        return false;
+                    }
+
+                    descriptor = refreshed;
+                }
             }
 
             CacheGeometryField(context.Name, descriptor);
             context.SetResult(true);
             return true;
+        }
+
+        private bool EnsureBackingIndexes(LiteDbPlugins.EnsureIndexContext context, SpatialCollectionDescriptor descriptor, out bool ensureFailed)
+        {
+            ensureFailed = false;
+
+            var options = descriptor.Options;
+            if (options == null)
+            {
+                return false;
+            }
+
+            var createdAny = false;
+
+            if (!TryEnsureBackingIndex(context, options.IndexFieldName, out var createdPrimary))
+            {
+                ensureFailed = true;
+                return true;
+            }
+
+            createdAny |= createdPrimary;
+
+            if (!TryEnsureBackingIndex(context, options.BoundingBoxFieldName, out var createdBounding))
+            {
+                ensureFailed = true;
+                return true;
+            }
+
+            createdAny |= createdBounding;
+            return createdAny;
+        }
+
+        private bool TryEnsureBackingIndex(LiteDbPlugins.EnsureIndexContext context, string fieldName, out bool created)
+        {
+            created = false;
+
+            if (string.IsNullOrWhiteSpace(fieldName))
+            {
+                return true;
+            }
+
+            var engine = context.Engine;
+            if (engine == null)
+            {
+                Log(LiteDbPlugins.LogLevel.Debug, $"Spatial plugin could not access LiteEngine to verify backing index '{fieldName}' for '{context.CollectionName}'.");
+                return false;
+            }
+
+            try
+            {
+                var expression = BaseLiteDB.BsonExpression.Create(fieldName);
+                var indexName = IndexNameSanitizer.Replace(expression.Source, string.Empty);
+                if (string.IsNullOrWhiteSpace(indexName))
+                {
+                    return true;
+                }
+
+                created = engine.EnsureIndex(context.CollectionName, indexName, expression, unique: false);
+                return true;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException && ex is not StackOverflowException && ex is not AccessViolationException)
+            {
+                Log(LiteDbPlugins.LogLevel.Error, $"Spatial plugin could not ensure backing index '{fieldName}' for '{context.CollectionName}': {ex.Message}");
+                return false;
+            }
         }
 
         private SpatialCollectionDescriptor? TryRebuildDescriptor(LiteDbPlugins.EnsureIndexContext context, SpatialCollectionDescriptor descriptor)
