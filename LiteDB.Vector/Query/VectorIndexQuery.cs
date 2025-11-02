@@ -1,10 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LiteDB;
+using LiteDB.Engine;
+using LiteDB.Vector.Engine;
+using EngineIndex = LiteDB.Engine.Index;
 
-namespace LiteDB.Engine
+namespace LiteDB.Vector.Query
 {
-    internal sealed class VectorIndexQuery : Index, IDocumentLookup
+    /// <summary>
+    /// Index implementation that executes vector similarity searches using the plugin's vector index service.
+    /// </summary>
+    internal sealed class VectorIndexQuery : EngineIndex, IDocumentLookup
     {
         private readonly Snapshot _snapshot;
         private readonly CollectionIndex _index;
@@ -16,8 +23,6 @@ namespace LiteDB.Engine
 
         private readonly Dictionary<PageAddress, BsonDocument> _cache = new Dictionary<PageAddress, BsonDocument>();
 
-        public string Expression => _index.Expression;
-
         public VectorIndexQuery(
             string name,
             Snapshot snapshot,
@@ -27,16 +32,18 @@ namespace LiteDB.Engine
             double maxDistance,
             int? limit,
             Collation collation)
-            : base(name, Query.Ascending)
+            : base(name, LiteDB.Query.Ascending)
         {
-            _snapshot = snapshot;
-            _index = index;
-            _metadata = metadata;
-            _target = target;
+            _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+            _index = index ?? throw new ArgumentNullException(nameof(index));
+            _metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            _target = target ?? throw new ArgumentNullException(nameof(target));
             _maxDistance = maxDistance;
             _limit = limit;
             _collation = collation;
         }
+
+        public string Expression => _index.Expression;
 
         public override uint GetCost(CollectionIndex index)
         {
@@ -52,7 +59,7 @@ namespace LiteDB.Engine
         {
             _cache.Clear();
 
-            var service = VectorIndexServiceFactory.Create(_snapshot, _collation);
+            var service = new VectorIndexService(_snapshot, _collation);
             var results = service.Search(_metadata, _target, _maxDistance, _limit).ToArray();
 
             foreach (var result in results)
@@ -71,12 +78,22 @@ namespace LiteDB.Engine
 
         public BsonDocument Load(IndexNode node)
         {
-            return node.Key as BsonDocument;
+            if (node.Key is BsonDocument document)
+            {
+                return document;
+            }
+
+            throw new InvalidOperationException("Vector index query expected document key payload.");
         }
 
         public BsonDocument Load(PageAddress rawId)
         {
-            return _cache.TryGetValue(rawId, out var document) ? document : null;
+            if (_cache.TryGetValue(rawId, out var document))
+            {
+                return document;
+            }
+
+            throw new KeyNotFoundException("Vector index query cache miss for requested document.");
         }
 
         public override string ToString()

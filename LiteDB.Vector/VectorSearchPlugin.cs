@@ -4,6 +4,7 @@ using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Engine;
 using LiteDB.Vector.Engine;
+using LiteDB.Vector.Query;
 
 namespace LiteDB.Vector
 {
@@ -52,6 +53,7 @@ namespace LiteDB.Vector
                 isScalarResult: true);
 
             context.Indexes.Register(new VectorIndexStrategy(context.Logger, defaultMetric));
+            context.QueryPlanner.AddRule(new VectorIndexPlanningRule());
 
             context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.");
 

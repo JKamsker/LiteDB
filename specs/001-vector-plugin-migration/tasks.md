@@ -88,10 +88,10 @@
 
 ### Query Infrastructure Migration for User Story 2
 
-- [ ] T027 [US2] Move VectorIndexQuery class from `LiteDB/Engine/Query/IndexQuery/VectorIndexQuery.cs` to `LiteDB.Vector/Query/VectorIndexQuery.cs` (preserve query plan integration)
-- [ ] T028 [US2] Update VectorIndexQuery to use the moved VectorIndexService for search operations in `LiteDB.Vector/Query/VectorIndexQuery.cs`
-- [ ] T029 [US2] Verify query planner integration: ensure VectorIndexQuery is created for vector similarity conditions
-- [ ] T030 [US2] Remove moved query file from LiteDB core: delete `LiteDB/Engine/Query/IndexQuery/VectorIndexQuery.cs`
+- [X] T027 [US2] Move VectorIndexQuery class from `LiteDB/Engine/Query/IndexQuery/VectorIndexQuery.cs` to `LiteDB.Vector/Query/VectorIndexQuery.cs` (preserve query plan integration)
+- [X] T028 [US2] Update VectorIndexQuery to use the moved VectorIndexService for search operations in `LiteDB.Vector/Query/VectorIndexQuery.cs`
+- [X] T029 [US2] Verify query planner integration: ensure VectorIndexQuery is created for vector similarity conditions
+- [X] T030 [US2] Remove moved query file from LiteDB core: delete `LiteDB/Engine/Query/IndexQuery/VectorIndexQuery.cs`
 
 ### Index Lifecycle Implementation for User Story 2
 

@@ -65,7 +65,7 @@ namespace LiteDB.Vector
             var data = new DataService(typedSnapshot, typedSnapshot.MaxItemsCount);
             var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
 
-            foreach (var pkNode in new IndexAll("_id", Query.Ascending).Run(typedCollection, indexer))
+            foreach (var pkNode in new IndexAll("_id", LiteDB.Query.Ascending).Run(typedCollection, indexer))
             {
                 using (var reader = new BufferReader(data.Read(pkNode.DataBlock)))
                 {

@@ -62,6 +62,8 @@ namespace LiteDB.Plugins
 
         internal bool ReplaceFilters => _replaceFilters;
 
+        internal bool VectorOrderConsumed { get; set; }
+
         private EngineIndex _selectedIndex;
         private string _selectedIndexExpression;
         private uint? _selectedIndexCost;
