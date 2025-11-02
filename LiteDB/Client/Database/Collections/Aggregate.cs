@@ -47,12 +47,12 @@ namespace LiteDB
         /// <summary>
         /// Count documents matching a query. This method does not deserialize any documents. Needs indexes on query expression
         /// </summary>
-        public int Count(Expression<Func<T, bool>> predicate) => this.Count(_mapper.GetExpression(predicate, _expressions));
+        public int Count(Expression<Func<T, bool>> predicate) => this.Count(_mapper.GetExpression(predicate, _expressions, _database, _linqResolvers));
 
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public int Count(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions).Count();
+        public int Count(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions, _database, _linqResolvers).Count();
 
         #endregion
 
@@ -95,12 +95,12 @@ namespace LiteDB
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public long LongCount(Expression<Func<T, bool>> predicate) => this.LongCount(_mapper.GetExpression(predicate, _expressions));
+        public long LongCount(Expression<Func<T, bool>> predicate) => this.LongCount(_mapper.GetExpression(predicate, _expressions, _database, _linqResolvers));
 
         /// <summary>
         /// Get document count in collection using predicate filter expression
         /// </summary>
-        public long LongCount(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions).Count();
+        public long LongCount(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions, _database, _linqResolvers).Count();
 
         #endregion
 
@@ -135,12 +135,12 @@ namespace LiteDB
         /// <summary>
         /// Get true if collection contains at least 1 document that satisfies the predicate expression
         /// </summary>
-        public bool Exists(Expression<Func<T, bool>> predicate) => this.Exists(_mapper.GetExpression(predicate, _expressions));
+        public bool Exists(Expression<Func<T, bool>> predicate) => this.Exists(_mapper.GetExpression(predicate, _expressions, _database, _linqResolvers));
 
         /// <summary>
         /// Get true if collection contains at least 1 document that satisfies the predicate expression
         /// </summary>
-        public bool Exists(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions).Exists();
+        public bool Exists(Query query) => new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions, _database, _linqResolvers).Exists();
 
         #endregion
 
@@ -175,7 +175,7 @@ namespace LiteDB
         {
             if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
-            var expr = _mapper.GetExpression(keySelector, _expressions);
+            var expr = _mapper.GetExpression(keySelector, _expressions, _database, _linqResolvers);
 
             var value = this.Min(expr);
 
@@ -211,7 +211,7 @@ namespace LiteDB
         {
             if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
-            var expr = _mapper.GetExpression(keySelector, _expressions);
+            var expr = _mapper.GetExpression(keySelector, _expressions, _database, _linqResolvers);
 
             var value = this.Max(expr);
 

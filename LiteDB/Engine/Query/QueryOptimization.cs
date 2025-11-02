@@ -1,3 +1,4 @@
+using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -169,62 +170,151 @@ namespace LiteDB.Engine
 
         #region Index Definition
 
+        private bool TryExecutePluginPlanning(out QueryPlanningContext context)
+        {
+            context = null;
+
+            var pluginContext = _snapshot?.Plugins;
+            var rules = pluginContext?.QueryPlanner?.Rules;
+
+            if (rules == null)
+            {
+                return false;
+            }
+
+            var termsSnapshot = _terms.ToArray();
+            var planningContext = new QueryPlanningContext(_snapshot, _query, Array.AsReadOnly(termsSnapshot), _queryPlan, pluginContext);
+
+            foreach (var rule in rules)
+            {
+                if (rule == null)
+                {
+                    continue;
+                }
+
+                if (!rule.TryRewrite(planningContext))
+                {
+                    continue;
+                }
+
+                if (!planningContext.HasRewrite)
+                {
+                    continue;
+                }
+
+                context = planningContext;
+                return true;
+            }
+
+            return false;
+        }
+
         private void DefineIndex()
         {
-            // selected expression to be used as index (from _terms)
+            var consumedTerms = new HashSet<BsonExpression>();
             BsonExpression selected = null;
+            bool replaceFilters = false;
+            IReadOnlyList<BsonExpression> pluginFilters = null;
 
-            // if index are not defined yet, get index
-            if (_queryPlan.Index == null)
+            if (_queryPlan.Index == null && this.TryExecutePluginPlanning(out var planningContext))
             {
-                if (this.TrySelectVectorIndex(out var vectorIndex, out selected))
-                {
-                    _queryPlan.Index = vectorIndex;
-                    _queryPlan.IndexCost = vectorIndex.GetCost(null);
-                    _queryPlan.IndexExpression = vectorIndex.Expression;
-                }
-                else
-                {
-                    // try select best index (if return null, there is no good choice)
-                    var indexCost = this.ChooseIndex(_queryPlan.Fields);
+                ENSURE(planningContext.SelectedIndex != null, "Query planning rule must call UseIndex before returning true.");
+                ENSURE(!string.IsNullOrWhiteSpace(planningContext.SelectedIndexExpression), "Query planning rule must provide an index expression.");
 
-                    // if found an index, use-it
-                    if (indexCost != null)
+                _queryPlan.Index = planningContext.SelectedIndex;
+                _queryPlan.IndexExpression = planningContext.SelectedIndexExpression;
+                _queryPlan.IsIndexKeyOnly = planningContext.SelectedIsIndexKeyOnly;
+
+                var pk = _snapshot.CollectionPage?.PK;
+                var computedCost = planningContext.SelectedIndexCost ?? _queryPlan.Index.GetCost(pk);
+                _queryPlan.IndexCost = computedCost;
+
+                foreach (var term in planningContext.ConsumedTerms)
+                {
+                    if (term != null && consumedTerms.Add(term) && selected == null)
                     {
-                        _queryPlan.Index = indexCost.Index;
-                        _queryPlan.IndexCost = indexCost.Cost;
-                        _queryPlan.IndexExpression = indexCost.IndexExpression;
+                        selected = term;
+                    }
+                }
+
+                pluginFilters = planningContext.AdditionalFilters;
+                replaceFilters = planningContext.ReplaceFilters;
+            }
+            else
+            {
+                if (_queryPlan.Index == null)
+                {
+                    if (this.TrySelectVectorIndex(out var vectorIndex, out selected))
+                    {
+                        _queryPlan.Index = vectorIndex;
+                        _queryPlan.IndexCost = vectorIndex.GetCost(null);
+                        _queryPlan.IndexExpression = vectorIndex.Expression;
                     }
                     else
                     {
-                        // if has no index to use, use full scan over _id
-                        var pk = _snapshot.CollectionPage.PK;
+                        var indexCost = this.ChooseIndex(_queryPlan.Fields);
 
-                        _queryPlan.Index = new IndexAll("_id", Query.Ascending);
-                        _queryPlan.IndexCost = _queryPlan.Index.GetCost(pk);
-                        _queryPlan.IndexExpression = "$._id";
+                        if (indexCost != null)
+                        {
+                            _queryPlan.Index = indexCost.Index;
+                            _queryPlan.IndexCost = indexCost.Cost;
+                            _queryPlan.IndexExpression = indexCost.IndexExpression;
+                            selected = indexCost.Expression;
+                        }
+                        else
+                        {
+                            var pk = _snapshot.CollectionPage.PK;
+
+                            _queryPlan.Index = new IndexAll("_id", Query.Ascending);
+                            _queryPlan.IndexCost = _queryPlan.Index.GetCost(pk);
+                            _queryPlan.IndexExpression = "$._id";
+                        }
                     }
+                }
+                else
+                {
+                    ENSURE(_queryPlan.Index is IndexVirtual, "pre-defined index must be only for virtual collections");
 
-                    // get selected expression used as index
-                    selected = indexCost?.Expression;
+                    _queryPlan.IndexCost = 0;
+                }
+
+                if (selected != null)
+                {
+                    consumedTerms.Add(selected);
+                }
+            }
+
+            ENSURE(_queryPlan.Index != null, "query optimization must select an index");
+
+            if (_queryPlan.Fields.Count == 1 && _queryPlan.IndexExpression == "$." + _queryPlan.Fields.First())
+            {
+                _queryPlan.IsIndexKeyOnly = true;
+            }
+
+            if (replaceFilters)
+            {
+                _queryPlan.Filters.Clear();
+
+                if (pluginFilters != null && pluginFilters.Count > 0)
+                {
+                    _queryPlan.Filters.AddRange(pluginFilters);
                 }
             }
             else
             {
-                ENSURE(_queryPlan.Index is IndexVirtual, "pre-defined index must be only for virtual collections");
+                foreach (var term in _terms)
+                {
+                    if (!consumedTerms.Contains(term))
+                    {
+                        _queryPlan.Filters.Add(term);
+                    }
+                }
 
-                _queryPlan.IndexCost = 0;
+                if (pluginFilters != null && pluginFilters.Count > 0)
+                {
+                    _queryPlan.Filters.AddRange(pluginFilters);
+                }
             }
-
-            // if is only 1 field to deserialize and this field are same as index, use IndexKeyOnly = rue
-            if (_queryPlan.Fields.Count == 1 && _queryPlan.IndexExpression == "$." + _queryPlan.Fields.First())
-            {
-                // best choice - no need lookup for document (use only index)
-                _queryPlan.IsIndexKeyOnly = true;
-            }
-
-            // fill filter using all expressions (remove selected term used in Index)
-            _queryPlan.Filters.AddRange(_terms.Where(x => x != selected));
         }
 
         /// <summary>
