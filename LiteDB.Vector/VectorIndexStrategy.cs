@@ -9,6 +9,8 @@ namespace LiteDB.Vector
 {
     internal sealed class VectorIndexStrategy : IIndexStrategy
     {
+        private const string PluginNotRegisteredMessage = "Vector operations require the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance when constructing LiteDatabase (e.g., new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })).";
+
         private readonly ILogger _logger;
         private readonly VectorDistanceMetric? _defaultMetric;
 
@@ -156,12 +158,22 @@ namespace LiteDB.Vector
 
         private static Snapshot ExpectSnapshot(object value)
         {
-            return value as Snapshot ?? throw new ArgumentException("Snapshot context was not recognized.", nameof(value));
+            if (value is Snapshot snapshot)
+            {
+                return snapshot;
+            }
+
+            throw new LiteException(0, $"{PluginNotRegisteredMessage} Snapshot context was not recognized.");
         }
 
         private static CollectionPage ExpectCollection(object value)
         {
-            return value as CollectionPage ?? throw new ArgumentException("Collection context was not recognized.", nameof(value));
+            if (value is CollectionPage collection)
+            {
+                return collection;
+            }
+
+            throw new LiteException(0, $"{PluginNotRegisteredMessage} Collection context was not recognized.");
         }
 
         private static PageAddress ExpectPageAddress(object value)
@@ -171,7 +183,7 @@ namespace LiteDB.Vector
                 return address;
             }
 
-            throw new ArgumentException("Page address context was not recognized.", nameof(value));
+            throw new LiteException(0, $"{PluginNotRegisteredMessage} Page address context was not recognized.");
         }
 
         private (ushort Dimensions, VectorDistanceMetric Metric) ParseOptions(BsonDocument options)

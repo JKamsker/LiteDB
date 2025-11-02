@@ -468,6 +468,10 @@ using var db = new LiteDatabase(
 var collection = db.GetCollection<Article>("articles");
 collection.EnsureIndex(x => x.Embedding, new VectorIndexOptions(384));
 
+```
+
+> **Tip:** Skipping plugin registration raises the runtime error "Vector operations require the LiteDB.Vector plugin...". Add `VectorSearchPlugin.Instance` to the constructor to resolve it.
+
 ### Step 3: Validate Existing Calls
 
 All existing APIs remain identical:
@@ -489,11 +493,11 @@ using LiteDB.Vector;  // Optional - types are in this namespace
 
 ## Troubleshooting
 
-### Error: "Vector indexing requires the LiteDB.Vector extension package"
+### Error: "Vector operations require the LiteDB.Vector plugin"
 
-**Cause**: Plugin not initialized
+**Cause**: Plugin not initialized or missing LiteDB.Vector reference.
 
-**Solution**: Ensure the database is created with the plugin.
+**Solution**: Reference LiteDB.Vector and create the database with the plugin.
 ```csharp
 using var db = new LiteDatabase(
     "mydata.db",

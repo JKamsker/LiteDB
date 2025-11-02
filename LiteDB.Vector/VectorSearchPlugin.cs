@@ -11,18 +11,40 @@ namespace LiteDB.Vector
     /// <summary>
     /// Provides vector search capabilities for <see cref="LiteDatabase"/> instances via the plugin pipeline.
     /// </summary>
+    /// <example>
+    /// <code><![CDATA[
+    /// using var db = new LiteDatabase(
+    ///     "Filename=mydata.db",
+    ///     plugins: new[] { VectorSearchPlugin.Instance });
+    /// ]]></code>
+    /// </example>
     public sealed class VectorSearchPlugin : ILitePlugin
     {
         /// <summary>
         /// Gets the singleton instance used when enabling the plugin via configuration.
         /// </summary>
+        /// <example>
+        /// <code><![CDATA[
+        /// var db = new LiteDatabase("Filename=my.db", plugins: new[] { VectorSearchPlugin.Instance });
+        /// ]]></code>
+        /// </example>
         public static VectorSearchPlugin Instance { get; } = new VectorSearchPlugin();
 
         private VectorSearchPlugin()
         {
         }
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Registers vector-aware index strategies, query planning rules, and expression support.
+        /// </summary>
+        /// <param name="database">Database instance that will host vector operations.</param>
+        /// <param name="context">Plugin context used to register expressions and services.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="database"/> or <paramref name="context"/> is <c>null</c>.</exception>
+        /// <example>
+        /// <code><![CDATA[
+        /// var db = new LiteDatabase("Filename=my.db", plugins: new[] { VectorSearchPlugin.Instance });
+        /// ]]></code>
+        /// </example>
         public void Initialize(LiteDatabase database, ILitePluginContext context)
         {
             if (database == null)

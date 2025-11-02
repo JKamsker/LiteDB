@@ -6,6 +6,12 @@ namespace LiteDB.Vector
     /// <summary>
     /// Provides utility helpers for constructing and manipulating vector values without referencing <see cref="BsonVector"/> directly.
     /// </summary>
+    /// <example>
+    /// <code><![CDATA[
+    /// var normalized = Vector.Normalize(embedding);
+    /// collection.EnsureIndex(x => x.Embedding, new VectorIndexOptions((ushort)normalized.Length));
+    /// ]]></code>
+    /// </example>
     public static class Vector
     {
         /// <summary>
@@ -14,6 +20,11 @@ namespace LiteDB.Vector
         /// <param name="values">Vector components to embed in the BSON value.</param>
         /// <returns>A new <see cref="BsonVector"/> instance.</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="values"/> is <c>null</c>.</exception>
+        /// <example>
+        /// <code><![CDATA[
+        /// var bsonVector = Vector.Create(0.12f, 0.98f, 0.33f);
+        /// ]]></code>
+        /// </example>
         public static BsonVector Create(params float[] values)
         {
             if (values == null)
@@ -29,6 +40,12 @@ namespace LiteDB.Vector
         /// </summary>
         /// <param name="values">Vector components to embed in the BSON value.</param>
         /// <returns>A new <see cref="BsonVector"/> instance.</returns>
+        /// <example>
+        /// <code><![CDATA[
+        /// ReadOnlySpan<float> buffer = stackalloc float[] { 0.1f, 0.2f, 0.3f };
+        /// var bsonVector = Vector.FromReadOnlySpan(buffer);
+        /// ]]></code>
+        /// </example>
         public static BsonVector FromReadOnlySpan(ReadOnlySpan<float> values)
         {
             var buffer = new float[values.Length];
@@ -42,6 +59,11 @@ namespace LiteDB.Vector
         /// <param name="values">Vector components to normalize.</param>
         /// <returns>A new array containing the normalized vector.</returns>
         /// <exception cref="ArgumentException">Thrown when the magnitude is zero.</exception>
+        /// <example>
+        /// <code><![CDATA[
+        /// var normalized = Vector.Normalize(embedding);
+        /// ]]></code>
+        /// </example>
         public static float[] Normalize(ReadOnlySpan<float> values)
         {
             var magnitudeSquared = 0d;
@@ -74,6 +96,11 @@ namespace LiteDB.Vector
         /// <param name="right">Second vector.</param>
         /// <returns>The dot product.</returns>
         /// <exception cref="ArgumentException">Thrown when the vectors do not share the same dimensionality.</exception>
+        /// <example>
+        /// <code><![CDATA[
+        /// var score = Vector.Dot(spanA, spanB);
+        /// ]]></code>
+        /// </example>
         public static double Dot(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
         {
             if (left.Length != right.Length)
@@ -98,6 +125,11 @@ namespace LiteDB.Vector
         /// <param name="right">Second vector.</param>
         /// <returns>The cosine distance in the range [0, 2].</returns>
         /// <exception cref="ArgumentException">Thrown when either vector has zero magnitude.</exception>
+        /// <example>
+        /// <code><![CDATA[
+        /// var distance = Vector.CosineDistance(spanA, spanB);
+        /// ]]></code>
+        /// </example>
         public static double CosineDistance(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
         {
             var leftMagnitudeSquared = 0d;

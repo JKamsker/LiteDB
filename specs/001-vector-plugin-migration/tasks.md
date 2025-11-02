@@ -194,30 +194,30 @@
 
 ### Error Handling & Documentation
 
-- [ ] T063 [P] Add clear error messages when plugin not registered: update relevant exception messages in `LiteDB.Vector/VectorIndexStrategy.cs` to guide users to install LiteDB.Vector package
-- [ ] T064 [P] Verify all public APIs have XML documentation in `LiteDB.Vector/` with complete parameter descriptions and usage examples
-- [ ] T065 [P] Update quickstart.md at `specs/001-vector-plugin-migration/quickstart.md` with any migration notes discovered during implementation
-- [ ] T066 [P] Create migration guide document at `LiteDB.Vector/README.md` explaining plugin registration and upgrade steps
+- [X] T063 [P] Add clear error messages when plugin not registered: update relevant exception messages in `LiteDB.Vector/VectorIndexStrategy.cs` to guide users to install LiteDB.Vector package
+- [X] T064 [P] Verify all public APIs have XML documentation in `LiteDB.Vector/` with complete parameter descriptions and usage examples
+- [X] T065 [P] Update quickstart.md at `specs/001-vector-plugin-migration/quickstart.md` with any migration notes discovered during implementation
+- [X] T066 [P] Create migration guide document at `LiteDB.Vector/README.md` explaining plugin registration and upgrade steps
 
 ### Performance & Quality
 
-- [ ] T069 Run all tests in LiteDB.Vector.Tests: `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj`
-- [ ] T070 Run all tests in LiteDB.Tests to verify core functionality unaffected: `dotnet test LiteDB.Tests/LiteDB.Tests.csproj`
-- [ ] T071 Verify backward compatibility: test existing database files with vector indexes open and query correctly with plugin
-- [ ] T072 Code cleanup: remove any commented-out code, unused using statements, and temporary debug logs in `LiteDB.Vector/`
+- [X] T069 Run all tests in LiteDB.Vector.Tests: `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj`
+- [X] T070 Run all tests in LiteDB.Tests to verify core functionality unaffected: `dotnet test LiteDB.Tests/LiteDB.Tests.csproj`
+- [X] T071 Verify backward compatibility: test existing database files with vector indexes open and query correctly with plugin
+- [X] T072 Code cleanup: remove any commented-out code, unused using statements, and temporary debug logs in `LiteDB.Vector/`
 
 ### Build & Packaging
 
-- [ ] T073 [P] Verify LiteDB.Vector.csproj generates NuGet package with correct metadata (package ID, version, description, authors)
-- [ ] T074 [P] Verify LiteDB.Vector.csproj package includes XML documentation file for IntelliSense
-- [ ] T075 Build LiteDB.Vector package: `dotnet pack LiteDB.Vector/LiteDB.Vector.csproj -c Release`
-- [ ] T076 Verify package contents include all necessary assemblies (netstandard2.0, net8.0) and dependencies
+- [X] T073 [P] Verify LiteDB.Vector.csproj generates NuGet package with correct metadata (package ID, version, description, authors)
+- [X] T074 [P] Verify LiteDB.Vector.csproj package includes XML documentation file for IntelliSense
+- [X] T075 Build LiteDB.Vector package: `dotnet pack LiteDB.Vector/LiteDB.Vector.csproj -c Release`
+- [X] T076 Verify package contents include all necessary assemblies (netstandard2.0, net8.0) and dependencies
 
 ### Validation
 
-- [ ] T077 Run quickstart.md validation: follow all examples in `specs/001-vector-plugin-migration/quickstart.md` to verify they work with plugin-based implementation
-- [ ] T078 Validate Constitution compliance: verify Principle VI (Plugin-First) satisfied, no violations of other principles
-- [ ] T079 Final integration test: create new database, enable plugin, create vector index, insert documents, query, verify results match expectations
+- [X] T077 Run quickstart.md validation: follow all examples in `specs/001-vector-plugin-migration/quickstart.md` to verify they work with plugin-based implementation
+- [X] T078 Validate Constitution compliance: verify Principle VI (Plugin-First) satisfied, no violations of other principles
+- [X] T079 Final integration test: create new database, enable plugin, create vector index, insert documents, query, verify results match expectations
 
 ---
 
