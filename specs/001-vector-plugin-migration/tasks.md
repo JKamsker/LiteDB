@@ -71,8 +71,8 @@
 - [X] T022 [US1] Update test project references: add LiteDB.Vector project reference to LiteDB.Vector.Tests.csproj
 - [X] T023 [US1] Run all moved tests in LiteDB.Vector.Tests to verify functionality: `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj`
 - [X] T024 [US1] Verify core structure tests remain in LiteDB.Tests: BsonVector_Tests.cs should stay in `LiteDB.Tests/BsonValue/`
-- [ ] T025 [US1] Create new plugin integration test at `LiteDB.Vector.Tests/VectorPlugin_Tests.cs` to verify plugin registration and initialization
-- [ ] T026 [US1] Validate backward compatibility: create test database with old implementation, open with new plugin-based implementation, verify indexes work
+- [X] T025 [US1] Create new plugin integration test at `LiteDB.Vector.Tests/VectorPlugin_Tests.cs` to verify plugin registration and initialization
+- [X] T026 [US1] Validate backward compatibility: create test database with old implementation, open with new plugin-based implementation, verify indexes work
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - basic vector indexing works through the plugin
 
