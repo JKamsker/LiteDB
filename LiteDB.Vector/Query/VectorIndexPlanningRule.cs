@@ -63,7 +63,9 @@ namespace LiteDB.Vector.Query
                 target = context.Query.VectorTarget?.ToArray();
                 maxDistance = context.Query.VectorMaxDistance;
                 matchedFromOrderBy = matchedFromOrderBy ||
-                    context.Query.OrderBy.Any(order => order.Expression?.Type == BsonExpressionType.VectorSim);
+                    context.Query.OrderBy.Any(order =>
+                        order.Expression?.Type == BsonExpressionType.VectorDist ||
+                        order.Expression?.Type == BsonExpressionType.VectorSim);
             }
 
             if (expression == null || target == null)
@@ -138,7 +140,7 @@ namespace LiteDB.Vector.Query
             fieldExpression = null;
             target = null;
 
-            if (expression == null || expression.Type != BsonExpressionType.VectorSim)
+            if (expression == null || expression.Type != BsonExpressionType.VectorDist)
             {
                 return false;
             }

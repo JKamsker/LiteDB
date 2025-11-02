@@ -251,14 +251,14 @@ namespace LiteDB
             if (double.IsNaN(maxDistance)) throw new ArgumentOutOfRangeException(nameof(maxDistance), "Similarity threshold must be a valid number.");
         }
 
-        private BsonExpression CreateVectorSimilarityFilter(BsonExpression fieldExpr, float[] target, double maxDistance)
+        private BsonExpression CreateVectorDistanceFilter(BsonExpression fieldExpr, float[] target, double maxDistance)
         {
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
 
             ValidateVectorArguments(target, maxDistance);
 
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
-            return BsonExpression.Create($"({fieldExpr.Source} VECTOR_SIM @0) <= @1", _expressions, targetArray, new BsonValue(maxDistance));
+            return BsonExpression.Create($"({fieldExpr.Source} VECTOR_DIST @0) <= @1", _expressions, targetArray, new BsonValue(maxDistance));
         }
 
         internal ILiteQueryable<T> VectorWhereNear(string vectorField, float[] target, double maxDistance)
@@ -271,7 +271,7 @@ namespace LiteDB
 
         internal ILiteQueryable<T> VectorWhereNear(BsonExpression fieldExpr, float[] target, double maxDistance)
         {
-            var filter = CreateVectorSimilarityFilter(fieldExpr, target, maxDistance);
+            var filter = CreateVectorDistanceFilter(fieldExpr, target, maxDistance);
 
             _query.Where.Add(filter);
 
@@ -310,15 +310,15 @@ namespace LiteDB
 
             var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
 
-            // Build VECTOR_SIM as order clause
-            var simExpr = BsonExpression.Create($"VECTOR_SIM({fieldExpr.Source}, @0)", _expressions, targetArray);
+            // Build VECTOR_DIST as order clause
+            var distExpr = BsonExpression.Create($"VECTOR_DIST({fieldExpr.Source}, @0)", _expressions, targetArray);
 
             _query.VectorField = fieldExpr.Source;
             _query.VectorTarget = target?.ToArray();
             _query.VectorMaxDistance = double.MaxValue;
 
             return this
-                .OrderBy(simExpr, Query.Ascending)
+                .OrderBy(distExpr, Query.Ascending)
                 .Limit(k);
         }
 

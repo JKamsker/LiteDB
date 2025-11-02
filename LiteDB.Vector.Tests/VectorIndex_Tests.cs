@@ -415,17 +415,17 @@ namespace LiteDB.Vector.Tests.Querying
                 CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
 
-            var similarity = CreateExpression(db, "VECTOR_SIM($.Embedding, [1.0, 0.0])");
+            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [1.0, 0.0])");
 
             var query = (LiteQueryable<VectorDocument>)collection.Query()
-                .OrderBy(similarity, LiteDB.Query.Ascending)
+                .OrderBy(distanceExpr, LiteDB.Query.Ascending)
                 .ThenBy(x => x.Flag);
 
             var queryField = typeof(LiteQueryable<VectorDocument>).GetField("_query", BindingFlags.NonPublic | BindingFlags.Instance);
             var definition = (LiteDB.Query)queryField.GetValue(query);
 
             definition.OrderBy.Should().HaveCount(2);
-            definition.OrderBy[0].Expression.Type.Should().Be(BsonExpressionType.VectorSim);
+            definition.OrderBy[0].Expression.Type.Should().Be(BsonExpressionType.VectorDist);
 
             definition.VectorField = "$.Embedding";
             definition.VectorTarget = new[] { 1f, 0f };

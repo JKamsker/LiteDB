@@ -162,7 +162,7 @@ public class BsonVector_Tests
             BsonExpression.Create("$.Embedding", registry),
             new VectorIndexOptions(2));
 
-        var query = "SELECT * FROM vectors WHERE ($.Embedding VECTOR_SIM [1.0, 0.0]) <= 0.25";
+        var query = "SELECT * FROM vectors WHERE ($.Embedding VECTOR_DIST [1.0, 0.0]) <= 0.25";
         var rawResults = db.Execute(query).ToList();
 
         var docs = rawResults
@@ -187,13 +187,13 @@ public class BsonVector_Tests
     }
 
     [Fact]
-    public void VectorSim_InfixExpression_ParsesAndEvaluates()
+    public void VectorDist_InfixExpression_ParsesAndEvaluates()
     {
         using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var registry = db.Services.ExpressionRegistry;
-        var expr = BsonExpression.Create("$.Embedding VECTOR_SIM [1.0, 0.0]", registry);
+        var expr = BsonExpression.Create("$.Embedding VECTOR_DIST [1.0, 0.0]", registry);
 
-        expr.Type.Should().Be(BsonExpressionType.VectorSim);
+        expr.Type.Should().Be(BsonExpressionType.VectorDist);
 
         var doc = new BsonDocument
         {
@@ -207,13 +207,13 @@ public class BsonVector_Tests
     }
 
     [Fact]
-    public void VectorSim_FunctionCall_ParsesAndEvaluates()
+    public void VectorDist_FunctionCall_ParsesAndEvaluates()
     {
         using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var registry = db.Services.ExpressionRegistry;
-        var expr = BsonExpression.Create("VECTOR_SIM($.Embedding, [1.0, 0.0])", registry);
+        var expr = BsonExpression.Create("VECTOR_DIST($.Embedding, [1.0, 0.0])", registry);
 
-        expr.Type.Should().Be(BsonExpressionType.VectorSim);
+        expr.Type.Should().Be(BsonExpressionType.VectorDist);
 
         var doc = new BsonDocument
         {
@@ -227,7 +227,7 @@ public class BsonVector_Tests
     }
 
     [Fact]
-    public void VectorSim_ReturnsZero_ForIdenticalVectors()
+    public void VectorSim_ReturnsOne_ForIdenticalVectors()
     {
         var left = new BsonArray { 1.0, 0.0 };
         var right = new BsonVector(new float[] { 1.0f, 0.0f });
@@ -236,11 +236,11 @@ public class BsonVector_Tests
 
         Assert.NotNull(result);
         Assert.True(result.IsDouble);
-        Assert.Equal(0.0, result.AsDouble, 6); // Cosine distance = 0.0
+        Assert.Equal(1.0, result.AsDouble, 6); // Cosine similarity = 1.0
     }
 
     [Fact]
-    public void VectorSim_ReturnsOne_ForOrthogonalVectors()
+    public void VectorSim_ReturnsZero_ForOrthogonalVectors()
     {
         var left = new BsonArray { 1.0, 0.0 };
         var right = new BsonVector(new float[] { 0.0f, 1.0f });
@@ -249,7 +249,7 @@ public class BsonVector_Tests
 
         Assert.NotNull(result);
         Assert.True(result.IsDouble);
-        Assert.Equal(1.0, result.AsDouble, 6); // Cosine distance = 1.0
+        Assert.Equal(0.0, result.AsDouble, 6); // Cosine similarity = 0.0
     }
 
     [Fact]
@@ -281,9 +281,9 @@ public class BsonVector_Tests
         using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
         var col = db.GetCollection<VectorDoc>("vectors");
 
-        col.Insert(new VectorDoc { Id = 1, Embedding = new float[] { 1.0f, 0.0f } }); // sim = 0.0
-        col.Insert(new VectorDoc { Id = 2, Embedding = new float[] { 0.0f, 1.0f } }); // sim = 1.0
-        col.Insert(new VectorDoc { Id = 3, Embedding = new float[] { 1.0f, 1.0f } }); // sim ≈ 0.293
+        col.Insert(new VectorDoc { Id = 1, Embedding = new float[] { 1.0f, 0.0f } }); // distance = 0.0
+        col.Insert(new VectorDoc { Id = 2, Embedding = new float[] { 0.0f, 1.0f } }); // distance = 1.0
+        col.Insert(new VectorDoc { Id = 3, Embedding = new float[] { 1.0f, 1.0f } }); // distance ≈ 0.293
 
         col.EnsureIndex(x => x.Embedding, new VectorIndexOptions(2));
 

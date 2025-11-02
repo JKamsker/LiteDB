@@ -144,16 +144,16 @@
 
 ### Expression Function Implementation for User Story 4
 
-- [ ] T045 [US4] Implement `VectorExpressions.VectorDistance` with cosine default and explicit metric support in `LiteDB.Vector/Expressions/VectorExpressions.cs`
-- [ ] T046 [US4] Implement `VectorExpressions.VectorSimilarity` alias (cosine only) and throw `VectorErrors.MetricDoesNotSupportSimilarity` for unsupported metrics
-- [ ] T047 [US4] Ensure `VectorSearchPlugin.Initialize` registers `VECTOR_DIST` + optional `VECTOR_SIM` alias and documents operator precedence in `LiteDB.Vector/VectorSearchPlugin.cs`
-- [ ] T048 [US4] Add XML documentation covering distance/alias semantics, metric parameter, and error cases in `LiteDB.Vector/Expressions/VectorExpressions.cs`
+- [X] T045 [US4] Implement `VectorExpressions.VectorDistance` with cosine default and explicit metric support in `LiteDB.Vector/Expressions/VectorExpressions.cs`
+- [X] T046 [US4] Implement `VectorExpressions.VectorSimilarity` alias (cosine only) and throw `VectorErrors.MetricDoesNotSupportSimilarity` for unsupported metrics
+- [X] T047 [US4] Ensure `VectorSearchPlugin.Initialize` registers `VECTOR_DIST` + optional `VECTOR_SIM` alias and documents operator precedence in `LiteDB.Vector/VectorSearchPlugin.cs`
+- [X] T048 [US4] Add XML documentation covering distance/alias semantics, metric parameter, and error cases in `LiteDB.Vector/Expressions/VectorExpressions.cs`
 
 ### Testing for User Story 4
 
-- [ ] T049 [P] [US4] Add expression tests at `LiteDB.Vector.Tests/VectorExpressions_Tests.cs`: verify `VECTOR_DIST` thresholds and metric overrides
-- [ ] T050 [P] [US4] Add projection tests at `LiteDB.Vector.Tests/VectorExpressions_Tests.cs`: verify distance output, similarity alias, and Null handling for invalid inputs
-- [ ] T051 [US4] Add precedence/grammar tests ensuring `VECTOR_DIST` composes with arithmetic and logical operators
+- [X] T049 [P] [US4] Add expression tests at `LiteDB.Vector.Tests/VectorExpressions_Tests.cs`: verify `VECTOR_DIST` thresholds and metric overrides
+- [X] T050 [P] [US4] Add projection tests at `LiteDB.Vector.Tests/VectorExpressions_Tests.cs`: verify distance output, similarity alias, and Null handling for invalid inputs
+- [X] T051 [US4] Add precedence/grammar tests ensuring `VECTOR_DIST` composes with arithmetic and logical operators
 
 **Checkpoint**: Vector similarity operator should work in all query contexts (WHERE, SELECT, ORDER BY)
 
@@ -445,3 +445,4 @@ This task list addresses all success criteria:
 - **SC-004**: Database file compatibility - covered by structure verification (T011) and compatibility tests (T071)
 - **SC-005**: Clear error messages without extension - covered by error handling (T063)
 - **SC-006**: Test coverage maintained - covered by test migration (all US test tasks)
+

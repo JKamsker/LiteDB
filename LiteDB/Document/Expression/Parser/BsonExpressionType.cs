@@ -45,6 +45,7 @@ namespace LiteDB
         Filter = 28,
         Sort = 29,
         Source = 30,
-        VectorSim = 50
+        VectorSim = 50,
+        VectorDist = 51
     }
 }

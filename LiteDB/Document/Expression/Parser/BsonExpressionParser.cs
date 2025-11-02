@@ -1368,7 +1368,15 @@ namespace LiteDB
             {
                 if (additionalArguments != registration.AdditionalArgumentCount)
                 {
-                    throw new LiteException(0, $"Function `{functionName}` expects {registration.AdditionalArgumentCount} additional arguments but received {additionalArguments}.");
+                    var alternative = context.Registry.Functions
+                        .FirstOrDefault(f => f.Name.Equals(functionName, StringComparison.OrdinalIgnoreCase) && f.AdditionalArgumentCount == additionalArguments);
+
+                    if (alternative == null)
+                    {
+                        throw new LiteException(0, $"Function `{functionName}` expects {registration.AdditionalArgumentCount} additional arguments but received {additionalArguments}.");
+                    }
+
+                    registration = alternative;
                 }
 
                 call = Expression.Invoke(Expression.Constant(registration.Implementation), args.ToArray());

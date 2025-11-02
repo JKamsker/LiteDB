@@ -38,6 +38,27 @@ namespace LiteDB.Vector
             var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"], context.Logger);
 
             VectorIndexServiceFactory.Register((snapshot, collation) => new VectorIndexSearchAdapter(snapshot, collation));
+
+            context.Expressions.RegisterKeyword("VECTOR_DIST");
+            context.Expressions.RegisterBinaryOperator(
+                "VECTOR_DIST",
+                BsonExpressionType.VectorDist,
+                VectorExpressions.VectorDistance,
+                BinaryOperatorPrecedence.Comparison,
+                " VECTOR_DIST "); // Comparison precedence keeps distance checks aligned with relational operators.
+            context.Expressions.RegisterFunction(
+                "VECTOR_DIST",
+                new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorDistance),
+                BsonExpressionType.VectorDist,
+                convertScalarLeftToEnumerable: false,
+                isScalarResult: true);
+            context.Expressions.RegisterFunction(
+                "VECTOR_DIST",
+                new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorDistance),
+                BsonExpressionType.VectorDist,
+                convertScalarLeftToEnumerable: false,
+                isScalarResult: true);
+
             context.Expressions.RegisterKeyword("VECTOR_SIM");
             context.Expressions.RegisterBinaryOperator(
                 "VECTOR_SIM",
@@ -48,6 +69,12 @@ namespace LiteDB.Vector
             context.Expressions.RegisterFunction(
                 "VECTOR_SIM",
                 new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorSimilarity),
+                BsonExpressionType.VectorSim,
+                convertScalarLeftToEnumerable: false,
+                isScalarResult: true);
+            context.Expressions.RegisterFunction(
+                "VECTOR_SIM",
+                new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorSimilarity),
                 BsonExpressionType.VectorSim,
                 convertScalarLeftToEnumerable: false,
                 isScalarResult: true);
