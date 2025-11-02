@@ -17,9 +17,9 @@
 
 **Purpose**: Prepare repository state and working directories.
 
-- [ ] T001 Confirm feature branch `001-resolve-vector-findings` is active by inspecting `.git/HEAD`.
-- [ ] T002 Restore and build baseline solution with `dotnet restore` / `dotnet build LiteDB.sln -c Release`.
-- [ ] T003 Create staging folder `artifacts_temp/vector-followup/` for upgrade reports and telemetry exports.
+- [X] T001 Confirm feature branch `001-resolve-vector-findings` is active by inspecting `.git/HEAD`.
+- [X] T002 Restore and build baseline solution with `dotnet restore` / `dotnet build LiteDB.sln -c Release`.
+- [X] T003 Create staging folder `artifacts_temp/vector-followup/` for upgrade reports and telemetry exports.
 
 ---
 
