@@ -67,10 +67,16 @@ namespace LiteDB.Spatial.Plugin
                 return false;
             }
 
-            if (!TryResolveDescriptor(context.CollectionName, fieldPath, out var descriptor) &&
-                !TryCreateDescriptor(context, fieldPath, out descriptor))
+            var descriptorCreated = false;
+
+            if (!TryResolveDescriptor(context.CollectionName, fieldPath, out var descriptor))
             {
-                return false;
+                if (!TryCreateDescriptor(context, fieldPath, out descriptor))
+                {
+                    return false;
+                }
+
+                descriptorCreated = true;
             }
 
             if (descriptor == null)
@@ -78,9 +84,87 @@ namespace LiteDB.Spatial.Plugin
                 return false;
             }
 
+            if (!descriptorCreated)
+            {
+                var refreshed = TryRebuildDescriptor(context, descriptor);
+                if (refreshed == null)
+                {
+                    return false;
+                }
+
+                descriptor = refreshed;
+            }
+
             CacheGeometryField(context.Name, descriptor);
             context.SetResult(true);
             return true;
+        }
+
+        private SpatialCollectionDescriptor? TryRebuildDescriptor(LiteDbPlugins.EnsureIndexContext context, SpatialCollectionDescriptor descriptor)
+        {
+            try
+            {
+                var refreshed = descriptor.EngineName switch
+                {
+                    GeographicEngine.EngineName => SpatialInitializer.EnsureGeographic(
+                        Database,
+                        _metadataStore,
+                        context.CollectionName,
+                        descriptor.GeometryFieldName,
+                        descriptor.Options,
+                        descriptor.Settings.DistanceMode ?? GeographicDistanceMode.Haversine),
+                    Cartesian2DEngine.EngineName => EnsureCartesian2D(context, descriptor),
+                    Cartesian3DEngine.EngineName => EnsureCartesian3D(context, descriptor),
+                    _ => throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is configured for unknown engine '{descriptor.EngineName}'.")
+                };
+
+                CacheDescriptor(refreshed);
+                return refreshed;
+            }
+            catch (SpatialMetadataException ex)
+            {
+                Log(LiteDbPlugins.LogLevel.Error, $"Spatial plugin could not rebuild spatial indexes for '{context.CollectionName}.{descriptor.GeometryFieldName}': {ex.Message}");
+                return null;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException && ex is not StackOverflowException && ex is not AccessViolationException)
+            {
+                Log(LiteDbPlugins.LogLevel.Error, $"Spatial plugin failed to rebuild spatial indexes for '{context.CollectionName}.{descriptor.GeometryFieldName}': {ex.Message}");
+                return null;
+            }
+        }
+
+        private SpatialCollectionDescriptor EnsureCartesian2D(LiteDbPlugins.EnsureIndexContext context, SpatialCollectionDescriptor descriptor)
+        {
+            var domain = descriptor.Settings.Domain;
+            if (!domain.HasValue)
+            {
+                throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is missing domain metadata. Recreate the spatial index using Spatial.UseCartesian2D.");
+            }
+
+            return SpatialInitializer.EnsureCartesian2D(
+                Database,
+                _metadataStore,
+                context.CollectionName,
+                descriptor.GeometryFieldName,
+                domain.Value,
+                descriptor.Options);
+        }
+
+        private SpatialCollectionDescriptor EnsureCartesian3D(LiteDbPlugins.EnsureIndexContext context, SpatialCollectionDescriptor descriptor)
+        {
+            var domain = descriptor.Settings.Domain;
+            if (!domain.HasValue)
+            {
+                throw new SpatialMetadataException($"Collection '{descriptor.CollectionName}' is missing domain metadata. Recreate the spatial index using Spatial.UseCartesian3D.");
+            }
+
+            return SpatialInitializer.EnsureCartesian3D(
+                Database,
+                _metadataStore,
+                context.CollectionName,
+                descriptor.GeometryFieldName,
+                domain.Value,
+                descriptor.Options);
         }
 
         public bool TryResolveDescriptor(string collection, string geometryField, out SpatialCollectionDescriptor? descriptor)
