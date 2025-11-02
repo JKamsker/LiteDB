@@ -159,7 +159,12 @@ function Start-CodexSession {
     }
     $execArgs += @('--cd', $RepoRootPath, '-')
 
-    $output = $Prompt | & $Binary @execArgs 2>&1
+    $captured = [System.Collections.Generic.List[string]]::new()
+    $Prompt | & $Binary @execArgs 2>&1 | ForEach-Object {
+        Write-Host $_
+        $null = $captured.Add($_)
+    }
+    $output = $captured.ToArray()
     $exitCode = $LASTEXITCODE
 
     $sessionId = $null
@@ -200,9 +205,14 @@ function Resume-CodexSession {
     if ($Options) {
         $resumeArgs += $Options
     }
-    $resumeArgs += @('--cd', $RepoRootPath, 'resume', $SessionId, $Prompt)
+    $resumeArgs += @('--cd', $RepoRootPath, 'resume', $SessionId, '-')
 
-    $output = & $Binary @resumeArgs 2>&1
+    $captured = [System.Collections.Generic.List[string]]::new()
+    $Prompt | & $Binary @resumeArgs 2>&1 | ForEach-Object {
+        Write-Host $_
+        $null = $captured.Add($_)
+    }
+    $output = $captured.ToArray()
     $exitCode = $LASTEXITCODE
 
     return [pscustomobject]@{
