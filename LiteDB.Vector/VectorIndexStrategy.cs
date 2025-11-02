@@ -2,6 +2,7 @@ using System;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
+using LiteDB.Vector.Engine;
 
 namespace LiteDB.Vector
 {
