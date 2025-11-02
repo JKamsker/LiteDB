@@ -1,5 +1,5 @@
 <#
-    Automates Codex runs against the spatial migration spec until every task in
+    Automates Codex runs against the vectorsearch migration spec until every task in
     `specs/001-vector-plugin-migration/tasks.md` is closed. Each iteration
     launches a non-interactive Codex session, commits the resulting changes,
     and repeats with a fresh session.
@@ -10,13 +10,13 @@ param(
     [string]$TaskFile = 'specs/001-vector-plugin-migration/tasks.md',
     [string]$ProgressFile = 'specs/001-vector-plugin-migration/progress.md',
     [string]$InitialInstructions = @"
-Read github/prompts/speckit.implement.prompt.md and please resume with the spatial plugin migration.
+Read github/prompts/speckit.implement.prompt.md and please resume with the vectorsearch plugin migration.
 Status: specs/001-vector-plugin-migration/progress.md - add your progress to it whenever necessary.
 Also see specs\001-vector-plugin-migration\tasks.md
 "@,
     [string]$CodexBinary = 'codex',
     [string[]]$CodexOptions = @('--yolo'),
-    [string]$CommitPrefix = 'auto: spatial plugin iteration',
+    [string]$CommitPrefix = 'auto: vectorsearch plugin iteration',
     [switch]$DryRun,
     [switch]$Simulate,
     [switch]$SkipCommit,
