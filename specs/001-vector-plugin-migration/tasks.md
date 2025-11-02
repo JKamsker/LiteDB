@@ -95,15 +95,15 @@
 
 ### Index Lifecycle Implementation for User Story 2
 
-- [ ] T031 [US2] Verify VectorIndexStrategy.EnsureIndex creates VectorIndexMetadata and builds HNSW graph at `LiteDB.Vector/VectorIndexStrategy.cs`
-- [ ] T032 [US2] Verify VectorIndexStrategy.DropIndex removes all VectorIndexPage instances and frees resources at `LiteDB.Vector/VectorIndexStrategy.cs`
-- [ ] T033 [US2] Verify VectorIndexStrategy.OnDocumentUpsert maintains index consistency when documents change at `LiteDB.Vector/VectorIndexStrategy.cs`
+- [X] T031 [US2] Verify VectorIndexStrategy.EnsureIndex creates VectorIndexMetadata and builds HNSW graph at `LiteDB.Vector/VectorIndexStrategy.cs`
+- [X] T032 [US2] Verify VectorIndexStrategy.DropIndex removes all VectorIndexPage instances and frees resources at `LiteDB.Vector/VectorIndexStrategy.cs`
+- [X] T033 [US2] Verify VectorIndexStrategy.OnDocumentUpsert maintains index consistency when documents change at `LiteDB.Vector/VectorIndexStrategy.cs`
 - [ ] T034 [US2] Verify VectorIndexStrategy.OnDocumentDelete removes nodes from graph structure at `LiteDB.Vector/VectorIndexStrategy.cs`
 
 ### Testing for User Story 2
 
-- [ ] T035 [US2] Add lifecycle integration tests at `LiteDB.Vector.Tests/Integration/VectorIndexLifecycle_Tests.cs`: test create index, insert documents, verify index structure, drop index, verify cleanup
-- [ ] T036 [US2] Add concurrent modification tests at `LiteDB.Vector.Tests/Integration/VectorIndexConcurrency_Tests.cs`: verify snapshot isolation during queries and updates
+- [X] T035 [US2] Add lifecycle integration tests at `LiteDB.Vector.Tests/Integration/VectorIndexLifecycle_Tests.cs`: test create index, insert documents, verify index structure, drop index, verify cleanup
+- [X] T036 [US2] Add concurrent modification tests at `LiteDB.Vector.Tests/Integration/VectorIndexConcurrency_Tests.cs`: verify snapshot isolation during queries and updates
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work - full vector index lifecycle is functional
 

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
@@ -59,13 +60,14 @@ namespace LiteDB.Vector
 
             _logger?.Write(LogLevel.Information, $"Creating vector index '{typedSnapshot.CollectionName}.{name}'.");
 
-            var tuple = typedCollection.InsertVectorIndex(name, expression.Source, dimensions, (byte)metric);
+            var registry = typedSnapshot.Plugins?.Expressions;
+            var tuple = typedCollection.InsertVectorIndex(name, expression.Source, dimensions, (byte)metric, registry);
 
             var indexer = new IndexService(typedSnapshot, typedSnapshot.Collation, typedSnapshot.MaxItemsCount);
             var data = new DataService(typedSnapshot, typedSnapshot.MaxItemsCount);
             var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
 
-            foreach (var pkNode in new IndexAll("_id", LiteDB.Query.Ascending).Run(typedCollection, indexer))
+            foreach (var pkNode in new IndexAll("_id", global::LiteDB.Query.Ascending).Run(typedCollection, indexer))
             {
                 using (var reader = new BufferReader(data.Read(pkNode.DataBlock)))
                 {
@@ -113,9 +115,16 @@ namespace LiteDB.Vector
             var typedCollection = ExpectCollection(collection);
             var typedAddress = ExpectPageAddress(dataBlock);
 
+            var vectorIndexes = typedCollection.GetVectorIndexes().ToArray();
+
+            if (vectorIndexes.Length == 0)
+            {
+                return;
+            }
+
             var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
 
-            foreach (var (index, metadata) in typedCollection.GetVectorIndexes())
+            foreach (var (index, metadata) in vectorIndexes)
             {
                 vectorService.Upsert(index, metadata, document, typedAddress);
             }
@@ -130,9 +139,16 @@ namespace LiteDB.Vector
             var typedCollection = ExpectCollection(collection);
             var typedAddress = ExpectPageAddress(dataBlock);
 
+            var vectorIndexes = typedCollection.GetVectorIndexes().ToArray();
+
+            if (vectorIndexes.Length == 0)
+            {
+                return;
+            }
+
             var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
 
-            foreach (var (_, metadata) in typedCollection.GetVectorIndexes())
+            foreach (var (_, metadata) in vectorIndexes)
             {
                 vectorService.Delete(metadata, typedAddress);
             }
@@ -165,6 +181,13 @@ namespace LiteDB.Vector
                 throw new LiteException(0, "Vector index options must include a numeric 'dimensions' value.");
             }
 
+            var dimensionNumber = dimensionValue.AsInt32;
+
+            if (dimensionNumber <= 0 || dimensionNumber > ushort.MaxValue)
+            {
+                throw new LiteException(0, $"Vector dimension limit ({ushort.MaxValue}) exceeded or invalid value provided.");
+            }
+
             VectorDistanceMetric metric;
 
             if (!options.TryGetValue("metric", out var metricValue))
@@ -180,7 +203,21 @@ namespace LiteDB.Vector
             }
             else if (metricValue.IsNumber)
             {
-                metric = (VectorDistanceMetric)metricValue.AsInt32;
+                var raw = metricValue.AsInt32;
+
+                if (raw < byte.MinValue || raw > byte.MaxValue)
+                {
+                    throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
+                }
+
+                var candidate = (VectorDistanceMetric)(byte)raw;
+
+                if (!Enum.IsDefined(typeof(VectorDistanceMetric), candidate))
+                {
+                    throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
+                }
+
+                metric = candidate;
             }
             else if (metricValue.IsString && Enum.TryParse<VectorDistanceMetric>(metricValue.AsString, true, out var parsedMetric))
             {
@@ -191,7 +228,7 @@ namespace LiteDB.Vector
                 throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
             }
 
-            var dimensions = (ushort)dimensionValue.AsInt32;
+            var dimensions = (ushort)dimensionNumber;
 
             return (dimensions, metric);
         }

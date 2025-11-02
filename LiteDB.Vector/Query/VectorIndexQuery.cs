@@ -4,14 +4,13 @@ using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Vector.Engine;
-using EngineIndex = LiteDB.Engine.Index;
 
 namespace LiteDB.Vector.Query
 {
     /// <summary>
     /// Index implementation that executes vector similarity searches using the plugin's vector index service.
     /// </summary>
-    internal sealed class VectorIndexQuery : EngineIndex, IDocumentLookup
+    internal sealed class VectorIndexQuery : LiteDB.Engine.Index, IDocumentLookup
     {
         private readonly Snapshot _snapshot;
         private readonly CollectionIndex _index;
@@ -32,7 +31,7 @@ namespace LiteDB.Vector.Query
             double maxDistance,
             int? limit,
             Collation collation)
-            : base(name, LiteDB.Query.Ascending)
+            : base(name, global::LiteDB.Query.Ascending)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             _index = index ?? throw new ArgumentNullException(nameof(index));

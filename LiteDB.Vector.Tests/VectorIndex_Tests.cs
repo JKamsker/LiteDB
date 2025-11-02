@@ -11,6 +11,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using Xunit;
+using Query = LiteDB.Query;
 
 namespace LiteDB.Vector.Tests.Querying
 {
@@ -417,11 +418,11 @@ namespace LiteDB.Vector.Tests.Querying
             var similarity = CreateExpression(db, "VECTOR_SIM($.Embedding, [1.0, 0.0])");
 
             var query = (LiteQueryable<VectorDocument>)collection.Query()
-                .OrderBy(similarity, Query.Ascending)
+                .OrderBy(similarity, LiteDB.Query.Ascending)
                 .ThenBy(x => x.Flag);
 
             var queryField = typeof(LiteQueryable<VectorDocument>).GetField("_query", BindingFlags.NonPublic | BindingFlags.Instance);
-            var definition = (Query)queryField.GetValue(query);
+            var definition = (LiteDB.Query)queryField.GetValue(query);
 
             definition.OrderBy.Should().HaveCount(2);
             definition.OrderBy[0].Expression.Type.Should().Be(BsonExpressionType.VectorSim);
