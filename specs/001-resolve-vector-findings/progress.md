@@ -11,3 +11,4 @@
 - T007: Added `LiteDB/Plugins/Bson/IBsonTypeRegistry.cs` and initialized the default plugin context with a BSON type registry for plugin registrations.
 - T008: Drafted `LiteDB/Plugins/Storage/IPageFactoryRegistry.cs` and wired the default context with a registry for page factory descriptors.
 - T009: Exposed query metadata, BSON type, and page factory registries through `ILitePluginContext` and `EnsureIndexContext` for plugin consumption.
+- T010: Added `LiteDB/Plugins/Query/QueryMetadataBag.cs` providing versioned, typed metadata storage validating reserved keys for plugin-managed query state.
