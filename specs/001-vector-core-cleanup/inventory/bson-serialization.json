@@ -12,7 +12,9 @@
     ],
     "scopeSummary": "Adds BsonType.Vector, conversion helpers, JSON serialization, and binary encoding for float arrays",
     "decisionId": "requires-infrastructure",
-    "requiredGapIds": [],
+    "requiredGapIds": [
+        "gap-bson-serialization"
+    ],
     "verificationStepIds": [],
     "notes": "Blocked until plugin-managed BSON type registration exists; decision now tracks infrastructure dependency."
 }

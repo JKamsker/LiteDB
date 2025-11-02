@@ -1,0 +1,13 @@
+{
+    "id": "gap-indexing-extensibility",
+    "category": "Indexing",
+    "description": "Need complete plugin strategy registration for custom index types beyond the current IIndexInterceptorRegistry hook.",
+    "impact": "High",
+    "status": "Open",
+    "workItem": null,
+    "linkedComponentIds": [
+        "public-api-surface"
+    ],
+    "proposedSolution": "Extend IIndexInterceptorRegistry so plugins can register full index strategies, including EnsureVectorIndex replacements and query planning callbacks.",
+    "backwardCompatibility": "Keep EnsureVectorIndex entry points as thin shims that forward to plugin strategies until applications adopt plugin-owned helpers."
+}

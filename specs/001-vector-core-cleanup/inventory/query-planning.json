@@ -9,7 +9,9 @@
     ],
     "scopeSummary": "Stores vector filter state, planning flags, and dedicated expression node types (VectorDist, VectorSim)",
     "decisionId": "requires-infrastructure",
-    "requiredGapIds": [],
+    "requiredGapIds": [
+        "gap-query-state"
+    ],
     "verificationStepIds": [],
     "notes": "Blocked until plugin-managed query metadata bag exists; decision references infrastructure upgrade path."
 }

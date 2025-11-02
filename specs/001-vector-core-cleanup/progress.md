@@ -45,3 +45,7 @@
 - T056 Complete: Created `migration/validation-checklist.md` capturing go/no-go checks for each priority.
 - T057 Complete: Added fallback strategies for plugin-absent deployments to each migration plan.
 - T060 Complete: Expanded spec migration priorities with per-plan prerequisites, compatibility, performance, and fallback summaries referencing new documentation.
+- T061-T064 Complete: Created initial PluginInfrastructureGap JSON scaffolding for query state, BSON serialization, storage pipeline, and indexing under `specs/001-vector-core-cleanup/gaps/` with category, status, impact defaults, and linked component placeholders.
+- T065-T080 Complete: Populated gap JSON files with descriptions, critical/high impact levels, proposed solutions, and backward compatibility notes, and linked corresponding inventory records via `requiredGapIds`.
+- T088-T089 Complete: Added infrastructure gap summary section to spec.md capturing all four gaps with impacts, proposed upgrades, and compatibility coverage.
+- T081-T087 Complete: Authored infrastructure roadmap with scope estimates and acceptance criteria per gap, and added reusable gap tracking issue template for future work intake.

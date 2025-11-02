@@ -135,35 +135,35 @@ This feature works with existing LiteDB solution structure:
 
 ### Implementation for User Story 3
 
-- [ ] T061 [P] [US3] Create PluginInfrastructureGap for Query State extensibility in `.\specs\001-vector-core-cleanup\gaps\query-state.json`
-- [ ] T062 [P] [US3] Create PluginInfrastructureGap for BSON Serialization extensibility in `.\specs\001-vector-core-cleanup\gaps\bson-serialization.json`
-- [ ] T063 [P] [US3] Create PluginInfrastructureGap for Storage Pipeline extensibility in `.\specs\001-vector-core-cleanup\gaps\storage-pipeline.json`
-- [ ] T064 [P] [US3] Create PluginInfrastructureGap for Indexing extensibility in `.\specs\001-vector-core-cleanup\gaps\indexing.json`
-- [ ] T065 [US3] Document Query State gap: "Need plugin-owned query metadata bag to replace VectorField, VectorTarget, VectorMaxDistance, VectorMetric in Query class"
-- [ ] T066 [US3] Document BSON Serialization gap: "Need plugin-managed BSON type registration to replace hardcoded BsonType.Vector and BsonValue.AsVector"
-- [ ] T067 [US3] Document Storage Pipeline gap: "Need plugin-accessible page factory/metadata API to support VectorIndexPage, VectorIndexMetadata, rebuild, and file reader participation"
-- [ ] T068 [US3] Document Indexing gap: "Need complete plugin strategy registration for custom index types beyond current IIndexInterceptorRegistry"
-- [ ] T069 [US3] Set impact level "Critical" for Query State gap (blocks query planning migration)
-- [ ] T070 [US3] Set impact level "Critical" for BSON Serialization gap (blocks serialization migration)
-- [ ] T071 [US3] Set impact level "Critical" for Storage Pipeline gap (blocks storage engine migration)
-- [ ] T072 [US3] Set impact level "High" for Indexing gap (improves but doesn't block current interceptor approach)
-- [ ] T073 [US3] Link Query State gap to Query planning component records in inventory
-- [ ] T074 [US3] Link BSON Serialization gap to BSON serialization component records in inventory
-- [ ] T075 [US3] Link Storage Pipeline gap to Storage engine component records in inventory
-- [ ] T076 [US3] Link Indexing gap to Public API component records in inventory
-- [ ] T077 [US3] Document proposed Query State solution from research.md: "Extend plugin system with query-state bag or strongly-typed accessor"
-- [ ] T078 [US3] Document proposed BSON solution from research.md: "Introduce plugin-managed BSON type registration with reserved type codes"
-- [ ] T079 [US3] Document proposed Storage solution from research.md: "Design plugin-accessible page factory and metadata extension API"
-- [ ] T080 [US3] Document proposed Indexing solution from research.md: "Extend IIndexInterceptorRegistry for complete strategy registration"
-- [ ] T081 [US3] Create infrastructure roadmap document in `.\specs\001-vector-core-cleanup\roadmap\infrastructure-roadmap.md`
-- [ ] T082 [US3] Map each gap to estimated implementation scope (S/M/L) in roadmap document
-- [ ] T083 [US3] Define acceptance criteria for Query State infrastructure upgrade
-- [ ] T084 [US3] Define acceptance criteria for BSON Serialization infrastructure upgrade
-- [ ] T085 [US3] Define acceptance criteria for Storage Pipeline infrastructure upgrade
-- [ ] T086 [US3] Define acceptance criteria for Indexing infrastructure upgrade
-- [ ] T087 [US3] Create gap tracking issue template in `.\specs\001-vector-core-cleanup\templates\gap-issue-template.md`
-- [ ] T088 [US3] Document backward compatibility requirements for each infrastructure gap
-- [ ] T089 [US3] Update spec.md with complete infrastructure gaps section including all 4 critical/high gaps
+- [X] T061 [P] [US3] Create PluginInfrastructureGap for Query State extensibility in `.\specs\001-vector-core-cleanup\gaps\query-state.json`
+- [X] T062 [P] [US3] Create PluginInfrastructureGap for BSON Serialization extensibility in `.\specs\001-vector-core-cleanup\gaps\bson-serialization.json`
+- [X] T063 [P] [US3] Create PluginInfrastructureGap for Storage Pipeline extensibility in `.\specs\001-vector-core-cleanup\gaps\storage-pipeline.json`
+- [X] T064 [P] [US3] Create PluginInfrastructureGap for Indexing extensibility in `.\specs\001-vector-core-cleanup\gaps\indexing.json`
+- [X] T065 [US3] Document Query State gap: "Need plugin-owned query metadata bag to replace VectorField, VectorTarget, VectorMaxDistance, VectorMetric in Query class"
+- [X] T066 [US3] Document BSON Serialization gap: "Need plugin-managed BSON type registration to replace hardcoded BsonType.Vector and BsonValue.AsVector"
+- [X] T067 [US3] Document Storage Pipeline gap: "Need plugin-accessible page factory/metadata API to support VectorIndexPage, VectorIndexMetadata, rebuild, and file reader participation"
+- [X] T068 [US3] Document Indexing gap: "Need complete plugin strategy registration for custom index types beyond current IIndexInterceptorRegistry"
+- [X] T069 [US3] Set impact level "Critical" for Query State gap (blocks query planning migration)
+- [X] T070 [US3] Set impact level "Critical" for BSON Serialization gap (blocks serialization migration)
+- [X] T071 [US3] Set impact level "Critical" for Storage Pipeline gap (blocks storage engine migration)
+- [X] T072 [US3] Set impact level "High" for Indexing gap (improves but doesn't block current interceptor approach)
+- [X] T073 [US3] Link Query State gap to Query planning component records in inventory
+- [X] T074 [US3] Link BSON Serialization gap to BSON serialization component records in inventory
+- [X] T075 [US3] Link Storage Pipeline gap to Storage engine component records in inventory
+- [X] T076 [US3] Link Indexing gap to Public API component records in inventory
+- [X] T077 [US3] Document proposed Query State solution from research.md: "Extend plugin system with query-state bag or strongly-typed accessor"
+- [X] T078 [US3] Document proposed BSON solution from research.md: "Introduce plugin-managed BSON type registration with reserved type codes"
+- [X] T079 [US3] Document proposed Storage solution from research.md: "Design plugin-accessible page factory and metadata extension API"
+- [X] T080 [US3] Document proposed Indexing solution from research.md: "Extend IIndexInterceptorRegistry for complete strategy registration"
+- [X] T081 [US3] Create infrastructure roadmap document in `.\specs\001-vector-core-cleanup\roadmap\infrastructure-roadmap.md`
+- [X] T082 [US3] Map each gap to estimated implementation scope (S/M/L) in roadmap document
+- [X] T083 [US3] Define acceptance criteria for Query State infrastructure upgrade
+- [X] T084 [US3] Define acceptance criteria for BSON Serialization infrastructure upgrade
+- [X] T085 [US3] Define acceptance criteria for Storage Pipeline infrastructure upgrade
+- [X] T086 [US3] Define acceptance criteria for Indexing infrastructure upgrade
+- [X] T087 [US3] Create gap tracking issue template in `.\specs\001-vector-core-cleanup\templates\gap-issue-template.md`
+- [X] T088 [US3] Document backward compatibility requirements for each infrastructure gap
+- [X] T089 [US3] Update spec.md with complete infrastructure gaps section including all 4 critical/high gaps
 
 **Checkpoint**: All user stories should now be independently complete with inventory, migration plans, and infrastructure requirements
 

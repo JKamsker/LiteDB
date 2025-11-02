@@ -1,0 +1,13 @@
+{
+    "id": "gap-bson-serialization",
+    "category": "BsonSerialization",
+    "description": "Need plugin-managed BSON type registration to replace hardcoded BsonType.Vector enum value and BsonValue.AsVector helpers in the core.",
+    "impact": "Critical",
+    "status": "Open",
+    "workItem": null,
+    "linkedComponentIds": [
+        "bson-serialization-surface"
+    ],
+    "proposedSolution": "Introduce a plugin-managed BSON type registration with reserved type codes that lets LiteDB.Vector supply serializers and deserializers without edits to BsonType or BsonValue.",
+    "backwardCompatibility": "Preserve reading of existing databases by keeping legacy Vector type aliases and providing upgrade shims that delegate to the plugin registry when available."
+}

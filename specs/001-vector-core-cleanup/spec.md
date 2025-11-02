@@ -119,6 +119,17 @@ Search executed on 2025-11-02 using `rg "Vector" LiteDB` produced **196 matches*
 - Open an existing database containing vector indexes without the plugin and verify the core surfaces explicit opt-in errors instead of silent failures.
 - Validate plugin-only builds by removing `LiteDB.Vector` from dependencies and confirming the core compiles without vector code paths.
 
+### Infrastructure Gaps
+
+Current plugin hooks leave four blocking gaps that prevent vector code from leaving the core. Each entry is tracked under `specs/001-vector-core-cleanup/gaps/`.
+
+| Gap | Description | Impact | Blocked Components | Proposed Solution | Backward Compatibility |
+|-----|-------------|--------|--------------------|-------------------|------------------------|
+| `gap-query-state` | Need plugin-owned metadata bag to replace `VectorField`, `VectorTarget`, `VectorMaxDistance`, `VectorMetric` on `Query`. | Critical | `inventory/query-planning.json` | Extend plugin query pipeline with a shared state bag or strongly typed accessor so vector plugins own planning metadata. | Keep legacy properties mapped to the bag until all callers migrate; surface clear errors when plugin absent. |
+| `gap-bson-serialization` | Need plugin-managed BSON type registration so core no longer hardcodes `BsonType.Vector` or `BsonValue.AsVector`. | Critical | `inventory/bson-serialization.json` | Introduce reserved type code registration that lets plugins supply serializers/deserializers without touching core enums. | Provide shims that delegate to the plugin registry while older databases remain readable during rollout. |
+| `gap-storage-pipeline` | Need plugin-accessible page factory/metadata APIs to host `VectorIndexPage`, metadata slots, rebuild, and file reader hooks. | Critical | `inventory/storage-engine.json` | Design a page factory and metadata extension API that lets plugins register custom pages and participate in rebuild/file-reader pipelines. | Preserve current page IDs and metadata layout until migration tooling rewrites existing databases. |
+| `gap-indexing-extensibility` | Need full plugin strategy registration beyond `IIndexInterceptorRegistry` to replace `EnsureVectorIndex` behavior. | High | `inventory/public-api.json` | Extend interceptor registry so plugins register complete index strategies plus planning callbacks. | Keep existing EnsureVectorIndex shims forwarding to plugin strategies until consumers adopt plugin APIs. |
+
 ### Key Entities *(include if feature involves data)*
 
 - **Vector Component Record**: Represents a grouped set of core files that still reference vector logic. Attributes: area name, file list, summary, migration decision, required infrastructure updates.

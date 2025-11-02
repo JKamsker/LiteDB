@@ -11,7 +11,9 @@
     ],
     "scopeSummary": "Direct EnsureVectorIndex APIs, vector distance LINQ helpers, and repository wrappers expose vector search semantics to consumers",
     "decisionId": "move-to-plugin-short",
-    "requiredGapIds": [],
+    "requiredGapIds": [
+        "gap-indexing-extensibility"
+    ],
     "verificationStepIds": [],
     "notes": "Short-term migration: replace EnsureVectorIndex APIs with plugin extension methods and index interceptors before relocating surface."
 }

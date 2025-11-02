@@ -14,7 +14,9 @@
     ],
     "scopeSummary": "Maintains vector index pages, metadata slots, file reader serialization, rebuild routines, and snapshot free-list management",
     "decisionId": "requires-infrastructure",
-    "requiredGapIds": [],
+    "requiredGapIds": [
+        "gap-storage-pipeline"
+    ],
     "verificationStepIds": [],
     "notes": "Blocked until plugin-accessible page factory and metadata API is in place to host vector pages in the plugin."
 }
