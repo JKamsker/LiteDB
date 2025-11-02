@@ -1,0 +1,49 @@
+[
+  {
+    "id": "fiji_dateline",
+    "bounds": {
+      "minLon": 165.0,
+      "minLat": -25.0,
+      "maxLon": 195.0,
+      "maxLat": -10.0
+    },
+    "points": [
+      { "id": "nadi_fiji", "lon": 177.443, "lat": -17.755 },
+      { "id": "apia_samoa", "lon": -171.751, "lat": -13.833 },
+      { "id": "tongatapu", "lon": -175.2, "lat": -21.133 },
+      { "id": "auckland", "lon": 174.763, "lat": -36.848 },
+      { "id": "santiago", "lon": -70.669, "lat": -33.448 }
+    ]
+  },
+  {
+    "id": "aleutian_wrap",
+    "bounds": {
+      "minLon": 160.0,
+      "minLat": 50.0,
+      "maxLon": 200.0,
+      "maxLat": 66.0
+    },
+    "points": [
+      { "id": "attu_island", "lon": 173.185, "lat": 52.895 },
+      { "id": "umyatkin", "lon": 179.778, "lat": 53.361 },
+      { "id": "big_diomede", "lon": -169.035, "lat": 65.766 },
+      { "id": "anchorage", "lon": -149.9, "lat": 61.218 },
+      { "id": "yakutsk", "lon": 129.732, "lat": 62.034 }
+    ]
+  },
+  {
+    "id": "antarctic_cap",
+    "bounds": {
+      "minLon": -60.0,
+      "minLat": -90.0,
+      "maxLon": 60.0,
+      "maxLat": -70.0
+    },
+    "points": [
+      { "id": "south_pole", "lon": 0.0, "lat": -90.0 },
+      { "id": "mcmurdo", "lon": 166.667, "lat": -77.85 },
+      { "id": "palmer_station", "lon": -64.05, "lat": -64.77 },
+      { "id": "rio_de_janeiro", "lon": -43.1729, "lat": -22.9068 }
+    ]
+  }
+]

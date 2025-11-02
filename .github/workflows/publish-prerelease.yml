@@ -79,7 +79,14 @@ jobs:
         run: dotnet build LiteDB/LiteDB.csproj --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
 
       - name: Pack
-        run: dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+        run: |
+          set -euo pipefail
+          dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial.Core/LiteDB.Spatial.Core.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial.Geographic/LiteDB.Spatial.Geographic.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial.Cartesian2D/LiteDB.Spatial.Cartesian2D.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial.Cartesian3D/LiteDB.Spatial.Cartesian3D.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial/LiteDB.Spatial.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
 
       - name: Clean up detached packages
         run: |
