@@ -1,4 +1,4 @@
-﻿using LiteDB.Engine;
+using LiteDB.Engine;
 
 using System;
 using System.Diagnostics;
@@ -8,6 +8,7 @@ using System.Threading;
 #pragma warning disable CS0436 // Type conflicts with imported type
 [assembly: InternalsVisibleTo("LiteDB.Tests")]
 [assembly: InternalsVisibleTo("LiteDB.Vector")]
+[assembly: InternalsVisibleTo("LiteDB.Vector.Tests")]
 #pragma warning restore CS0436
 #if DEBUG || TESTING
 [assembly: InternalsVisibleTo("ConsoleApp1")]

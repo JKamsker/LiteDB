@@ -10,22 +10,22 @@ namespace LiteDB.Vector
     {
         public static bool EnsureIndex<T>(this ILiteCollection<T> collection, string name, BsonExpression expression, VectorIndexOptions options)
         {
-            return Unwrap(collection).EnsureVectorIndex(name, expression, options);
+            return Unwrap(collection).EnsureVectorIndex(name, expression, VectorExtensionHelpers.CreateOptionsDocument(options));
         }
 
         public static bool EnsureIndex<T>(this ILiteCollection<T> collection, BsonExpression expression, VectorIndexOptions options)
         {
-            return Unwrap(collection).EnsureVectorIndex(expression, options);
+            return Unwrap(collection).EnsureVectorIndex(expression, VectorExtensionHelpers.CreateOptionsDocument(options));
         }
 
         public static bool EnsureIndex<T, K>(this ILiteCollection<T> collection, Expression<Func<T, K>> keySelector, VectorIndexOptions options)
         {
-            return Unwrap(collection).EnsureVectorIndex(keySelector, options);
+            return Unwrap(collection).EnsureVectorIndex(keySelector, VectorExtensionHelpers.CreateOptionsDocument(options));
         }
 
         public static bool EnsureIndex<T, K>(this ILiteCollection<T> collection, string name, Expression<Func<T, K>> keySelector, VectorIndexOptions options)
         {
-            return Unwrap(collection).EnsureVectorIndex(name, keySelector, options);
+            return Unwrap(collection).EnsureVectorIndex(name, keySelector, VectorExtensionHelpers.CreateOptionsDocument(options));
         }
 
         private static LiteCollection<T> Unwrap<T>(ILiteCollection<T> collection)

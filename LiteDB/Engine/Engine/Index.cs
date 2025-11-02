@@ -1,5 +1,5 @@
 ﻿using LiteDB.Plugins;
-using LiteDB.Vector;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -99,7 +99,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Create a new vector index (or do nothing if already exists) for a collection/field.
         /// </summary>
-        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options)
+        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, BsonDocument options)
         {
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
@@ -123,13 +123,7 @@ namespace LiteDB.Engine
                 var snapshot = transaction.CreateSnapshot(LockMode.Write, collection, true);
                 var collectionPage = snapshot.CollectionPage;
 
-                var optionDocument = new BsonDocument
-                {
-                    ["dimensions"] = (int)options.Dimensions,
-                    ["metric"] = (int)options.Metric
-                };
-
-                return strategy.EnsureIndex(snapshot, collectionPage, name, expression, optionDocument);
+                return strategy.EnsureIndex(snapshot, collectionPage, name, expression, options);
             });
         }
 

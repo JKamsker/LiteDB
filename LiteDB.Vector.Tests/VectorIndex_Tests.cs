@@ -1,8 +1,7 @@
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
-using LiteDB.Tests;
-using LiteDB.Tests.Utils;
+using LiteDB.Vector.Engine;
 using LiteDB.Vector;
 using MathNet.Numerics.LinearAlgebra;
 using System;
@@ -13,7 +12,7 @@ using System.Reflection;
 using System.Text.Json;
 using Xunit;
 
-namespace LiteDB.Tests.QueryTest
+namespace LiteDB.Vector.Tests.Querying
 {
     public class VectorIndex_Tests
     {
@@ -1000,7 +999,7 @@ namespace LiteDB.Tests.QueryTest
 // #else
 // using Xunit;
 //
-// namespace LiteDB.Tests.QueryTest
+// namespace LiteDB.Vector.Tests.Querying
 // {
 //     public class VectorIndex_Tests
 //     {

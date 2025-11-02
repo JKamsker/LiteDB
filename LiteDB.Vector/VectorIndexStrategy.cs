@@ -49,7 +49,7 @@ namespace LiteDB.Vector
                     throw LiteException.IndexAlreadyExist(name);
                 }
 
-                if (existingMetadata.Dimensions != dimensions || existingMetadata.Metric != metric)
+                if (existingMetadata.Dimensions != dimensions || (VectorDistanceMetric)existingMetadata.Metric != metric)
                 {
                     throw new LiteException(0, $"Vector index '{name}' already exists with different options.");
                 }
@@ -59,11 +59,11 @@ namespace LiteDB.Vector
 
             _logger?.Write(LogLevel.Information, $"Creating vector index '{typedSnapshot.CollectionName}.{name}'.");
 
-            var tuple = typedCollection.InsertVectorIndex(name, expression.Source, dimensions, metric);
+            var tuple = typedCollection.InsertVectorIndex(name, expression.Source, dimensions, (byte)metric);
 
             var indexer = new IndexService(typedSnapshot, typedSnapshot.Collation, typedSnapshot.MaxItemsCount);
             var data = new DataService(typedSnapshot, typedSnapshot.MaxItemsCount);
-            var vectorService = new VectorIndexService(typedSnapshot, typedSnapshot.Collation);
+            var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
 
             foreach (var pkNode in new IndexAll("_id", Query.Ascending).Run(typedCollection, indexer))
             {
@@ -93,7 +93,7 @@ namespace LiteDB.Vector
                 return false;
             }
 
-            var vectorService = new VectorIndexService(typedSnapshot, typedSnapshot.Collation);
+            var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
             vectorService.Drop(metadata);
 
             typedCollection.DeleteCollectionIndex(name);
@@ -113,7 +113,7 @@ namespace LiteDB.Vector
             var typedCollection = ExpectCollection(collection);
             var typedAddress = ExpectPageAddress(dataBlock);
 
-            var vectorService = new VectorIndexService(typedSnapshot, typedSnapshot.Collation);
+            var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
 
             foreach (var (index, metadata) in typedCollection.GetVectorIndexes())
             {
@@ -130,7 +130,7 @@ namespace LiteDB.Vector
             var typedCollection = ExpectCollection(collection);
             var typedAddress = ExpectPageAddress(dataBlock);
 
-            var vectorService = new VectorIndexService(typedSnapshot, typedSnapshot.Collation);
+            var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
 
             foreach (var (_, metadata) in typedCollection.GetVectorIndexes())
             {

@@ -8,3 +8,9 @@
 - Confirmed plugin extension contracts for T009-T010: `LiteDB/Plugins/ILitePlugin.cs` exposes `IIndexStrategy` with Ensure/Drop/Upsert/Delete hooks and `ILitePluginContext` dependencies, while `DefaultPluginContext` wires all registries and default services.
 - Inspected retained core structures for T011 ensuring `LiteDB/Document/BsonVector.cs`, `LiteDB/Engine/Structures/VectorIndexMetadata.cs`, `VectorIndexNode.cs`, and `LiteDB/Engine/Pages/VectorIndexPage.cs` remain in core with untouched implementations.
 - Began Phase 3 migration (T014-T018) by adding `VectorDistanceMetric`, `VectorIndexOptions`, and `VectorIndexService` to the `LiteDB.Vector` project and wiring `VectorIndexStrategy` to the new location; next iteration needs to finish detaching the legacy definitions from the core project and clean up duplicate type conflicts (T019-T020).
+
+## 2025-11-03
+
+- Completed Phase 3 core migration (T014-T024): moved `VectorDistanceMetric`, `VectorIndexOptions`, and the full `VectorIndexService` implementation into `LiteDB.Vector`, introduced a factory adapter so core components obtain services from the plugin, and removed all legacy source files and references from the LiteDB project.
+- Updated downstream consumers to reference the plugin (benchmarks, demo tools, repository/collection APIs) and relocated the vector index integration tests into `LiteDB.Vector.Tests`, adding shared resources and project/package references needed for MathNet/System.Text.Json.
+- Executed `dotnet build LiteDB.sln -c Release` and `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj` to validate the migrated code and ensure the plugin-backed vector query path stays green.

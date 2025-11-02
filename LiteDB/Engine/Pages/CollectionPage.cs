@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using LiteDB.Plugins;
-using LiteDB.Vector;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -215,7 +214,7 @@ namespace LiteDB.Engine
             return index;
         }
 
-        public (CollectionIndex Index, VectorIndexMetadata Metadata) InsertVectorIndex(string name, string expr, ushort dimensions, VectorDistanceMetric metric, IExpressionRegistry registry = null)
+        public (CollectionIndex Index, VectorIndexMetadata Metadata) InsertVectorIndex(string name, string expr, ushort dimensions, byte metric, IExpressionRegistry registry = null)
         {
             if (_indexes.ContainsKey(name) || _vectorIndexes.ContainsKey(name))
             {

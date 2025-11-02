@@ -2,6 +2,8 @@ using System;
 using System.Globalization;
 using LiteDB;
 using LiteDB.Plugins;
+using LiteDB.Engine;
+using LiteDB.Vector.Engine;
 
 namespace LiteDB.Vector
 {
@@ -34,6 +36,7 @@ namespace LiteDB.Vector
 
             var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"], context.Logger);
 
+            VectorIndexServiceFactory.Register((snapshot, collation) => new VectorIndexSearchAdapter(snapshot, collation));
             context.Expressions.RegisterKeyword("VECTOR_SIM");
             context.Expressions.RegisterBinaryOperator(
                 "VECTOR_SIM",

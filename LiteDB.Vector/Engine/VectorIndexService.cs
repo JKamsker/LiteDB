@@ -15,7 +15,7 @@ namespace LiteDB.Vector.Engine
         private readonly Collation _collation;
         private readonly Random _random = new Random();
 
-        private DataService _vectorData;
+        private DataService? _vectorData;
 
         private readonly struct NodeDistance
         {
@@ -80,6 +80,7 @@ namespace LiteDB.Vector.Engine
             var visited = new HashSet<PageAddress>();
 
             this.LastVisitedCount = 0;
+            var metric = (VectorDistanceMetric)metadata.Metric;
 
             var entryPoint = metadata.Root;
             var entryNode = this.GetNode(entryPoint);
@@ -107,11 +108,11 @@ namespace LiteDB.Vector.Engine
 
             var results = new List<(BsonDocument Document, double Distance, double Similarity)>();
 
-            var pruneDistance = metadata.Metric == VectorDistanceMetric.DotProduct
+            var pruneDistance = metric == VectorDistanceMetric.DotProduct
                 ? double.PositiveInfinity
                 : maxDistance;
 
-            var hasExplicitSimilarity = metadata.Metric == VectorDistanceMetric.DotProduct
+            var hasExplicitSimilarity = metric == VectorDistanceMetric.DotProduct
                 && !double.IsPositiveInfinity(maxDistance)
                 && maxDistance < double.MaxValue;
 
@@ -121,7 +122,7 @@ namespace LiteDB.Vector.Engine
             foreach (var candidate in candidates)
             {
                 var compareDistance = candidate.Distance;
-                var meetsThreshold = metadata.Metric == VectorDistanceMetric.DotProduct
+                var meetsThreshold = metric == VectorDistanceMetric.DotProduct
                     ? !double.IsNaN(candidate.Similarity) && candidate.Similarity >= minSimilarity
                     : !double.IsNaN(compareDistance) && compareDistance <= pruneDistance;
 
@@ -137,7 +138,7 @@ namespace LiteDB.Vector.Engine
                 results.Add((document, candidate.Distance, candidate.Similarity));
             }
 
-            if (metadata.Metric == VectorDistanceMetric.DotProduct)
+            if (metric == VectorDistanceMetric.DotProduct)
             {
                 results = results
                     .OrderByDescending(x => x.Similarity)
@@ -317,9 +318,10 @@ namespace LiteDB.Vector.Engine
         {
             var current = start;
             this.RegisterVisit(globalVisited, current);
+            var metric = (VectorDistanceMetric)metadata.Metric;
 
             var currentVector = this.GetVector(metadata, current, vectorCache);
-            var currentDistance = NormalizeDistance(ComputeDistance(currentVector, target, metadata.Metric, out _));
+            var currentDistance = NormalizeDistance(ComputeDistance(currentVector, target, metric, out _));
 
             var improved = true;
 
@@ -338,7 +340,7 @@ namespace LiteDB.Vector.Engine
                     this.RegisterVisit(globalVisited, neighbor);
 
                     var neighborVector = this.GetVector(metadata, neighbor, vectorCache);
-                    var neighborDistance = NormalizeDistance(ComputeDistance(neighborVector, target, metadata.Metric, out _));
+                    var neighborDistance = NormalizeDistance(ComputeDistance(neighborVector, target, metric, out _));
 
                     if (neighborDistance < currentDistance)
                     {
@@ -365,6 +367,7 @@ namespace LiteDB.Vector.Engine
             var results = new List<NodeDistance>();
             var candidates = new List<NodeDistance>();
             var visited = new HashSet<PageAddress>();
+            var metric = (VectorDistanceMetric)metadata.Metric;
 
             if (entryPoint.IsEmpty)
             {
@@ -372,7 +375,7 @@ namespace LiteDB.Vector.Engine
             }
 
             var entryVector = this.GetVector(metadata, entryPoint, vectorCache);
-            var entryDistance = ComputeDistance(entryVector, target, metadata.Metric, out var entrySimilarity);
+            var entryDistance = ComputeDistance(entryVector, target, metric, out var entrySimilarity);
             var entryNode = new NodeDistance(entryPoint, entryDistance, entrySimilarity);
 
             InsertOrdered(results, entryNode, Math.Max(1, explorationFactor));
@@ -407,7 +410,7 @@ namespace LiteDB.Vector.Engine
                     this.RegisterVisit(globalVisited, neighbor);
 
                     var neighborVector = this.GetVector(metadata, neighbor, vectorCache);
-                    var distance = ComputeDistance(neighborVector, target, metadata.Metric, out var similarity);
+                    var distance = ComputeDistance(neighborVector, target, metric, out var similarity);
                     var candidate = new NodeDistance(neighbor, distance, similarity);
 
                     if (InsertOrdered(results, candidate, Math.Max(1, explorationFactor)))
@@ -437,6 +440,7 @@ namespace LiteDB.Vector.Engine
         private IReadOnlyList<PageAddress> PruneNeighbors(VectorIndexMetadata metadata, PageAddress source, List<PageAddress> neighbors, Dictionary<PageAddress, float[]> vectorCache)
         {
             var unique = new HashSet<PageAddress>(neighbors.Where(x => !x.IsEmpty && x != source));
+            var metric = (VectorDistanceMetric)metadata.Metric;
 
             if (unique.Count == 0)
             {
@@ -449,7 +453,7 @@ namespace LiteDB.Vector.Engine
             foreach (var neighbor in unique)
             {
                 var neighborVector = this.GetVector(metadata, neighbor, vectorCache);
-                var distance = ComputeDistance(sourceVector, neighborVector, metadata.Metric, out _);
+                var distance = ComputeDistance(sourceVector, neighborVector, metric, out _);
                 scored.Add(new NodeDistance(neighbor, distance, double.NaN));
             }
 

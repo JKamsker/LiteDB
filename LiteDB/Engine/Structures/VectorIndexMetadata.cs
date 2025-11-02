@@ -1,4 +1,3 @@
-using LiteDB.Vector;
 using System;
 
 namespace LiteDB.Engine
@@ -21,7 +20,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Distance metric applied during nearest-neighbour evaluation.
         /// </summary>
-        public VectorDistanceMetric Metric { get; }
+        public byte Metric { get; }
 
         /// <summary>
         /// Head pointer to the persisted vector index structure.
@@ -33,7 +32,7 @@ namespace LiteDB.Engine
         /// </summary>
         public uint Reserved { get; set; }
 
-        public VectorIndexMetadata(byte slot, ushort dimensions, VectorDistanceMetric metric)
+        public VectorIndexMetadata(byte slot, ushort dimensions, byte metric)
         {
             if (dimensions == 0)
             {
@@ -51,7 +50,7 @@ namespace LiteDB.Engine
         {
             this.Slot = reader.ReadByte();
             this.Dimensions = reader.ReadUInt16();
-            this.Metric = (VectorDistanceMetric)reader.ReadByte();
+            this.Metric = reader.ReadByte();
             this.Root = reader.ReadPageAddress();
             this.Reserved = reader.ReadUInt32();
         }
@@ -60,7 +59,7 @@ namespace LiteDB.Engine
         {
             writer.Write(this.Slot);
             writer.Write(this.Dimensions);
-            writer.Write((byte)this.Metric);
+            writer.Write(this.Metric);
             writer.Write(this.Root);
             writer.Write(this.Reserved);
         }

@@ -57,20 +57,20 @@
 
 ### Core Code Migration for User Story 1
 
-- [ ] T014 [P] [US1] Move VectorDistanceMetric enum from `LiteDB/Client/Vector/VectorDistanceMetric.cs` to `LiteDB.Vector/VectorDistanceMetric.cs` (preserve namespace as LiteDB.Vector)
-- [ ] T015 [P] [US1] Move VectorIndexOptions class from `LiteDB/Client/Vector/VectorIndexOptions.cs` to `LiteDB.Vector/VectorIndexOptions.cs` (preserve all constructor signatures)
-- [ ] T016 [US1] Move VectorIndexService class from `LiteDB/Engine/Services/VectorIndexService.cs` to `LiteDB.Vector/Engine/VectorIndexService.cs` (preserve all HNSW algorithm logic including EfConstruction=24, DefaultEfSearch=32, MaxLevels=4, MaxNeighbors=8)
-- [ ] T017 [US1] Update VectorIndexStrategy.cs at `LiteDB.Vector/VectorIndexStrategy.cs` to use the moved VectorIndexService for all index operations (EnsureIndex, DropIndex, OnDocumentUpsert, OnDocumentDelete)
-- [ ] T018 [US1] Update VectorSearchPlugin.Initialize method at `LiteDB.Vector/VectorSearchPlugin.cs` to register VectorIndexStrategy with the moved types
-- [ ] T019 [US1] Verify no references to moved types remain in LiteDB core project (grep for VectorIndexService, VectorIndexOptions, VectorDistanceMetric in LiteDB/ excluding Plugins/)
-- [ ] T020 [US1] Remove moved source files from LiteDB core: delete `LiteDB/Engine/Services/VectorIndexService.cs`, `LiteDB/Client/Vector/VectorIndexOptions.cs`, `LiteDB/Client/Vector/VectorDistanceMetric.cs`
+- [X] T014 [P] [US1] Move VectorDistanceMetric enum from `LiteDB/Client/Vector/VectorDistanceMetric.cs` to `LiteDB.Vector/VectorDistanceMetric.cs` (preserve namespace as LiteDB.Vector)
+- [X] T015 [P] [US1] Move VectorIndexOptions class from `LiteDB/Client/Vector/VectorIndexOptions.cs` to `LiteDB.Vector/VectorIndexOptions.cs` (preserve all constructor signatures)
+- [X] T016 [US1] Move VectorIndexService class from `LiteDB/Engine/Services/VectorIndexService.cs` to `LiteDB.Vector/Engine/VectorIndexService.cs` (preserve all HNSW algorithm logic including EfConstruction=24, DefaultEfSearch=32, MaxLevels=4, MaxNeighbors=8)
+- [X] T017 [US1] Update VectorIndexStrategy.cs at `LiteDB.Vector/VectorIndexStrategy.cs` to use the moved VectorIndexService for all index operations (EnsureIndex, DropIndex, OnDocumentUpsert, OnDocumentDelete)
+- [X] T018 [US1] Update VectorSearchPlugin.Initialize method at `LiteDB.Vector/VectorSearchPlugin.cs` to register VectorIndexStrategy with the moved types
+- [X] T019 [US1] Verify no references to moved types remain in LiteDB core project (grep for VectorIndexService, VectorIndexOptions, VectorDistanceMetric in LiteDB/ excluding Plugins/)
+- [X] T020 [US1] Remove moved source files from LiteDB core: delete `LiteDB/Engine/Services/VectorIndexService.cs`, `LiteDB/Client/Vector/VectorIndexOptions.cs`, `LiteDB/Client/Vector/VectorDistanceMetric.cs`
 
 ### Testing for User Story 1
 
-- [ ] T021 [US1] Move test file from `LiteDB.Tests/Query/VectorIndex_Tests.cs` to `LiteDB.Vector.Tests/VectorIndex_Tests.cs` (preserve all test cases)
-- [ ] T022 [US1] Update test project references: add LiteDB.Vector project reference to LiteDB.Vector.Tests.csproj
-- [ ] T023 [US1] Run all moved tests in LiteDB.Vector.Tests to verify functionality: `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj`
-- [ ] T024 [US1] Verify core structure tests remain in LiteDB.Tests: BsonVector_Tests.cs should stay in `LiteDB.Tests/BsonValue/`
+- [X] T021 [US1] Move test file from `LiteDB.Tests/Query/VectorIndex_Tests.cs` to `LiteDB.Vector.Tests/VectorIndex_Tests.cs` (preserve all test cases)
+- [X] T022 [US1] Update test project references: add LiteDB.Vector project reference to LiteDB.Vector.Tests.csproj
+- [X] T023 [US1] Run all moved tests in LiteDB.Vector.Tests to verify functionality: `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj`
+- [X] T024 [US1] Verify core structure tests remain in LiteDB.Tests: BsonVector_Tests.cs should stay in `LiteDB.Tests/BsonValue/`
 - [ ] T025 [US1] Create new plugin integration test at `LiteDB.Vector.Tests/VectorPlugin_Tests.cs` to verify plugin registration and initialization
 - [ ] T026 [US1] Validate backward compatibility: create test database with old implementation, open with new plugin-based implementation, verify indexes work
 
