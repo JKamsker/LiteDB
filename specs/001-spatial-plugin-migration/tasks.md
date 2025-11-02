@@ -47,11 +47,11 @@
 
 - [X] T019 [US3] Update quickstart/migration docs including `EnsureIndex` interceptor and `WhereNear` usage (`docs/spatial-*.md`, `specs/001-spatial-plugin-migration/quickstart.md`)
 - [X] T020 [US3] Generate release notes highlighting plugin requirement and migration steps (`docs/spatial-plugin-migration-plan.md`, release template)
-- [ ] T021 [US3] Coordinate internal enablement checklist (link to docs in repository README/samples)
+- [X] T021 [US3] Coordinate internal enablement checklist (link to docs in repository README/samples)
 
 ## Phase 6 – Polish & Cross-Cutting
-- [ ] T022 Run full benchmark/stress suites comparing pre/post migration numbers (`LiteDB.Benchmarks`, `LiteDB.Stress`)
-- [ ] T023 Ensure packaging/publishing scripts exclude spatial assemblies from core while including plugin artifacts (`.github/workflows`, `dotnet pack` configs)
+- [X] T022 Run full benchmark/stress suites comparing pre/post migration numbers (`LiteDB.Benchmarks`, `LiteDB.Stress`)
+- [X] T023 Ensure packaging/publishing scripts exclude spatial assemblies from core while including plugin artifacts (`.github/workflows`, `dotnet pack` configs)
 - [ ] T024 Finalize tests: run spatial tests with plugin, core tests without plugin, capture results for PR
 - [ ] T025 Conduct code review and documentation sanity pass across modified files
 

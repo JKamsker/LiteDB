@@ -1,0 +1,1207 @@
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.209 ms, StdErr = 0.006 ms (0.52%), N = 24, StdDev = 0.031 ms
+Min = 1.156 ms, Q1 = 1.180 ms, Median = 1.216 ms, Q3 = 1.230 ms, Max = 1.252 ms
+IQR = 0.050 ms, LowerFence = 1.106 ms, UpperFence = 1.304 ms
+ConfidenceInterval = [1.185 ms; 1.233 ms] (CI 99.9%), Margin = 0.024 ms (1.95% of Mean)
+Skewness = -0.2, Kurtosis = 1.66, MValue = 2
+-------------------- Histogram --------------------
+[1.142 ms ; 1.189 ms) | @@@@@@@@
+[1.189 ms ; 1.233 ms) | @@@@@@@@@@@
+[1.233 ms ; 1.266 ms) | @@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.208 ms, StdErr = 0.007 ms (0.54%), N = 47, StdDev = 0.045 ms
+Min = 1.130 ms, Q1 = 1.180 ms, Median = 1.200 ms, Q3 = 1.227 ms, Max = 1.330 ms
+IQR = 0.047 ms, LowerFence = 1.109 ms, UpperFence = 1.298 ms
+ConfidenceInterval = [1.185 ms; 1.231 ms] (CI 99.9%), Margin = 0.023 ms (1.90% of Mean)
+Skewness = 0.83, Kurtosis = 3.6, MValue = 2
+-------------------- Histogram --------------------
+[1.114 ms ; 1.173 ms) | @@@@@@
+[1.173 ms ; 1.205 ms) | @@@@@@@@@@@@@@@@@@@@@@
+[1.205 ms ; 1.249 ms) | @@@@@@@@@@@@
+[1.249 ms ; 1.285 ms) | @@@@
+[1.285 ms ; 1.314 ms) | @
+[1.314 ms ; 1.346 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.175 ms, StdErr = 0.005 ms (0.45%), N = 13, StdDev = 0.019 ms
+Min = 1.139 ms, Q1 = 1.164 ms, Median = 1.177 ms, Q3 = 1.186 ms, Max = 1.214 ms
+IQR = 0.022 ms, LowerFence = 1.131 ms, UpperFence = 1.219 ms
+ConfidenceInterval = [1.152 ms; 1.199 ms] (CI 99.9%), Margin = 0.023 ms (1.96% of Mean)
+Skewness = 0.1, Kurtosis = 2.54, MValue = 2
+-------------------- Histogram --------------------
+[1.135 ms ; 1.160 ms) | @@
+[1.160 ms ; 1.225 ms) | @@@@@@@@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.230 ms, StdErr = 0.107 ms (8.73%), N = 3, StdDev = 0.186 ms
+Min = 1.118 ms, Q1 = 1.123 ms, Median = 1.127 ms, Q3 = 1.286 ms, Max = 1.445 ms
+IQR = 0.163 ms, LowerFence = 0.878 ms, UpperFence = 1.531 ms
+ConfidenceInterval = [-2.165 ms; 4.625 ms] (CI 99.9%), Margin = 3.395 ms (276.00% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[1.112 ms ; 1.451 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.646 ms, StdErr = 0.012 ms (0.75%), N = 3, StdDev = 0.021 ms
+Min = 1.625 ms, Q1 = 1.635 ms, Median = 1.646 ms, Q3 = 1.657 ms, Max = 1.668 ms
+IQR = 0.021 ms, LowerFence = 1.603 ms, UpperFence = 1.689 ms
+ConfidenceInterval = [1.255 ms; 2.038 ms] (CI 99.9%), Margin = 0.392 ms (23.78% of Mean)
+Skewness = 0.04, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[1.616 ms ; 1.688 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.367 ms, StdErr = 0.069 ms (5.02%), N = 3, StdDev = 0.119 ms
+Min = 1.249 ms, Q1 = 1.308 ms, Median = 1.366 ms, Q3 = 1.426 ms, Max = 1.487 ms
+IQR = 0.119 ms, LowerFence = 1.129 ms, UpperFence = 1.605 ms
+ConfidenceInterval = [-0.801 ms; 3.536 ms] (CI 99.9%), Margin = 2.168 ms (158.59% of Mean)
+Skewness = 0.01, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[1.199 ms ; 1.416 ms) | @@
+[1.416 ms ; 1.595 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 515.256 μs, StdErr = 3.007 μs (0.58%), N = 75, StdDev = 26.040 μs
+Min = 477.400 μs, Q1 = 492.850 μs, Median = 513.200 μs, Q3 = 529.000 μs, Max = 595.100 μs
+IQR = 36.150 μs, LowerFence = 438.625 μs, UpperFence = 583.225 μs
+ConfidenceInterval = [504.952 μs; 525.560 μs] (CI 99.9%), Margin = 10.304 μs (2.00% of Mean)
+Skewness = 0.96, Kurtosis = 3.9, MValue = 2.4
+-------------------- Histogram --------------------
+[469.296 μs ; 488.046 μs) | @@@@@@@@@
+[488.046 μs ; 504.254 μs) | @@@@@@@@@@@@@@@@@@@@@@
+[504.254 μs ; 515.246 μs) | @@@@@@@
+[515.246 μs ; 531.454 μs) | @@@@@@@@@@@@@@@@@@@@
+[531.454 μs ; 551.146 μs) | @@@@@@@@@@@
+[551.146 μs ; 567.354 μs) | @@@
+[567.354 μs ; 582.396 μs) | 
+[582.396 μs ; 598.604 μs) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 506.881 μs, StdErr = 2.919 μs (0.58%), N = 57, StdDev = 22.041 μs
+Min = 450.900 μs, Q1 = 495.800 μs, Median = 513.500 μs, Q3 = 520.400 μs, Max = 556.900 μs
+IQR = 24.600 μs, LowerFence = 458.900 μs, UpperFence = 557.300 μs
+ConfidenceInterval = [496.742 μs; 517.020 μs] (CI 99.9%), Margin = 10.139 μs (2.00% of Mean)
+Skewness = -0.57, Kurtosis = 3.07, MValue = 2.37
+-------------------- Histogram --------------------
+[443.383 μs ; 459.533 μs) | @
+[459.533 μs ; 474.567 μs) | @@@@@@@@
+[474.567 μs ; 490.133 μs) | @@
+[490.133 μs ; 506.483 μs) | @@@@@@@@
+[506.483 μs ; 521.517 μs) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[521.517 μs ; 535.517 μs) | @@@@@@@@
+[535.517 μs ; 547.033 μs) | 
+[547.033 μs ; 564.417 μs) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 508.454 μs, StdErr = 1.894 μs (0.37%), N = 13, StdDev = 6.829 μs
+Min = 497.400 μs, Q1 = 506.300 μs, Median = 507.000 μs, Q3 = 511.100 μs, Max = 522.300 μs
+IQR = 4.800 μs, LowerFence = 499.100 μs, UpperFence = 518.300 μs
+ConfidenceInterval = [500.275 μs; 516.632 μs] (CI 99.9%), Margin = 8.178 μs (1.61% of Mean)
+Skewness = 0.32, Kurtosis = 2.44, MValue = 2
+-------------------- Histogram --------------------
+[493.588 μs ; 523.887 μs) | @@@@@@@@@@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 488.467 μs, StdErr = 5.152 μs (1.05%), N = 3, StdDev = 8.924 μs
+Min = 482.300 μs, Q1 = 483.350 μs, Median = 484.400 μs, Q3 = 491.550 μs, Max = 498.700 μs
+IQR = 8.200 μs, LowerFence = 471.050 μs, UpperFence = 503.850 μs
+ConfidenceInterval = [325.654 μs; 651.279 μs] (CI 99.9%), Margin = 162.813 μs (33.33% of Mean)
+Skewness = 0.36, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[474.179 μs ; 491.471 μs) | @@
+[491.471 μs ; 506.821 μs) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 482.833 μs, StdErr = 2.918 μs (0.60%), N = 3, StdDev = 5.054 μs
+Min = 477.000 μs, Q1 = 481.300 μs, Median = 485.600 μs, Q3 = 485.750 μs, Max = 485.900 μs
+IQR = 4.450 μs, LowerFence = 474.625 μs, UpperFence = 492.425 μs
+ConfidenceInterval = [390.629 μs; 575.038 μs] (CI 99.9%), Margin = 92.205 μs (19.10% of Mean)
+Skewness = -0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[476.851 μs ; 486.049 μs) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 515.967 μs, StdErr = 7.906 μs (1.53%), N = 3, StdDev = 13.693 μs
+Min = 504.000 μs, Q1 = 508.500 μs, Median = 513.000 μs, Q3 = 521.950 μs, Max = 530.900 μs
+IQR = 13.450 μs, LowerFence = 488.325 μs, UpperFence = 542.125 μs
+ConfidenceInterval = [266.152 μs; 765.781 μs] (CI 99.9%), Margin = 249.815 μs (48.42% of Mean)
+Skewness = 0.21, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[496.039 μs ; 520.961 μs) | @@
+[520.961 μs ; 543.361 μs) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.997 ms, StdErr = 0.010 ms (0.51%), N = 22, StdDev = 0.048 ms
+Min = 1.914 ms, Q1 = 1.967 ms, Median = 1.995 ms, Q3 = 2.027 ms, Max = 2.111 ms
+IQR = 0.061 ms, LowerFence = 1.876 ms, UpperFence = 2.118 ms
+ConfidenceInterval = [1.957 ms; 2.036 ms] (CI 99.9%), Margin = 0.039 ms (1.96% of Mean)
+Skewness = 0.42, Kurtosis = 2.72, MValue = 2
+-------------------- Histogram --------------------
+[1.892 ms ; 1.937 ms) | @@
+[1.937 ms ; 1.982 ms) | @@@@@@@@
+[1.982 ms ; 2.040 ms) | @@@@@@@@@@
+[2.040 ms ; 2.118 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.228 ms, StdErr = 0.020 ms (0.88%), N = 98, StdDev = 0.193 ms
+Min = 1.793 ms, Q1 = 2.072 ms, Median = 2.192 ms, Q3 = 2.393 ms, Max = 2.649 ms
+IQR = 0.321 ms, LowerFence = 1.590 ms, UpperFence = 2.875 ms
+ConfidenceInterval = [2.161 ms; 2.294 ms] (CI 99.9%), Margin = 0.066 ms (2.97% of Mean)
+Skewness = 0.21, Kurtosis = 2, MValue = 3.64
+-------------------- Histogram --------------------
+[1.738 ms ; 1.848 ms) | @
+[1.848 ms ; 1.906 ms) | 
+[1.906 ms ; 1.995 ms) | @@@@@@@
+[1.995 ms ; 2.105 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[2.105 ms ; 2.219 ms) | @@@@@@@@@@@@@@@@@@
+[2.219 ms ; 2.314 ms) | @@@
+[2.314 ms ; 2.424 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@
+[2.424 ms ; 2.545 ms) | @@@@@@@@@@@
+[2.545 ms ; 2.655 ms) | @@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.433 ms, StdErr = 0.010 ms (0.71%), N = 94, StdDev = 0.099 ms
+Min = 1.287 ms, Q1 = 1.360 ms, Median = 1.414 ms, Q3 = 1.467 ms, Max = 1.727 ms
+IQR = 0.107 ms, LowerFence = 1.201 ms, UpperFence = 1.627 ms
+ConfidenceInterval = [1.398 ms; 1.468 ms] (CI 99.9%), Margin = 0.035 ms (2.42% of Mean)
+Skewness = 1.01, Kurtosis = 3.32, MValue = 2
+-------------------- Histogram --------------------
+[1.274 ms ; 1.328 ms) | @@@@@
+[1.328 ms ; 1.392 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[1.392 ms ; 1.449 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[1.449 ms ; 1.510 ms) | @@@@@@
+[1.510 ms ; 1.567 ms) | @@@@@@@@@
+[1.567 ms ; 1.643 ms) | @@@@@@@@@
+[1.643 ms ; 1.729 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.357 ms, StdErr = 0.028 ms (1.20%), N = 3, StdDev = 0.049 ms
+Min = 2.301 ms, Q1 = 2.340 ms, Median = 2.379 ms, Q3 = 2.385 ms, Max = 2.390 ms
+IQR = 0.045 ms, LowerFence = 2.272 ms, UpperFence = 2.452 ms
+ConfidenceInterval = [1.465 ms; 3.248 ms] (CI 99.9%), Margin = 0.891 ms (37.83% of Mean)
+Skewness = -0.36, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[2.256 ms ; 2.340 ms) | @
+[2.340 ms ; 2.435 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.027 ms, StdErr = 0.024 ms (1.17%), N = 3, StdDev = 0.041 ms
+Min = 1.990 ms, Q1 = 2.005 ms, Median = 2.019 ms, Q3 = 2.045 ms, Max = 2.071 ms
+IQR = 0.041 ms, LowerFence = 1.943 ms, UpperFence = 2.106 ms
+ConfidenceInterval = [1.276 ms; 2.778 ms] (CI 99.9%), Margin = 0.751 ms (37.06% of Mean)
+Skewness = 0.17, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[1.967 ms ; 2.042 ms) | @@
+[2.042 ms ; 2.108 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.606 ms, StdErr = 0.018 ms (1.10%), N = 3, StdDev = 0.031 ms
+Min = 1.587 ms, Q1 = 1.588 ms, Median = 1.590 ms, Q3 = 1.615 ms, Max = 1.641 ms
+IQR = 0.027 ms, LowerFence = 1.548 ms, UpperFence = 1.656 ms
+ConfidenceInterval = [1.048 ms; 2.164 ms] (CI 99.9%), Margin = 0.558 ms (34.73% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[1.586 ms ; 1.642 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.381 ms, StdErr = 0.008 ms (0.57%), N = 47, StdDev = 0.054 ms
+Min = 1.274 ms, Q1 = 1.349 ms, Median = 1.379 ms, Q3 = 1.415 ms, Max = 1.511 ms
+IQR = 0.066 ms, LowerFence = 1.250 ms, UpperFence = 1.514 ms
+ConfidenceInterval = [1.353 ms; 1.408 ms] (CI 99.9%), Margin = 0.028 ms (1.99% of Mean)
+Skewness = 0.39, Kurtosis = 2.94, MValue = 2
+-------------------- Histogram --------------------
+[1.254 ms ; 1.300 ms) | @@
+[1.300 ms ; 1.339 ms) | @@@@@@@@@
+[1.339 ms ; 1.396 ms) | @@@@@@@@@@@@@@@@@@@
+[1.396 ms ; 1.434 ms) | @@@@@@@@@@@
+[1.434 ms ; 1.483 ms) | @@@
+[1.483 ms ; 1.523 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.339 ms, StdErr = 0.006 ms (0.48%), N = 48, StdDev = 0.044 ms
+Min = 1.247 ms, Q1 = 1.308 ms, Median = 1.334 ms, Q3 = 1.361 ms, Max = 1.471 ms
+IQR = 0.053 ms, LowerFence = 1.228 ms, UpperFence = 1.441 ms
+ConfidenceInterval = [1.316 ms; 1.361 ms] (CI 99.9%), Margin = 0.022 ms (1.67% of Mean)
+Skewness = 0.76, Kurtosis = 3.57, MValue = 2
+-------------------- Histogram --------------------
+[1.231 ms ; 1.281 ms) | @
+[1.281 ms ; 1.314 ms) | @@@@@@@@@@@@@
+[1.314 ms ; 1.346 ms) | @@@@@@@@@@@@@@@@@
+[1.346 ms ; 1.383 ms) | @@@@@@@@@@@@
+[1.383 ms ; 1.435 ms) | @@@@
+[1.435 ms ; 1.487 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 784.800 μs, StdErr = 8.363 μs (1.07%), N = 89, StdDev = 78.892 μs
+Min = 679.100 μs, Q1 = 711.300 μs, Median = 794.100 μs, Q3 = 825.300 μs, Max = 1,033.200 μs
+IQR = 114.000 μs, LowerFence = 540.300 μs, UpperFence = 996.300 μs
+ConfidenceInterval = [756.329 μs; 813.271 μs] (CI 99.9%), Margin = 28.471 μs (3.63% of Mean)
+Skewness = 0.76, Kurtosis = 3.38, MValue = 4.27
+-------------------- Histogram --------------------
+[  677.158 μs ;   723.542 μs) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[  723.542 μs ;   774.192 μs) | @@@@@@@@@@@
+[  774.192 μs ;   790.008 μs) | @@
+[  790.008 μs ;   836.392 μs) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[  836.392 μs ;   899.442 μs) | @@@@@@@@@@@@
+[  899.442 μs ;   945.826 μs) | 
+[  945.826 μs ; 1,002.742 μs) | @@@@
+[1,002.742 μs ; 1,056.392 μs) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.372 ms, StdErr = 0.022 ms (1.60%), N = 3, StdDev = 0.038 ms
+Min = 1.329 ms, Q1 = 1.359 ms, Median = 1.389 ms, Q3 = 1.394 ms, Max = 1.399 ms
+IQR = 0.035 ms, LowerFence = 1.306 ms, UpperFence = 1.447 ms
+ConfidenceInterval = [0.678 ms; 2.066 ms] (CI 99.9%), Margin = 0.694 ms (50.57% of Mean)
+Skewness = -0.36, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[1.294 ms ; 1.359 ms) | @
+[1.359 ms ; 1.434 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.402 ms, StdErr = 0.063 ms (4.49%), N = 3, StdDev = 0.109 ms
+Min = 1.299 ms, Q1 = 1.345 ms, Median = 1.392 ms, Q3 = 1.454 ms, Max = 1.516 ms
+IQR = 0.109 ms, LowerFence = 1.182 ms, UpperFence = 1.617 ms
+ConfidenceInterval = [-0.588 ms; 3.392 ms] (CI 99.9%), Margin = 1.990 ms (141.90% of Mean)
+Skewness = 0.09, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[1.246 ms ; 1.445 ms) | @@
+[1.445 ms ; 1.615 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 882.400 μs, StdErr = 123.751 μs (14.02%), N = 3, StdDev = 214.344 μs
+Min = 680.600 μs, Q1 = 769.900 μs, Median = 859.200 μs, Q3 = 983.300 μs, Max = 1,107.400 μs
+IQR = 213.400 μs, LowerFence = 449.800 μs, UpperFence = 1,303.400 μs
+ConfidenceInterval = [-3,028.028 μs; 4,792.828 μs] (CI 99.9%), Margin = 3,910.428 μs (443.16% of Mean)
+Skewness = 0.11, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[574.839 μs ;   964.961 μs) | @@
+[964.961 μs ; 1,302.461 μs) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 3.072 ms, StdErr = 0.053 ms (1.72%), N = 88, StdDev = 0.496 ms
+Min = 2.026 ms, Q1 = 2.959 ms, Median = 3.177 ms, Q3 = 3.325 ms, Max = 3.950 ms
+IQR = 0.367 ms, LowerFence = 2.409 ms, UpperFence = 3.875 ms
+ConfidenceInterval = [2.892 ms; 3.252 ms] (CI 99.9%), Margin = 0.180 ms (5.87% of Mean)
+Skewness = -0.67, Kurtosis = 2.67, MValue = 2.33
+-------------------- Histogram --------------------
+[1.880 ms ; 2.074 ms) | @@
+[2.074 ms ; 2.367 ms) | @@@@@@@@@@@@@@@
+[2.367 ms ; 2.541 ms) | @
+[2.541 ms ; 2.799 ms) | 
+[2.799 ms ; 3.099 ms) | @@@@@@@@@
+[3.099 ms ; 3.392 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[3.392 ms ; 3.680 ms) | @@@@@@@@
+[3.680 ms ; 3.973 ms) | @@@@@@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 3.481 ms, StdErr = 0.020 ms (0.57%), N = 55, StdDev = 0.146 ms
+Min = 3.260 ms, Q1 = 3.390 ms, Median = 3.448 ms, Q3 = 3.555 ms, Max = 3.966 ms
+IQR = 0.165 ms, LowerFence = 3.142 ms, UpperFence = 3.803 ms
+ConfidenceInterval = [3.413 ms; 3.550 ms] (CI 99.9%), Margin = 0.069 ms (1.97% of Mean)
+Skewness = 1.13, Kurtosis = 4.24, MValue = 2
+-------------------- Histogram --------------------
+[3.250 ms ; 3.366 ms) | @@@@@@@
+[3.366 ms ; 3.467 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@
+[3.467 ms ; 3.578 ms) | @@@@@@@@@@
+[3.578 ms ; 3.679 ms) | @@@@@@
+[3.679 ms ; 3.782 ms) | @@@
+[3.782 ms ; 3.915 ms) | @@
+[3.915 ms ; 4.016 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.577 ms, StdErr = 0.015 ms (0.92%), N = 90, StdDev = 0.138 ms
+Min = 1.376 ms, Q1 = 1.483 ms, Median = 1.538 ms, Q3 = 1.622 ms, Max = 1.957 ms
+IQR = 0.139 ms, LowerFence = 1.275 ms, UpperFence = 1.830 ms
+ConfidenceInterval = [1.527 ms; 1.626 ms] (CI 99.9%), Margin = 0.049 ms (3.14% of Mean)
+Skewness = 1.13, Kurtosis = 3.73, MValue = 2.64
+-------------------- Histogram --------------------
+[1.375 ms ; 1.458 ms) | @@@@@@@@@@@@@
+[1.458 ms ; 1.539 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[1.539 ms ; 1.633 ms) | @@@@@@@@@@@@@@@@@@@@@@@@
+[1.633 ms ; 1.744 ms) | @@@@@@@@@
+[1.744 ms ; 1.859 ms) | @@@@@@
+[1.859 ms ; 1.901 ms) | 
+[1.901 ms ; 1.997 ms) | @@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 3.300 ms, StdErr = 0.078 ms (2.35%), N = 3, StdDev = 0.134 ms
+Min = 3.150 ms, Q1 = 3.246 ms, Median = 3.342 ms, Q3 = 3.375 ms, Max = 3.409 ms
+IQR = 0.130 ms, LowerFence = 3.051 ms, UpperFence = 3.569 ms
+ConfidenceInterval = [0.847 ms; 5.752 ms] (CI 99.9%), Margin = 2.453 ms (74.32% of Mean)
+Skewness = -0.28, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[3.027 ms ; 3.253 ms) | @
+[3.253 ms ; 3.531 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 3.105 ms, StdErr = 0.025 ms (0.79%), N = 3, StdDev = 0.042 ms
+Min = 3.056 ms, Q1 = 3.093 ms, Median = 3.129 ms, Q3 = 3.130 ms, Max = 3.131 ms
+IQR = 0.037 ms, LowerFence = 3.037 ms, UpperFence = 3.186 ms
+ConfidenceInterval = [2.331 ms; 3.880 ms] (CI 99.9%), Margin = 0.775 ms (24.95% of Mean)
+Skewness = -0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[3.055 ms ; 3.132 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.653 ms, StdErr = 0.144 ms (8.70%), N = 3, StdDev = 0.249 ms
+Min = 1.503 ms, Q1 = 1.510 ms, Median = 1.517 ms, Q3 = 1.729 ms, Max = 1.941 ms
+IQR = 0.219 ms, LowerFence = 1.181 ms, UpperFence = 2.058 ms
+ConfidenceInterval = [-2.890 ms; 6.197 ms] (CI 99.9%), Margin = 4.543 ms (274.77% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[1.495 ms ; 1.948 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.638 ms, StdErr = 0.022 ms (0.82%), N = 94, StdDev = 0.210 ms
+Min = 2.194 ms, Q1 = 2.453 ms, Median = 2.681 ms, Q3 = 2.793 ms, Max = 3.082 ms
+IQR = 0.340 ms, LowerFence = 1.943 ms, UpperFence = 3.304 ms
+ConfidenceInterval = [2.565 ms; 2.712 ms] (CI 99.9%), Margin = 0.073 ms (2.78% of Mean)
+Skewness = -0.19, Kurtosis = 2.02, MValue = 2.86
+-------------------- Histogram --------------------
+[2.134 ms ; 2.253 ms) | @@
+[2.253 ms ; 2.367 ms) | @@@@@@@@
+[2.367 ms ; 2.488 ms) | @@@@@@@@@@@@@@@@@@
+[2.488 ms ; 2.570 ms) | @@@@@@
+[2.570 ms ; 2.693 ms) | @@@@@@@@@@@@@@
+[2.693 ms ; 2.814 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[2.814 ms ; 2.959 ms) | @@@@@@@@@@@@@@@
+[2.959 ms ; 3.097 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.676 ms, StdErr = 0.025 ms (0.94%), N = 82, StdDev = 0.227 ms
+Min = 2.270 ms, Q1 = 2.530 ms, Median = 2.654 ms, Q3 = 2.820 ms, Max = 3.418 ms
+IQR = 0.290 ms, LowerFence = 2.095 ms, UpperFence = 3.256 ms
+ConfidenceInterval = [2.590 ms; 2.762 ms] (CI 99.9%), Margin = 0.086 ms (3.20% of Mean)
+Skewness = 0.85, Kurtosis = 4.35, MValue = 2.9
+-------------------- Histogram --------------------
+[2.201 ms ; 2.337 ms) | @@
+[2.337 ms ; 2.475 ms) | @@@@@@@@@@@@@@@@
+[2.475 ms ; 2.660 ms) | @@@@@@@@@@@@@@@@@@@@@@@@
+[2.660 ms ; 2.844 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@
+[2.844 ms ; 2.991 ms) | @@@@@@@@
+[2.991 ms ; 3.099 ms) | @@
+[3.099 ms ; 3.236 ms) | 
+[3.236 ms ; 3.421 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 1.205 ms, StdErr = 0.024 ms (2.01%), N = 98, StdDev = 0.240 ms
+Min = 0.911 ms, Q1 = 1.034 ms, Median = 1.154 ms, Q3 = 1.354 ms, Max = 1.877 ms
+IQR = 0.320 ms, LowerFence = 0.554 ms, UpperFence = 1.834 ms
+ConfidenceInterval = [1.123 ms; 1.288 ms] (CI 99.9%), Margin = 0.082 ms (6.83% of Mean)
+Skewness = 0.86, Kurtosis = 2.82, MValue = 2.44
+-------------------- Histogram --------------------
+[0.842 ms ; 0.974 ms) | @@@@@@@@@@@@@@@
+[0.974 ms ; 1.111 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[1.111 ms ; 1.258 ms) | @@@@@@@@@@@@@@@@@@@@@
+[1.258 ms ; 1.306 ms) | @@
+[1.306 ms ; 1.443 ms) | @@@@@@@@@@@@
+[1.443 ms ; 1.621 ms) | @@@@@@@@
+[1.621 ms ; 1.758 ms) | @@@@@@@
+[1.758 ms ; 1.907 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.445 ms, StdErr = 0.137 ms (5.62%), N = 3, StdDev = 0.238 ms
+Min = 2.299 ms, Q1 = 2.308 ms, Median = 2.317 ms, Q3 = 2.518 ms, Max = 2.720 ms
+IQR = 0.210 ms, LowerFence = 1.993 ms, UpperFence = 2.834 ms
+ConfidenceInterval = [-1.896 ms; 6.787 ms] (CI 99.9%), Margin = 4.341 ms (177.54% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[2.293 ms ; 2.726 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 3.708 ms, StdErr = 1.422 ms (38.36%), N = 3, StdDev = 2.463 ms
+Min = 2.255 ms, Q1 = 2.286 ms, Median = 2.317 ms, Q3 = 4.434 ms, Max = 6.552 ms
+IQR = 2.149 ms, LowerFence = -0.937 ms, UpperFence = 7.657 ms
+ConfidenceInterval = [-41.235 ms; 48.651 ms] (CI 99.9%), Margin = 44.943 ms (1212.05% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[2.162 ms ; 6.646 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 992.933 μs, StdErr = 8.184 μs (0.82%), N = 3, StdDev = 14.175 μs
+Min = 976.900 μs, Q1 = 987.500 μs, Median = 998.100 μs, Q3 = 1,000.950 μs, Max = 1,003.800 μs
+IQR = 13.450 μs, LowerFence = 967.325 μs, UpperFence = 1,021.125 μs
+ConfidenceInterval = [734.333 μs; 1,251.533 μs] (CI 99.9%), Margin = 258.600 μs (26.04% of Mean)
+Skewness = -0.32, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[964.000 μs ;   988.050 μs) | @
+[988.050 μs ; 1,016.700 μs) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 8.255 ms, StdErr = 0.318 ms (3.85%), N = 100, StdDev = 3.178 ms
+Min = 4.385 ms, Q1 = 6.259 ms, Median = 6.902 ms, Q3 = 10.273 ms, Max = 15.297 ms
+IQR = 4.014 ms, LowerFence = 0.238 ms, UpperFence = 16.294 ms
+ConfidenceInterval = [7.178 ms; 9.333 ms] (CI 99.9%), Margin = 1.078 ms (13.05% of Mean)
+Skewness = 0.81, Kurtosis = 2.49, MValue = 3.14
+-------------------- Histogram --------------------
+[ 4.221 ms ;  6.021 ms) | @@@@@@@@@@@@@@@@@@@@@@
+[ 6.021 ms ;  7.818 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[ 7.818 ms ;  8.824 ms) | @@@@@@
+[ 8.824 ms ; 10.621 ms) | @@@@@@@@@@@@@@@@@
+[10.621 ms ; 12.034 ms) | @
+[12.034 ms ; 13.320 ms) | @@@@@
+[13.320 ms ; 15.117 ms) | @@@@@@@@@@@
+[15.117 ms ; 16.195 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 6.027 ms, StdErr = 0.130 ms (2.16%), N = 100, StdDev = 1.301 ms
+Min = 4.171 ms, Q1 = 4.727 ms, Median = 6.182 ms, Q3 = 6.930 ms, Max = 9.209 ms
+IQR = 2.203 ms, LowerFence = 1.423 ms, UpperFence = 10.234 ms
+ConfidenceInterval = [5.586 ms; 6.468 ms] (CI 99.9%), Margin = 0.441 ms (7.32% of Mean)
+Skewness = 0.39, Kurtosis = 2.33, MValue = 3.94
+-------------------- Histogram --------------------
+[3.803 ms ; 4.289 ms) | @@
+[4.289 ms ; 5.025 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[5.025 ms ; 5.604 ms) | @@@@@@
+[5.604 ms ; 6.417 ms) | @@@@@@@@@@@@
+[6.417 ms ; 7.153 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[7.153 ms ; 7.741 ms) | @@@@@@@
+[7.741 ms ; 8.582 ms) | @
+[8.582 ms ; 9.318 ms) | @@@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 3.498 ms, StdErr = 0.043 ms (1.22%), N = 99, StdDev = 0.423 ms
+Min = 2.898 ms, Q1 = 3.109 ms, Median = 3.454 ms, Q3 = 3.778 ms, Max = 4.800 ms
+IQR = 0.669 ms, LowerFence = 2.105 ms, UpperFence = 4.782 ms
+ConfidenceInterval = [3.353 ms; 3.642 ms] (CI 99.9%), Margin = 0.144 ms (4.12% of Mean)
+Skewness = 0.62, Kurtosis = 3.01, MValue = 3.63
+-------------------- Histogram --------------------
+[2.892 ms ; 3.132 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@
+[3.132 ms ; 3.320 ms) | @@@@@@@
+[3.320 ms ; 3.560 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@
+[3.560 ms ; 3.840 ms) | @@@@@@@@@@@@@@@@@@@
+[3.840 ms ; 4.129 ms) | @@@@@@@@@@@@
+[4.129 ms ; 4.369 ms) | @@@@@@
+[4.369 ms ; 4.609 ms) | @
+[4.609 ms ; 4.849 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 13.421 ms, StdErr = 0.236 ms (1.76%), N = 3, StdDev = 0.409 ms
+Min = 12.951 ms, Q1 = 13.286 ms, Median = 13.621 ms, Q3 = 13.656 ms, Max = 13.691 ms
+IQR = 0.370 ms, LowerFence = 12.731 ms, UpperFence = 14.211 ms
+ConfidenceInterval = [5.967 ms; 20.875 ms] (CI 99.9%), Margin = 7.454 ms (55.54% of Mean)
+Skewness = -0.37, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[12.949 ms ; 13.693 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 18.506 ms, StdErr = 0.448 ms (2.42%), N = 3, StdDev = 0.775 ms
+Min = 17.611 ms, Q1 = 18.272 ms, Median = 18.932 ms, Q3 = 18.954 ms, Max = 18.975 ms
+IQR = 0.682 ms, LowerFence = 17.249 ms, UpperFence = 19.976 ms
+ConfidenceInterval = [4.361 ms; 32.651 ms] (CI 99.9%), Margin = 14.145 ms (76.43% of Mean)
+Skewness = -0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[17.588 ms ; 18.999 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 4.359 ms, StdErr = 0.620 ms (14.23%), N = 3, StdDev = 1.074 ms
+Min = 3.337 ms, Q1 = 3.800 ms, Median = 4.262 ms, Q3 = 4.871 ms, Max = 5.479 ms
+IQR = 1.071 ms, LowerFence = 2.193 ms, UpperFence = 6.477 ms
+ConfidenceInterval = [-15.242 ms; 23.961 ms] (CI 99.9%), Margin = 19.601 ms (449.63% of Mean)
+Skewness = 0.09, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[2.822 ms ; 4.777 ms) | @@
+[4.777 ms ; 6.457 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 6.431 ms, StdErr = 0.050 ms (0.77%), N = 83, StdDev = 0.451 ms
+Min = 5.797 ms, Q1 = 6.123 ms, Median = 6.323 ms, Q3 = 6.683 ms, Max = 8.175 ms
+IQR = 0.560 ms, LowerFence = 5.282 ms, UpperFence = 7.523 ms
+ConfidenceInterval = [6.262 ms; 6.600 ms] (CI 99.9%), Margin = 0.169 ms (2.63% of Mean)
+Skewness = 1.12, Kurtosis = 4.56, MValue = 2.96
+-------------------- Histogram --------------------
+[5.661 ms ; 5.846 ms) | @
+[5.846 ms ; 6.128 ms) | @@@@@@@@@@@@@@@@@@@@
+[6.128 ms ; 6.399 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@
+[6.399 ms ; 6.535 ms) | @@@@@
+[6.535 ms ; 6.807 ms) | @@@@@@@@@@@@@@@@@@
+[6.807 ms ; 7.053 ms) | @@
+[7.053 ms ; 7.324 ms) | @@@@@@@
+[7.324 ms ; 7.645 ms) | @@
+[7.645 ms ; 7.917 ms) | 
+[7.917 ms ; 8.311 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 6.364 ms, StdErr = 0.044 ms (0.70%), N = 81, StdDev = 0.399 ms
+Min = 5.812 ms, Q1 = 6.111 ms, Median = 6.275 ms, Q3 = 6.471 ms, Max = 8.058 ms
+IQR = 0.359 ms, LowerFence = 5.572 ms, UpperFence = 7.010 ms
+ConfidenceInterval = [6.213 ms; 6.515 ms] (CI 99.9%), Margin = 0.151 ms (2.38% of Mean)
+Skewness = 1.89, Kurtosis = 7.61, MValue = 2.24
+-------------------- Histogram --------------------
+[5.808 ms ; 6.052 ms) | @@@@@@@@@@@@@
+[6.052 ms ; 6.294 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[6.294 ms ; 6.565 ms) | @@@@@@@@@@@@@@@@@@@@@@
+[6.565 ms ; 6.808 ms) | @@@@@@
+[6.808 ms ; 7.119 ms) | @@@@@@
+[7.119 ms ; 7.361 ms) | 
+[7.361 ms ; 7.549 ms) | 
+[7.549 ms ; 7.937 ms) | @@
+[7.937 ms ; 8.179 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 3.015 ms, StdErr = 0.039 ms (1.29%), N = 87, StdDev = 0.362 ms
+Min = 2.242 ms, Q1 = 2.865 ms, Median = 3.044 ms, Q3 = 3.221 ms, Max = 3.855 ms
+IQR = 0.355 ms, LowerFence = 2.332 ms, UpperFence = 3.754 ms
+ConfidenceInterval = [2.883 ms; 3.147 ms] (CI 99.9%), Margin = 0.132 ms (4.38% of Mean)
+Skewness = -0.31, Kurtosis = 3.1, MValue = 2.3
+-------------------- Histogram --------------------
+[2.235 ms ; 2.449 ms) | @@@@@@@@@@@
+[2.449 ms ; 2.698 ms) | @@@@
+[2.698 ms ; 2.966 ms) | @@@@@@@@@@@@@
+[2.966 ms ; 3.180 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[3.180 ms ; 3.391 ms) | @@@@@@@@@@@@@@@@@@
+[3.391 ms ; 3.612 ms) | @@
+[3.612 ms ; 3.875 ms) | @@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 10.499 ms, StdErr = 0.209 ms (1.99%), N = 3, StdDev = 0.362 ms
+Min = 10.181 ms, Q1 = 10.303 ms, Median = 10.424 ms, Q3 = 10.658 ms, Max = 10.892 ms
+IQR = 0.356 ms, LowerFence = 9.769 ms, UpperFence = 11.192 ms
+ConfidenceInterval = [3.903 ms; 17.096 ms] (CI 99.9%), Margin = 6.597 ms (62.83% of Mean)
+Skewness = 0.2, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[ 9.973 ms ; 10.632 ms) | @@
+[10.632 ms ; 11.221 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 11.418 ms, StdErr = 1.247 ms (10.92%), N = 3, StdDev = 2.159 ms
+Min = 10.152 ms, Q1 = 10.172 ms, Median = 10.192 ms, Q3 = 12.052 ms, Max = 13.911 ms
+IQR = 1.880 ms, LowerFence = 7.352 ms, UpperFence = 14.872 ms
+ConfidenceInterval = [-27.972 ms; 50.809 ms] (CI 99.9%), Margin = 39.390 ms (344.97% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[10.067 ms ; 13.996 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 3.232 ms, StdErr = 0.316 ms (9.79%), N = 3, StdDev = 0.548 ms
+Min = 2.892 ms, Q1 = 2.916 ms, Median = 2.941 ms, Q3 = 3.403 ms, Max = 3.864 ms
+IQR = 0.486 ms, LowerFence = 2.187 ms, UpperFence = 4.132 ms
+ConfidenceInterval = [-6.765 ms; 13.230 ms] (CI 99.9%), Margin = 9.997 ms (309.30% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[2.879 ms ; 3.877 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 10.697 ms, StdErr = 0.254 ms (2.37%), N = 86, StdDev = 2.355 ms
+Min = 8.341 ms, Q1 = 9.030 ms, Median = 9.433 ms, Q3 = 12.533 ms, Max = 18.507 ms
+IQR = 3.503 ms, LowerFence = 3.776 ms, UpperFence = 17.787 ms
+ConfidenceInterval = [9.832 ms; 11.563 ms] (CI 99.9%), Margin = 0.866 ms (8.09% of Mean)
+Skewness = 1.28, Kurtosis = 4.06, MValue = 2.96
+-------------------- Histogram --------------------
+[ 7.640 ms ;  8.467 ms) | @
+[ 8.467 ms ;  9.868 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[ 9.868 ms ; 11.017 ms) | @@@@@
+[11.017 ms ; 11.708 ms) | 
+[11.708 ms ; 13.109 ms) | @@@@@@@@@@@@@@@@@@@@
+[13.109 ms ; 14.596 ms) | @@@@@
+[14.596 ms ; 15.790 ms) | @
+[15.790 ms ; 16.511 ms) | 
+[16.511 ms ; 17.912 ms) | @@@
+[17.912 ms ; 19.207 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 9.391 ms, StdErr = 0.113 ms (1.20%), N = 84, StdDev = 1.033 ms
+Min = 8.318 ms, Q1 = 8.775 ms, Median = 9.051 ms, Q3 = 9.441 ms, Max = 12.817 ms
+IQR = 0.665 ms, LowerFence = 7.777 ms, UpperFence = 10.439 ms
+ConfidenceInterval = [9.006 ms; 9.775 ms] (CI 99.9%), Margin = 0.385 ms (4.10% of Mean)
+Skewness = 2.06, Kurtosis = 6.48, MValue = 2.14
+-------------------- Histogram --------------------
+[ 8.008 ms ;  8.628 ms) | @@@@@@@
+[ 8.628 ms ;  9.248 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[ 9.248 ms ;  9.906 ms) | @@@@@@@@@@@@
+[ 9.906 ms ; 10.309 ms) | @
+[10.309 ms ; 10.928 ms) | @@@@@
+[10.928 ms ; 11.639 ms) | 
+[11.639 ms ; 12.349 ms) | @@@
+[12.349 ms ; 12.968 ms) | @@@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 5.719 ms, StdErr = 0.087 ms (1.53%), N = 97, StdDev = 0.860 ms
+Min = 4.487 ms, Q1 = 5.060 ms, Median = 5.547 ms, Q3 = 6.362 ms, Max = 8.341 ms
+IQR = 1.303 ms, LowerFence = 3.106 ms, UpperFence = 8.317 ms
+ConfidenceInterval = [5.422 ms; 6.015 ms] (CI 99.9%), Margin = 0.297 ms (5.19% of Mean)
+Skewness = 0.8, Kurtosis = 3.26, MValue = 4
+-------------------- Histogram --------------------
+[4.242 ms ; 4.754 ms) | @@@@@@@@
+[4.754 ms ; 5.246 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[5.246 ms ; 5.867 ms) | @@@@@@@@@@@@@@@@@
+[5.867 ms ; 6.168 ms) | @@@@@@@@
+[6.168 ms ; 6.660 ms) | @@@@@@@@@@@@@@@@@@@@@@@
+[6.660 ms ; 6.827 ms) | 
+[6.827 ms ; 7.416 ms) | @@@
+[7.416 ms ; 8.038 ms) | @@@
+[8.038 ms ; 8.587 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 17.969 ms, StdErr = 1.701 ms (9.47%), N = 3, StdDev = 2.946 ms
+Min = 15.062 ms, Q1 = 16.478 ms, Median = 17.893 ms, Q3 = 19.423 ms, Max = 20.952 ms
+IQR = 2.945 ms, LowerFence = 12.060 ms, UpperFence = 23.841 ms
+ConfidenceInterval = [-35.776 ms; 71.714 ms] (CI 99.9%), Margin = 53.745 ms (299.09% of Mean)
+Skewness = 0.03, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[13.797 ms ; 19.159 ms) | @@
+[19.159 ms ; 23.633 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 23.692 ms, StdErr = 2.416 ms (10.20%), N = 3, StdDev = 4.185 ms
+Min = 18.878 ms, Q1 = 22.308 ms, Median = 25.738 ms, Q3 = 26.099 ms, Max = 26.460 ms
+IQR = 3.791 ms, LowerFence = 16.621 ms, UpperFence = 31.786 ms
+ConfidenceInterval = [-52.653 ms; 100.037 ms] (CI 99.9%), Margin = 76.345 ms (322.24% of Mean)
+Skewness = -0.37, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[18.861 ms ; 26.477 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 6.332 ms, StdErr = 0.105 ms (1.67%), N = 3, StdDev = 0.183 ms
+Min = 6.157 ms, Q1 = 6.236 ms, Median = 6.316 ms, Q3 = 6.419 ms, Max = 6.522 ms
+IQR = 0.182 ms, LowerFence = 5.963 ms, UpperFence = 6.692 ms
+ConfidenceInterval = [2.999 ms; 9.664 ms] (CI 99.9%), Margin = 3.333 ms (52.63% of Mean)
+Skewness = 0.09, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[6.070 ms ; 6.403 ms) | @@
+[6.403 ms ; 6.688 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 10.473 ms, StdErr = 0.224 ms (2.14%), N = 99, StdDev = 2.229 ms
+Min = 8.333 ms, Q1 = 8.727 ms, Median = 9.259 ms, Q3 = 12.531 ms, Max = 17.438 ms
+IQR = 3.804 ms, LowerFence = 3.022 ms, UpperFence = 18.236 ms
+ConfidenceInterval = [9.713 ms; 11.233 ms] (CI 99.9%), Margin = 0.760 ms (7.26% of Mean)
+Skewness = 1, Kurtosis = 2.92, MValue = 2.75
+-------------------- Histogram --------------------
+[ 8.309 ms ;  9.574 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[ 9.574 ms ; 10.656 ms) | @@@@@@@
+[10.656 ms ; 11.922 ms) | @@@@@@@@@
+[11.922 ms ; 12.658 ms) | @@
+[12.658 ms ; 13.923 ms) | @@@@@@@@@@@@@@@@@@@
+[13.923 ms ; 15.152 ms) | @@@
+[15.152 ms ; 15.585 ms) | 
+[15.585 ms ; 16.850 ms) | @@
+[16.850 ms ; 18.070 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 11.240 ms, StdErr = 0.352 ms (3.13%), N = 95, StdDev = 3.434 ms
+Min = 8.432 ms, Q1 = 8.721 ms, Median = 9.454 ms, Q3 = 13.001 ms, Max = 19.951 ms
+IQR = 4.279 ms, LowerFence = 2.302 ms, UpperFence = 19.420 ms
+ConfidenceInterval = [10.043 ms; 12.437 ms] (CI 99.9%), Margin = 1.197 ms (10.65% of Mean)
+Skewness = 1.33, Kurtosis = 3.67, MValue = 2.81
+-------------------- Histogram --------------------
+[ 8.326 ms ; 10.302 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[10.302 ms ; 12.487 ms) | @@@@
+[12.487 ms ; 14.463 ms) | @@@@@@@@@@@@@@@@@@@@@@
+[14.463 ms ; 16.382 ms) | @
+[16.382 ms ; 18.257 ms) | 
+[18.257 ms ; 20.232 ms) | @@@@@@@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 5.733 ms, StdErr = 0.099 ms (1.72%), N = 100, StdDev = 0.989 ms
+Min = 4.441 ms, Q1 = 4.763 ms, Median = 5.660 ms, Q3 = 6.287 ms, Max = 8.382 ms
+IQR = 1.525 ms, LowerFence = 2.476 ms, UpperFence = 8.574 ms
+ConfidenceInterval = [5.397 ms; 6.068 ms] (CI 99.9%), Margin = 0.335 ms (5.85% of Mean)
+Skewness = 0.61, Kurtosis = 2.45, MValue = 3.54
+-------------------- Histogram --------------------
+[4.161 ms ; 4.496 ms) | @
+[4.496 ms ; 5.055 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[5.055 ms ; 5.539 ms) | @@@@@@@@
+[5.539 ms ; 6.098 ms) | @@@@@@@@@@@@@@@@@@@@@@@@
+[6.098 ms ; 6.777 ms) | @@@@@@@@@@@@@@@@@
+[6.777 ms ; 6.989 ms) | @@
+[6.989 ms ; 7.548 ms) | @@@@@@@@@
+[7.548 ms ; 7.868 ms) | 
+[7.868 ms ; 8.428 ms) | @@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 25.254 ms, StdErr = 0.811 ms (3.21%), N = 3, StdDev = 1.404 ms
+Min = 23.659 ms, Q1 = 24.729 ms, Median = 25.800 ms, Q3 = 26.052 ms, Max = 26.304 ms
+IQR = 1.323 ms, LowerFence = 22.746 ms, UpperFence = 28.036 ms
+ConfidenceInterval = [-0.368 ms; 50.877 ms] (CI 99.9%), Margin = 25.622 ms (101.46% of Mean)
+Skewness = -0.33, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[22.381 ms ; 24.774 ms) | @
+[24.774 ms ; 27.582 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 24.241 ms, StdErr = 1.728 ms (7.13%), N = 3, StdDev = 2.993 ms
+Min = 21.703 ms, Q1 = 22.591 ms, Median = 23.478 ms, Q3 = 25.510 ms, Max = 27.542 ms
+IQR = 2.919 ms, LowerFence = 18.212 ms, UpperFence = 29.888 ms
+ConfidenceInterval = [-30.361 ms; 78.843 ms] (CI 99.9%), Margin = 54.602 ms (225.24% of Mean)
+Skewness = 0.24, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[19.867 ms ; 25.314 ms) | @@
+[25.314 ms ; 30.265 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 6.640 ms, StdErr = 0.399 ms (6.01%), N = 3, StdDev = 0.691 ms
+Min = 5.843 ms, Q1 = 6.425 ms, Median = 7.006 ms, Q3 = 7.038 ms, Max = 7.070 ms
+IQR = 0.614 ms, LowerFence = 5.504 ms, UpperFence = 7.958 ms
+ConfidenceInterval = [-5.964 ms; 19.243 ms] (CI 99.9%), Margin = 12.603 ms (189.82% of Mean)
+Skewness = -0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[5.828 ms ; 7.085 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 48.534 ms, StdErr = 0.544 ms (1.12%), N = 97, StdDev = 5.359 ms
+Min = 43.777 ms, Q1 = 44.861 ms, Median = 45.864 ms, Q3 = 51.181 ms, Max = 63.073 ms
+IQR = 6.320 ms, LowerFence = 35.381 ms, UpperFence = 60.661 ms
+ConfidenceInterval = [46.687 ms; 50.381 ms] (CI 99.9%), Margin = 1.847 ms (3.81% of Mean)
+Skewness = 1.33, Kurtosis = 3.54, MValue = 2.47
+-------------------- Histogram --------------------
+[42.246 ms ; 44.104 ms) | @@
+[44.104 ms ; 47.165 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[47.165 ms ; 51.032 ms) | @@@@@@@@@@@
+[51.032 ms ; 54.094 ms) | @@@@@@@@@@@
+[54.094 ms ; 55.626 ms) | @
+[55.626 ms ; 58.687 ms) | @@@@@@
+[58.687 ms ; 60.171 ms) | 
+[60.171 ms ; 63.232 ms) | @@@@@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 45.872 ms, StdErr = 0.263 ms (0.57%), N = 61, StdDev = 2.052 ms
+Min = 43.283 ms, Q1 = 44.737 ms, Median = 45.319 ms, Q3 = 45.916 ms, Max = 52.622 ms
+IQR = 1.178 ms, LowerFence = 42.970 ms, UpperFence = 47.683 ms
+ConfidenceInterval = [44.963 ms; 46.781 ms] (CI 99.9%), Margin = 0.909 ms (1.98% of Mean)
+Skewness = 1.62, Kurtosis = 5.18, MValue = 2
+-------------------- Histogram --------------------
+[43.179 ms ; 44.555 ms) | @@@@@@@@@@@
+[44.555 ms ; 45.924 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[45.924 ms ; 47.364 ms) | @@@@
+[47.364 ms ; 49.100 ms) | @@@@@@
+[49.100 ms ; 50.890 ms) | @@@
+[50.890 ms ; 53.306 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 24.305 ms, StdErr = 0.206 ms (0.85%), N = 94, StdDev = 1.997 ms
+Min = 22.273 ms, Q1 = 22.963 ms, Median = 23.355 ms, Q3 = 25.028 ms, Max = 30.029 ms
+IQR = 2.065 ms, LowerFence = 19.866 ms, UpperFence = 28.125 ms
+ConfidenceInterval = [23.605 ms; 25.005 ms] (CI 99.9%), Margin = 0.700 ms (2.88% of Mean)
+Skewness = 1.31, Kurtosis = 3.57, MValue = 2
+-------------------- Histogram --------------------
+[21.696 ms ; 22.378 ms) | @@
+[22.378 ms ; 23.531 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[23.531 ms ; 24.824 ms) | @@@@@@@@@@@@@@@@@@
+[24.824 ms ; 26.144 ms) | @@@@@@@@@
+[26.144 ms ; 27.461 ms) | @@@@
+[27.461 ms ; 28.614 ms) | @@@@@@@@
+[28.614 ms ; 30.129 ms) | @@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 78.669 ms, StdErr = 5.845 ms (7.43%), N = 3, StdDev = 10.124 ms
+Min = 68.884 ms, Q1 = 73.452 ms, Median = 78.021 ms, Q3 = 83.561 ms, Max = 89.101 ms
+IQR = 10.109 ms, LowerFence = 58.289 ms, UpperFence = 98.724 ms
+ConfidenceInterval = [-106.037 ms; 263.374 ms] (CI 99.9%), Margin = 184.705 ms (234.79% of Mean)
+Skewness = 0.06, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[64.239 ms ; 82.666 ms) | @@
+[82.666 ms ; 98.315 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 64.847 ms, StdErr = 11.368 ms (17.53%), N = 3, StdDev = 19.690 ms
+Min = 49.707 ms, Q1 = 53.717 ms, Median = 57.726 ms, Q3 = 72.416 ms, Max = 87.106 ms
+IQR = 18.700 ms, LowerFence = 25.667 ms, UpperFence = 100.466 ms
+ConfidenceInterval = [-294.374 ms; 424.067 ms] (CI 99.9%), Margin = 359.220 ms (553.95% of Mean)
+Skewness = 0.31, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[35.798 ms ;  71.636 ms) | @@
+[71.636 ms ; 105.025 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 28.542 ms, StdErr = 1.806 ms (6.33%), N = 3, StdDev = 3.128 ms
+Min = 24.948 ms, Q1 = 27.490 ms, Median = 30.033 ms, Q3 = 30.340 ms, Max = 30.647 ms
+IQR = 2.850 ms, LowerFence = 23.215 ms, UpperFence = 34.614 ms
+ConfidenceInterval = [-28.531 ms; 85.616 ms] (CI 99.9%), Margin = 57.073 ms (199.96% of Mean)
+Skewness = -0.37, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[22.101 ms ; 27.493 ms) | @
+[27.493 ms ; 33.494 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 53.297 ms, StdErr = 0.765 ms (1.43%), N = 100, StdDev = 7.645 ms
+Min = 46.224 ms, Q1 = 47.218 ms, Median = 49.432 ms, Q3 = 58.715 ms, Max = 71.103 ms
+IQR = 11.497 ms, LowerFence = 29.973 ms, UpperFence = 75.960 ms
+ConfidenceInterval = [50.704 ms; 55.890 ms] (CI 99.9%), Margin = 2.593 ms (4.87% of Mean)
+Skewness = 0.91, Kurtosis = 2.35, MValue = 2.4
+-------------------- Histogram --------------------
+[44.062 ms ; 46.367 ms) | @
+[46.367 ms ; 50.690 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[50.690 ms ; 55.387 ms) | @@@@@@@@@@@@
+[55.387 ms ; 59.710 ms) | @@@@@@@@@
+[59.710 ms ; 62.134 ms) | @@
+[62.134 ms ; 66.458 ms) | @@@@@@@@@@@@@
+[66.458 ms ; 71.142 ms) | @@@@@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 48.191 ms, StdErr = 0.259 ms (0.54%), N = 50, StdDev = 1.831 ms
+Min = 46.059 ms, Q1 = 46.978 ms, Median = 47.473 ms, Q3 = 49.151 ms, Max = 54.656 ms
+IQR = 2.174 ms, LowerFence = 43.717 ms, UpperFence = 52.412 ms
+ConfidenceInterval = [47.285 ms; 49.097 ms] (CI 99.9%), Margin = 0.906 ms (1.88% of Mean)
+Skewness = 1.43, Kurtosis = 4.72, MValue = 2
+-------------------- Histogram --------------------
+[45.407 ms ; 46.552 ms) | @@@
+[46.552 ms ; 47.857 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[47.857 ms ; 49.670 ms) | @@@@@@@@@@
+[49.670 ms ; 51.143 ms) | @@@@
+[51.143 ms ; 52.447 ms) | @@@@
+[52.447 ms ; 54.004 ms) | 
+[54.004 ms ; 55.309 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 25.609 ms, StdErr = 0.154 ms (0.60%), N = 86, StdDev = 1.431 ms
+Min = 24.159 ms, Q1 = 24.620 ms, Median = 25.010 ms, Q3 = 25.977 ms, Max = 30.908 ms
+IQR = 1.357 ms, LowerFence = 22.585 ms, UpperFence = 28.012 ms
+ConfidenceInterval = [25.083 ms; 26.135 ms] (CI 99.9%), Margin = 0.526 ms (2.05% of Mean)
+Skewness = 1.52, Kurtosis = 4.69, MValue = 2
+-------------------- Histogram --------------------
+[23.734 ms ; 24.284 ms) | @
+[24.284 ms ; 25.135 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[25.135 ms ; 26.008 ms) | @@@@@@@@@@@@@@@@@
+[26.008 ms ; 26.698 ms) | @@
+[26.698 ms ; 27.549 ms) | @@@@@@@@@@
+[27.549 ms ; 28.263 ms) | @
+[28.263 ms ; 29.114 ms) | @@@@@@
+[29.114 ms ; 29.832 ms) | @
+[29.832 ms ; 30.483 ms) | 
+[30.483 ms ; 31.334 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 70.472 ms, StdErr = 1.672 ms (2.37%), N = 3, StdDev = 2.895 ms
+Min = 68.481 ms, Q1 = 68.811 ms, Median = 69.140 ms, Q3 = 71.467 ms, Max = 73.793 ms
+IQR = 2.656 ms, LowerFence = 64.827 ms, UpperFence = 75.451 ms
+ConfidenceInterval = [17.650 ms; 123.293 ms] (CI 99.9%), Margin = 52.822 ms (74.95% of Mean)
+Skewness = 0.36, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[65.846 ms ; 71.446 ms) | @@
+[71.446 ms ; 76.428 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 80.056 ms, StdErr = 7.632 ms (9.53%), N = 3, StdDev = 13.219 ms
+Min = 65.756 ms, Q1 = 74.170 ms, Median = 82.585 ms, Q3 = 87.206 ms, Max = 91.827 ms
+IQR = 13.036 ms, LowerFence = 54.616 ms, UpperFence = 106.760 ms
+ConfidenceInterval = [-161.099 ms; 321.211 ms] (CI 99.9%), Margin = 241.155 ms (301.23% of Mean)
+Skewness = -0.18, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[53.726 ms ;  75.177 ms) | @
+[75.177 ms ; 103.857 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 35.170 ms, StdErr = 1.379 ms (3.92%), N = 3, StdDev = 2.388 ms
+Min = 33.667 ms, Q1 = 33.794 ms, Median = 33.920 ms, Q3 = 35.922 ms, Max = 37.924 ms
+IQR = 2.128 ms, LowerFence = 30.602 ms, UpperFence = 39.114 ms
+ConfidenceInterval = [-8.392 ms; 78.733 ms] (CI 99.9%), Margin = 43.563 ms (123.86% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[33.623 ms ; 37.969 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 94.303 ms, StdErr = 0.592 ms (0.63%), N = 90, StdDev = 5.616 ms
+Min = 88.723 ms, Q1 = 90.146 ms, Median = 91.828 ms, Q3 = 96.692 ms, Max = 111.383 ms
+IQR = 6.546 ms, LowerFence = 80.327 ms, UpperFence = 106.511 ms
+ConfidenceInterval = [92.288 ms; 96.317 ms] (CI 99.9%), Margin = 2.014 ms (2.14% of Mean)
+Skewness = 1.33, Kurtosis = 3.89, MValue = 2
+-------------------- Histogram --------------------
+[ 87.078 ms ;  88.919 ms) | @@
+[ 88.919 ms ;  92.208 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[ 92.208 ms ;  96.373 ms) | @@@@@@@@@@@@@@@@@
+[ 96.373 ms ; 100.001 ms) | @@@@@@@@@
+[100.001 ms ; 105.115 ms) | @@@@@@@@@
+[105.115 ms ; 108.511 ms) | @
+[108.511 ms ; 111.800 ms) | @@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 94.829 ms, StdErr = 0.637 ms (0.67%), N = 90, StdDev = 6.043 ms
+Min = 88.817 ms, Q1 = 90.367 ms, Median = 92.325 ms, Q3 = 97.565 ms, Max = 115.340 ms
+IQR = 7.199 ms, LowerFence = 79.569 ms, UpperFence = 108.363 ms
+ConfidenceInterval = [92.661 ms; 96.997 ms] (CI 99.9%), Margin = 2.168 ms (2.29% of Mean)
+Skewness = 1.26, Kurtosis = 3.74, MValue = 2.09
+-------------------- Histogram --------------------
+[ 87.047 ms ;  89.038 ms) | @
+[ 89.038 ms ;  92.578 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[ 92.578 ms ;  97.792 ms) | @@@@@@@@@@@@@@@@@@@@@@@
+[ 97.792 ms ; 103.159 ms) | @@@@@@@@@
+[103.159 ms ; 105.349 ms) | @
+[105.349 ms ; 108.889 ms) | @@@@@@@@
+[108.889 ms ; 113.570 ms) | @
+[113.570 ms ; 117.110 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 47.578 ms, StdErr = 0.272 ms (0.57%), N = 63, StdDev = 2.155 ms
+Min = 44.858 ms, Q1 = 46.200 ms, Median = 46.761 ms, Q3 = 48.325 ms, Max = 54.427 ms
+IQR = 2.125 ms, LowerFence = 43.012 ms, UpperFence = 51.512 ms
+ConfidenceInterval = [46.640 ms; 48.516 ms] (CI 99.9%), Margin = 0.938 ms (1.97% of Mean)
+Skewness = 1.2, Kurtosis = 3.73, MValue = 2.64
+-------------------- Histogram --------------------
+[44.147 ms ; 45.394 ms) | @@@@@
+[45.394 ms ; 46.816 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[46.816 ms ; 48.205 ms) | @@@@@@@@@@@@@
+[48.205 ms ; 49.556 ms) | @@
+[49.556 ms ; 50.978 ms) | @@@@@@@@@
+[50.978 ms ; 53.178 ms) | @@@@
+[53.178 ms ; 55.138 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 104.805 ms, StdErr = 4.334 ms (4.14%), N = 3, StdDev = 7.507 ms
+Min = 96.137 ms, Q1 = 102.582 ms, Median = 109.028 ms, Q3 = 109.139 ms, Max = 109.250 ms
+IQR = 6.556 ms, LowerFence = 92.748 ms, UpperFence = 118.973 ms
+ConfidenceInterval = [-32.159 ms; 241.768 ms] (CI 99.9%), Margin = 136.963 ms (130.68% of Mean)
+Skewness = -0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[95.861 ms ; 109.525 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 94.293 ms, StdErr = 1.935 ms (2.05%), N = 3, StdDev = 3.351 ms
+Min = 91.115 ms, Q1 = 92.542 ms, Median = 93.969 ms, Q3 = 95.881 ms, Max = 97.794 ms
+IQR = 3.339 ms, LowerFence = 87.533 ms, UpperFence = 100.890 ms
+ConfidenceInterval = [33.158 ms; 155.428 ms] (CI 99.9%), Margin = 61.135 ms (64.84% of Mean)
+Skewness = 0.1, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[89.493 ms ;  95.592 ms) | @@
+[95.592 ms ; 100.843 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 48.309 ms, StdErr = 2.924 ms (6.05%), N = 3, StdDev = 5.065 ms
+Min = 45.221 ms, Q1 = 45.387 ms, Median = 45.552 ms, Q3 = 49.853 ms, Max = 54.154 ms
+IQR = 4.466 ms, LowerFence = 38.687 ms, UpperFence = 56.553 ms
+ConfidenceInterval = [-44.090 ms; 140.708 ms] (CI 99.9%), Margin = 92.399 ms (191.27% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[45.079 ms ; 54.297 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 103.969 ms, StdErr = 0.979 ms (0.94%), N = 94, StdDev = 9.487 ms
+Min = 95.501 ms, Q1 = 97.222 ms, Median = 100.059 ms, Q3 = 108.583 ms, Max = 129.639 ms
+IQR = 11.360 ms, LowerFence = 80.182 ms, UpperFence = 125.623 ms
+ConfidenceInterval = [100.644 ms; 107.295 ms] (CI 99.9%), Margin = 3.325 ms (3.20% of Mean)
+Skewness = 1.36, Kurtosis = 3.74, MValue = 2.44
+-------------------- Histogram --------------------
+[ 95.358 ms ; 100.835 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[100.835 ms ; 107.302 ms) | @@@@@@@@@@@@@@@
+[107.302 ms ; 112.780 ms) | @@@@@@@@@@
+[112.780 ms ; 118.302 ms) | @@@@@
+[118.302 ms ; 125.841 ms) | @@@@@
+[125.841 ms ; 132.377 ms) | @@@@@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 99.942 ms, StdErr = 0.550 ms (0.55%), N = 73, StdDev = 4.701 ms
+Min = 95.732 ms, Q1 = 96.999 ms, Median = 97.801 ms, Q3 = 101.487 ms, Max = 116.806 ms
+IQR = 4.488 ms, LowerFence = 90.268 ms, UpperFence = 108.219 ms
+ConfidenceInterval = [98.054 ms; 101.830 ms] (CI 99.9%), Margin = 1.888 ms (1.89% of Mean)
+Skewness = 1.69, Kurtosis = 5.4, MValue = 2.21
+-------------------- Histogram --------------------
+[ 95.532 ms ;  98.485 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[ 98.485 ms ; 101.604 ms) | @@@@@@@@@@@@@
+[101.604 ms ; 105.661 ms) | @@@@@@@@@
+[105.661 ms ; 108.561 ms) | @@@@@
+[108.561 ms ; 111.581 ms) | 
+[111.581 ms ; 114.534 ms) | @@@
+[114.534 ms ; 118.282 ms) | @
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: Job-BNYMRG(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0, InvocationCount=1, UnrollFactor=1) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 52.275 ms, StdErr = 0.284 ms (0.54%), N = 84, StdDev = 2.602 ms
+Min = 49.797 ms, Q1 = 50.773 ms, Median = 51.204 ms, Q3 = 52.610 ms, Max = 61.410 ms
+IQR = 1.838 ms, LowerFence = 48.016 ms, UpperFence = 55.367 ms
+ConfidenceInterval = [51.307 ms; 53.244 ms] (CI 99.9%), Margin = 0.969 ms (1.85% of Mean)
+Skewness = 1.88, Kurtosis = 5.75, MValue = 2
+-------------------- Histogram --------------------
+[49.017 ms ; 51.554 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[51.554 ms ; 53.276 ms) | @@@@@@@@@@@@@@@@
+[53.276 ms ; 55.419 ms) | @@@@
+[55.419 ms ; 56.979 ms) | @@@@@
+[56.979 ms ; 58.977 ms) | @@@@
+[58.977 ms ; 61.637 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 111.361 ms, StdErr = 4.760 ms (4.27%), N = 3, StdDev = 8.245 ms
+Min = 102.164 ms, Q1 = 107.996 ms, Median = 113.828 ms, Q3 = 115.960 ms, Max = 118.091 ms
+IQR = 7.964 ms, LowerFence = 96.050 ms, UpperFence = 127.905 ms
+ConfidenceInterval = [-39.063 ms; 261.785 ms] (CI 99.9%), Margin = 150.424 ms (135.08% of Mean)
+Skewness = -0.27, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[ 94.661 ms ; 108.456 ms) | @
+[108.456 ms ; 125.595 ms) | @@
+---------------------------------------------------
+
+DeletionBenchmark.DeleteAllBsonExpression: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 106.525 ms, StdErr = 5.757 ms (5.40%), N = 3, StdDev = 9.971 ms
+Min = 100.054 ms, Q1 = 100.784 ms, Median = 101.515 ms, Q3 = 109.761 ms, Max = 118.008 ms
+IQR = 8.977 ms, LowerFence = 87.319 ms, UpperFence = 123.227 ms
+ConfidenceInterval = [-75.378 ms; 288.429 ms] (CI 99.9%), Margin = 181.904 ms (170.76% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[99.957 ms ; 118.105 ms) | @@@
+---------------------------------------------------
+
+DeletionBenchmark.DropCollectionAndRecreate: ShortRun(InvocationCount=1, IterationCount=3, LaunchCount=1, UnrollFactor=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 52.889 ms, StdErr = 2.103 ms (3.98%), N = 3, StdDev = 3.643 ms
+Min = 49.780 ms, Q1 = 50.884 ms, Median = 51.988 ms, Q3 = 54.443 ms, Max = 56.898 ms
+IQR = 3.559 ms, LowerFence = 45.546 ms, UpperFence = 59.781 ms
+ConfidenceInterval = [-13.579 ms; 119.357 ms] (CI 99.9%), Margin = 66.468 ms (125.68% of Mean)
+Skewness = 0.23, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[47.569 ms ; 54.200 ms) | @@
+[54.200 ms ; 60.213 ms) | @
+---------------------------------------------------
+
