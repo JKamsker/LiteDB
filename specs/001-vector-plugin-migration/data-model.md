@@ -67,11 +67,12 @@ internal class VectorIndexMetadata
 - Persisted in CollectionPage metadata area
 
 **State Transitions**:
-- Created → Active (when index built)
-- Active → Dropped (when index removed)
+- Created -> Active (when index built)
+- Active -> Dropped (when index removed)
 
 **Invariants**:
 - Dimensions > 0
+- Dimensions <= 65,535 (UInt16 limit enforced at creation and query time)
 - Root may be Empty (no documents yet)
 - Metric must be valid enum value
 
@@ -115,8 +116,8 @@ internal class VectorIndexNode
 - May reference external vector storage for large dimensions
 
 **State Transitions**:
-- Created → Inserted (added to graph with neighbors)
-- Inserted → Deleted (removed from all neighbor lists)
+- Created -> Inserted (added to graph with neighbors)
+- Inserted -> Deleted (removed from all neighbor lists)
 
 **Invariants**:
 - LevelCount ∈ [1, 4]
@@ -177,13 +178,18 @@ public sealed class VectorSearchPlugin : ILitePlugin
     
     public void Initialize(LiteDatabase database, ILitePluginContext context)
     {
-        // Register VECTOR_SIM operator
-        context.Expressions.RegisterBinaryOperator(...)
-        context.Expressions.RegisterFunction(...)
-        
-        // Register vector index strategy
+        // Register distance operator + alias
+        context.Expressions.RegisterBinaryOperator("VECTOR_DIST", ...)
+        context.Expressions.RegisterFunction("VECTOR_DIST", ...)
+        context.Expressions.RegisterFunction("VECTOR_SIM", ... /* similarity alias */)
+
+        // Register vector index strategy and score projection
         var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"])
         context.Indexes.Register(new VectorIndexStrategy(context.Logger, defaultMetric))
+        context.Query.RegisterScoreProjection(new VectorScoreProjectionFactory())
+
+        // Provide connection-string activation (plugins=vector)
+        context.Logger.Write(LogLevel.Debug, "VectorSearchPlugin enabled with default metric {0}", defaultMetric)
         
         context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.")
     }
@@ -193,7 +199,7 @@ public sealed class VectorSearchPlugin : ILitePlugin
 **Relationships**:
 - Implements ILitePlugin interface
 - Creates VectorIndexStrategy instance
-- Registers VectorExpressions functions
+- Registers VectorExpressions functions and score projection hooks
 - Singleton pattern for easy registration
 
 **Lifecycle**:
@@ -242,7 +248,7 @@ internal sealed class VectorIndexStrategy : IIndexStrategy
 ---
 
 ### VectorIndexService
-**Location**: `LiteDB/Engine/Services/VectorIndexService.cs` → moves to `LiteDB.Vector/Engine/VectorIndexService.cs`  
+**Location**: `LiteDB/Engine/Services/VectorIndexService.cs` -> moves to `LiteDB.Vector/Engine/VectorIndexService.cs`  
 **Purpose**: HNSW graph algorithm implementation  
 **Responsibility**: Vector index CRUD and nearest neighbor search
 
@@ -302,7 +308,7 @@ internal sealed class VectorIndexService
 ---
 
 ### VectorIndexOptions
-**Location**: `LiteDB/Client/Vector/VectorIndexOptions.cs` → moves to `LiteDB.Vector/VectorIndexOptions.cs`  
+**Location**: `LiteDB/Client/Vector/VectorIndexOptions.cs` -> moves to `LiteDB.Vector/VectorIndexOptions.cs`  
 **Purpose**: User-facing configuration for vector indexes  
 **Responsibility**: Type-safe options for index creation
 
@@ -329,7 +335,7 @@ public sealed class VectorIndexOptions
 ---
 
 ### VectorDistanceMetric
-**Location**: `LiteDB/Client/Vector/VectorDistanceMetric.cs` → moves to `LiteDB.Vector/VectorDistanceMetric.cs`  
+**Location**: `LiteDB/Client/Vector/VectorDistanceMetric.cs` -> moves to `LiteDB.Vector/VectorDistanceMetric.cs`  
 **Purpose**: Enumeration of supported distance metrics  
 **Responsibility**: Type-safe metric selection
 
@@ -355,7 +361,7 @@ public enum VectorDistanceMetric : byte
 ---
 
 ### Extension Methods
-**Location**: `LiteDB/Client/Vector/` → moves to `LiteDB.Vector/Extensions/`  
+**Location**: `LiteDB/Client/Vector/` -> moves to `LiteDB.Vector/Extensions/`  
 **Purpose**: Fluent API for vector operations  
 **Responsibility**: Convenience methods on collection/queryable
 
@@ -404,62 +410,148 @@ public static class LiteRepositoryVectorExtensions
 
 ### VectorExpressions
 **Location**: `LiteDB.Vector/Expressions/VectorExpressions.cs` (already there)  
-**Purpose**: Expression evaluator for VECTOR_SIM operator  
-**Responsibility**: Compute cosine similarity between vectors
+**Purpose**: Expression evaluator for vector distance and similarity operators  
+**Responsibility**: Compute metric distance (and optional similarity) between vectors with validation and coercion rules
 
 ```csharp
 internal static class VectorExpressions
 {
-    public static BsonValue VectorSimilarity(BsonValue left, BsonValue right)
-    {
-        // Extract vectors from BsonValue (Array or Vector type)
-        // Calculate cosine distance: 1 - dot/(mag1 * mag2)
-        // Return BsonValue distance or Null if invalid
-    }
+    public static BsonValue VectorDistance(
+        BsonValue left,
+        BsonValue right,
+        VectorDistanceMetric? metric = null);
+
+    public static BsonValue VectorSimilarity(
+        BsonValue left,
+        BsonValue right,
+        VectorDistanceMetric? metric = null);
 }
 ```
 
+**Implementation Notes**:
+- Extracts vectors from `BsonArray`, `BsonVector`, or numeric literals; rejects invalid/coerced values with `BsonValue.Null`
+- Delegates to `VectorMath` helpers for cosine/euclidean/dot product implementations
+- `VectorSimilarity` maps to the cosine similarity result (`1 - distance`) and throws `VectorErrors.MetricDoesNotSupportSimilarity` when not supported
+- Applies float32 coercion with overflow detection and rejects NaN/Infinity inputs
+
 **Relationships**:
-- Registered in VectorSearchPlugin.Initialize
-- Used in query expressions: `$.Embedding VECTOR_SIM @target`
-- Available both as operator and function
+- Registered in `VectorSearchPlugin.Initialize`
+- Powers both infix (`$.Embedding VECTOR_DIST @v`) and function (`VECTOR_DIST($.Embedding, @v, 'cosine')`) syntax
+- Supplies scores to `VectorIndexQuery` and `VectorScoreProjection`
 
 ---
 
 ### VectorIndexQuery
-**Location**: `LiteDB/Engine/Query/IndexQuery/VectorIndexQuery.cs` → moves to `LiteDB.Vector/Query/VectorIndexQuery.cs`  
-**Purpose**: Query plan node for vector similarity searches  
-**Responsibility**: Execute nearest neighbor queries
+**Location**: `LiteDB/Engine/Query/IndexQuery/VectorIndexQuery.cs` -> `LiteDB.Vector/Query/VectorIndexQuery.cs`  
+**Purpose**: Query plan node for vector distance searches  
+**Responsibility**: Execute nearest neighbor queries, re-score candidates, and expose deterministic scores
 
 ```csharp
-internal class VectorIndexQuery : IndexQuery
+internal sealed class VectorIndexQuery : IndexQuery
 {
-    private readonly VectorIndexMetadata _metadata
-    private readonly float[] _targetVector
-    private readonly double _maxDistance
-    private readonly int? _limit
-    
-    public override IEnumerable<IndexNode> Run(CollectionPage col, IndexService indexer)
+    private readonly VectorIndexMetadata _metadata;
+    private readonly float[] _targetVector;
+    private readonly double? _maxDistance;
+    private readonly int? _limit;
+
+    public override IEnumerable<VectorMatch<PageAddress>> Run(
+        CollectionPage collection,
+        IndexService indexer,
+        CancellationToken token)
     {
-        var vectorService = new VectorIndexService(...)
-        var results = vectorService.Search(_metadata, _targetVector, _maxDistance, _limit)
-        
-        foreach (var (doc, distance) in results)
+        var service = new VectorIndexService(indexer);
+        var candidates = service.Search(
+            _metadata,
+            _targetVector,
+            _maxDistance,
+            _limit,
+            token);
+
+        foreach (var candidate in ReorderAndFilter(candidates))
         {
-            yield return new IndexNode { DataBlock = doc["_id"].AsAddress }
+            yield return candidate;
+        }
+    }
+
+    private IEnumerable<VectorMatch<PageAddress>> ReorderAndFilter(
+        IEnumerable<VectorCandidate> candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            var distance = VectorMath.Distance(
+                candidate.Vector,
+                _targetVector,
+                _metadata.Metric);
+
+            if (_maxDistance.HasValue && distance > _maxDistance.Value)
+            {
+                continue;
+            }
+
+            yield return new VectorMatch<PageAddress>(
+                candidate.DataBlock,
+                distance,
+                VectorMath.TrySimilarity(_metadata.Metric, distance));
         }
     }
 }
 ```
 
 **Relationships**:
-- Extends IndexQuery base class
-- Created by query planner for vector similarity conditions
-- Uses VectorIndexService for search
-- Returns IndexNode sequence for query pipeline
+- Extends `IndexQuery` base class
+- Created by the planner for `WhereNear`, `TopKNear`, and `ORDER BY VECTOR_DIST` scenarios
+- Relies on `VectorIndexService` for candidate generation and applies exact post-filtering + tie-breaking on (`distance`, `_id`)
+- Provides input to `VectorScoreProjection` for score projection and to the data block loader for document materialization
+
+---
+### VectorScoreProjection
+**Location**: `LiteDB.Vector/Query/VectorScoreProjection.cs` (new)  
+**Purpose**: Wraps `VectorIndexQuery` results to attach score metadata without re-running the search  
+**Responsibility**: Materialize `VectorMatch<T>` records honoring requested score kind
+
+```csharp
+internal sealed class VectorScoreProjection<T> : ILiteQueryEnumerable<VectorMatch<T>>
+{
+    private readonly ILiteQueryEnumerable<VectorMatch<T>> _source;
+    private readonly VectorScoreKind _kind;
+
+    public IEnumerator<VectorMatch<T>> GetEnumerator()
+    {
+        foreach (var match in _source)
+        {
+            yield return _kind == VectorScoreKind.Distance
+                ? match
+                : match with { Similarity = VectorMath.TrySimilarity(match.DistanceMetric, match.Distance) };
+        }
+    }
+}
+```
+
+**Relationships**:
+- Consumed by `.WithVectorScore` LINQ extension methods
+- Ensures similarity projection only executes when supported; otherwise throws `VectorErrors.MetricDoesNotSupportSimilarity`
+- Preserves ordering emitted by `VectorIndexQuery`
 
 ---
 
+### VectorMatch<T>
+**Location**: `LiteDB.Vector/Query/VectorMatch.cs` (new)  
+**Purpose**: Immutable record linking a document (or page address) with vector scores  
+**Responsibility**: Provide distance and similarity values to callers
+
+```csharp
+public readonly record struct VectorMatch<T>(
+    T Document,
+    double Distance,
+    double? Similarity,
+    VectorDistanceMetric DistanceMetric);
+```
+
+**Relationships**:
+- Emitted by `VectorIndexQuery`, enriched by `VectorScoreProjection`, and consumed by `.WithVectorScore`
+- Stored as a value type to minimize allocations during high-volume queries
+
+---
 ## Entity Relationship Diagram
 
 ```

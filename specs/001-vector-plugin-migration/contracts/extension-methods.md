@@ -8,6 +8,10 @@
 
 This document defines the public API for vector extension methods that provide a fluent interface for vector search operations. All methods are extension methods on core LiteDB types.
 
+- Canonical SQL/operator name is `VECTOR_DIST`; `VECTOR_SIM` is an optional similarity alias
+- Query APIs accept optional metric overrides and honor deterministic ordering/tie-breaking rules
+- `.WithVectorScore()` surfaces computed distances (and optional similarity) without recomputing metrics
+
 ---
 
 ## LiteCollectionVectorExtensions
@@ -144,7 +148,7 @@ collection.EnsureIndex(x => x.Vector, options);
 
 ## LiteQueryableVectorExtensions
 
-Extension methods for `ILiteQueryable<T>` to perform vector similarity searches.
+Extension methods for `ILiteQueryable<T>` to perform vector nearest-neighbor searches and expose distance scores.
 
 ### WhereNear (String Field)
 
@@ -156,7 +160,8 @@ public static ILiteQueryable<T> WhereNear<T>(
     this ILiteQueryable<T> source,
     string vectorField,
     float[] target,
-    double maxDistance)
+    double maxDistance,
+    VectorDistanceMetric? metric = null)
 ```
 
 **Parameters**:
@@ -164,13 +169,14 @@ public static ILiteQueryable<T> WhereNear<T>(
 - `vectorField`: Name of the vector field (e.g., `"Embedding"`)
 - `target`: Query vector
 - `maxDistance`: Maximum distance threshold (inclusive)
+- `metric`: Optional override for the distance metric when no index is available (defaults to index configuration)
 
 **Returns**: Filtered queryable (composable with other LINQ methods)
 
 **Behavior**:
 - Uses vector index if available on the field
-- Falls back to full scan if no index exists
-- Distance calculation uses index's configured metric
+- Falls back to full scan with the specified `metric` if no index exists
+- Distance calculation uses the index's configured metric unless `metric` is supplied and the query executes as a full scan
 
 **Example**:
 ```csharp
@@ -194,7 +200,8 @@ public static ILiteQueryable<T> WhereNear<T>(
     this ILiteQueryable<T> source,
     BsonExpression fieldExpr,
     float[] target,
-    double maxDistance)
+    double maxDistance,
+    VectorDistanceMetric? metric = null)
 ```
 
 **Parameters**:
@@ -202,6 +209,7 @@ public static ILiteQueryable<T> WhereNear<T>(
 - `fieldExpr`: Expression selecting vector field (e.g., `"$.Nested.Vector"`)
 - `target`: Query vector
 - `maxDistance`: Distance threshold
+- `metric`: Optional override metric used when falling back to a full scan
 
 **Returns**: Filtered queryable
 
@@ -226,7 +234,8 @@ public static ILiteQueryable<T> WhereNear<T, K>(
     this ILiteQueryable<T> source,
     Expression<Func<T, K>> field,
     float[] target,
-    double maxDistance)
+    double maxDistance,
+    VectorDistanceMetric? metric = null)
 ```
 
 **Parameters**:
@@ -234,6 +243,7 @@ public static ILiteQueryable<T> WhereNear<T, K>(
 - `field`: Lambda selecting vector property
 - `target`: Query vector  
 - `maxDistance`: Distance threshold
+- `metric`: Optional override metric used for non-indexed execution paths
 
 **Returns**: Filtered queryable
 
@@ -258,7 +268,8 @@ public static IEnumerable<T> FindNearest<T>(
     this ILiteQueryable<T> source,
     string vectorField,
     float[] target,
-    double maxDistance)
+    double maxDistance,
+    VectorDistanceMetric? metric = null)
 ```
 
 **Parameters**:
@@ -266,6 +277,7 @@ public static IEnumerable<T> FindNearest<T>(
 - `vectorField`: Vector field name
 - `target`: Query vector
 - `maxDistance`: Distance threshold
+- `metric`: Optional override metric when index is unavailable
 
 **Returns**: Enumerable of matching documents (eager evaluation)
 
@@ -293,7 +305,9 @@ public static ILiteQueryableResult<T> TopKNear<T, K>(
     this ILiteQueryable<T> source,
     Expression<Func<T, K>> field,
     float[] target,
-    int k)
+    int k,
+    VectorDistanceMetric? metric = null,
+    double? maxDistance = null)
 ```
 
 **Parameters**:
@@ -301,13 +315,16 @@ public static ILiteQueryableResult<T> TopKNear<T, K>(
 - `field`: Lambda selecting vector property
 - `target`: Query vector
 - `k`: Number of nearest neighbors to return
+- `metric`: Optional override metric when no compatible index is available
+- `maxDistance`: Optional cutoff distance (applied after metric evaluation)
 
 **Returns**: ILiteQueryableResult with top-k results ordered by distance
 
 **Behavior**:
-- Internally sets maxDistance to infinity
-- Limits results to k documents
-- Returns results ordered by ascending distance
+- Internally sets `maxDistance` to infinity when not provided
+- Limits results to `k` documents
+- Returns results ordered by ascending distance with deterministic tie-breaking on `_id`
+- Uses the index metric by default; if `metric` differs from the index configuration the query falls back to a full scan
 
 **Example**:
 ```csharp
@@ -331,7 +348,9 @@ public static ILiteQueryableResult<T> TopKNear<T>(
     this ILiteQueryable<T> source,
     string field,
     float[] target,
-    int k)
+    int k,
+    VectorDistanceMetric? metric = null,
+    double? maxDistance = null)
 ```
 
 **Parameters**:
@@ -339,6 +358,8 @@ public static ILiteQueryableResult<T> TopKNear<T>(
 - `field`: Vector field name
 - `target`: Query vector
 - `k`: Number of neighbors
+- `metric`: Optional override metric when no index is present
+- `maxDistance`: Optional cutoff distance
 
 **Returns**: Top-k results ordered by distance
 
@@ -362,7 +383,9 @@ public static ILiteQueryableResult<T> TopKNear<T>(
     this ILiteQueryable<T> source,
     BsonExpression fieldExpr,
     float[] target,
-    int k)
+    int k,
+    VectorDistanceMetric? metric = null,
+    double? maxDistance = null)
 ```
 
 **Parameters**:
@@ -370,6 +393,8 @@ public static ILiteQueryableResult<T> TopKNear<T>(
 - `fieldExpr`: Expression selecting vector field
 - `target`: Query vector
 - `k`: Number of neighbors
+- `metric`: Optional override metric when no index is present
+- `maxDistance`: Optional cutoff distance
 
 **Returns**: Top-k results ordered by distance
 
@@ -380,6 +405,164 @@ var top20 = collection
     .TopKNear("$.Features.Embedding", queryVector, 20)
     .ToList();
 ```
+
+---
+
+### OrderByNearest
+
+Orders the current queryable by ascending distance to the provided target vector.
+
+**Signature**:
+```csharp
+public static ILiteQueryable<T> OrderByNearest<T, K>(
+    this ILiteQueryable<T> source,
+    Expression<Func<T, K>> field,
+    float[] target,
+    VectorDistanceMetric? metric = null,
+    double? maxDistance = null)
+```
+
+**Parameters**:
+- `source`: Queryable source
+- `field`: Lambda selecting vector property
+- `target`: Query vector
+- `metric`: Optional override metric when no index exists
+- `maxDistance`: Optional cutoff distance (records beyond the threshold are removed after ordering)
+
+**Returns**: Queryable ordered by distance (composable with `.Limit`, `.Select`, etc.)
+
+**Behavior**:
+- Uses vector index ordering when available
+- Applies deterministic tie-breaking by `_id` after distance ordering
+- When `maxDistance` is provided, results beyond the threshold are excluded without breaking ordering guarantees
+- Falls back to full scan with the supplied metric when the index is unavailable or metric mismatch occurs
+
+**Example**:
+```csharp
+var ranked = collection
+    .Query()
+    .Where(x => x.IsActive)
+    .OrderByNearest(x => x.Embedding, queryVector, maxDistance: 0.75)
+    .Limit(25)
+    .WithVectorScore();
+```
+
+---
+
+### Nearest
+
+Convenience wrapper that orders by distance and applies a limit in a single call.
+
+**Signature**:
+```csharp
+public static ILiteQueryableResult<T> Nearest<T, K>(
+    this ILiteQueryable<T> source,
+    Expression<Func<T, K>> field,
+    float[] target,
+    int k,
+    VectorDistanceMetric? metric = null,
+    double? maxDistance = null)
+```
+
+**Behavior**: Equivalent to `OrderByNearest(...).Limit(k)` while preserving deterministic ordering and optional distance cutoff.
+
+**Example**:
+```csharp
+var nearest = collection
+    .Query()
+    .Nearest(x => x.Embedding, queryVector, k: 15)
+    .WithVectorScore()
+    .ToList();
+```
+
+---
+
+### WithVectorScore
+
+Projects the computed vector distance (and optional similarity) alongside each result.
+
+**Signature**:
+```csharp
+public static ILiteQueryableResult<VectorMatch<T>> WithVectorScore<T>(
+    this ILiteQueryableResult<T> source,
+    VectorScoreKind kind = VectorScoreKind.Distance)
+```
+
+**Parameters**:
+- `source`: Vector-aware query result (e.g., from `TopKNear`, `OrderByNearest`, or `Nearest`)
+- `kind`: Whether to project `Distance` (default) or `Similarity` (if supported by the metric)
+
+**Returns**: Queryable result where each item contains the original document and its associated score
+
+**Behavior**:
+- Does not re-compute distances; reuses the planner's computed values
+- For metrics without a well-defined similarity transform, `VectorScoreKind.Similarity` throws a descriptive exception
+- Works with chained LINQ operators (e.g., `.Select(match => new { match.Document.Id, match.Distance })`)
+
+**Example**:
+```csharp
+var matches = collection
+    .Query()
+    .TopKNear(x => x.Embedding, queryVector, k: 5)
+    .WithVectorScore()
+    .Select(m => new { m.Document.Id, m.Distance })
+    .ToList();
+```
+
+---
+
+## Supporting Types
+
+### VectorMatch<T>
+
+Represents a vector query result that pairs the original document with its computed score.
+
+```csharp
+public readonly record struct VectorMatch<T>(
+    T Document,
+    double Distance,
+    double? Similarity);
+```
+
+- `Distance`: Always populated (lower is better)
+- `Similarity`: Populated only when the selected metric supports a similarity transform (otherwise `null`)
+
+### VectorScoreKind
+
+Enum controlling which score `WithVectorScore` projects.
+
+```csharp
+public enum VectorScoreKind
+{
+    Distance = 0,
+    Similarity = 1
+}
+```
+
+When `Similarity` is selected but the metric does not support a monotonic similarity mapping, the runtime throws `LiteException(VectorErrors.MetricDoesNotSupportSimilarity)`.
+
+---
+
+## Vector Helpers
+
+### Vector
+
+Static helper class for constructing and manipulating vectors without referencing `BsonVector` directly.
+
+```csharp
+public static class Vector
+{
+    public static BsonVector Create(params float[] values);
+    public static BsonVector FromReadOnlySpan(ReadOnlySpan<float> values);
+    public static float[] Normalize(ReadOnlySpan<float> values);
+    public static double Dot(ReadOnlySpan<float> left, ReadOnlySpan<float> right);
+    public static double CosineDistance(ReadOnlySpan<float> left, ReadOnlySpan<float> right);
+}
+```
+
+- `Create`/`FromReadOnlySpan`: Convenience for building vectors in user code
+- `Normalize`: Returns a new array normalized to unit length (throws if magnitude is zero)
+- `Dot`/`CosineDistance`: Provide local computations for scenarios where callers need to compute scores outside the query engine
 
 ---
 
@@ -555,26 +738,25 @@ public enum VectorDistanceMetric : byte
 **Metric Characteristics**:
 
 ### Cosine (Default)
-- **Formula**: `1 - (a·b) / (|a| × |b|)`
-- **Range**: [0, 2] (0 = identical, 2 = opposite)
+- **Formula**: 1 - (dot(a, b) / (|a| * |b|))
+- **Range**: [0, 2] (0 = identical, 1 = orthogonal, 2 = opposite); similarity alias returns cosine in [-1, 1]
 - **Best for**: Normalized embeddings, direction similarity
 - **Invariant to**: Vector magnitude
 - **Use case**: Most ML embeddings (BERT, Sentence Transformers)
 
 ### Euclidean
-- **Formula**: `√(Σ(a - b)²)`
-- **Range**: [0, ∞)
+- **Formula**: sqrt(sum((a_i - b_i)^2))
+- **Range**: [0, +infinity)
 - **Best for**: Absolute distance, spatial coordinates
 - **Sensitive to**: Vector magnitude
 - **Use case**: Image features, spatial data
 
 ### DotProduct
-- **Formula**: `a·b`
-- **Range**: (-∞, ∞)
+- **Formula**: dot(a, b)
+- **Range**: (-infinity, +infinity) (bounded only by vector magnitudes)
 - **Best for**: Magnitude-aware similarity
 - **Sensitive to**: Both direction and magnitude
 - **Use case**: Recommendation scores, unnormalized embeddings
-
 ---
 
 ## Error Handling
@@ -591,7 +773,7 @@ Install via: dotnet add package LiteDB.Vector
 **Affected operations**:
 - All EnsureIndex overloads
 - WhereNear / TopKNear queries (when index exists)
-- VECTOR_SIM expression evaluation
+- `VECTOR_DIST` expression evaluation (and the optional `VECTOR_SIM` similarity alias)
 
 ---
 

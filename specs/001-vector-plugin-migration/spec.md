@@ -20,7 +20,7 @@ Applications using vector search features continue to work without any code chan
 1. **Given** an application using vector indexes with the current implementation, **When** the application is updated to use the vector extension, **Then** all vector index operations (create, query, update, delete) produce identical results
 2. **Given** a database with existing vector indexes created before the migration, **When** the database is opened with the new extension-based implementation, **Then** existing indexes remain functional and queryable
 3. **Given** code using index creation APIs with vector options, **When** executed against the extension-based implementation, **Then** the index is created successfully with the same behavior
-4. **Given** code using vector similarity operators in queries, **When** executed against the extension-based implementation, **Then** similarity calculations return identical scores
+4. **Given** code using vector distance operators in queries (e.g., `VECTOR_DIST` or the optional `VECTOR_SIM` alias), **When** executed against the extension-based implementation, **Then** the returned scores match the prior implementation
 
 ---
 
@@ -51,26 +51,27 @@ Users can specify different distance metrics (Cosine, Euclidean, DotProduct) whe
 
 **Acceptance Scenarios**:
 
-1. **Given** a vector index created with Cosine metric, **When** similarity search is performed, **Then** results include cosine similarity scores between 0 and 1
-2. **Given** a vector index created with Euclidean metric, **When** similarity search is performed, **Then** results include Euclidean distance values
-3. **Given** a vector index created with DotProduct metric, **When** similarity search is performed, **Then** results are ranked by dot product scores
+1. **Given** a vector index created with Cosine metric, **When** a distance search is performed, **Then** results include cosine distance values between 0 and 2 (0 = identical, 1 = orthogonal)
+2. **Given** a vector index created with Euclidean metric, **When** a distance search is performed, **Then** results include Euclidean distance values
+3. **Given** a vector index created with DotProduct metric, **When** a distance search is performed, **Then** results are ranked by dot product scores or similarity, depending on configured normalization
 4. **Given** multiple indexes with different metrics exist, **When** the same query vector is used, **Then** result rankings may differ based on the metric's properties
 
 ---
 
 ### User Story 4 - Expression Function Registration (Priority: P2)
 
-The vector similarity operator works correctly in query expressions for computing vector similarity at query time (outside of indexed searches).
+The vector distance operator works correctly in query expressions for computing vector distance at query time (outside of indexed searches) and exposes an explicit similarity alias when needed.
 
 **Why this priority**: This enables non-indexed vector comparisons in queries, which is useful for filtering and computed columns. Important for completeness but less critical than indexed search.
 
-**Independent Test**: Write a query using the vector similarity operator in a where clause or projection without using an index, and verify the similarity score is computed correctly using cosine similarity.
+**Independent Test**: Write a query using the vector distance function (`VECTOR_DIST`) in a where clause or projection without using an index, and verify the distance score is computed correctly using cosine distance. Repeat with `VECTOR_SIM` to ensure the similarity alias returns the expected inverted score.
 
 **Acceptance Scenarios**:
 
-1. **Given** documents with vector fields, **When** a query uses the similarity operator to compare two vector fields, **Then** the cosine similarity score is returned
-2. **Given** a query with similarity operator in a where clause, **When** executed, **Then** results are filtered based on the similarity threshold
-3. **Given** a query projection using the similarity operator, **When** executed, **Then** the result includes computed similarity values for each document
+1. **Given** documents with vector fields, **When** a query uses the distance function to compare two vector fields, **Then** the cosine distance score is returned
+2. **Given** a query with the distance function in a where clause, **When** executed, **Then** results are filtered based on the numeric distance threshold
+3. **Given** a query projection using the distance function, **When** executed, **Then** the result includes computed distance values for each document
+4. **Given** the optional similarity alias is used, **When** executed, **Then** the result equals `1 - distance` for cosine metrics (or documented equivalent for other metrics)
 
 ---
 
@@ -80,13 +81,13 @@ Developers can use convenient extension methods for vector search operations on 
 
 **Why this priority**: These methods provide convenience and discoverability but are not essential since the same functionality is achievable through standard query APIs. Nice-to-have for developer experience.
 
-**Independent Test**: Call the vector search extension method to find top 10 nearest neighbors, then use queryable extension methods with LINQ operators and verify integration works correctly.
+**Independent Test**: Call the vector search extension method to find top 10 nearest neighbors, project the distance using `.WithVectorScore(...)`, then compose queryable extension methods with LINQ operators and verify integration works correctly.
 
 **Acceptance Scenarios**:
 
-1. **Given** a collection with a vector index, **When** the vector search extension method is called, **Then** nearest neighbors are returned efficiently
-2. **Given** a queryable with vector data, **When** the nearest neighbors method is used, **Then** the query is correctly translated to use the vector index
-3. **Given** extension methods are used in combination with other LINQ operators, **When** executed, **Then** query composition works correctly
+1. **Given** a collection with a vector index, **When** the vector search extension method is called, **Then** nearest neighbors are returned efficiently along with their distance scores
+2. **Given** a queryable with vector data, **When** the nearest neighbors method is used, **Then** the query is correctly translated to use the vector index and surfaces distance via `.WithVectorScore`
+3. **Given** extension methods are used in combination with other LINQ operators (e.g., `OrderByNearest`, `Select`), **When** executed, **Then** query composition works correctly and distance ordering remains stable
 
 ---
 
@@ -98,6 +99,11 @@ Developers can use convenient extension methods for vector search operations on 
 - How does the system handle concurrent vector index modifications during queries? The existing snapshot-based isolation model should ensure query consistency.
 - What happens when dropping a collection that has vector indexes? All associated vector index pages and structures should be cleaned up automatically.
 - How does the system handle migration of existing databases with vector indexes from the previous implementation? Existing indexes should remain functional without requiring recreation (or provide clear migration path if recreation is needed).
+- How are ties resolved when multiple documents share the same computed distance? Results must be deterministic by ordering ties on `_id` ascending after sorting by distance (with configurable secondary key for explicit indexes).
+- What happens when vector dimensions exceed the UInt16 limit (65,535)? Index creation and query execution must fail fast with a documented error while leaving existing data unchanged.
+- How should the engine behave when no vector index is available for a distance query? It must fall back to a full scan and the documentation should explain the expected performance characteristics.
+- How are NaN/Infinity values or mixed numeric types in vector literals handled? The engine should reject them with clear errors (or coerce when safe) and document the behavior.
+- How are upgrade scenarios handled when metric configuration changes (e.g., existing index expects cosine but query requests Euclidean)? The planner must either reject the query or fall back to scan with an explicit warning.
 
 ## Requirements *(mandatory)*
 
@@ -126,12 +132,19 @@ Developers can use convenient extension methods for vector search operations on 
 **FR-016**: System MUST provide explicit error codes and messages for all vector index and search failures, including dimension mismatch, unsupported field types, and extension absence
 **FR-017**: System MUST document and enforce resource limits for vector index size, query result count, and memory usage, with clear diagnostics when limits are exceeded
 **FR-018**: System MUST provide diagnostic and logging capabilities for vector index operations, including index creation, query execution, and error conditions
-**FR-019**: System MUST guarantee that vector similarity scores and rankings are consistent, well-defined, and documented for each supported metric
+**FR-019**: System MUST guarantee that vector distance and similarity scores and rankings are consistent, well-defined, and documented for each supported metric
 **FR-020**: System MUST provide a performance baseline and regression test for vector search operations, with results published in release notes
+**FR-021**: Query surfaces MUST expose vector distance scores (fluent APIs, LINQ pipelines, SQL projections) without requiring duplicate computation
+**FR-022**: Vector search results MUST be deterministically ordered first by computed distance and then by `_id` ascending (unless the caller specifies a secondary key)
+**FR-023**: Vector operators and functions MUST accept an explicit metric parameter and define the SQL grammar, precedence, literal syntax, and numeric coercion rules
+**FR-024**: Vector search execution MUST apply an exact distance filter and resorting stage after approximate index traversal to guarantee correctness
+**FR-025**: Vector dimensions MUST be capped at `ushort.MaxValue` (65,535) with explicit validation during index creation, document writes, and ad-hoc queries
+**FR-026**: Vector helper APIs MUST include convenience builders (e.g., `Vector.Create`, `Vector.Normalize`) so callers are not forced to construct `BsonVector` manually
+**FR-027**: Documentation and packaging MUST describe installing `LiteDB.Vector`, enabling the plugin via connection string (`plugins:`), and highlight naming/metric semantics
 
 ##### Score Semantics & Error Handling
 
-- All vector similarity scores MUST be documented with their mathematical range and interpretation (e.g., cosine similarity: 0..1, euclidean: >=0, dot product: unbounded)
+- All vector distance and similarity scores MUST be documented with their mathematical range and interpretation (e.g., cosine distance: 0..2 with similarity alias returning cosine values in [-1,1], euclidean distance: >=0, dot product: unbounded with optional normalization notes)
 - When the vector extension is not installed, any attempt to use vector index or similarity features MUST fail with a clear error code and message guiding the user to install the required package (NuGet: LiteDB.Vector)
 - All error codes and messages MUST be included in the documentation and test plan
 
@@ -141,11 +154,35 @@ Developers can use convenient extension methods for vector search operations on 
 - The NuGet package ID for the extension MUST be documented as `LiteDB.Vector`
 - Registration steps MUST be included in upgrade and migration documentation
 
+##### Query Syntax & Naming
+
+- `VECTOR_DIST` MUST be the canonical infix operator and function exposed by the plugin; it returns the metric-specific distance where lower values indicate closer neighbors
+- `VECTOR_SIM` MAY be provided as an alias that maps to `1 - distance` for cosine metrics (and documented equivalents for metrics that support similarity transforms); if the alias is enabled the XML docs MUST clearly state the semantics
+- Function form MUST support an optional metric argument: `VECTOR_DIST($.Embedding, [1,0], 'cosine')`; omitting the metric uses the index configuration or connection-string default
+- The infix form MUST follow additive precedence (evaluated before comparison operators but after arithmetic) and associate left-to-right
+- Vector literals MUST accept arrays of numeric constants (int, long, double, decimal, float) and coerce to `float` with overflow detection and NaN rejection
+
 ##### Resource Limits & Diagnostics
 
 - Maximum vector index size, query result count, and memory usage MUST be documented and enforced
 - When limits are exceeded, the system MUST provide diagnostic messages and log entries
 - Diagnostic and logging capabilities MUST be testable and included in the test plan
+
+##### Query Planner Behavior
+
+- Vector index scans MUST return candidate sets that are subsequently filtered by the exact metric calculation and re-ordered by distance before results are yielded
+- When no vector index is available, the planner MUST fall back to a full collection scan using the specified metric while honoring `maxDistance`, `LIMIT`, and `ORDER BY` semantics
+- `ORDER BY VECTOR_DIST(...) LIMIT k` MUST leverage the vector index when available; otherwise the engine MUST document the expected performance characteristics
+
+##### Test Coverage Additions
+
+- Add integration tests that cover both indexed and non-indexed query paths, ensuring fallback scans respect distance thresholds and ordering
+- Add tests that target vector dimensions near the UInt16 cap and verify failures when the limit is exceeded
+- Add tests that cover vector literals with mixed numeric types, NaN, and Infinity values to ensure consistent coercion or rejection
+- Add metric-specific correctness tests (cosine, Euclidean, dot product) for both `WhereNear`/`TopKNear` and SQL `VECTOR_DIST`/`VECTOR_SIM`
+- Add determinism tests that assert tie-breaking order remains stable across executions
+- Add concurrency tests for vector reads during concurrent writes and index rebuild scenarios
+- Add upgrade tests that simulate metric changes and confirm the engine either rejects incompatible configurations or rebuilds as documented
 
 ##### Performance Baseline
 
@@ -168,6 +205,8 @@ Developers can use convenient extension methods for vector search operations on 
 - **SC-004**: Database files with existing vector indexes remain compatible and queryable after system updates
 - **SC-005**: When vector extension is not installed, operations fail with clear guidance messages
 - **SC-006**: Test coverage for vector functionality remains at or above current levels
+- **SC-007**: Queries that order or filter by vector distance return deterministic, reproducible results across runs and architectures
+- **SC-008**: Documentation published with the package includes installation, plugin registration (code and connection-string forms), naming semantics, and metric selection guidance
 
 ### Assumptions
 

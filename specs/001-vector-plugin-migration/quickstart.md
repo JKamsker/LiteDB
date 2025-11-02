@@ -51,15 +51,13 @@ using var db = new LiteDatabase(
 // Vector operations are now available
 ```
 
-### Optional: Set Default Metric via Connection String
+### Register with Connection String (No Code Changes)
 
 ```csharp
-var connectionString = "mydata.db;vector.metric=cosine";
-using var db = new LiteDatabase(
-    connectionString,
-    plugins: new[] { VectorSearchPlugin.Instance });
+var connectionString = "Filename=mydata.db;plugins=vector;vector.metric=cosine";
+using var db = new LiteDatabase(connectionString);
 
-// All vector indexes will use Cosine by default
+// Plugin is auto-registered, cosine becomes the default metric
 ```
 
 ---
@@ -117,16 +115,17 @@ collection.EnsureIndex("$.Metadata.Vector", options);
 // Get your query vector (from ML model, user input, etc.)
 float[] queryEmbedding = GetEmbeddingFromText("search query");
 
-// Find 10 most similar articles
-var results = collection
+// Find 10 nearest articles and include distance scores
+var matches = collection
     .Query()
     .TopKNear(x => x.Embedding, queryEmbedding, k: 10)
+    .WithVectorScore()
     .ToList();
 
 // Results are automatically sorted by distance (closest first)
-foreach (var article in results)
+foreach (var match in matches)
 {
-    Console.WriteLine($"{article.Title} - Similarity: {article.Distance}");
+    Console.WriteLine($"{match.Document.Title} - Distance: {match.Distance:F3}");
 }
 ```
 
@@ -146,28 +145,71 @@ var similar = collection
 // Vector search + traditional filters
 var results = collection
     .Query()
-    .WhereNear(x => x.Embedding, queryEmbedding, maxDistance: 0.8)
+    .OrderByNearest(x => x.Embedding, queryEmbedding, maxDistance: 0.8)
     .Where(x => x.PublishedDate > DateTime.Now.AddMonths(-6))
-    .OrderBy(x => x.PublishedDate)
     .Limit(20)
+    .WithVectorScore()
     .ToList();
 ```
 
-### Use VECTOR_SIM in Expressions
+### Project Distances or Similarities
+
+```csharp
+var best = collection
+    .Query()
+    .Nearest(x => x.Embedding, queryEmbedding, k: 5)
+    .WithVectorScore(VectorScoreKind.Distance)
+    .Select(match => new
+    {
+        match.Document.Id,
+        match.Distance,
+        match.Similarity   // null for non-cosine metrics
+    })
+    .ToList();
+```
+
+`WithVectorScore` reuses the planner's calculated distance. Similarity projection is available only for metrics with a defined similarity transform (currently cosine); attempting to use it for other metrics throws a descriptive `LiteException`.
+
+### Use VECTOR_DIST in Expressions
 
 ```csharp
 // Custom distance filtering in WHERE clause
 var query = collection.Find(
-    Query.Where("VECTOR_SIM($.Embedding, @target) < 0.3", queryEmbedding)
+    Query.Where("VECTOR_DIST($.Embedding, @target) < 0.3", queryEmbedding)
 );
 
 // Include distance in projections
 var results = collection.Find(
     Query.All(),
-    "{ title: $.Title, distance: VECTOR_SIM($.Embedding, @target) }",
+    "{ title: $.Title, distance: VECTOR_DIST($.Embedding, @target) }",
+    queryEmbedding
+);
+
+// Similarity alias (cosine metrics only)
+var similar = collection.Find(
+    Query.All(),
+    "{ title: $.Title, similarity: VECTOR_SIM($.Embedding, @target) }",
     queryEmbedding
 );
 ```
+
+---
+
+## Convenience Helpers
+
+```csharp
+// Build vectors without touching BsonVector directly
+var embedding = Vector.Create(0.1f, 0.9f, 0.3f);
+var normalized = Vector.Normalize(embedding.Values);  // returns float[]
+
+var matches = collection
+    .Query()
+    .TopKNear(x => x.Embedding, normalized, k: 3)
+    .WithVectorScore()
+    .ToList();
+```
+
+`Vector.Create`, `Vector.FromReadOnlySpan`, and `Vector.Normalize` remove the need to interact with `BsonVector` directly and ensure consistent float32 coercion.
 
 ---
 
@@ -188,7 +230,7 @@ collection.EnsureIndex(x => x.Embedding, options);
 - Most transformer-based models
 - Direction matters more than magnitude
 
-**Distance range**: [0, 2] where 0 = identical, 2 = opposite
+**Distance range**: [0, 2] (0 = identical, 1 = orthogonal, 2 = opposite); similarity alias returns [-1, 1]
 
 ---
 
@@ -207,7 +249,7 @@ collection.EnsureIndex(x => x.Features, options);
 - Magnitude matters
 - Physical measurements
 
-**Distance range**: [0, ∞) where 0 = identical
+**Distance range**: [0, +infinity) where 0 = identical
 
 ---
 
@@ -225,7 +267,7 @@ collection.EnsureIndex(x => x.Scores, options);
 - Unnormalized vectors
 - Both direction and magnitude matter
 
-**Distance range**: (-∞, ∞) - higher is more similar
+**Distance range**: (-infinity, +infinity); interpret larger values as more similar when vectors are non-negative or normalized
 
 ---
 
@@ -257,9 +299,10 @@ collection.Insert(doc);
 // Search
 var query = "embedded database for .NET";
 var queryVector = GetEmbedding(query);
-var results = collection
+var matches = collection
     .Query()
     .TopKNear(x => x.TextEmbedding, queryVector, k: 5)
+    .WithVectorScore()
     .ToList();
 ```
 
@@ -284,6 +327,7 @@ var targetFeatures = ExtractImageFeatures("query_image.jpg");
 var similar = collection
     .Query()
     .TopKNear(x => x.Features, targetFeatures, k: 20)
+    .WithVectorScore()
     .ToList();
 ```
 
@@ -312,14 +356,14 @@ collection.EnsureIndex("image_idx", x => x.ImageEmbedding, imageOptions);
 var textResults = collection
     .Query()
     .TopKNear(x => x.TextEmbedding, GetTextEmbedding("red shoes"), k: 10)
+    .WithVectorScore()
     .ToList();
-
-// Search by image
 var imageResults = collection
     .Query()
     .TopKNear(x => x.ImageEmbedding, GetImageEmbedding("shoe.jpg"), k: 10)
+    .WithVectorScore()
     .ToList();
-```
+
 
 ---
 
@@ -404,15 +448,14 @@ using var db = new LiteDatabase(
 // Your existing code works unchanged
 var collection = db.GetCollection<Article>("articles");
 collection.EnsureIndex(x => x.Embedding, new VectorIndexOptions(384));
-```
 
-### Step 3: No Code Changes Required
+### Step 3: Validate Existing Calls
 
 All existing APIs remain identical:
-- ✅ `collection.EnsureIndex(x => x.Embedding, options)` - Works
-- ✅ `collection.Query().TopKNear(...)` - Works
-- ✅ `VECTOR_SIM` expressions - Work
-- ✅ Existing database files - Compatible
+- `collection.EnsureIndex(x => x.Embedding, options)`
+- `collection.Query().TopKNear(...).WithVectorScore()`
+- `VECTOR_DIST` (and optional `VECTOR_SIM`) expressions
+- Existing database files remain compatible
 
 ### Step 4: Update Using Statements (Optional)
 
@@ -452,7 +495,7 @@ collection.EnsureIndex(x => x.Embedding, options);
 
 // Query must also be 384 dimensions
 float[] query = GetEmbedding("query");  // Must return 384-dimensional vector
-var results = collection.Query().TopKNear(x => x.Embedding, query, k: 10).ToList();
+var results = collection.Query().TopKNear(x => x.Embedding, query, k: 10).WithVectorScore().ToList();
 ```
 
 ---
@@ -491,7 +534,7 @@ collection.InsertBulk(documents);
 2. **Unnormalized vectors**: Cosine works best with normalized embeddings
    ```csharp
    // Normalize before storing
-   var normalized = Normalize(embedding);
+   var normalized = Vector.Normalize(embedding);
    doc.Embedding = normalized;
    ```
 
@@ -502,6 +545,12 @@ collection.InsertBulk(documents);
    ```
 
 ---
+
+### Results Ordering Looks Different
+
+**Cause**: Multiple documents share the same computed distance and earlier builds relied on planner iteration order.
+
+**Solution**: Ordering now applies deterministic (`distance`, `_id`) tie-breaking. If you need a different secondary sort, append `.OrderBy(x => x.SomeField)` after calling `OrderByNearest` or project scores with `.WithVectorScore()` and `OrderBy`.
 
 ### Index Not Being Used
 
@@ -523,7 +572,6 @@ collection.InsertBulk(documents);
    collection.EnsureIndex(x => x.Embedding, options);
    
    // Query must also use "Embedding"
-   .TopKNear(x => x.Embedding, query, k: 10)  // ✅ Correct
    .TopKNear(x => x.Vector, query, k: 10)     // ❌ Won't use index
    ```
 
@@ -638,7 +686,6 @@ public class Chunk
 
 ---
 
-**Need Help?**  
 - GitHub Issues: https://github.com/mbdavid/LiteDB/issues
 - Documentation: https://www.litedb.org/
 - Discord: [LiteDB Community]

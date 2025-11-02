@@ -20,9 +20,11 @@ public void Initialize(LiteDatabase database, ILitePluginContext context)
 - `context`: Plugin context providing registration entry points
 
 **Effects**:
-- Registers `VECTOR_SIM` binary operator for expression evaluation
-- Registers `VECTOR_SIM` function for query usage
-- Registers `VectorIndexStrategy` for index operations
+- Registers the `VECTOR_DIST` binary operator for expression evaluation and orders precedence rules
+- Registers the `VECTOR_SIM` alias (optional) that mirrors similarity semantics when supported by the metric
+- Registers the `VECTOR_DIST`/`VECTOR_SIM` function forms with optional metric parameter
+- Registers `VectorIndexStrategy` for index operations and planner integration
+- Registers vector score projection services (`WithVectorScore`, `VectorMatch<T>`) so distances are surfaced without recomputation
 - Reads optional `vector.metric` connection string parameter
 
 **Exceptions**:
@@ -38,7 +40,8 @@ using var db = new LiteDatabase(
 ```
 
 **Connection String Options**:
-- `vector.metric=cosine|euclidean|dotproduct` - Sets default metric for indexes
+- `plugins=vector` - Registers the plugin without requiring code changes (can be combined with other plugins using comma separation)
+- `vector.metric=cosine|euclidean|dotproduct` - Sets default metric for indexes and ad-hoc distance queries when a metric is not specified explicitly
 
 ---
 
@@ -169,46 +172,51 @@ void OnDocumentDelete(object snapshot, object collection, object dataBlock)
 
 ## Expression Functions
 
-### VECTOR_SIM Operator
+### VECTOR_DIST Operator
 
-Computes cosine distance between two vectors in query expressions.
+Computes the configured vector distance between two vectors in query expressions. The optional `VECTOR_SIM` alias returns similarity when supported by the metric.
 
 **Binary Operator Syntax**:
 ```sql
-$.Embedding VECTOR_SIM @target
+$.Embedding VECTOR_DIST @target
 ```
 
 **Function Syntax**:
 ```sql
-VECTOR_SIM($.Embedding, @target)
+VECTOR_DIST($.Embedding, @target [, 'cosine'])
 ```
 
 **Signature**:
 ```csharp
-public static BsonValue VectorSimilarity(BsonValue left, BsonValue right)
+public static BsonValue VectorDistance(BsonValue left, BsonValue right, VectorDistanceMetric? metric = null)
 ```
 
 **Parameters**:
 - `left`: First vector (BsonArray or BsonVector)
 - `right`: Second vector (BsonArray or BsonVector)
+- `metric`: Optional metric override (defaults to index configuration or connection-string default)
 
 **Returns**:
-- `BsonValue`: Cosine distance (0 = identical, 2 = opposite)
+- `BsonValue`: Distance value (0 = identical for cosine, higher is farther)
 - `BsonValue.Null`: If vectors invalid or dimension mismatch
 
 **Distance Formula**:
 ```
-cosine_distance = 1 - (dot(v1, v2) / (|v1| × |v2|))
+cosine_distance = 1 - (dot(v1, v2) / (|v1| * |v2|))
 ```
 
 **Examples**:
 ```csharp
 // In query where clause
-collection.Find(Query.Where("$.Embedding VECTOR_SIM @target < 0.5", target));
+collection.Find(Query.Where("$.Embedding VECTOR_DIST @target < 0.5", target));
 
 // In projection
 collection.Find(Query.All("distance", 1), 
-    "{ distance: VECTOR_SIM($.Embedding, @target) }", target);
+    "{ distance: VECTOR_DIST($.Embedding, @target) }", target);
+
+// Similarity alias (cosine metrics only)
+collection.Find(Query.All("similarity", 1),
+    "{ similarity: VECTOR_SIM($.Embedding, @target) }", target);
 ```
 
 **Error Handling**:
@@ -216,33 +224,12 @@ collection.Find(Query.All("distance", 1),
 - Returns Null for dimension mismatch
 - Returns Null for NaN or non-numeric array elements
 - Returns Null for zero-magnitude vectors
+- Throws `LiteException(VectorErrors.MetricDoesNotSupportSimilarity)` when `VECTOR_SIM` is used with an unsupported metric
 
 ---
-
-## Internal Contracts
-
-These types are used internally and are not part of the public API.
-
-### VectorIndexService
-
-Internal service for HNSW graph operations (not exposed to users).
-
-**Key Methods**:
-- `Insert(metadata, dataBlock, vector)`: Add node to graph
-- `Delete(metadata, dataBlock)`: Remove node from graph  
-- `Search(metadata, target, maxDistance, limit)`: k-NN search
-
-**HNSW Parameters** (internal constants):
-- `EfConstruction = 24`: Candidate count during insertion
-- `DefaultEfSearch = 32`: Candidate count during search
-- `MaxLevels = 4`: Maximum graph layers
-- `MaxNeighborsPerLevel = 8`: Degree bound per layer
-
----
-
 ### VectorIndexQuery
 
-Internal query plan node for vector similarity searches.
+Internal query plan node for vector distance searches.
 
 **Constructor**:
 ```csharp
@@ -252,8 +239,25 @@ VectorIndexQuery(VectorIndexMetadata metadata, float[] targetVector,
 
 **Behavior**:
 - Executes nearest neighbor search via VectorIndexService
-- Returns IndexNode sequence with distances
-- Integrates with query pipeline (WHERE, LIMIT, etc.)
+- Recomputes exact distances for candidate nodes and applies deterministic ordering with `_id` tie-breaking
+- Applies `maxDistance` filtering and LIMIT/OFFSET semantics before returning results
+- Falls back to a full scan when the index is unavailable or metric override is incompatible, while preserving the same filtering semantics
+
+---
+
+### VectorScoreProjection
+
+Linq pipeline node that materializes distance (and optional similarity) scores without re-running the vector search.
+
+**Constructor**:
+```csharp
+VectorScoreProjection(VectorIndexQuery source, VectorScoreKind kind)
+```
+
+**Behavior**:
+- Attaches the computed score to each row as a `VectorMatch<T>` record
+- Converts cosine distance to similarity when `kind == Similarity`; throws when the metric lacks a similarity transform
+- Preserves the ordering emitted by `VectorIndexQuery`
 
 ---
 
@@ -275,6 +279,9 @@ All plugin operations respect LiteDB's transaction model:
 | 0 | "Vector index options must include a 'metric' value when no default is configured." | Missing metric without connection string default |
 | 0 | "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'." | Invalid metric value |
 | 0 | "Vector index '{name}' already exists with different options." | Attempt to create index with conflicting config |
+| VECTOR_DIMENSIONS_EXCEEDED | "Vector dimension limit (65535) exceeded for field '{field}'." | Attempt to index or query vectors beyond UInt16 capacity |
+| VECTOR_METRIC_MISMATCH | "Vector query metric '{query}' does not match index metric '{index}' and cannot fall back to scan." | Metric override not compatible with available index |
+| VECTOR_SIMILARITY_UNSUPPORTED | "`VECTOR_SIM` is not supported for metric '{metric}'." | Similarity alias used with unsupported metric |
 | INDEX_ALREADY_EXIST | "Index '{name}' already exists." | Index exists with different type (non-vector) |
 
 ---
