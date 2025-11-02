@@ -27,10 +27,10 @@ This feature works with existing LiteDB solution structure:
 
 **Purpose**: Initialize documentation structure and prepare inventory tooling
 
-- [ ] T001 Create branch `001-vector-core-cleanup` from master
-- [ ] T002 Verify feature documentation structure exists at `.\specs\001-vector-core-cleanup\`
-- [ ] T003 [P] Create inventory output directory `.\artifacts_temp\vector-cleanup\`
-- [ ] T004 [P] Install ripgrep (rg) tool if not already available for vector search operations
+- [X] T001 Create branch `001-vector-core-cleanup` from master
+- [X] T002 Verify feature documentation structure exists at `.\specs\001-vector-core-cleanup\`
+- [X] T003 [P] Create inventory output directory `.\artifacts_temp\vector-cleanup\`
+- [X] T004 [P] Install ripgrep (rg) tool if not already available for vector search operations
 
 ---
 
