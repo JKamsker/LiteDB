@@ -139,7 +139,7 @@ namespace LiteDB.Vector
             return !double.IsNaN(distance);
         }
 
-        private static bool TryExtractVector(BsonValue value, out float[] vector)
+        internal static bool TryExtractVector(BsonValue value, out float[] vector)
         {
             vector = Array.Empty<float>();
 

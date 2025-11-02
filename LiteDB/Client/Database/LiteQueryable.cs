@@ -37,6 +37,14 @@ namespace LiteDB
             _linqResolvers = linqResolvers;
         }
 
+        internal Query GetQueryDefinition() => _query;
+
+        internal BsonMapper Mapper => _mapper;
+
+        internal IExpressionRegistry ExpressionRegistry => _expressions;
+
+        internal LiteDatabase Database => _database;
+
         #region Includes
 
         /// <summary>
@@ -247,79 +255,161 @@ namespace LiteDB
         private static void ValidateVectorArguments(float[] target, double maxDistance)
         {
             if (target == null || target.Length == 0) throw new ArgumentException("Target vector must be provided.", nameof(target));
-            // Dot-product queries interpret "maxDistance" as a minimum similarity score and may therefore pass negative values.
             if (double.IsNaN(maxDistance)) throw new ArgumentOutOfRangeException(nameof(maxDistance), "Similarity threshold must be a valid number.");
         }
 
-        private BsonExpression CreateVectorDistanceFilter(BsonExpression fieldExpr, float[] target, double maxDistance)
+        private BsonExpression CreateVectorDistanceFilter(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
         {
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
 
             ValidateVectorArguments(target, maxDistance);
 
-            var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
-            return BsonExpression.Create($"({fieldExpr.Source} VECTOR_DIST @0) <= @1", _expressions, targetArray, new BsonValue(maxDistance));
+            var parameters = new List<BsonValue>
+            {
+                new BsonArray(target.Select(v => new BsonValue(v))),
+                new BsonValue(maxDistance)
+            };
+
+            var metricPlaceholder = string.Empty;
+
+            if (metric.HasValue)
+            {
+                parameters.Add(new BsonValue(metric.Value));
+                metricPlaceholder = ", @2";
+            }
+
+            var vectorExpr = $"VECTOR_DIST({fieldExpr.Source}, @0{metricPlaceholder})";
+            return BsonExpression.Create($"({vectorExpr}) <= @1", _expressions, parameters.ToArray());
         }
 
-        internal ILiteQueryable<T> VectorWhereNear(string vectorField, float[] target, double maxDistance)
+        private BsonExpression CreateVectorDistanceExpression(BsonExpression fieldExpr, float[] target, byte? metric)
+        {
+            if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
+
+            ValidateVectorArguments(target, double.MaxValue);
+
+            var parameters = new List<BsonValue>
+            {
+                new BsonArray(target.Select(v => new BsonValue(v)))
+            };
+
+            var metricPlaceholder = string.Empty;
+
+            if (metric.HasValue)
+            {
+                parameters.Add(new BsonValue(metric.Value));
+                metricPlaceholder = ", @1";
+            }
+
+            return BsonExpression.Create($"VECTOR_DIST({fieldExpr.Source}, @0{metricPlaceholder})", _expressions, parameters.ToArray());
+        }
+
+        private void ConfigureVectorContext(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
+        {
+            _query.VectorField = fieldExpr.Source;
+            _query.VectorTarget = target?.ToArray();
+            _query.VectorMaxDistance = maxDistance;
+            _query.VectorMetric = metric;
+        }
+
+        internal ILiteQueryable<T> VectorWhereNear(string vectorField, float[] target, double maxDistance, byte? metric = null)
         {
             if (string.IsNullOrWhiteSpace(vectorField)) throw new ArgumentNullException(nameof(vectorField));
 
             var fieldExpr = BsonExpression.Create($"$.{vectorField}", _expressions);
-            return this.VectorWhereNear(fieldExpr, target, maxDistance);
+            return this.VectorWhereNear(fieldExpr, target, maxDistance, metric);
         }
 
-        internal ILiteQueryable<T> VectorWhereNear(BsonExpression fieldExpr, float[] target, double maxDistance)
+        internal ILiteQueryable<T> VectorWhereNear(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric = null)
         {
-            var filter = CreateVectorDistanceFilter(fieldExpr, target, maxDistance);
+            var filter = CreateVectorDistanceFilter(fieldExpr, target, maxDistance, metric);
 
             _query.Where.Add(filter);
 
-            _query.VectorField = fieldExpr.Source;
-            _query.VectorTarget = target?.ToArray();
-            _query.VectorMaxDistance = maxDistance;
+            this.ConfigureVectorContext(fieldExpr, target, maxDistance, metric);
 
             return this;
         }
 
-        internal ILiteQueryable<T> VectorWhereNear<K>(Expression<Func<T, K>> field, float[] target, double maxDistance)
+        internal ILiteQueryable<T> VectorWhereNear<K>(Expression<Func<T, K>> field, float[] target, double maxDistance, byte? metric = null)
         {
             if (field == null) throw new ArgumentNullException(nameof(field));
 
             var fieldExpr = this.ResolveExpression(field);
-            return this.VectorWhereNear(fieldExpr, target, maxDistance);
+            return this.VectorWhereNear(fieldExpr, target, maxDistance, metric);
         }
 
-        internal ILiteQueryableResult<T> VectorTopKNear<K>(Expression<Func<T, K>> field, float[] target, int k)
+        internal ILiteQueryableResult<T> VectorTopKNear<K>(Expression<Func<T, K>> field, float[] target, int k, byte? metric = null, double? maxDistance = null)
         {
             var fieldExpr = this.ResolveExpression(field);
-            return this.VectorTopKNear(fieldExpr, target, k);
+            return this.VectorTopKNear(fieldExpr, target, k, metric, maxDistance);
         }
 
-        internal ILiteQueryableResult<T> VectorTopKNear(string field, float[] target, int k)
+        internal ILiteQueryableResult<T> VectorTopKNear(string field, float[] target, int k, byte? metric = null, double? maxDistance = null)
         {
             var fieldExpr = BsonExpression.Create($"$.{field}", _expressions);
-            return this.VectorTopKNear(fieldExpr, target, k);
+            return this.VectorTopKNear(fieldExpr, target, k, metric, maxDistance);
         }
 
-        internal ILiteQueryableResult<T> VectorTopKNear(BsonExpression fieldExpr, float[] target, int k)
+        internal ILiteQueryableResult<T> VectorTopKNear(BsonExpression fieldExpr, float[] target, int k, byte? metric = null, double? maxDistance = null)
         {
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
             if (target == null || target.Length == 0) throw new ArgumentException("Target vector must be provided.", nameof(target));
             if (k <= 0) throw new ArgumentOutOfRangeException(nameof(k), "Top-K must be greater than zero.");
 
-            var targetArray = new BsonArray(target.Select(v => new BsonValue(v)));
+            var effectiveMaxDistance = maxDistance ?? double.MaxValue;
 
-            // Build VECTOR_DIST as order clause
-            var distExpr = BsonExpression.Create($"VECTOR_DIST({fieldExpr.Source}, @0)", _expressions, targetArray);
+            if (maxDistance.HasValue)
+            {
+                this.VectorWhereNear(fieldExpr, target, effectiveMaxDistance, metric);
+            }
+            else
+            {
+                this.ConfigureVectorContext(fieldExpr, target, effectiveMaxDistance, metric);
+            }
 
-            _query.VectorField = fieldExpr.Source;
-            _query.VectorTarget = target?.ToArray();
-            _query.VectorMaxDistance = double.MaxValue;
+            var distExpr = this.CreateVectorDistanceExpression(fieldExpr, target, metric);
 
             return this
                 .OrderBy(distExpr, Query.Ascending)
+                .ThenBy(BsonExpression.Create("$._id", _expressions))
                 .Limit(k);
+        }
+
+        internal ILiteQueryable<T> VectorOrderByNearest<K>(Expression<Func<T, K>> field, float[] target, byte? metric = null, double? maxDistance = null)
+        {
+            if (field == null) throw new ArgumentNullException(nameof(field));
+
+            var fieldExpr = this.ResolveExpression(field);
+            return this.VectorOrderByNearest(fieldExpr, target, metric, maxDistance);
+        }
+
+        internal ILiteQueryable<T> VectorOrderByNearest(string field, float[] target, byte? metric = null, double? maxDistance = null)
+        {
+            var fieldExpr = BsonExpression.Create($"$.{field}", _expressions);
+            return this.VectorOrderByNearest(fieldExpr, target, metric, maxDistance);
+        }
+
+        internal ILiteQueryable<T> VectorOrderByNearest(BsonExpression fieldExpr, float[] target, byte? metric = null, double? maxDistance = null)
+        {
+            if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
+
+            var effectiveMaxDistance = maxDistance ?? double.MaxValue;
+
+            if (maxDistance.HasValue)
+            {
+                this.VectorWhereNear(fieldExpr, target, effectiveMaxDistance, metric);
+            }
+            else
+            {
+                this.ConfigureVectorContext(fieldExpr, target, effectiveMaxDistance, metric);
+            }
+
+            var distExpr = this.CreateVectorDistanceExpression(fieldExpr, target, metric);
+
+            return this
+                .OrderBy(distExpr, Query.Ascending)
+                .ThenBy(BsonExpression.Create("$._id", _expressions));
         }
 
         [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]

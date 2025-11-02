@@ -169,20 +169,20 @@
 
 ### Extension Method Migration for User Story 5
 
-- [ ] T052 [P] [US5] Move `LiteCollectionVectorExtensions` from `LiteDB/Client/Vector/LiteCollectionVectorExtensions.cs` to `LiteDB.Vector/Extensions/LiteCollectionVectorExtensions.cs`
-- [ ] T053 [P] [US5] Move `LiteQueryableVectorExtensions` from `LiteDB/Client/Vector/LiteQueryableVectorExtensions.cs` to `LiteDB.Vector/Extensions/LiteQueryableVectorExtensions.cs`, adding `OrderByNearest`, `Nearest`, and `WithVectorScore` helpers
-- [ ] T054 [P] [US5] Move `LiteRepositoryVectorExtensions` from `LiteDB/Client/Vector/LiteRepositoryVectorExtensions.cs` to `LiteDB.Vector/Extensions/LiteRepositoryVectorExtensions.cs`
-- [ ] T055 [US5] Introduce `LiteDB.Vector/Extensions/VectorHelpers.cs` (static `Vector` factory/normalization helpers) and update docs/samples accordingly
-- [ ] T056 [US5] Ensure all extension methods accept optional metric overrides, surface deterministic ordering (distance + `_id`), and document score projection usage
-- [ ] T057 [US5] Add XML documentation to all public extension/helper methods with examples covering `WithVectorScore`, `OrderByNearest`, and metric overrides
-- [ ] T058 [US5] Remove migrated extension/helper files from LiteDB core: delete `LiteDB/Client/Vector/` folder
+- [X] T052 [P] [US5] Move `LiteCollectionVectorExtensions` from `LiteDB/Client/Vector/LiteCollectionVectorExtensions.cs` to `LiteDB.Vector/Extensions/LiteCollectionVectorExtensions.cs`
+- [X] T053 [P] [US5] Move `LiteQueryableVectorExtensions` from `LiteDB/Client/Vector/LiteQueryableVectorExtensions.cs` to `LiteDB.Vector/Extensions/LiteQueryableVectorExtensions.cs`, adding `OrderByNearest`, `Nearest`, and `WithVectorScore` helpers
+- [X] T054 [P] [US5] Move `LiteRepositoryVectorExtensions` from `LiteDB/Client/Vector/LiteRepositoryVectorExtensions.cs` to `LiteDB.Vector/Extensions/LiteRepositoryVectorExtensions.cs`
+- [X] T055 [US5] Introduce `LiteDB.Vector/Extensions/VectorHelpers.cs` (static `Vector` factory/normalization helpers) and update docs/samples accordingly
+- [X] T056 [US5] Ensure all extension methods accept optional metric overrides, surface deterministic ordering (distance + `_id`), and document score projection usage
+- [X] T057 [US5] Add XML documentation to all public extension/helper methods with examples covering `WithVectorScore`, `OrderByNearest`, and metric overrides
+- [X] T058 [US5] Remove migrated extension/helper files from LiteDB core: delete `LiteDB/Client/Vector/` folder
 
 ### Testing for User Story 5
 
-- [ ] T059 [US5] Move extension method tests from `LiteDB.Tests/Query/VectorExtensionSurface_Tests.cs` to `LiteDB.Vector.Tests/VectorExtensions_Tests.cs`
-- [ ] T060 [P] [US5] Add collection/repository extension tests at `LiteDB.Vector.Tests/VectorExtensions_Tests.cs`: cover all `EnsureIndex` overloads with metric overrides and cross-collection scenarios
-- [ ] T061 [P] [US5] Add queryable extension tests at `LiteDB.Vector.Tests/VectorExtensions_Tests.cs`: cover `WhereNear`, `TopKNear`, `OrderByNearest`, `Nearest`, and `WithVectorScore` with LINQ composition and deterministic tie-breaking
-- [ ] T062 [US5] Add integration test at `LiteDB.Vector.Tests/Integration/FluentAPI_Tests.cs`: ensure distance projection reuses planner scores, respects `maxDistance`, and maintains (`distance`, `_id`) ordering
+- [X] T059 [US5] Move extension method tests from `LiteDB.Tests/Query/VectorExtensionSurface_Tests.cs` to `LiteDB.Vector.Tests/VectorExtensions_Tests.cs`
+- [X] T060 [P] [US5] Add collection/repository extension tests at `LiteDB.Vector.Tests/VectorExtensions_Tests.cs`: cover all `EnsureIndex` overloads with metric overrides and cross-collection scenarios
+- [X] T061 [P] [US5] Add queryable extension tests at `LiteDB.Vector.Tests/VectorExtensions_Tests.cs`: cover `WhereNear`, `TopKNear`, `OrderByNearest`, `Nearest`, and `WithVectorScore` with LINQ composition and deterministic tie-breaking
+- [X] T062 [US5] Add integration test at `LiteDB.Vector.Tests/Integration/FluentAPI_Tests.cs`: ensure distance projection reuses planner scores, respects `maxDistance`, and maintains (`distance`, `_id`) ordering
 
 **Checkpoint**: All extension methods should provide convenient fluent API for vector operations
 

@@ -29,6 +29,7 @@ namespace LiteDB
         public string VectorField { get; set; } = null;
         public float[] VectorTarget { get; set; } = null;
         public double VectorMaxDistance { get; set; } = double.MaxValue;
+        public byte? VectorMetric { get; set; } = null;
         public bool HasVectorFilter => VectorField != null && VectorTarget != null;
 
         public string Into { get; set; }
@@ -124,7 +125,11 @@ namespace LiteDB
                     }
                 }
 
-                var vectorExpr = $"VECTOR_DIST({field}, [{string.Join(",", this.VectorTarget)}])";
+                var metricSegment = this.VectorMetric.HasValue
+                    ? $", {this.VectorMetric.Value}"
+                    : string.Empty;
+
+                var vectorExpr = $"VECTOR_DIST({field}, [{string.Join(",", this.VectorTarget)}]{metricSegment})";
                 if (this.Where.Count > 0)
                 {
                     sb.AppendLine($"WHERE ({string.Join(" AND ", this.Where.Select(x => x.Source))}) AND {vectorExpr} <= {this.VectorMaxDistance}");

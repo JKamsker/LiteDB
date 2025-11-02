@@ -142,6 +142,7 @@ namespace LiteDB.Vector.Engine
             {
                 results = results
                     .OrderByDescending(x => x.Similarity)
+                    .ThenBy(x => x.Document["_id"])
                     .ToList();
 
                 if (limit.HasValue)
@@ -158,6 +159,7 @@ namespace LiteDB.Vector.Engine
 
             results = results
                 .OrderBy(x => x.Distance)
+                .ThenBy(x => x.Document["_id"])
                 .ToList();
 
             if (limit.HasValue)

@@ -120,7 +120,12 @@ float[] queryEmbedding = GetEmbeddingFromText("search query");
 // Find 10 nearest articles and include distance scores
 var matches = collection
     .Query()
-    .TopKNear(x => x.Embedding, queryEmbedding, k: 10)
+    .TopKNear(
+        field: x => x.Embedding,
+        target: queryEmbedding,
+        k: 10,
+        metric: VectorDistanceMetric.Cosine,
+        maxDistance: 0.75)
     .WithVectorScore()
     .ToList();
 
@@ -137,7 +142,11 @@ foreach (var match in matches)
 // Find all articles within distance threshold
 var similar = collection
     .Query()
-    .WhereNear(x => x.Embedding, queryEmbedding, maxDistance: 0.5)
+    .WhereNear(
+        x => x.Embedding,
+        queryEmbedding,
+        maxDistance: 0.5,
+        metric: VectorDistanceMetric.Euclidean)
     .ToList();
 ```
 
@@ -147,7 +156,11 @@ var similar = collection
 // Vector search + traditional filters
 var results = collection
     .Query()
-    .OrderByNearest(x => x.Embedding, queryEmbedding, maxDistance: 0.8)
+    .OrderByNearest(
+        x => x.Embedding,
+        queryEmbedding,
+        metric: VectorDistanceMetric.Cosine,
+        maxDistance: 0.8)
     .Where(x => x.PublishedDate > DateTime.Now.AddMonths(-6))
     .Limit(20)
     .WithVectorScore()
@@ -159,8 +172,12 @@ var results = collection
 ```csharp
 var best = collection
     .Query()
-    .Nearest(x => x.Embedding, queryEmbedding, k: 5)
-    .WithVectorScore(VectorScoreKind.Distance)
+    .Nearest(
+        field: x => x.Embedding,
+        target: queryEmbedding,
+        k: 5,
+        metric: VectorDistanceMetric.DotProduct)
+    .WithVectorScore(VectorScoreKind.Similarity)
     .Select(match => new
     {
         match.Document.Id,
@@ -170,7 +187,7 @@ var best = collection
     .ToList();
 ```
 
-`WithVectorScore` reuses the planner's calculated distance. Similarity projection is available only for metrics with a defined similarity transform (currently cosine); attempting to use it for other metrics throws a descriptive `LiteException`.
+`WithVectorScore` reuses the planner's calculated distance. Similarity projection is available only for metrics with a defined similarity transform (cosine or dot product); attempting to use it for other metrics throws a descriptive `LiteException`. `OrderByNearest` and `Nearest` always apply deterministic (`distance`, `_id`) tie-breaking so identical scores remain stable between executions.
 
 ### Use VECTOR_DIST in Expressions
 
