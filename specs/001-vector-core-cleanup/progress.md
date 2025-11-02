@@ -21,3 +21,27 @@
 - T031-T034 Complete: Established verification step documents for search, build, plugin, and legacy database validations targeting post-migration readiness.
 - T035 Complete: Documented verified 196-match inventory in spec.md with linkage to component records.
 - T036 Complete: Re-ran rg inventory (196 hits / 28 files) and revalidated inventory JSON coverage with zero mismatches.
+- T037 Complete: Authored `decisions/move-to-plugin-short.json` capturing short-term migration plan with Vector Plugin Team ownership.
+- T038 Complete: Authored `decisions/requires-infrastructure.json` outlining infrastructure-dependent blocking prerequisites with joint ownership.
+- T039 Complete: Authored `decisions/remain-in-core.json` documenting fallback stance and reevaluation trigger.
+- T040 Complete: Updated `inventory/public-api.json` to reference `move-to-plugin-short` decision and captured prerequisite for plugin extension methods and interceptors.
+- T041 Complete: Linked `inventory/service-infrastructure.json` to the short-term decision and noted factory relocation plus InternalsVisibleTo cleanup.
+- T042 Complete: Linked `inventory/query-planning.json` to `requires-infrastructure` decision with query metadata bag dependency.
+- T043 Complete: Linked `inventory/bson-serialization.json` to infrastructure decision and recorded BSON type registry prerequisite.
+- T044 Complete: Linked `inventory/storage-engine.json` to infrastructure decision highlighting page factory and metadata API requirement.
+- T058 Complete: Updated migration decision ownership so short-term moves are explicitly assigned to the Vector Plugin Team.
+- T059 Complete: Recorded joint Core Engine + Vector Plugin Team ownership on infrastructure-dependent migration decision.
+- T045 Complete: Authored `migration/priority-1-service-factory.md` outlining relocation strategy and sequence for the service factory.
+- T050 Complete: Documented detailed execution sequence in the priority 1 plan covering plugin bootstrap, refactors, and cleanup.
+- T046 Complete: Authored `migration/priority-2-public-api.md` capturing the EnsureVectorIndex deprecation plan and plugin extensions.
+- T049 Complete: Added explicit migration steps for the public API surface in the priority 2 plan.
+- T047 Complete: Authored `migration/priority-3-query-metadata.md` describing the metadata bag design and prerequisites.
+- T051 Complete: Recorded plugin infrastructure prerequisites for query planning within the priority 3 plan.
+- T048 Complete: Authored `migration/priority-4-storage-bson.md` defining storage and BSON migration strategy.
+- T052 Complete: Documented BSON type registration prerequisites in the priority 4 plan.
+- T053 Complete: Documented storage engine page factory prerequisites in the priority 4 plan.
+- T054 Complete: Added database compatibility notes to every migration plan to preserve existing vector indexes without rebuild.
+- T055 Complete: Added performance guardrails (≤2% regression) across all migration plans.
+- T056 Complete: Created `migration/validation-checklist.md` capturing go/no-go checks for each priority.
+- T057 Complete: Added fallback strategies for plugin-absent deployments to each migration plan.
+- T060 Complete: Expanded spec migration priorities with per-plan prerequisites, compatibility, performance, and fallback summaries referencing new documentation.

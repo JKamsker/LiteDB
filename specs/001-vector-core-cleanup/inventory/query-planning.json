@@ -8,8 +8,8 @@
         "LiteDB/Document/Expression/Parser/BsonExpressionType.cs"
     ],
     "scopeSummary": "Stores vector filter state, planning flags, and dedicated expression node types (VectorDist, VectorSim)",
-    "decisionId": "pending-decision",
+    "decisionId": "requires-infrastructure",
     "requiredGapIds": [],
     "verificationStepIds": [],
-    "notes": "Expect to link to infrastructure gaps for query state extensions in US2."
+    "notes": "Blocked until plugin-managed query metadata bag exists; decision references infrastructure upgrade path."
 }

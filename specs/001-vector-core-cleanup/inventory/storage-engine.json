@@ -13,8 +13,8 @@
         "LiteDB/Engine/Engine/Rebuild.cs"
     ],
     "scopeSummary": "Maintains vector index pages, metadata slots, file reader serialization, rebuild routines, and snapshot free-list management",
-    "decisionId": "pending-decision",
+    "decisionId": "requires-infrastructure",
     "requiredGapIds": [],
     "verificationStepIds": [],
-    "notes": "Expecting infrastructure dependencies around page factories and metadata bridging to the plugin."
+    "notes": "Blocked until plugin-accessible page factory and metadata API is in place to host vector pages in the plugin."
 }

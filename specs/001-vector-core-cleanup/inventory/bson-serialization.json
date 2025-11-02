@@ -11,8 +11,8 @@
         "LiteDB/Engine/Disk/Serializer/BufferWriter.cs"
     ],
     "scopeSummary": "Adds BsonType.Vector, conversion helpers, JSON serialization, and binary encoding for float arrays",
-    "decisionId": "pending-decision",
+    "decisionId": "requires-infrastructure",
     "requiredGapIds": [],
     "verificationStepIds": [],
-    "notes": "Serialization hooks depend on plugin-managed type registry; decision linkage pending US2."
+    "notes": "Blocked until plugin-managed BSON type registration exists; decision now tracks infrastructure dependency."
 }

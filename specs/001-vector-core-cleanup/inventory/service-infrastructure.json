@@ -6,8 +6,8 @@
         "LiteDB/Utils/Constants.cs"
     ],
     "scopeSummary": "Factory wires plugin search service; friend assemblies grant plugin access to internals",
-    "decisionId": "pending-decision",
+    "decisionId": "move-to-plugin-short",
     "requiredGapIds": [],
     "verificationStepIds": [],
-    "notes": "Tracks factory relocation work and InternalsVisibleTo cleanup now that plugin will own the service."
+    "notes": "Short-term migration: relocate VectorIndexServiceFactory into LiteDB.Vector and eliminate InternalsVisibleTo dependencies."
 }

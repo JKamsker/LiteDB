@@ -98,30 +98,30 @@ This feature works with existing LiteDB solution structure:
 
 ### Implementation for User Story 2
 
-- [ ] T037 [P] [US2] Create MigrationDecision "Move to Plugin (Short Term)" in `.\specs\001-vector-core-cleanup\decisions\move-to-plugin-short.json`
-- [ ] T038 [P] [US2] Create MigrationDecision "Requires Infrastructure Change" in `.\specs\001-vector-core-cleanup\decisions\requires-infrastructure.json`
-- [ ] T039 [P] [US2] Create MigrationDecision "Remain in Core" in `.\specs\001-vector-core-cleanup\decisions\remain-in-core.json`
-- [ ] T040 [US2] Link Public API surface record to "Move to Plugin (Short Term)" decision with prerequisite: "Replace with plugin extension methods and index interceptors"
-- [ ] T041 [US2] Link Service infrastructure record to "Move to Plugin (Short Term)" decision with prerequisite: "Relocate factory to LiteDB.Vector and replace InternalsVisibleTo"
-- [ ] T042 [US2] Link Query planning record to "Requires Infrastructure Change" decision with prerequisite: "Design plugin-managed query metadata bag"
-- [ ] T043 [US2] Link BSON serialization record to "Requires Infrastructure Change" decision with prerequisite: "Implement plugin-managed BSON type registration"
-- [ ] T044 [US2] Link Storage engine record to "Requires Infrastructure Change" decision with prerequisite: "Design plugin-accessible page factory and metadata API"
-- [ ] T045 [US2] Define migration priority 1: Relocate VectorIndexServiceFactory in `.\specs\001-vector-core-cleanup\migration\priority-1-service-factory.md`
-- [ ] T046 [US2] Define migration priority 2: Deprecate core EnsureVectorIndex APIs in `.\specs\001-vector-core-cleanup\migration\priority-2-public-api.md`
-- [ ] T047 [US2] Define migration priority 3: Design query metadata extensions in `.\specs\001-vector-core-cleanup\migration\priority-3-query-metadata.md`
-- [ ] T048 [US2] Define migration priority 4: Extend plugin for custom pages and BSON types in `.\specs\001-vector-core-cleanup\migration\priority-4-storage-bson.md`
-- [ ] T049 [US2] Document migration sequence for Public API surface with clear steps in migration plan priority-2-public-api.md
-- [ ] T050 [US2] Document migration sequence for Service infrastructure with clear steps in migration plan priority-1-service-factory.md
-- [ ] T051 [US2] Document migration prerequisites for Query planning components including plugin infrastructure requirements
-- [ ] T052 [US2] Document migration prerequisites for BSON serialization including type registration design
-- [ ] T053 [US2] Document migration prerequisites for Storage engine including page factory design
-- [ ] T054 [US2] Add database compatibility notes to each migration plan: "Must preserve existing vector indexes without rebuild"
-- [ ] T055 [US2] Add performance requirements to each migration plan: "Must maintain ≤2% regression from current throughput"
-- [ ] T056 [US2] Create migration validation checklist in `.\specs\001-vector-core-cleanup\migration\validation-checklist.md`
-- [ ] T057 [US2] Document fallback strategy for databases without plugin in each migration plan
-- [ ] T058 [US2] Assign ownership to "Vector Plugin Team" for short-term migrations in decision files
-- [ ] T059 [US2] Assign ownership to "Core Engine Team + Vector Plugin Team" for infrastructure-dependent migrations
-- [ ] T060 [US2] Update spec.md with complete migration priorities section based on created plan documents
+- [X] T037 [P] [US2] Create MigrationDecision "Move to Plugin (Short Term)" in `.\specs\001-vector-core-cleanup\decisions\move-to-plugin-short.json`
+- [X] T038 [P] [US2] Create MigrationDecision "Requires Infrastructure Change" in `.\specs\001-vector-core-cleanup\decisions\requires-infrastructure.json`
+- [X] T039 [P] [US2] Create MigrationDecision "Remain in Core" in `.\specs\001-vector-core-cleanup\decisions\remain-in-core.json`
+- [X] T040 [US2] Link Public API surface record to "Move to Plugin (Short Term)" decision with prerequisite: "Replace with plugin extension methods and index interceptors"
+- [X] T041 [US2] Link Service infrastructure record to "Move to Plugin (Short Term)" decision with prerequisite: "Relocate factory to LiteDB.Vector and replace InternalsVisibleTo"
+- [X] T042 [US2] Link Query planning record to "Requires Infrastructure Change" decision with prerequisite: "Design plugin-managed query metadata bag"
+- [X] T043 [US2] Link BSON serialization record to "Requires Infrastructure Change" decision with prerequisite: "Implement plugin-managed BSON type registration"
+- [X] T044 [US2] Link Storage engine record to "Requires Infrastructure Change" decision with prerequisite: "Design plugin-accessible page factory and metadata API"
+- [X] T045 [US2] Define migration priority 1: Relocate VectorIndexServiceFactory in `.\specs\001-vector-core-cleanup\migration\priority-1-service-factory.md`
+- [X] T046 [US2] Define migration priority 2: Deprecate core EnsureVectorIndex APIs in `.\specs\001-vector-core-cleanup\migration\priority-2-public-api.md`
+- [X] T047 [US2] Define migration priority 3: Design query metadata extensions in `.\specs\001-vector-core-cleanup\migration\priority-3-query-metadata.md`
+- [X] T048 [US2] Define migration priority 4: Extend plugin for custom pages and BSON types in `.\specs\001-vector-core-cleanup\migration\priority-4-storage-bson.md`
+- [X] T049 [US2] Document migration sequence for Public API surface with clear steps in migration plan priority-2-public-api.md
+- [X] T050 [US2] Document migration sequence for Service infrastructure with clear steps in migration plan priority-1-service-factory.md
+- [X] T051 [US2] Document migration prerequisites for Query planning components including plugin infrastructure requirements
+- [X] T052 [US2] Document migration prerequisites for BSON serialization including type registration design
+- [X] T053 [US2] Document migration prerequisites for Storage engine including page factory design
+- [X] T054 [US2] Add database compatibility notes to each migration plan: "Must preserve existing vector indexes without rebuild"
+- [X] T055 [US2] Add performance requirements to each migration plan: "Must maintain ≤2% regression from current throughput"
+- [X] T056 [US2] Create migration validation checklist in `.\specs\001-vector-core-cleanup\migration\validation-checklist.md`
+- [X] T057 [US2] Document fallback strategy for databases without plugin in each migration plan
+- [X] T058 [US2] Assign ownership to "Vector Plugin Team" for short-term migrations in decision files
+- [X] T059 [US2] Assign ownership to "Core Engine Team + Vector Plugin Team" for infrastructure-dependent migrations
+- [X] T060 [US2] Update spec.md with complete migration priorities section based on created plan documents
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both be complete with inventory and migration plans
 

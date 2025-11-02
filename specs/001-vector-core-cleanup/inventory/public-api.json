@@ -10,8 +10,8 @@
         "LiteDB/Client/Database/LiteQueryable.cs"
     ],
     "scopeSummary": "Direct EnsureVectorIndex APIs, vector distance LINQ helpers, and repository wrappers expose vector search semantics to consumers",
-    "decisionId": "pending-decision",
+    "decisionId": "move-to-plugin-short",
     "requiredGapIds": [],
     "verificationStepIds": [],
-    "notes": "US2 will bind to concrete migration decisions and verification steps."
+    "notes": "Short-term migration: replace EnsureVectorIndex APIs with plugin extension methods and index interceptors before relocating surface."
 }

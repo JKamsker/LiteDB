@@ -87,10 +87,30 @@ Search executed on 2025-11-02 using `rg "Vector" LiteDB` produced **196 matches*
 
 #### Migration Priorities
 
-1. Relocate `VectorIndexServiceFactory` and revisit `InternalsVisibleTo` usage so plugin owns service registration while core exposes minimal abstractions.
-2. Deprecate core-facing `EnsureVectorIndex` APIs and transition callers to plugin extension methods that rely on index interceptors and strategy registration.
-3. Design plugin-managed query metadata and expression registration so vector filter flags can move out of `Query`/`QueryOptimization`.
-4. Extend the plugin infrastructure to manage custom pages, metadata serialization, and BSON types, then migrate storage and serializer components into `LiteDB.Vector`.
+1. **Priority 1 – Relocate `VectorIndexServiceFactory`** (`migration/priority-1-service-factory.md`)
+   - **Decision**: `move-to-plugin-short` with Vector Plugin Team owning execution.
+   - **Prerequisites**: Plugin extension methods must wrap EnsureVectorIndex entry points before the factory moves.
+   - **Compatibility**: Must preserve existing vector indexes without rebuild by mirroring service discovery semantics.
+   - **Performance**: Must maintain ≤2% regression from current throughput, validated against index build benchmarks.
+   - **Fallback**: Core retains a guarded shim that raises clear guidance when the plugin is absent.
+2. **Priority 2 – Deprecate core `EnsureVectorIndex` APIs** (`migration/priority-2-public-api.md`)
+   - **Decision**: `move-to-plugin-short` covering public API surface adjustments.
+   - **Prerequisites**: Plugin extension methods and documentation ready for consumer adoption.
+   - **Compatibility**: Must preserve existing vector indexes without rebuild during the deprecation bridge.
+   - **Performance**: Must maintain ≤2% regression from current throughput while both paths coexist.
+   - **Fallback**: Provide user-facing messaging when vector APIs are called without the plugin installed.
+3. **Priority 3 – Design query metadata extensions** (`migration/priority-3-query-metadata.md`)
+   - **Decision**: `requires-infrastructure` hinging on a plugin-managed query metadata bag.
+   - **Prerequisites**: Introduce metadata container through `QueryPlanningContext` and document serialization rules.
+   - **Compatibility**: Must preserve existing vector indexes without rebuild by keeping planner outputs stable.
+   - **Performance**: Must maintain ≤2% regression from current throughput despite metadata indirection.
+   - **Fallback**: Supply an inert metadata implementation that blocks vector queries with actionable diagnostics.
+4. **Priority 4 – Extend plugin for custom storage pages and BSON types** (`migration/priority-4-storage-bson.md`)
+   - **Decision**: `requires-infrastructure` spanning BSON type registration and storage page factories.
+   - **Prerequisites**: Add plugin-managed BSON registry and plugin-accessible page factory before relocating code.
+   - **Compatibility**: Must preserve existing vector indexes without rebuild by honoring on-disk identifiers.
+   - **Performance**: Must maintain ≤2% regression from current throughput across rebuild and serialization workloads.
+   - **Fallback**: Keep compatibility layer that prompts users to enable the plugin before modifying legacy data.
 
 #### Verification Strategy
 
