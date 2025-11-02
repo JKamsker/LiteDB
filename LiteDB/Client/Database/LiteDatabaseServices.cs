@@ -32,6 +32,16 @@ namespace LiteDB
         public IQueryPlannerRegistry QueryPlanner => _context.QueryPlanner;
 
         /// <summary>
+        /// Gets the LINQ resolver registry associated with the database.
+        /// </summary>
+        public ILinqResolverRegistry LinqResolvers => _context.LinqResolvers;
+
+        /// <summary>
+        /// Gets the index interceptor registry associated with the database.
+        /// </summary>
+        public IIndexInterceptorRegistry IndexInterceptors => _context.IndexInterceptors;
+
+        /// <summary>
         /// Gets the service provider exposed to plugins.
         /// </summary>
         public IServiceProvider Services => _context.Services;

@@ -14,7 +14,7 @@ namespace LiteDB
         /// </summary>
         public ILiteQueryable<T> Query()
         {
-            return new LiteQueryable<T>(_engine, _mapper, _collection, new Query(), _expressions).Include(_includes);
+            return new LiteQueryable<T>(_engine, _mapper, _collection, new Query(), _expressions, _database, _linqResolvers).Include(_includes);
         }
 
         #region Find
@@ -44,14 +44,14 @@ namespace LiteDB
             if (skip != 0) query.Offset = skip;
             if (limit != int.MaxValue) query.Limit = limit;
 
-            return new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions)
+            return new LiteQueryable<T>(_engine, _mapper, _collection, query, _expressions, _database, _linqResolvers)
                 .ToEnumerable();
         }
 
         /// <summary>
         /// Find documents inside a collection using predicate expression.
         /// </summary>
-        public IEnumerable<T> Find(Expression<Func<T, bool>> predicate, int skip = 0, int limit = int.MaxValue) => this.Find(_mapper.GetExpression(predicate, _expressions), skip, limit);
+        public IEnumerable<T> Find(Expression<Func<T, bool>> predicate, int skip = 0, int limit = int.MaxValue) => this.Find(_mapper.GetExpression(predicate, _expressions, _database, _linqResolvers), skip, limit);
 
         #endregion
 
@@ -90,7 +90,7 @@ namespace LiteDB
         /// <summary>
         /// Find the first document using predicate expression. Returns null if not found
         /// </summary>
-        public T FindOne(Expression<Func<T, bool>> predicate) => this.FindOne(_mapper.GetExpression(predicate, _expressions));
+        public T FindOne(Expression<Func<T, bool>> predicate) => this.FindOne(_mapper.GetExpression(predicate, _expressions, _database, _linqResolvers));
 
         /// <summary>
         /// Find the first document using defined query structure. Returns null if not found
