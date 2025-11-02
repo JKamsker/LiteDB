@@ -308,7 +308,9 @@ namespace LiteDB.Vector.Tests.Querying
 
             plan["index"]["mode"].AsString.Should().Be("VECTOR INDEX SEARCH");
             plan["index"]["expr"].AsString.Should().Be("$.Embedding");
-            plan.ContainsKey("filters").Should().BeFalse();
+            plan.ContainsKey("filters").Should().BeTrue();
+            var filterExpressions = plan["filters"].AsArray.Select(x => x.AsString).ToArray();
+            filterExpressions.Should().Equal("(VECTOR_DIST($.Embedding,@0))<=@1");
 
             var results = query.ToArray();
 

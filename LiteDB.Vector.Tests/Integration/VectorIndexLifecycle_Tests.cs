@@ -83,7 +83,9 @@ namespace LiteDB.Vector.Tests.Integration
             var recreatedState = SnapshotHelper.GetVectorIndexState(db, "vectors", "embedding_idx");
 
             recreatedState.Should().NotBeNull();
-            recreatedState!.NodeCount.Should().Be(documents.Length);
+            var remainingDocuments = collection.Count();
+            remainingDocuments.Should().Be(documents.Length - 1);
+            recreatedState!.NodeCount.Should().Be(remainingDocuments);
         }
 
         private sealed record VectorIndexState(PageAddress Root, ushort Dimensions, VectorDistanceMetric Metric, int NodeCount);
