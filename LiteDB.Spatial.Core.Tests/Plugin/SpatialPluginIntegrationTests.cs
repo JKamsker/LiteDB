@@ -35,6 +35,35 @@ public sealed class SpatialPluginIntegrationTests
     }
 
     [Fact]
+    public void EnsureIndex_WithExistingMetadata_DoesNotRecreateBackingIndexes()
+    {
+        using var database = CreateDatabase();
+
+        var collection = database.GetCollection<GeoDocument>("points");
+        collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(42.0, 20.0) });
+
+        collection.EnsureIndex(x => x.Location);
+
+        const string mortonIndexName = "idx";
+        const string boundingIndexName = "mbb";
+
+        collection.DropIndex(mortonIndexName)
+            .Should().BeTrue("dropping the numeric Morton index should succeed after spatial provisioning");
+        collection.DropIndex(boundingIndexName)
+            .Should().BeTrue("dropping the bounding-box index should succeed after spatial provisioning");
+
+        var ensured = collection.EnsureIndex(x => x.Location);
+
+        ensured.Should().BeTrue("the plugin short-circuits when metadata is present but reports success");
+
+        var recreatedPrimary = collection.EnsureIndex($"$.{SpatialIndexOptions.DefaultIndexFieldName}");
+        var recreatedBounding = collection.EnsureIndex($"$.{SpatialIndexOptions.DefaultBoundingBoxFieldName}");
+
+        recreatedPrimary.Should().BeFalse("the plugin rebuilds the Morton index when metadata already exists");
+        recreatedBounding.Should().BeFalse("the plugin rebuilds the bounding-box index when metadata already exists");
+    }
+
+    [Fact]
     public void WhereNear_Expression_SelectsNearbyDocuments()
     {
         using var database = CreateDatabase();
