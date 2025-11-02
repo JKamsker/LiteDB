@@ -41,6 +41,36 @@ function Get-OpenTasks {
     )
 }
 
+function Get-OpenTasksByPhase {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Task file not found: $Path"
+    }
+
+    $phase = 'Uncategorized'
+    $results = @()
+
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match '^\s*##\s+(?<phase>.+)$') {
+            $phase = $Matches['phase'].Trim()
+            continue
+        }
+
+        if ($line -match '^\s*-\s*\[\s\]\s+') {
+            $results += [pscustomobject]@{
+                Phase = $phase
+                Line  = $line
+            }
+        }
+    }
+
+    return $results
+}
+
 function Get-TaskIds {
     param(
         [string[]]$Lines
@@ -69,7 +99,8 @@ function Build-CodexPrompt {
         [string]$Base,
         [string[]]$Remaining,
         [string]$TaskPath,
-        [string]$ProgressPath
+        [string]$ProgressPath,
+        [string]$PhaseName
     )
 
     $remainingText = if ($Remaining) {
@@ -79,10 +110,17 @@ function Build-CodexPrompt {
         '(all tasks complete)'
     }
 
+    $phaseLabel = if ($PhaseName) {
+        "Remaining unchecked tasks for $PhaseName"
+    }
+    else {
+        'Remaining unchecked tasks'
+    }
+
     $prompt = @"
 $Base
 
-Remaining unchecked tasks (update $TaskPath and $ProgressPath as you work):
+$phaseLabel (update $TaskPath and $ProgressPath as you work):
 $remainingText
 
 Work non-interactively, choose the next task to tackle, mark it as done in the task file, and record progress updates.
@@ -95,7 +133,7 @@ Work non-interactively, choose the next task to tackle, mark it as done in the t
     return $prompt + "`n"
 }
 
-function Invoke-CodexIteration {
+function Start-CodexSession {
     param(
         [string]$Prompt,
         [string]$RepoRootPath,
@@ -105,8 +143,12 @@ function Invoke-CodexIteration {
     )
 
     if ($Dry) {
-        Write-Host '[dry-run] Skipping Codex execution.'
-        return 0
+        Write-Host '[dry-run] Skipping Codex session start.'
+        return [pscustomobject]@{
+            ExitCode  = 0
+            Output    = @()
+            SessionId = $null
+        }
     }
 
     $execArgs = @('exec')
@@ -115,16 +157,66 @@ function Invoke-CodexIteration {
     }
     $execArgs += @('--cd', $RepoRootPath, '-')
 
-    $null = $Prompt | & $Binary @execArgs
-    return $LASTEXITCODE
+    $output = $Prompt | & $Binary @execArgs 2>&1
+    $exitCode = $LASTEXITCODE
+
+    $sessionId = $null
+    if ($output) {
+        $outputText = ($output -join "`n")
+        $match = [regex]::Match($outputText, 'session id:\s*([0-9a-fA-F-]+)')
+        if ($match.Success) {
+            $sessionId = $match.Groups[1].Value
+        }
+    }
+
+    return [pscustomobject]@{
+        ExitCode  = $exitCode
+        Output    = $output
+        SessionId = $sessionId
+    }
+}
+
+function Resume-CodexSession {
+    param(
+        [string]$SessionId,
+        [string]$Prompt,
+        [string]$RepoRootPath,
+        [string]$Binary,
+        [string[]]$Options,
+        [switch]$Dry
+    )
+
+    if ($Dry) {
+        Write-Host ("[dry-run] Skipping Codex resume for session {0}." -f $SessionId)
+        return [pscustomobject]@{
+            ExitCode = 0
+            Output   = @()
+        }
+    }
+
+    $resumeArgs = @('exec')
+    if ($Options) {
+        $resumeArgs += $Options
+    }
+    $resumeArgs += @('--cd', $RepoRootPath, 'resume', $SessionId, $Prompt)
+
+    $output = & $Binary @resumeArgs 2>&1
+    $exitCode = $LASTEXITCODE
+
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        Output   = $output
+    }
 }
 
 Push-Location -LiteralPath $RepoRoot
 try {
     $iteration = 0
+    $sessionMap = @{}
 
     while ($true) {
-        $openBefore = Get-OpenTasks -Path $TaskFile
+        $openBeforeDetailed = Get-OpenTasksByPhase -Path $TaskFile
+        $openBefore = $openBeforeDetailed | ForEach-Object { $_.Line }
 
         if (-not $openBefore -or $openBefore.Count -eq 0) {
             Write-Host 'All tasks are complete. Exiting.'
@@ -138,16 +230,56 @@ try {
             break
         }
 
-        Write-Host ("Starting Codex iteration #{0}. Remaining tasks: {1}" -f $iteration, $openBefore.Count)
-
-        $prompt = Build-CodexPrompt -Base $InitialInstructions -Remaining $openBefore -TaskPath $TaskFile -ProgressPath $ProgressFile
-        $exitCode = Invoke-CodexIteration -Prompt $prompt -RepoRootPath $RepoRoot -Binary $CodexBinary -Options $CodexOptions -Dry:$DryRun
-
-        if ($exitCode -ne 0) {
-            throw "Codex exited with code $exitCode."
+        $activePhase = $null
+        if ($openBeforeDetailed) {
+            $activePhase = ($openBeforeDetailed | Select-Object -First 1).Phase
         }
 
-        $openAfter = Get-OpenTasks -Path $TaskFile
+        $phaseTasks = if ($activePhase) {
+            $openBeforeDetailed | Where-Object { $_.Phase -eq $activePhase }
+        }
+        else {
+            @()
+        }
+
+        $phaseTaskLines = if ($phaseTasks) { $phaseTasks | ForEach-Object { $_.Line } } else { $openBefore }
+        $phaseTaskCount = @($phaseTaskLines).Count
+        $phaseLabel = if ($activePhase) { $activePhase } else { 'Uncategorized' }
+
+        Write-Host ("Starting Codex iteration #{0}. Active phase: {1}. Tasks in phase: {2}" -f $iteration, $phaseLabel, $phaseTaskCount)
+
+        $prompt = Build-CodexPrompt -Base $InitialInstructions -Remaining $phaseTaskLines -TaskPath $TaskFile -ProgressPath $ProgressFile -PhaseName $phaseLabel
+
+        $sessionId = $null
+        if ($phaseLabel -and $sessionMap.ContainsKey($phaseLabel)) {
+            $sessionId = $sessionMap[$phaseLabel]
+        }
+
+        $result = $null
+        if (-not $sessionId) {
+            $result = Start-CodexSession -Prompt $prompt -RepoRootPath $RepoRoot -Binary $CodexBinary -Options $CodexOptions -Dry:$DryRun
+            if ($result.ExitCode -ne 0) {
+                throw "Codex exited with code $($result.ExitCode)."
+            }
+
+            if (-not $DryRun) {
+                if (-not $result.SessionId) {
+                    throw 'Failed to capture Codex session id from Codex output.'
+                }
+
+                $sessionMap[$phaseLabel] = $result.SessionId
+                Write-Host ("Initialized Codex session for {0}: {1}" -f $phaseLabel, $result.SessionId)
+            }
+        }
+        else {
+            $result = Resume-CodexSession -SessionId $sessionId -Prompt $prompt -RepoRootPath $RepoRoot -Binary $CodexBinary -Options $CodexOptions -Dry:$DryRun
+            if ($result.ExitCode -ne 0) {
+                throw "Codex resume exited with code $($result.ExitCode)."
+            }
+        }
+
+        $openAfterDetailed = Get-OpenTasksByPhase -Path $TaskFile
+        $openAfter = $openAfterDetailed | ForEach-Object { $_.Line }
 
         $closed = @()
         if ($openBefore) {
