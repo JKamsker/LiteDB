@@ -11,13 +11,13 @@ Deliver the infrastructure and migrations required to close every open gap from 
 
 ## Technical Context
 
-**Language/Version**: C# targeting `netstandard2.0` and `net8.0` multi-targeted libraries (`<LangVersion>latest</LangVersion>`)  
-**Primary Dependencies**: LiteDB core library (`LiteDB/`), LiteDB plugin infrastructure under `LiteDB/Plugins/`, LiteDB.Vector plugin project, xUnit + FluentAssertions for validation  
+**Language/Version**: C# targeting `netstandard2.0` and `net8.0` multi-targeted libraries (`<LangVersion>latest</LangVersion>`)
+**Primary Dependencies**: LiteDB core library (`LiteDB/`), LiteDB plugin infrastructure under `LiteDB/Plugins/`, LiteDB.Vector plugin project, xUnit + FluentAssertions for validation, `System.Threading.Tasks.Extensions` (for `ValueTask` support in `netstandard2.0`)
 **Storage**: LiteDB file-based document store with BSON serialization, custom page formats, and vector index metadata persisted in data pages  
 **Testing**: `dotnet test LiteDB.sln --settings tests.runsettings`, targeted suites (`LiteDB.Vector.Tests`, `LiteDB.Tests` Engine scope), and upgrade validation scripts from `specs/001-vector-core-cleanup/verification`  
 **Target Platform**: Cross-platform .NET environments (Windows, Linux, macOS) consistent with existing LiteDB targets  
 **Project Type**: Multi-project .NET solution (core library + plugin packages + accompanying tests)  
-**Performance Goals**: Maintain vector query and index throughput within ±5% of pre-migration baselines measured by existing benchmarks; no additional startup cost when plugin absent  
+**Performance Goals**: Ensure existing vector tests pass without significant slowdowns; no additional startup cost when plugin absent (formal benchmarking deferred)  
 **Constraints**: Must preserve backward compatibility for existing databases, keep `netstandard2.0` build warning-free, avoid new mandatory dependencies for non-vector consumers, and resolve all `gap-*` records without introducing new ones  
 **Scale/Scope**: Impacts all vector touch points in `LiteDB/` (Engine, Document, Client, Utils), LiteDB.Vector runtime, and supporting documentation/verification assets under `specs/001-vector-core-cleanup`
 

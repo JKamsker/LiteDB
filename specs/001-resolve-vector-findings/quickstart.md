@@ -14,17 +14,18 @@ Follow this runbook to exercise the fully plugin-managed vector implementation a
    dotnet build LiteDB.sln -c Release
    ```
 
-## 2. Register plugin extensibility contracts
+## 2. Verify plugin extensibility registration (In-Memory)
 
-1. Start the local tooling service (see `specs/001-vector-core-cleanup/contracts/openapi.yaml` for context) or mock the endpoints.
-2. Register the query metadata bag reserved keys:
-   ```pwsh
-   curl -X POST https://extensions.litedb.dev/api/plugins/LiteDB.Vector/registrations/query-metadata `
-     -H 'Content-Type: application/json' `
-     -d '{"pluginId":"LiteDB.Vector","version":1,"reservedKeys":["VectorField","VectorMetric","TargetEmbedding"],"description":"Vector search planner metadata"}'
+**Note**: The `contracts/plugin-extensibility.yaml` OpenAPI spec describes the conceptual registration model for documentation purposes. Actual registration happens in-memory during plugin initialization—no external service is required.
+
+1. Verify the plugin initialization registers query metadata bags in `LiteDB.Vector/Plugin/VectorPluginRegistration.cs`:
+   ```csharp
+   // Expected registration during plugin.Initialize():
+   context.RegisterQueryMetadata("LiteDB.Vector", version: 1,
+       reservedKeys: ["VectorField", "VectorMetric", "TargetEmbedding"]);
    ```
-3. Reserve the BSON type and page factory descriptors using the payloads defined in `contracts/plugin-extensibility.yaml`.
-4. Submit the vector index strategy registration to replace `EnsureVectorIndex` shims.
+2. Confirm BSON type and page factory descriptors are registered using contracts defined in `contracts/plugin-extensibility.yaml`.
+3. Verify the vector index strategy registration completes successfully during plugin startup, replacing legacy `EnsureVectorIndex` shims.
 
 ## 3. Run migrations against a legacy database
 

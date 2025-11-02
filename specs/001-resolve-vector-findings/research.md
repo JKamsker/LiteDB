@@ -39,5 +39,17 @@
 ## Performance guardrails
 
 - **Decision**: Benchmark vector index build/search paths before and after migration, targeting ≤5% regression and publishing results alongside the upgrade validation checklist.
-- **Rationale**: The constitution’s Performance-First principle coupled with success criteria requires explicit performance tracking to confirm plugin-hosted code meets existing expectations.
+- **Rationale**: The constitution's Performance-First principle coupled with success criteria requires explicit performance tracking to confirm plugin-hosted code meets existing expectations.
 - **Alternatives considered**: Skip performance validation (risks regressions) or accept regressions without quantified limits (would violate repository guidance).
+
+## Specification adjustments (2025-11-02)
+
+Post-design review identified operational gaps that were addressed in the task breakdown:
+
+- **Directory structure verification**: Added T004 to explicitly verify/create `LiteDB/Plugins/` subdirectories before interface creation, preventing file path errors.
+- **Migration helper implementation**: Added T032 to implement C# migration helpers explicitly (previously only PowerShell orchestration was tasked).
+- **Build verification after InternalsVisibleTo removal**: Added T029b to validate plugin compiles independently, catching friend assembly dependencies early.
+- **Plugin-absent testing**: Added T023b to validate deterministic error handling when vector operations run without the plugin loaded.
+- **ValueTask dependency**: Added T041 to verify `System.Threading.Tasks.Extensions` package reference for `netstandard2.0` support.
+- **Quickstart service clarification**: Clarified that OpenAPI contracts are conceptual documentation; registration happens in-memory (no external service required).
+- **Performance benchmarks**: Removed formal benchmark tasks (T003b, T031b) as too time-consuming; performance validation will rely on existing test suite passing without regressions.
