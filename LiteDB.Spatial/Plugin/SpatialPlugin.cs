@@ -1,5 +1,4 @@
 extern alias LiteDbBase;
-
 using System;
 using System.Linq;
 using LiteDB.Spatial.Plugin.Linq;
@@ -87,20 +86,34 @@ namespace LiteDB.Spatial.Plugin
         {
             var globalRegistry = BaseLiteDB.LiteDatabaseServices.Default.ExpressionRegistry;
 
-            Register("SPATIAL_NEAR", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeNear);
-            Register("SPATIAL_WITHIN", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeWithin);
-            Register("SPATIAL_INTERSECTS", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeIntersects);
-            Register("SPATIAL_CONTAINS", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeContains);
-            Register("SPATIAL_IN_BOX", (Func<BaseLiteDB.BsonDocument, BaseLiteDB.Collation, BaseLiteDB.BsonDocument, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue, BaseLiteDB.BsonValue>)SpatialExpressionFunctions.InvokeInBox);
+            Register("SPATIAL_NEAR", SpatialExpressionFunctions.InvokeNear);
+            Register("SPATIAL_WITHIN", SpatialExpressionFunctions.InvokeWithin);
+            Register("SPATIAL_INTERSECTS", SpatialExpressionFunctions.InvokeIntersects);
+            Register("SPATIAL_CONTAINS", SpatialExpressionFunctions.InvokeContains);
+            Register("SPATIAL_IN_BOX", SpatialExpressionFunctions.InvokeInBox);
 
             void Register<TDelegate>(string name, TDelegate implementation)
                 where TDelegate : Delegate
             {
-                registry.RegisterFunction(name, implementation, BaseLiteDB.BsonExpressionType.Call, convertScalarLeftToEnumerable: false, isScalarResult: true);
+                registry.RegisterFunction
+                (
+                    name,
+                    implementation,
+                    BaseLiteDB.BsonExpressionType.Call,
+                    convertScalarLeftToEnumerable: false,
+                    isScalarResult: true
+                );
 
                 if (!ReferenceEquals(registry, globalRegistry))
                 {
-                    globalRegistry.RegisterFunction(name, implementation, BaseLiteDB.BsonExpressionType.Call, convertScalarLeftToEnumerable: false, isScalarResult: true);
+                    globalRegistry.RegisterFunction
+                    (
+                        name,
+                        implementation,
+                        BaseLiteDB.BsonExpressionType.Call,
+                        convertScalarLeftToEnumerable: false,
+                        isScalarResult: true
+                    );
                 }
             }
         }
