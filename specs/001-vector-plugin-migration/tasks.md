@@ -119,16 +119,16 @@
 
 ### Distance Metric Implementation for User Story 3
 
-- [ ] T038 [US3] Verify VectorDistanceMetric enum includes all three metrics (Euclidean=0, Cosine=1, DotProduct=2) at `LiteDB.Vector/VectorDistanceMetric.cs`
-- [ ] T039 [US3] Verify VectorIndexService.CalculateDistance implements all three metric formulas correctly at `LiteDB.Vector/Engine/VectorIndexService.cs`
-- [ ] T040 [US3] Verify VectorIndexOptions defaults to Cosine metric at `LiteDB.Vector/VectorIndexOptions.cs`
-- [ ] T041 [US3] Add connection string parsing for default metric in VectorSearchPlugin.Initialize at `LiteDB.Vector/VectorSearchPlugin.cs`: read "vector.metric" parameter
+- [X] T038 [US3] Verify VectorDistanceMetric enum includes all three metrics (Euclidean=0, Cosine=1, DotProduct=2) at `LiteDB.Vector/VectorDistanceMetric.cs`
+- [X] T039 [US3] Verify VectorIndexService.CalculateDistance implements all three metric formulas correctly at `LiteDB.Vector/Engine/VectorIndexService.cs`
+- [X] T040 [US3] Verify VectorIndexOptions defaults to Cosine metric at `LiteDB.Vector/VectorIndexOptions.cs`
+- [X] T041 [US3] Add connection string parsing for default metric in VectorSearchPlugin.Initialize at `LiteDB.Vector/VectorSearchPlugin.cs`: read "vector.metric" parameter
 
 ### Testing for User Story 3
 
-- [ ] T042 [P] [US3] Add metric-specific tests at `LiteDB.Vector.Tests/VectorMetrics_Tests.cs`: verify Cosine returns values in [0,2], Euclidean returns values in [0,Ôê×), DotProduct handles negative values
-- [ ] T043 [P] [US3] Add cross-metric comparison tests at `LiteDB.Vector.Tests/VectorMetrics_Tests.cs`: same data with different metrics produces different rankings
-- [ ] T044 [US3] Verify metric selection via VectorIndexOptions works correctly: create indexes with each metric, verify distance calculations match expected formulas
+- [X] T042 [P] [US3] Add metric-specific tests at `LiteDB.Vector.Tests/VectorMetrics_Tests.cs`: verify Cosine returns values in [0,2], Euclidean returns values in [0,Ôê×), DotProduct handles negative values
+- [X] T043 [P] [US3] Add cross-metric comparison tests at `LiteDB.Vector.Tests/VectorMetrics_Tests.cs`: same data with different metrics produces different rankings
+- [X] T044 [US3] Verify metric selection via VectorIndexOptions works correctly: create indexes with each metric, verify distance calculations match expected formulas
 
 **Checkpoint**: All three distance metrics should work independently and produce correct results
 
