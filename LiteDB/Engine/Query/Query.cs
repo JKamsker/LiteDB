@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using LiteDB.Plugins.Query;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -12,6 +13,22 @@ namespace LiteDB
     /// </summary>
     public partial class Query
     {
+        private readonly Dictionary<string, QueryMetadataBag> _metadata = new Dictionary<string, QueryMetadataBag>(StringComparer.Ordinal);
+
+        private const string LegacyVectorPluginId = "LiteDB.Vector";
+        private const string VectorFieldKey = "VectorField";
+        private const string VectorTargetKey = "TargetEmbedding";
+        private const string VectorMaxDistanceKey = "VectorMaxDistance";
+        private const string VectorMetricKey = "VectorMetric";
+
+        private static readonly string[] LegacyVectorReservedKeys = new[]
+        {
+            VectorFieldKey,
+            VectorTargetKey,
+            VectorMaxDistanceKey,
+            VectorMetricKey
+        };
+
         public BsonExpression Select { get; set; } = BsonExpression.Root;
 
         public List<BsonExpression> Includes { get; } = new List<BsonExpression>();
@@ -26,16 +43,198 @@ namespace LiteDB
         public int Limit { get; set; } = int.MaxValue;
         public bool ForUpdate { get; set; } = false;
 
-        public string VectorField { get; set; } = null;
-        public float[] VectorTarget { get; set; } = null;
-        public double VectorMaxDistance { get; set; } = double.MaxValue;
-        public byte? VectorMetric { get; set; } = null;
-        public bool HasVectorFilter => VectorField != null && VectorTarget != null;
+        public bool HasVectorFilter
+        {
+            get
+            {
+                if (!TryGetMetadata(LegacyVectorPluginId, out var bag))
+                {
+                    return false;
+                }
+
+                if (!bag.TryGet<string>(VectorFieldKey, out var field) || string.IsNullOrWhiteSpace(field))
+                {
+                    return false;
+                }
+
+                return bag.TryGet<float[]>(VectorTargetKey, out var target) && target != null;
+            }
+        }
+
+        [Obsolete("VectorField is provided via LiteDB.Vector metadata bag. Use QueryMetadataBag instead.")]
+        public string VectorField
+        {
+            get
+            {
+                if (TryGetMetadata(LegacyVectorPluginId, out var bag) &&
+                    bag.TryGet<string>(VectorFieldKey, out var field))
+                {
+                    return field;
+                }
+
+                return null;
+            }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    RemoveVectorMetadata(VectorFieldKey);
+                    return;
+                }
+
+                EnsureVectorMetadataBag().Set(VectorFieldKey, value);
+            }
+        }
+
+        [Obsolete("VectorTarget is provided via LiteDB.Vector metadata bag. Use QueryMetadataBag instead.")]
+        public float[] VectorTarget
+        {
+            get
+            {
+                if (TryGetMetadata(LegacyVectorPluginId, out var bag) &&
+                    bag.TryGet<float[]>(VectorTargetKey, out var target))
+                {
+                    return target;
+                }
+
+                return null;
+            }
+            set
+            {
+                if (value == null)
+                {
+                    RemoveVectorMetadata(VectorTargetKey);
+                    return;
+                }
+
+                EnsureVectorMetadataBag().Set(VectorTargetKey, value);
+            }
+        }
+
+        [Obsolete("VectorMaxDistance is provided via LiteDB.Vector metadata bag. Use QueryMetadataBag instead.")]
+        public double VectorMaxDistance
+        {
+            get
+            {
+                if (TryGetMetadata(LegacyVectorPluginId, out var bag) &&
+                    bag.TryGet<double>(VectorMaxDistanceKey, out var distance))
+                {
+                    return distance;
+                }
+
+                return double.MaxValue;
+            }
+            set
+            {
+                if (double.IsPositiveInfinity(value) || value == double.MaxValue)
+                {
+                    RemoveVectorMetadata(VectorMaxDistanceKey);
+                    return;
+                }
+
+                EnsureVectorMetadataBag().Set(VectorMaxDistanceKey, value);
+            }
+        }
+
+        [Obsolete("VectorMetric is provided via LiteDB.Vector metadata bag. Use QueryMetadataBag instead.")]
+        public byte? VectorMetric
+        {
+            get
+            {
+                if (TryGetMetadata(LegacyVectorPluginId, out var bag) &&
+                    bag.TryGet<byte?>(VectorMetricKey, out var metric))
+                {
+                    return metric;
+                }
+
+                return null;
+            }
+            set
+            {
+                if (!value.HasValue)
+                {
+                    RemoveVectorMetadata(VectorMetricKey);
+                    return;
+                }
+
+                EnsureVectorMetadataBag().Set(VectorMetricKey, value);
+            }
+        }
 
         public string Into { get; set; }
         public BsonAutoId IntoAutoId { get; set; } = BsonAutoId.ObjectId;
 
         public bool ExplainPlan { get; set; }
+
+        public IEnumerable<string> RegisteredMetadata => _metadata.Keys;
+
+        public void AttachMetadata(QueryMetadataBag bag)
+        {
+            if (bag == null)
+            {
+                throw new ArgumentNullException(nameof(bag));
+            }
+
+            _metadata[bag.PluginId] = bag;
+        }
+
+        public bool TryGetMetadata(string pluginId, out QueryMetadataBag bag)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId))
+            {
+                bag = null;
+                return false;
+            }
+
+            return _metadata.TryGetValue(pluginId, out bag);
+        }
+
+        public QueryMetadataBag GetMetadata(string pluginId)
+        {
+            if (!TryGetMetadata(pluginId, out var bag))
+            {
+                throw new KeyNotFoundException($"No metadata bag has been attached for plugin '{pluginId}'.");
+            }
+
+            return bag;
+        }
+
+        public QueryMetadataBag GetOrCreateMetadata(string pluginId, Func<QueryMetadataBag> factory)
+        {
+            if (pluginId == null)
+            {
+                throw new ArgumentNullException(nameof(pluginId));
+            }
+
+            if (factory == null)
+            {
+                throw new ArgumentNullException(nameof(factory));
+            }
+
+            if (_metadata.TryGetValue(pluginId, out var existing))
+            {
+                return existing;
+            }
+
+            var bag = factory();
+            if (!string.Equals(bag?.PluginId, pluginId, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Metadata bag plugin id '{bag?.PluginId}' does not match requested plugin id '{pluginId}'.");
+            }
+
+            _metadata[pluginId] = bag;
+            return bag;
+        }
+
+        public bool RemoveMetadata(string pluginId)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId))
+            {
+                return false;
+            }
+
+            return _metadata.Remove(pluginId);
+        }
 
         /// <summary>
         /// [ EXPLAIN ]
@@ -109,34 +308,19 @@ namespace LiteDB
                 sb.AppendLine($"FOR UPDATE");
             }
 
-            if (this.HasVectorFilter)
+            if (TryGetVectorMetadata(out var vectorField, out var vectorTarget, out var vectorMaxDistance, out var vectorMetric))
             {
-                var field = this.VectorField;
+                var normalizedField = NormalizeVectorField(vectorField);
+                var metricSegment = vectorMetric.HasValue ? $", {vectorMetric.Value}" : string.Empty;
 
-                if (!string.IsNullOrEmpty(field))
-                {
-                    field = field.Trim();
-
-                    if (!field.StartsWith("$", StringComparison.Ordinal))
-                    {
-                        field = field.StartsWith(".", StringComparison.Ordinal)
-                            ? "$" + field
-                            : "$." + field;
-                    }
-                }
-
-                var metricSegment = this.VectorMetric.HasValue
-                    ? $", {this.VectorMetric.Value}"
-                    : string.Empty;
-
-                var vectorExpr = $"VECTOR_DIST({field}, [{string.Join(",", this.VectorTarget)}]{metricSegment})";
+                var vectorExpr = $"VECTOR_DIST({normalizedField}, [{string.Join(",", vectorTarget)}]{metricSegment})";
                 if (this.Where.Count > 0)
                 {
-                    sb.AppendLine($"WHERE ({string.Join(" AND ", this.Where.Select(x => x.Source))}) AND {vectorExpr} <= {this.VectorMaxDistance}");
+                    sb.AppendLine($"WHERE ({string.Join(" AND ", this.Where.Select(x => x.Source))}) AND {vectorExpr} <= {vectorMaxDistance}");
                 }
                 else
                 {
-                    sb.AppendLine($"WHERE {vectorExpr} <= {this.VectorMaxDistance}");
+                    sb.AppendLine($"WHERE {vectorExpr} <= {vectorMaxDistance}");
                 }
             }
             else if (this.Where.Count > 0)
@@ -145,6 +329,88 @@ namespace LiteDB
             }
 
             return sb.ToString().Trim();
+        }
+
+        private QueryMetadataBag EnsureVectorMetadataBag()
+        {
+            if (_metadata.TryGetValue(LegacyVectorPluginId, out var existing))
+            {
+                return existing;
+            }
+
+            var bag = new QueryMetadataBag(LegacyVectorPluginId, version: 1, reservedKeys: LegacyVectorReservedKeys);
+            _metadata[LegacyVectorPluginId] = bag;
+            return bag;
+        }
+
+        private void RemoveVectorMetadata(string key)
+        {
+            if (!_metadata.TryGetValue(LegacyVectorPluginId, out var bag))
+            {
+                return;
+            }
+
+            if (bag.Remove(key) && bag.IsEmpty)
+            {
+                _metadata.Remove(LegacyVectorPluginId);
+            }
+        }
+
+        private bool TryGetVectorMetadata(out string field, out float[] target, out double maxDistance, out byte? metric)
+        {
+            field = null;
+            target = null;
+            maxDistance = double.MaxValue;
+            metric = null;
+
+            if (!TryGetMetadata(LegacyVectorPluginId, out var bag))
+            {
+                return false;
+            }
+
+            if (!bag.TryGet<string>(VectorFieldKey, out field) || string.IsNullOrWhiteSpace(field))
+            {
+                return false;
+            }
+
+            if (!bag.TryGet<float[]>(VectorTargetKey, out target) || target == null)
+            {
+                return false;
+            }
+
+            if (bag.TryGet<double>(VectorMaxDistanceKey, out var distance))
+            {
+                maxDistance = distance;
+            }
+
+            if (bag.TryGet<byte?>(VectorMetricKey, out var vectorMetric))
+            {
+                metric = vectorMetric;
+            }
+
+            return true;
+        }
+
+        private static string NormalizeVectorField(string field)
+        {
+            if (string.IsNullOrEmpty(field))
+            {
+                return field;
+            }
+
+            field = field.Trim();
+
+            if (field.StartsWith("$", StringComparison.Ordinal))
+            {
+                return field;
+            }
+
+            if (field.StartsWith(".", StringComparison.Ordinal))
+            {
+                return "$" + field;
+            }
+
+            return "$." + field;
         }
     }
 }
