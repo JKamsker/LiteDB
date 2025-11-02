@@ -15,3 +15,4 @@
 - T011: Refactored `LiteDB/Engine/Query/Query.cs` to store plugin metadata bags, route SQL rendering through bag lookups, and keep legacy vector accessors as obsolete shims.
 - T012: Updated `LiteDB/Engine/Query/QueryOptimization.cs` and `LiteDB/Plugins/QueryPlanningContext.cs` so planning rules align registered descriptors, expose metadata helpers, and surface vector order consumption without relying on legacy fields.
 - T013: Added metadata registration helpers to `LiteDB/Plugins/EnsureIndexContext.cs` ensuring interceptors can register and retrieve descriptors through the default plugin context.
+- T014: Added `LiteDB/Document/Bson/BsonTypeRegistry.cs` providing plugin-aware lookups with legacy fallbacks for core types.
