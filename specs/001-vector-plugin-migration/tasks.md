@@ -42,9 +42,6 @@
 - [X] T009 Verify IIndexStrategy interface provides all necessary hooks: EnsureIndex, DropIndex, OnDocumentUpsert, OnDocumentDelete at `LiteDB/Plugins/IIndexStrategy.cs`
 - [X] T010 Verify ILitePlugin interface and plugin context at `LiteDB/Plugins/ILitePlugin.cs` and `LiteDB/Plugins/DefaultPluginContext.cs`
 - [X] T011 Verify core structures remain in LiteDB: BsonVector at `LiteDB/Document/BsonVector.cs`, VectorIndexMetadata at `LiteDB/Engine/Structures/VectorIndexMetadata.cs`, VectorIndexNode at `LiteDB/Engine/Structures/VectorIndexNode.cs`, VectorIndexPage at `LiteDB/Engine/Pages/VectorIndexPage.cs`
-<!-- - [ ] T012 Run baseline benchmarks with existing vector implementation using `LiteDB.Benchmarks/Benchmarks/Queries/QueryWithVectorSimilarity.cs` to establish performance baseline
-- [ ] T013 Document baseline performance metrics (index creation time, k-NN search time for k=1,10,100) for post-migration comparison -->
-**Note:** Tasks T012 and T013 (benchmarking) were removed.
 
 **Checkpoint**: Foundation verified - user story implementation can now begin
 
@@ -107,7 +104,6 @@
 
 - [ ] T035 [US2] Add lifecycle integration tests at `LiteDB.Vector.Tests/Integration/VectorIndexLifecycle_Tests.cs`: test create index, insert documents, verify index structure, drop index, verify cleanup
 - [ ] T036 [US2] Add concurrent modification tests at `LiteDB.Vector.Tests/Integration/VectorIndexConcurrency_Tests.cs`: verify snapshot isolation during queries and updates
-- [ ] T037 [US2] Verify all index operations complete within performance baseline: compare with metrics from T013
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work - full vector index lifecycle is functional
 
@@ -204,9 +200,7 @@
 - [ ] T066 [P] Create migration guide document at `LiteDB.Vector/README.md` explaining plugin registration and upgrade steps
 
 ### Performance & Quality
-<!-- Removed: Benchmaks -->
-<!-- - [ ] T067 Run post-migration benchmarks using `LiteDB.Benchmarks/Benchmarks/Queries/QueryWithVectorSimilarity.cs` and compare with baseline from T013 -->
-- [ ] T068 Verify performance variance is Ôëñ5% compared to baseline (requirement from spec.md success criteria SC-003)
+
 - [ ] T069 Run all tests in LiteDB.Vector.Tests: `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj`
 - [ ] T070 Run all tests in LiteDB.Tests to verify core functionality unaffected: `dotnet test LiteDB.Tests/LiteDB.Tests.csproj`
 - [ ] T071 Verify backward compatibility: test existing database files with vector indexes open and query correctly with plugin
@@ -247,26 +241,26 @@ Foundational (Phase 2) - MUST complete first
     Ôåô
     Ôö£ÔöÇÔåÆ User Story 1 (P1) - Core Migration [T014-T026]
     Ôöé       Ôåô
-    Ôöé       Ôö£ÔöÇÔåÆ User Story 2 (P1) - Query Infrastructure [T027-T037]
+    Ôöé       Ôö£ÔöÇÔåÆ User Story 2 (P1) - Query Infrastructure [T027-T036]
     Ôöé       Ôö£ÔöÇÔåÆ User Story 3 (P2) - Distance Metrics [T038-T044]
     Ôöé       ÔööÔöÇÔåÆ User Story 5 (P3) - Extension Methods [T052-T062]
     Ôöé
     ÔööÔöÇÔåÆ User Story 4 (P2) - Expression Functions [T045-T051] (Independent)
-         
+
          Ôåô
-    Polish (Phase 8) - Final validation [T063-T079]
+    Polish (Phase 8) - Final validation [T063-T072]
 ```
 
 ### Critical Path (Sequential - Minimum Time)
 
 1. **Phase 1: Setup** (T001-T008) - ~1 hour
-2. **Phase 2: Foundational** (T009-T013) - ~2 hours
+2. **Phase 2: Foundational** (T009-T011) - ~2 hours
 3. **Phase 3: User Story 1** (T014-T026) - ~8 hours (core migration)
-4. **Phase 4: User Story 2** (T027-T037) - ~4 hours (query infrastructure)
+4. **Phase 4: User Story 2** (T027-T036) - ~4 hours (query infrastructure)
 5. **Phase 5: User Story 3** (T038-T044) - ~2 hours (metrics)
 6. **Phase 6: User Story 4** (T045-T051) - ~2 hours (expressions)
 7. **Phase 7: User Story 5** (T052-T062) - ~4 hours (extensions)
-8. **Phase 8: Polish** (T063-T079) - ~4 hours (validation)
+8. **Phase 8: Polish** (T063-T072) - ~4 hours (validation)
 
 **Estimated Total (Sequential)**: ~27 hours (~3-4 days)
 
@@ -342,9 +336,9 @@ Task T061: "Add repository extension tests"
 **Goal**: Get basic vector search working through the plugin as quickly as possible
 
 1. **Phase 1: Setup** (T001-T008) ÔåÆ ~1 hour
-2. **Phase 2: Foundational** (T009-T013) ÔåÆ ~2 hours
+2. **Phase 2: Foundational** (T009-T011) ÔåÆ ~2 hours
 3. **Phase 3: User Story 1** (T014-T026) ÔåÆ ~8 hours
-4. **Phase 4: User Story 2** (T027-T037) ÔåÆ ~4 hours
+4. **Phase 4: User Story 2** (T027-T036) ÔåÆ ~4 hours
 5. **STOP and VALIDATE**: Run all tests, verify backward compatibility
 6. **Deploy/Demo**: MVP ready - basic vector indexing works through plugin
 
@@ -402,7 +396,6 @@ After User Story 1 completes:
 
 - [ ] All design documents reviewed (plan.md, spec.md, data-model.md, contracts/)
 - [ ] Plugin infrastructure verified in LiteDB core
-- [ ] Baseline performance metrics captured
 - [ ] Test project structure created
 
 ### After User Story 1 (MVP Checkpoint)
@@ -419,7 +412,6 @@ After User Story 1 completes:
 - [ ] All distance metrics supported
 - [ ] Expression functions registered and tested
 - [ ] Query infrastructure complete
-- [ ] Performance Ôëñ5% variance from baseline
 
 ### Before Merge to Main
 
@@ -439,7 +431,6 @@ After User Story 1 completes:
 - Each user story should be independently completable and testable
 - All file paths are absolute from repository root
 - Existing tests move with code (not rewritten)
-- Performance baseline captured before migration for comparison
 - Database file format unchanged - backward compatibility guaranteed
 - Plugin registration required but no breaking API changes
 
@@ -449,9 +440,8 @@ After User Story 1 completes:
 
 This task list addresses all success criteria:
 
-- **SC-001**: All existing vector search tests pass - covered by test migration tasks (T021-T026, T035-T037, etc.)
+- **SC-001**: All existing vector search tests pass - covered by test migration tasks (T021-T026, T035-T036, etc.)
 - **SC-002**: Applications upgrade with minimal changes - covered by backward compatibility validation (T026, T071)
-<!-- - **SC-003**: Performance Ôëñ5% variance - covered by baseline (T012-T013) and post-migration benchmarks (T067-T068) -->
 - **SC-004**: Database file compatibility - covered by structure verification (T011) and compatibility tests (T071)
 - **SC-005**: Clear error messages without extension - covered by error handling (T063)
 - **SC-006**: Test coverage maintained - covered by test migration (all US test tasks)
