@@ -36,3 +36,9 @@
 - **Rationale**: Existing plugin APIs already let interceptors short-circuit `EnsureIndex` and register custom strategies; combining both ensures migrations can happen without widening `InternalsVisibleTo` usage in the core.
 - **Alternatives considered**: Keep bespoke `EnsureVectorIndex` overloads in the public API (prevents plugin encapsulation); add more friend assemblies (contrary to minimizing surface area and keeping boundaries clear).
 
+## Final inventory synthesis (2025-11-02)
+
+- **Observation**: Latest `rg "Vector" LiteDB` sweep confirms **196** matches across **28** files with zero undiscovered paths beyond the five inventory components tracked in `inventory/`.
+- **Decision**: Proceed with dual-track execution—prioritize `move-to-plugin-short` components (Public API, Service Infrastructure) while gating Serialization, Query Planning, and Storage Engine on critical gap delivery outlined in `gaps/*.json`.
+- **Rationale**: Summary aggregation (`SUMMARY.md`) shows all inventory records, decisions, and gaps now align one-to-one; tackling immediate plugin-ready items avoids blocking value while infrastructure work unblocks the remaining three components.
+- **Next Steps**: Feed component dependency diagram and executive summary into hand-off so core and plugin teams can parallelize short-term migrations and infrastructure gap spikes.

@@ -173,17 +173,17 @@ This feature works with existing LiteDB solution structure:
 
 **Purpose**: Final validation, documentation updates, and cross-story verification
 
-- [ ] T090 [P] Generate final inventory summary report in `.\specs\001-vector-core-cleanup\SUMMARY.md`
-- [ ] T091 [P] Update research.md with any new findings or decision rationale discovered during task execution
-- [ ] T092 [P] Create visualization of component dependencies in `.\specs\001-vector-core-cleanup\diagrams\component-dependencies.md`
-- [ ] T093 Validate all JSON files are well-formed and match schema
-- [ ] T094 Verify all file paths in inventory match actual repository structure
-- [ ] T095 Run cross-story validation: Confirm each migration decision references valid gaps and components
-- [ ] T096 Execute full verification suite from quickstart.md to validate inventory completeness
-- [ ] T097 Update AGENTS.md with vector cleanup process documentation if applicable
-- [ ] T098 Create executive summary of findings for core and plugin teams in `.\specs\001-vector-core-cleanup\EXECUTIVE-SUMMARY.md`
-- [ ] T099 Document next steps and handoff to implementation teams in executive summary
-- [ ] T100 Final validation: Run `rg "Vector" .\LiteDB` and confirm 100% match with documented inventory
+- [X] T090 [P] Generate final inventory summary report in `.\specs\001-vector-core-cleanup\SUMMARY.md`
+- [X] T091 [P] Update research.md with any new findings or decision rationale discovered during task execution
+- [X] T092 [P] Create visualization of component dependencies in `.\specs\001-vector-core-cleanup\diagrams\component-dependencies.md`
+- [X] T093 Validate all JSON files are well-formed and match schema
+- [X] T094 Verify all file paths in inventory match actual repository structure
+- [X] T095 Run cross-story validation: Confirm each migration decision references valid gaps and components
+- [X] T096 Execute full verification suite from quickstart.md to validate inventory completeness
+- [X] T097 Update AGENTS.md with vector cleanup process documentation if applicable
+- [X] T098 Create executive summary of findings for core and plugin teams in `.\specs\001-vector-core-cleanup\EXECUTIVE-SUMMARY.md`
+- [X] T099 Document next steps and handoff to implementation teams in executive summary
+- [X] T100 Final validation: Run `rg "Vector" .\LiteDB` and confirm 100% match with documented inventory
 
 ---
 
