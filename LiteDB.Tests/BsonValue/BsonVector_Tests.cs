@@ -187,6 +187,40 @@ public class BsonVector_Tests
     }
 
     [Fact]
+    public void VectorWhereNear_DotProductScan_MatchesIndexedResults()
+    {
+        using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+        var col = db.GetCollection<VectorDoc>("vectors");
+
+        col.Insert(new VectorDoc { Id = 1, Embedding = new float[] { 1.0f, 0.0f } });
+        col.Insert(new VectorDoc { Id = 2, Embedding = new float[] { 0.8f, 0.2f } });
+        col.Insert(new VectorDoc { Id = 3, Embedding = new float[] { 0.1f, 0.9f } });
+        col.Insert(new VectorDoc { Id = 4, Embedding = new float[] { -0.5f, 0.0f } });
+
+        var target = new float[] { 1.0f, 0.0f };
+        const double minSimilarity = 0.7;
+
+        var scanIds = col.Query()
+            .WhereNear(x => x.Embedding, target, minSimilarity, VectorDistanceMetric.DotProduct)
+            .ToList()
+            .Select(x => x.Id)
+            .OrderBy(id => id)
+            .ToList();
+
+        col.EnsureIndex(x => x.Embedding, new VectorIndexOptions(2, VectorDistanceMetric.DotProduct));
+
+        var indexedIds = col.Query()
+            .WhereNear(x => x.Embedding, target, minSimilarity, VectorDistanceMetric.DotProduct)
+            .ToList()
+            .Select(x => x.Id)
+            .OrderBy(id => id)
+            .ToList();
+
+        indexedIds.Should().Equal(new[] { 1, 2 });
+        scanIds.Should().Equal(indexedIds);
+    }
+
+    [Fact]
     public void VectorDist_InfixExpression_ParsesAndEvaluates()
     {
         using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });

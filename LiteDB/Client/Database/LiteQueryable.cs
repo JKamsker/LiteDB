@@ -22,6 +22,7 @@ namespace LiteDB
         private readonly IExpressionRegistry _expressions;
         private readonly ILinqResolverRegistry _linqResolvers;
         private readonly LiteDatabase _database;
+        private const byte DotProductMetric = 2;
 
         // indicate that T type are simple and result are inside first document fields (query always return a BsonDocument)
         private readonly bool _isSimpleType = Reflection.IsSimpleType(typeof(T));
@@ -258,16 +259,32 @@ namespace LiteDB
             if (double.IsNaN(maxDistance)) throw new ArgumentOutOfRangeException(nameof(maxDistance), "Similarity threshold must be a valid number.");
         }
 
+        private static bool ShouldInvertDotProductThreshold(double value)
+        {
+            return !double.IsNaN(value) &&
+                !double.IsInfinity(value) &&
+                value < double.MaxValue;
+        }
+
         private BsonExpression CreateVectorDistanceFilter(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
         {
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
 
             ValidateVectorArguments(target, maxDistance);
 
+            var comparisonThreshold = maxDistance;
+
+            if (metric.HasValue &&
+                metric.Value == DotProductMetric &&
+                ShouldInvertDotProductThreshold(maxDistance))
+            {
+                comparisonThreshold = -maxDistance;
+            }
+
             var parameters = new List<BsonValue>
             {
                 new BsonArray(target.Select(v => new BsonValue(v))),
-                new BsonValue(maxDistance)
+                new BsonValue(comparisonThreshold)
             };
 
             var metricPlaceholder = string.Empty;
@@ -322,11 +339,13 @@ namespace LiteDB
 
         internal ILiteQueryable<T> VectorWhereNear(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric = null)
         {
-            var filter = CreateVectorDistanceFilter(fieldExpr, target, maxDistance, metric);
+            var effectiveMetric = metric ?? _query.VectorMetric;
+
+            var filter = CreateVectorDistanceFilter(fieldExpr, target, maxDistance, effectiveMetric);
 
             _query.Where.Add(filter);
 
-            this.ConfigureVectorContext(fieldExpr, target, maxDistance, metric);
+            this.ConfigureVectorContext(fieldExpr, target, maxDistance, effectiveMetric);
 
             return this;
         }

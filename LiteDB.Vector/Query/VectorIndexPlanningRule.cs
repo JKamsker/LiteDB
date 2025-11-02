@@ -74,6 +74,7 @@ namespace LiteDB.Vector.Query
             }
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
+            var effectiveMaxDistance = NormalizeDotProductThreshold(maxDistance, context.Query.VectorMetric);
 
             foreach (var (index, metadata) in collection.GetVectorIndexes())
             {
@@ -87,7 +88,7 @@ namespace LiteDB.Vector.Query
                     continue;
                 }
 
-                var vectorIndex = new VectorIndexQuery(index.Name, snapshot, index, metadata, target, maxDistance, limit, collation);
+                var vectorIndex = new VectorIndexQuery(index.Name, snapshot, index, metadata, target, effectiveMaxDistance, limit, collation);
                 var consumed = consumedTerm != null ? new[] { consumedTerm } : Array.Empty<BsonExpression>();
 
                 context.UseIndex(
@@ -102,6 +103,31 @@ namespace LiteDB.Vector.Query
             }
 
             return false;
+        }
+
+        private static double NormalizeDotProductThreshold(double maxDistance, byte? queryMetric)
+        {
+            if (!queryMetric.HasValue)
+            {
+                return maxDistance;
+            }
+
+            if ((VectorDistanceMetric)queryMetric.Value != VectorDistanceMetric.DotProduct)
+            {
+                return maxDistance;
+            }
+
+            if (double.IsNaN(maxDistance) || double.IsPositiveInfinity(maxDistance))
+            {
+                return maxDistance;
+            }
+
+            if (maxDistance > 0d)
+            {
+                return maxDistance;
+            }
+
+            return -maxDistance;
         }
 
         private static bool TryParseVectorPredicate(BsonExpression? predicate, Collation collation, out string? expression, out float[]? target, out double maxDistance)
