@@ -13,3 +13,4 @@
 - T009: Exposed query metadata, BSON type, and page factory registries through `ILitePluginContext` and `EnsureIndexContext` for plugin consumption.
 - T010: Added `LiteDB/Plugins/Query/QueryMetadataBag.cs` providing versioned, typed metadata storage validating reserved keys for plugin-managed query state.
 - T011: Refactored `LiteDB/Engine/Query/Query.cs` to store plugin metadata bags, route SQL rendering through bag lookups, and keep legacy vector accessors as obsolete shims.
+- T012: Updated `LiteDB/Engine/Query/QueryOptimization.cs` and `LiteDB/Plugins/QueryPlanningContext.cs` so planning rules align registered descriptors, expose metadata helpers, and surface vector order consumption without relying on legacy fields.

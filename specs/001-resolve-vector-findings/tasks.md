@@ -50,7 +50,7 @@
 
 - [X] T010 [US1] Implement `QueryMetadataBag` in `LiteDB/Plugins/Query/QueryMetadataBag.cs` with typed accessors and versioning.
 - [X] T011 [US1] Refactor `LiteDB/Engine/Query/Query.cs` to remove vector fields and consume `QueryMetadataBag` instead.
-- [ ] T012 [P] [US1] Update `LiteDB/Engine/Query/QueryOptimization.cs` and `LiteDB/Plugins/QueryPlanningContext.cs` to propagate metadata bag usage.
+- [X] T012 [P] [US1] Update `LiteDB/Engine/Query/QueryOptimization.cs` and `LiteDB/Plugins/QueryPlanningContext.cs` to propagate metadata bag usage.
 - [ ] T013 [US1] Wire the metadata accessor into `LiteDB/Plugins/DefaultPluginContext.cs` and `LiteDB/Plugins/EnsureIndexContext.cs` for plugin consumption.
 - [ ] T014 [US1] Add `LiteDB/Document/Bson/BsonTypeRegistry.cs` implementing plugin-managed registrations with fallback shims.
 - [ ] T015 [US1] Refactor `LiteDB/Document/BsonType.cs` to delegate vector lookups and registrations to `BsonTypeRegistry`.
