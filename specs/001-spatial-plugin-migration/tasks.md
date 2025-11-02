@@ -52,8 +52,8 @@
 ## Phase 6 – Polish & Cross-Cutting
 - [X] T022 Run full benchmark/stress suites comparing pre/post migration numbers (`LiteDB.Benchmarks`, `LiteDB.Stress`)
 - [X] T023 Ensure packaging/publishing scripts exclude spatial assemblies from core while including plugin artifacts (`.github/workflows`, `dotnet pack` configs)
-- [ ] T024 Finalize tests: run spatial tests with plugin, core tests without plugin, capture results for PR
-- [ ] T025 Conduct code review and documentation sanity pass across modified files
+- [X] T024 Finalize tests: run spatial tests with plugin, core tests without plugin, capture results for PR
+- [X] T025 Conduct code review and documentation sanity pass across modified files
 
 ## Dependencies
 - Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6

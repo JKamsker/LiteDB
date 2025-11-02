@@ -1,5 +1,7 @@
 extern alias LiteDbBase;
 
+#nullable enable
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -71,12 +73,17 @@ namespace LiteDB.Spatial.Plugin
                 return false;
             }
 
+            if (descriptor == null)
+            {
+                return false;
+            }
+
             CacheGeometryField(context.Name, descriptor);
             context.SetResult(true);
             return true;
         }
 
-        public bool TryResolveDescriptor(string collection, string geometryField, out SpatialCollectionDescriptor descriptor)
+        public bool TryResolveDescriptor(string collection, string geometryField, out SpatialCollectionDescriptor? descriptor)
         {
             descriptor = null;
 
@@ -85,18 +92,19 @@ namespace LiteDB.Spatial.Plugin
                 return false;
             }
 
-            if (_descriptorsByCollection.TryGetValue(collection, out descriptor))
+            if (_descriptorsByCollection.TryGetValue(collection, out var cached))
             {
-                return descriptor.GeometryFieldName.Equals(geometryField, StringComparison.OrdinalIgnoreCase);
+                descriptor = cached;
+                return cached.GeometryFieldName.Equals(geometryField, StringComparison.OrdinalIgnoreCase);
             }
 
-            if (_metadataStore.TryGetDescriptor(collection, out descriptor))
+            if (_metadataStore.TryGetDescriptor(collection, out var persisted))
             {
-                _descriptorsByCollection[collection] = descriptor;
-                return descriptor.GeometryFieldName.Equals(geometryField, StringComparison.OrdinalIgnoreCase);
+                descriptor = persisted;
+                _descriptorsByCollection[collection] = persisted!;
+                return persisted!.GeometryFieldName.Equals(geometryField, StringComparison.OrdinalIgnoreCase);
             }
 
-            descriptor = null;
             return false;
         }
 
@@ -139,37 +147,39 @@ namespace LiteDB.Spatial.Plugin
             _metadataStore.SaveDescriptor(descriptor.CollectionName, descriptor);
         }
 
-        public bool TryGetGeometryFieldByIndex(string indexName, out string field)
+        public bool TryGetGeometryFieldByIndex(string indexName, out string? field)
         {
             return _geometryFieldsByIndex.TryGetValue(indexName ?? string.Empty, out field);
         }
 
-        internal bool TryGetDescriptor(string collectionName, out SpatialCollectionDescriptor descriptor)
+        internal bool TryGetDescriptor(string collectionName, out SpatialCollectionDescriptor? descriptor)
         {
+            descriptor = null;
+
             if (string.IsNullOrWhiteSpace(collectionName))
             {
-                descriptor = null;
                 return false;
             }
 
-            if (_descriptorsByCollection.TryGetValue(collectionName, out descriptor))
+            if (_descriptorsByCollection.TryGetValue(collectionName, out var cached))
             {
+                descriptor = cached;
                 return true;
             }
 
-            if (_metadataStore.TryGetDescriptor(collectionName, out descriptor))
+            if (_metadataStore.TryGetDescriptor(collectionName, out var persisted))
             {
-                _descriptorsByCollection[collectionName] = descriptor;
+                descriptor = persisted;
+                _descriptorsByCollection[collectionName] = persisted!;
                 return true;
             }
 
-            descriptor = null;
             return false;
         }
 
         internal SpatialMetadataStore MetadataStore => _metadataStore;
 
-        private bool TryCreateDescriptor(LiteDbPlugins.EnsureIndexContext context, string geometryField, out SpatialCollectionDescriptor descriptor)
+        private bool TryCreateDescriptor(LiteDbPlugins.EnsureIndexContext context, string geometryField, out SpatialCollectionDescriptor? descriptor)
         {
             descriptor = null;
 
@@ -220,7 +230,12 @@ namespace LiteDB.Spatial.Plugin
                 var reloaded = TryReloadDescriptor(context.CollectionName, descriptorCandidate);
                 descriptor = reloaded ?? descriptorCandidate;
 
-                if (!ReferenceEquals(descriptor, descriptorCandidate) && descriptor != null)
+                if (descriptor == null)
+                {
+                    return false;
+                }
+
+                if (!ReferenceEquals(descriptor, descriptorCandidate))
                 {
                     CacheDescriptor(descriptor);
                 }
@@ -412,7 +427,7 @@ namespace LiteDB.Spatial.Plugin
             return null;
         }
 
-        private void CacheDescriptor(SpatialCollectionDescriptor descriptor)
+        private void CacheDescriptor(SpatialCollectionDescriptor? descriptor)
         {
             if (descriptor == null)
             {
@@ -422,7 +437,7 @@ namespace LiteDB.Spatial.Plugin
             _descriptorsByCollection[descriptor.CollectionName] = descriptor;
         }
 
-        private void CacheGeometryField(string indexName, SpatialCollectionDescriptor descriptor)
+        private void CacheGeometryField(string indexName, SpatialCollectionDescriptor? descriptor)
         {
             if (descriptor == null)
             {
@@ -447,7 +462,7 @@ namespace LiteDB.Spatial.Plugin
             }
         }
 
-        private static string NormalizeFieldExpression(string expression)
+        private static string? NormalizeFieldExpression(string expression)
         {
             if (string.IsNullOrWhiteSpace(expression))
             {
@@ -474,7 +489,7 @@ namespace LiteDB.Spatial.Plugin
             Context?.Logger?.Write(level, $"[SpatialPlugin] {message}");
         }
 
-        private static Type ResolveSpatialMemberType(BaseLiteDB.MemberMapper member)
+        private static Type? ResolveSpatialMemberType(BaseLiteDB.MemberMapper member)
         {
             if (member == null)
             {
