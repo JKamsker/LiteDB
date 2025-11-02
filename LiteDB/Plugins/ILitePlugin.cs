@@ -152,7 +152,7 @@ namespace LiteDB.Plugins
     }
 
     /// <summary>
-    /// Delegate invoked for index interception during <see cref="ILiteCollection{T}.EnsureIndex"/> execution.
+    /// Delegate invoked for index interception during <c>ILiteCollection.EnsureIndex</c> execution.
     /// </summary>
     /// <param name="context">The interception context.</param>
     /// <returns>True when the interceptor handled the request and default processing should stop.</returns>
