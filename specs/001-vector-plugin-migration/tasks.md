@@ -22,14 +22,14 @@
 
 **Purpose**: Project initialization and basic structure for the LiteDB.Vector plugin package
 
-- [ ] T001 Verify LiteDB.Vector project exists at `LiteDB.Vector/LiteDB.Vector.csproj` with netstandard2.0 and net8.0 targets
-- [ ] T002 Verify VectorSearchPlugin.cs exists at `LiteDB.Vector/VectorSearchPlugin.cs` and implements ILitePlugin
-- [ ] T003 Verify VectorIndexStrategy.cs exists at `LiteDB.Vector/VectorIndexStrategy.cs` and implements IIndexStrategy
-- [ ] T004 Verify VectorExpressions.cs exists at `LiteDB.Vector/Expressions/VectorExpressions.cs`
-- [ ] T005 Create folder structure: `LiteDB.Vector/Engine/`, `LiteDB.Vector/Query/`, `LiteDB.Vector/Extensions/`
-- [ ] T006 Create LiteDB.Vector.Tests project at `LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj` with xUnit and FluentAssertions
-- [ ] T007 [P] Enable XML documentation generation in LiteDB.Vector.csproj
-- [ ] T008 [P] Enable nullable reference types in LiteDB.Vector.csproj
+- [X] T001 Verify LiteDB.Vector project exists at `LiteDB.Vector/LiteDB.Vector.csproj` with netstandard2.0 and net8.0 targets
+- [X] T002 Verify VectorSearchPlugin.cs exists at `LiteDB.Vector/VectorSearchPlugin.cs` and implements ILitePlugin
+- [X] T003 Verify VectorIndexStrategy.cs exists at `LiteDB.Vector/VectorIndexStrategy.cs` and implements IIndexStrategy
+- [X] T004 Verify VectorExpressions.cs exists at `LiteDB.Vector/Expressions/VectorExpressions.cs`
+- [X] T005 Create folder structure: `LiteDB.Vector/Engine/`, `LiteDB.Vector/Query/`, `LiteDB.Vector/Extensions/`
+- [X] T006 Create LiteDB.Vector.Tests project at `LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj` with xUnit and FluentAssertions
+- [X] T007 [P] Enable XML documentation generation in LiteDB.Vector.csproj
+- [X] T008 [P] Enable nullable reference types in LiteDB.Vector.csproj
 
 ---
 
