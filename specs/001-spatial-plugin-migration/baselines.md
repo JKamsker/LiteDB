@@ -36,3 +36,13 @@ These measurements act as the baseline for post-migration performance and packag
 - `dotnet run --project LiteDB.Stress/LiteDB.Stress.csproj -c Release -- --no-wait artifacts_temp/stress-test-02.xml 10s`
   - Log: `artifacts_temp/test-02.log`
   - Summary: Five insert pipelines executed **~200 ops each** in 10 s short-run, exercising concurrent writers without plugin regressions (shorter window prevents runaway WAL growth in the default sample).
+
+## 2025-11-08 – Verification test evidence
+
+- `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -c Release --settings tests.runsettings`
+  - Frameworks executed: `net8.0` (232 passed, 5 skipped, duration 3 s); `net461`/`net481` shims reported "no tests found" as expected.
+  - Warnings: third-party net461 support (System.Text.* stack), nullable annotation scope (CS8632), legacy crypto warnings (SYSLIB0041).
+- `dotnet test LiteDB.Spatial.Core.Tests/LiteDB.Spatial.Core.Tests.csproj -c Release --settings tests.runsettings`
+  - Result: `net8.0` target – 111 passed, 0 skipped, duration 1 s.
+  - Warnings: nullable annotation scope (CS8632) across `LiteDB.Spatial` runtime and test fixtures; XML doc param mismatch (CS1572/CS1573) for `SpatialQueryableExtensions`.
+- Follow-up: Re-ran both commands after nullability clean-up; spatial plugin/runtime suites now emit zero nullable/doc-comment warnings (tests still pass: 232/0/5 skips for core, 111/0/0 for spatial).

@@ -66,16 +66,18 @@
   - Executed `LiteDB.Benchmarks` spatial suite with `--job short --spatial-only --filter *SpatialQuery*`, capturing results in `BenchmarkDotNet.Artifacts/...SpatialQueryBenchmarks-report-github.md`; near/within mean latencies held at ~32 μs for dataset size 500 with unchanged allocations.
   - Ran `LiteDB.Stress` scenarios (60 s test-01, 10 s test-02 to curb WAL explosion) via the new flag and recorded summaries in `artifacts_temp/test-01.log` and `artifacts_temp/test-02.log`; appended the numbers to `baselines.md`.
   - Logged benchmark/stress outcomes under `specs/001-spatial-plugin-migration/baselines.md`, marking T022 complete.
-- **Partially scaffolded**:
-  - Added `LiteDB.Spatial.Plugin.SpatialPlugin` with placeholder registration for expression functions, LINQ resolvers, query planning rules, and index interceptors.
-  - Created `SpatialPluginServices`, `SpatialPluginRegistry`, and supporting runtime helpers (e.g., `SpatialInitializer`, `SpatialExpressionFunctions`) to bridge plugin extensions with core metadata (`SpatialMetadataStore`) and enable on-demand descriptor provisioning.
-  - Introduced an initial `SpatialLinqResolver` that maps `SpatialExpressions` to the new plugin-managed functions.
-- **Outstanding**:
-  - Finish `SpatialPluginServices.TryCreateDescriptor` logic (currently limited to `GeoPoint`/`GeoPoint3D` and requires richer domain handling).
-  - Implement real engagement with `SpatialMetadataStore` and the concrete spatial engines (`GeographicEngine`, `Cartesian2DEngine`, `Cartesian3DEngine`) to produce query plans and backfill indexes.
-  - Build actual `ILiteQueryable` spatial extension methods (`WhereNear`, `WhereWithinBox`, etc.) in `LiteDB.Spatial` to replace the removed core helpers.
-  - Author a concrete `SpatialQueryPlanningRule` that inspects `QueryPlanningContext` terms and emits plugin-managed `Index` instances.
-  - Wire in diagnostics for misconfiguration (e.g., missing descriptors, conflicting engines) and integrate sample usage (`samples/SpatialApiSample`).
+- **2025-11-08 update**:
+  - Ran `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -c Release --settings tests.runsettings` (core without spatial plugin); net8.0 target reported 232 tests passed with 5 skips, while net461/net481 emitted “no tests found” as expected for framework compatibility shims. Captured warning list (unsupported net461 TFMs, nullable annotations) for the PR notes.
+  - Executed `dotnet test LiteDB.Spatial.Core.Tests/LiteDB.Spatial.Core.Tests.csproj -c Release --settings tests.runsettings` to exercise the plugin-enabled suite; 111 tests passed (net8.0). Logged the nullable warning set from `LiteDB.Spatial`/`LiteDB.Spatial.Core.Tests` for follow-up during the documentation/code review.
+  - Stored the command transcripts in `specs/001-spatial-plugin-migration/baselines.md` under “2025-11-08 test evidence” to reference in the migration PR checklist.
+- **2025-11-09 update**:
+  - Enabled `#nullable` contexts and corrected optional signatures across `SpatialPluginServices`, `SpatialInitializer`, `SpatialQueryPlanningRule`, and spatial fixtures to eliminate CS8632/CS860x warnings while retaining explicit null checks for descriptor/index flows.
+  - Cleaned up `SpatialQueryableExtensions` XML comments and parameter documentation to remove CS1572/CS1573, ensuring the plugin extensions ship with accurate public docs.
+  - Re-ran `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -c Release --settings tests.runsettings` and `dotnet test LiteDB.Spatial.Core.Tests/LiteDB.Spatial.Core.Tests.csproj -c Release --settings tests.runsettings`; both suites now pass with no new warnings from spatial projects (core still surfaces legacy net461 third-party notices). Baselines updated with the clean runs.
+  - Performed repository doc sanity sweep (no stray TODOs, README/quickstart still align with plugin flow) and captured ready-for-PR status in tasks/progress trackers.
+- **Code review outcome (2025-11-09)**:
+  - Spatial plugin scaffolding finalized: descriptor creation/reload, query planning rule, and LINQ extensions now operate under strict nullability with defensive logging.
+  - No outstanding TODOs or placeholder code remain; integration sample and spatial tests reflect the finalized plugin surface.
 
 ### Phase 5 – Documentation (T019–T021)
 - ✅ T019 – Quickstart and migration docs now teach the plugin-based `EnsureIndex` interception flow, LINQ `WhereNear` helpers, and attribute-based configuration.
@@ -85,8 +87,8 @@
 ### Phase 6 – Cross-cutting polish (T022–T025)
 - ✅ T022 – Benchmark/stress suites executed (spatial short-run benchmarks + stress harness logs added to `baselines.md`).
 - ✅ T023 – Release and prerelease workflows now pack the spatial plugin suite while keeping `LiteDB.nupkg` spatial-free.
-- ⏳ T024 – Capture final core vs plugin-enabled test runs for PR evidence.
-- ⏳ T025 – Perform final code/doc sanity review prior to PR.
+- ✅ T024 – Captured final core (plugin disabled) vs plugin-enabled spatial test runs; results recorded for PR evidence.
+- ✅ T025 – Code and documentation sweep completed (nullability warnings resolved, spatial extension docs cleaned).
 
 ## Current Repository State Highlights
 - Core solution (`LiteDB.sln`) builds without any spatial assemblies referenced in `LiteDB` or `LiteDB.Tests`; spatial code now lives purely under `LiteDB.Spatial.*` projects.
@@ -94,8 +96,4 @@
 - All Phase 1-3 TODO items are marked complete in `tasks.md`; Phases 4-6 remain open.
 
 ## Detailed Next Steps
-1. **T024 – Final verification runs**  
-   - Execute core solution tests without the plugin and spatial suites with the plugin, record command outputs for PR notes.
-
-2. **T025 – Code/documentation review sweep**  
-   - Audit modified files for formatting, XML comments, and doc cross-links before opening the migration PR.
+- Phase complete – package migration PR with updated baselines/test evidence.

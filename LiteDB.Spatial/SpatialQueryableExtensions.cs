@@ -18,7 +18,7 @@ namespace LiteDB.Spatial
         /// <param name="geometry">Selector that identifies the spatial field.</param>
         /// <param name="center">The center point.</param>
         /// <param name="radius">The search radius expressed in meters.</param>
-        /// <param name="formula">Optional distance formula override.</param>
+        /// <param name="distanceMode">Optional distance formula override.</param>
         public static BaseLiteDB.ILiteQueryable<T> WhereNear<T>(
             this BaseLiteDB.ILiteQueryable<T> source,
             Expression<Func<T, GeoPoint>> geometry,
@@ -90,6 +90,11 @@ namespace LiteDB.Spatial
         /// <summary>
         /// Filters the query to points near the specified center using a document field path.
         /// </summary>
+        /// <param name="source">The queryable collection.</param>
+        /// <param name="geometryField">The document field path to the spatial value.</param>
+        /// <param name="center">The center point.</param>
+        /// <param name="radius">The search radius expressed in meters.</param>
+        /// <param name="distanceMode">Optional distance formula override.</param>
         public static BaseLiteDB.ILiteQueryable<T> WhereNear<T>(
             this BaseLiteDB.ILiteQueryable<T> source,
             string geometryField,
@@ -127,6 +132,11 @@ namespace LiteDB.Spatial
         /// <summary>
         /// Filters the query to points near the specified center using a custom geometry expression.
         /// </summary>
+        /// <param name="source">The queryable collection.</param>
+        /// <param name="geometryExpression">The expression that resolves the spatial value.</param>
+        /// <param name="center">The center point.</param>
+        /// <param name="radius">The search radius expressed in meters.</param>
+        /// <param name="distanceMode">Optional distance formula override.</param>
         public static BaseLiteDB.ILiteQueryable<T> WhereNear<T>(
             this BaseLiteDB.ILiteQueryable<T> source,
             BaseLiteDB.BsonExpression geometryExpression,

@@ -1,5 +1,7 @@
 extern alias LiteDbBase;
 
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -30,7 +32,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                 return false;
             }
 
-            SpatialPredicate predicate = null;
+            SpatialPredicate? predicate = null;
             foreach (var term in context.Terms)
             {
                 if (SpatialPredicate.TryParse(term, out var parsed))
@@ -48,11 +50,17 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             if (!_services.TryResolveDescriptor(collection, predicate.GeometryField, out var descriptor))
             {
                 if (!_services.TryGetDescriptor(collection, out descriptor) ||
+                    descriptor == null ||
                     !string.Equals(descriptor.GeometryFieldName, predicate.GeometryField, StringComparison.OrdinalIgnoreCase))
                 {
                     Log(LiteDbPlugins.LogLevel.Warning, $"No spatial metadata found for '{collection}.{predicate.GeometryField}'. Ensure EnsureIndex was executed with the spatial plugin enabled.");
                     return false;
                 }
+            }
+
+            if (descriptor == null)
+            {
+                return false;
             }
 
             if (!TryBuildPlan(context, descriptor, predicate, out var index, out var indexExpression, out var additionalFilters))
@@ -61,7 +69,14 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                 return false;
             }
 
-            context.UseIndex(index, indexExpression, consumedTerms: null, isIndexKeyOnly: false, indexCost: null, additionalFilters: additionalFilters, replaceFilters: false);
+            context.UseIndex(
+                index,
+                indexExpression,
+                consumedTerms: Array.Empty<BaseLiteDB.BsonExpression>(),
+                isIndexKeyOnly: false,
+                indexCost: null,
+                additionalFilters: additionalFilters,
+                replaceFilters: false);
             return true;
         }
 
@@ -78,11 +93,17 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             out string indexExpression,
             out IReadOnlyList<BaseLiteDB.BsonExpression> additionalFilters)
         {
-            index = null;
-            indexExpression = null;
+            index = default!;
+            indexExpression = string.Empty;
             additionalFilters = Array.Empty<BaseLiteDB.BsonExpression>();
 
-            if (descriptor == null || descriptor.Options == null)
+            if (descriptor == null)
+            {
+                return false;
+            }
+
+            var options = descriptor.Options;
+            if (options == null)
             {
                 return false;
             }
@@ -101,8 +122,8 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                 return false;
             }
 
-            indexExpression = "$." + descriptor.Options.IndexFieldName;
-            index = new SpatialMultiRangeIndex(descriptor.Options.IndexFieldName, plan.IndexRanges);
+            indexExpression = "$." + options.IndexFieldName;
+            index = new SpatialMultiRangeIndex(options.IndexFieldName, plan.IndexRanges);
 
             var filters = new List<BaseLiteDB.BsonExpression>();
             if (plan.CoveringBounds.HasValue)
@@ -122,7 +143,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             return true;
         }
 
-        private static ISpatialQueryPlan BuildNear2DPlan(SpatialCollectionDescriptor descriptor, SpatialPredicate predicate)
+        private static ISpatialQueryPlan? BuildNear2DPlan(SpatialCollectionDescriptor descriptor, SpatialPredicate predicate)
         {
             if (!predicate.Center2D.HasValue || !predicate.Radius.HasValue)
             {
@@ -139,7 +160,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             };
         }
 
-        private static ISpatialQueryPlan BuildNear3DPlan(SpatialCollectionDescriptor descriptor, SpatialPredicate predicate)
+        private static ISpatialQueryPlan? BuildNear3DPlan(SpatialCollectionDescriptor descriptor, SpatialPredicate predicate)
         {
             if (!predicate.Center3D.HasValue || !predicate.Radius.HasValue)
             {
@@ -153,7 +174,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             };
         }
 
-        private static ISpatialQueryPlan BuildWithinPlan(SpatialCollectionDescriptor descriptor, SpatialPredicate predicate)
+        private static ISpatialQueryPlan? BuildWithinPlan(SpatialCollectionDescriptor descriptor, SpatialPredicate predicate)
         {
             if (!predicate.Bounds.HasValue)
             {
@@ -169,9 +190,15 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             };
         }
 
-        private static BaseLiteDB.BsonExpression BuildBoundingExpression(SpatialCollectionDescriptor descriptor, BoundingBox bounds)
+        private static BaseLiteDB.BsonExpression? BuildBoundingExpression(SpatialCollectionDescriptor descriptor, BoundingBox bounds)
         {
-            var field = "$." + descriptor.Options.BoundingBoxFieldName;
+            var boundingField = descriptor.Options?.BoundingBoxFieldName;
+            if (string.IsNullOrWhiteSpace(boundingField))
+            {
+                return null;
+            }
+
+            var field = "$." + boundingField;
             var values = bounds.GetValues().ToArray();
 
             if (values.Length == 4)
@@ -249,7 +276,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
 
             public GeographicDistanceMode? DistanceMode { get; }
 
-            public static bool TryParse(BaseLiteDB.BsonExpression expression, out SpatialPredicate predicate)
+            public static bool TryParse(BaseLiteDB.BsonExpression expression, out SpatialPredicate? predicate)
             {
                 predicate = null;
 
@@ -408,7 +435,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                 return BaseLiteDB.BsonValue.Null;
             }
 
-            private static string NormalizeField(string expression)
+            private static string? NormalizeField(string expression)
             {
                 if (string.IsNullOrWhiteSpace(expression))
                 {

@@ -1,5 +1,7 @@
 extern alias LiteDbBase;
 
+#nullable enable
+
 using System;
 using LiteDB.Spatial;
 using BaseLiteDB = LiteDbBase::LiteDB;
