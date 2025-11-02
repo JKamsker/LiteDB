@@ -16,3 +16,4 @@
 - T012: Updated `LiteDB/Engine/Query/QueryOptimization.cs` and `LiteDB/Plugins/QueryPlanningContext.cs` so planning rules align registered descriptors, expose metadata helpers, and surface vector order consumption without relying on legacy fields.
 - T013: Added metadata registration helpers to `LiteDB/Plugins/EnsureIndexContext.cs` ensuring interceptors can register and retrieve descriptors through the default plugin context.
 - T014: Added `LiteDB/Document/Bson/BsonTypeRegistry.cs` providing plugin-aware lookups with legacy fallbacks for core types.
+- T015: Extended `LiteDB/Document/BsonType.cs` with registry-backed resolution helpers and synced `LiteDatabaseServices` to refresh fallback metadata.
