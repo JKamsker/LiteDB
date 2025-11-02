@@ -18,12 +18,14 @@ Also see specs\001-vector-plugin-migration\tasks.md
     [string[]]$CodexOptions = @('--yolo'),
     [string]$CommitPrefix = 'auto: spatial plugin iteration',
     [switch]$DryRun,
+    [switch]$Simulate,
     [switch]$SkipCommit,
     [int]$MaxIterations = 0
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$dryRunMode = $DryRun -or $Simulate
 
 function Get-OpenTasks {
     param(
@@ -213,14 +215,29 @@ Push-Location -LiteralPath $RepoRoot
 try {
     $iteration = 0
     $sessionMap = @{}
+    $simulatedClosedTasks = [System.Collections.Generic.HashSet[string]]::new()
 
     while ($true) {
-        $openBeforeDetailed = Get-OpenTasksByPhase -Path $TaskFile
+        $openBeforeDetailed = @(Get-OpenTasksByPhase -Path $TaskFile)
+        if ($Simulate) {
+            $openBeforeDetailed = @($openBeforeDetailed | Where-Object { -not $simulatedClosedTasks.Contains($_.Line) })
+        }
+        Write-Host '--- Iteration plan ---'
         $openBefore = $openBeforeDetailed | ForEach-Object { $_.Line }
 
         if (-not $openBefore -or $openBefore.Count -eq 0) {
             Write-Host 'All tasks are complete. Exiting.'
             break
+        }
+
+        if ($openBeforeDetailed) {
+            Write-Host 'Remaining phases and open task counts:'
+            foreach ($group in ($openBeforeDetailed | Group-Object -Property Phase)) {
+                Write-Host ("  - {0}: {1}" -f $group.Name, $group.Count)
+            }
+        }
+        else {
+            Write-Host 'No open tasks detected in any phase.'
         }
 
         $iteration++
@@ -246,39 +263,64 @@ try {
         $phaseTaskCount = @($phaseTaskLines).Count
         $phaseLabel = if ($activePhase) { $activePhase } else { 'Uncategorized' }
 
+        Write-Host ("Step 1: Focusing on phase '{0}'." -f $phaseLabel)
         Write-Host ("Starting Codex iteration #{0}. Active phase: {1}. Tasks in phase: {2}" -f $iteration, $phaseLabel, $phaseTaskCount)
 
         $prompt = Build-CodexPrompt -Base $InitialInstructions -Remaining $phaseTaskLines -TaskPath $TaskFile -ProgressPath $ProgressFile -PhaseName $phaseLabel
-
-        $sessionId = $null
-        if ($phaseLabel -and $sessionMap.ContainsKey($phaseLabel)) {
-            $sessionId = $sessionMap[$phaseLabel]
+        Write-Host 'Step 2: Prompt will include the following tasks:'
+        foreach ($taskLine in $phaseTaskLines) {
+            Write-Host ("  - {0}" -f $taskLine)
         }
 
-        $result = $null
-        if (-not $sessionId) {
-            $result = Start-CodexSession -Prompt $prompt -RepoRootPath $RepoRoot -Binary $CodexBinary -Options $CodexOptions -Dry:$DryRun
-            if ($result.ExitCode -ne 0) {
-                throw "Codex exited with code $($result.ExitCode)."
+        $simulatedThisIteration = @()
+        if ($Simulate) {
+            $taskToSimulate = $phaseTaskLines | Where-Object { -not $simulatedClosedTasks.Contains($_) } | Select-Object -First 1
+            if ($taskToSimulate) {
+                Write-Host ("Step 3: Simulating completion of task: {0}" -f $taskToSimulate)
+                $null = $simulatedClosedTasks.Add($taskToSimulate)
+                $simulatedThisIteration = @($taskToSimulate)
             }
-
-            if (-not $DryRun) {
-                if (-not $result.SessionId) {
-                    throw 'Failed to capture Codex session id from Codex output.'
-                }
-
-                $sessionMap[$phaseLabel] = $result.SessionId
-                Write-Host ("Initialized Codex session for {0}: {1}" -f $phaseLabel, $result.SessionId)
+            else {
+                Write-Host ("Step 3: No remaining tasks to simulate in phase '{0}'." -f $phaseLabel)
             }
         }
         else {
-            $result = Resume-CodexSession -SessionId $sessionId -Prompt $prompt -RepoRootPath $RepoRoot -Binary $CodexBinary -Options $CodexOptions -Dry:$DryRun
-            if ($result.ExitCode -ne 0) {
-                throw "Codex resume exited with code $($result.ExitCode)."
+            $sessionId = $null
+            if ($phaseLabel -and $sessionMap.ContainsKey($phaseLabel)) {
+                $sessionId = $sessionMap[$phaseLabel]
+            }
+
+            $result = $null
+            if (-not $sessionId) {
+                Write-Host ("Step 3: Starting new Codex session for phase '{0}'." -f $phaseLabel)
+                $result = Start-CodexSession -Prompt $prompt -RepoRootPath $RepoRoot -Binary $CodexBinary -Options $CodexOptions -Dry:$dryRunMode
+                if ($result.ExitCode -ne 0) {
+                    throw "Codex exited with code $($result.ExitCode)."
+                }
+
+                if (-not $dryRunMode) {
+                    if (-not $result.SessionId) {
+                        throw 'Failed to capture Codex session id from Codex output.'
+                    }
+
+                    $sessionMap[$phaseLabel] = $result.SessionId
+                    Write-Host ("Initialized Codex session for {0}: {1}" -f $phaseLabel, $result.SessionId)
+                }
+            }
+            else {
+                Write-Host ("Step 3: Resuming Codex session {0} for phase '{1}'." -f $sessionId, $phaseLabel)
+                $result = Resume-CodexSession -SessionId $sessionId -Prompt $prompt -RepoRootPath $RepoRoot -Binary $CodexBinary -Options $CodexOptions -Dry:$dryRunMode
+                if ($result.ExitCode -ne 0) {
+                    throw "Codex resume exited with code $($result.ExitCode)."
+                }
             }
         }
 
-        $openAfterDetailed = Get-OpenTasksByPhase -Path $TaskFile
+        Write-Host 'Step 4: Refreshing task list to determine progress.'
+        $openAfterDetailed = @(Get-OpenTasksByPhase -Path $TaskFile)
+        if ($Simulate) {
+            $openAfterDetailed = @($openAfterDetailed | Where-Object { -not $simulatedClosedTasks.Contains($_.Line) })
+        }
         $openAfter = $openAfterDetailed | ForEach-Object { $_.Line }
 
         $closed = @()
@@ -291,9 +333,24 @@ try {
             }
         }
 
+        if ($Simulate -and $simulatedThisIteration) {
+            $closed = $simulatedThisIteration
+        }
+
+        if ($closed -and $closed.Count -gt 0) {
+            Write-Host 'Step 5: Closed tasks this iteration:'
+            foreach ($item in $closed) {
+                Write-Host ("  - {0}" -f $item)
+            }
+        }
+        else {
+            Write-Host 'Step 5: No tasks were closed during this iteration.'
+        }
+
         if (-not $SkipCommit) {
-            if ($DryRun) {
-                Write-Host '[dry-run] Skipping git commit.'
+            if ($dryRunMode) {
+                $dryLabel = if ($Simulate) { 'dry-run/simulate' } else { 'dry-run' }
+                Write-Host ("[{0}] Skipping git commit." -f $dryLabel)
             }
             else {
                 $statusOutput = & git status --porcelain
