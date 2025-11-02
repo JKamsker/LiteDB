@@ -121,6 +121,37 @@ Developers can use convenient extension methods for vector search operations on 
 
 ### Key Entities *(include if feature involves data)*
 
+#### Additional Functional Requirements and Clarifications
+
+**FR-016**: System MUST provide explicit error codes and messages for all vector index and search failures, including dimension mismatch, unsupported field types, and extension absence
+**FR-017**: System MUST document and enforce resource limits for vector index size, query result count, and memory usage, with clear diagnostics when limits are exceeded
+**FR-018**: System MUST provide diagnostic and logging capabilities for vector index operations, including index creation, query execution, and error conditions
+**FR-019**: System MUST guarantee that vector similarity scores and rankings are consistent, well-defined, and documented for each supported metric
+**FR-020**: System MUST provide a performance baseline and regression test for vector search operations, with results published in release notes
+
+##### Score Semantics & Error Handling
+
+- All vector similarity scores MUST be documented with their mathematical range and interpretation (e.g., cosine similarity: 0..1, euclidean: >=0, dot product: unbounded)
+- When the vector extension is not installed, any attempt to use vector index or similarity features MUST fail with a clear error code and message guiding the user to install the required package (NuGet: LiteDB.Vector)
+- All error codes and messages MUST be included in the documentation and test plan
+
+##### Plugin Absence & Registration
+
+- If the vector extension is not registered, all vector index and search operations MUST fail gracefully with actionable guidance
+- The NuGet package ID for the extension MUST be documented as `LiteDB.Vector`
+- Registration steps MUST be included in upgrade and migration documentation
+
+##### Resource Limits & Diagnostics
+
+- Maximum vector index size, query result count, and memory usage MUST be documented and enforced
+- When limits are exceeded, the system MUST provide diagnostic messages and log entries
+- Diagnostic and logging capabilities MUST be testable and included in the test plan
+
+##### Performance Baseline
+
+- Vector search operations MUST be benchmarked and results published in release notes
+- Performance regression tests MUST be included in the test plan
+
 - **Vector Index Configuration**: Stores settings for a vector index including the field being indexed, number of dimensions, and distance calculation method. Persisted in the database.
 - **Vector Graph Node**: Represents a connection point in the similarity graph structure, maintaining links to nearby similar vectors for efficient searching. Stored in specialized database pages.
 - **Vector Index Page**: Database page structures optimized for storing graph connections and vector search metadata.
