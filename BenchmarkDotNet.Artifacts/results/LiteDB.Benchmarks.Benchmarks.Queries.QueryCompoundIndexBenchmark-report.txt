@@ -1,0 +1,499 @@
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 81.271 μs, StdErr = 1.044 μs (1.28%), N = 95, StdDev = 10.172 μs
+Min = 71.683 μs, Q1 = 73.461 μs, Median = 76.462 μs, Q3 = 87.307 μs, Max = 113.669 μs
+IQR = 13.845 μs, LowerFence = 52.693 μs, UpperFence = 108.075 μs
+ConfidenceInterval = [77.726 μs; 84.816 μs] (CI 99.9%), Margin = 3.545 μs (4.36% of Mean)
+Skewness = 1.12, Kurtosis = 3.24, MValue = 2.12
+-------------------- Histogram --------------------
+[ 71.528 μs ;  77.380 μs) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[ 77.380 μs ;  83.693 μs) | @@@@@@@@@@@@@@@
+[ 83.693 μs ;  87.947 μs) | @@@@@@
+[ 87.947 μs ;  93.799 μs) | @@@@@@@@@@@
+[ 93.799 μs ; 100.256 μs) | @@@@@@@@
+[100.256 μs ; 107.376 μs) | @@@@
+[107.376 μs ; 110.744 μs) | 
+[110.744 μs ; 116.595 μs) | @
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 83.491 μs, StdErr = 5.780 μs (6.92%), N = 3, StdDev = 10.011 μs
+Min = 72.286 μs, Q1 = 79.459 μs, Median = 86.632 μs, Q3 = 89.094 μs, Max = 91.555 μs
+IQR = 9.634 μs, LowerFence = 65.007 μs, UpperFence = 103.545 μs
+ConfidenceInterval = [-99.150 μs; 266.132 μs] (CI 99.9%), Margin = 182.641 μs (218.75% of Mean)
+Skewness = -0.28, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[63.175 μs ;  79.983 μs) | @
+[79.983 μs ; 100.665 μs) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 77.554 μs, StdErr = 0.645 μs (0.83%), N = 90, StdDev = 6.120 μs
+Min = 71.341 μs, Q1 = 72.709 μs, Median = 74.923 μs, Q3 = 80.695 μs, Max = 95.730 μs
+IQR = 7.986 μs, LowerFence = 60.729 μs, UpperFence = 92.674 μs
+ConfidenceInterval = [75.359 μs; 79.750 μs] (CI 99.9%), Margin = 2.196 μs (2.83% of Mean)
+Skewness = 1.16, Kurtosis = 3.36, MValue = 2.57
+-------------------- Histogram --------------------
+[69.548 μs ; 71.770 μs) | @@
+[71.770 μs ; 75.938 μs) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[75.938 μs ; 79.857 μs) | @@@@@@@@@@@@
+[79.857 μs ; 83.443 μs) | @@@@@@@@@@@@@@
+[83.443 μs ; 86.438 μs) | @@@@
+[86.438 μs ; 88.196 μs) | 
+[88.196 μs ; 91.781 μs) | @@@@@@@@
+[91.781 μs ; 96.790 μs) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 81.671 μs, StdErr = 2.306 μs (2.82%), N = 3, StdDev = 3.994 μs
+Min = 77.082 μs, Q1 = 80.324 μs, Median = 83.565 μs, Q3 = 83.965 μs, Max = 84.365 μs
+IQR = 3.642 μs, LowerFence = 74.861 μs, UpperFence = 89.428 μs
+ConfidenceInterval = [8.799 μs; 154.542 μs] (CI 99.9%), Margin = 72.872 μs (89.23% of Mean)
+Skewness = -0.37, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[73.447 μs ; 80.330 μs) | @
+[80.330 μs ; 88.000 μs) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=10, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 293.230 μs, StdErr = 1.698 μs (0.58%), N = 66, StdDev = 13.793 μs
+Min = 279.094 μs, Q1 = 282.458 μs, Median = 287.693 μs, Q3 = 299.181 μs, Max = 326.233 μs
+IQR = 16.723 μs, LowerFence = 257.373 μs, UpperFence = 324.266 μs
+ConfidenceInterval = [287.379 μs; 299.082 μs] (CI 99.9%), Margin = 5.851 μs (2.00% of Mean)
+Skewness = 1.05, Kurtosis = 2.82, MValue = 2.27
+-------------------- Histogram --------------------
+[279.076 μs ; 288.035 μs) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[288.035 μs ; 299.470 μs) | @@@@@@@@@@@@@@
+[299.470 μs ; 312.599 μs) | @@@@@@@@
+[312.599 μs ; 326.320 μs) | @@@@@@@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 293.674 μs, StdErr = 5.973 μs (2.03%), N = 3, StdDev = 10.346 μs
+Min = 282.534 μs, Q1 = 289.020 μs, Median = 295.507 μs, Q3 = 299.244 μs, Max = 302.981 μs
+IQR = 10.224 μs, LowerFence = 273.685 μs, UpperFence = 314.579 μs
+ConfidenceInterval = [104.925 μs; 482.423 μs] (CI 99.9%), Margin = 188.749 μs (64.27% of Mean)
+Skewness = -0.17, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[273.119 μs ; 289.829 μs) | @
+[289.829 μs ; 312.397 μs) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 285.183 μs, StdErr = 1.545 μs (0.54%), N = 28, StdDev = 8.174 μs
+Min = 277.775 μs, Q1 = 280.051 μs, Median = 281.727 μs, Q3 = 287.390 μs, Max = 315.138 μs
+IQR = 7.340 μs, LowerFence = 269.041 μs, UpperFence = 298.400 μs
+ConfidenceInterval = [279.483 μs; 290.882 μs] (CI 99.9%), Margin = 5.700 μs (2.00% of Mean)
+Skewness = 1.94, Kurtosis = 7.03, MValue = 2
+-------------------- Histogram --------------------
+[276.814 μs ; 285.020 μs) | @@@@@@@@@@@@@@@@@
+[285.020 μs ; 293.436 μs) | @@@@@@@
+[293.436 μs ; 300.503 μs) | @@@
+[300.503 μs ; 311.605 μs) | 
+[311.605 μs ; 318.671 μs) | @
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 377.414 μs, StdErr = 53.384 μs (14.14%), N = 3, StdDev = 92.464 μs
+Min = 283.295 μs, Q1 = 332.056 μs, Median = 380.816 μs, Q3 = 424.473 μs, Max = 468.130 μs
+IQR = 92.417 μs, LowerFence = 193.429 μs, UpperFence = 563.099 μs
+ConfidenceInterval = [-1,309.482 μs; 2,064.309 μs] (CI 99.9%), Margin = 1,686.896 μs (446.96% of Mean)
+Skewness = -0.04, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[199.149 μs ; 340.327 μs) | @
+[340.327 μs ; 508.619 μs) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=50, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 593.758 μs, StdErr = 6.769 μs (1.14%), N = 93, StdDev = 65.282 μs
+Min = 539.854 μs, Q1 = 544.940 μs, Median = 560.053 μs, Q3 = 628.057 μs, Max = 755.716 μs
+IQR = 83.118 μs, LowerFence = 420.263 μs, UpperFence = 752.734 μs
+ConfidenceInterval = [570.745 μs; 616.770 μs] (CI 99.9%), Margin = 23.012 μs (3.88% of Mean)
+Skewness = 1.23, Kurtosis = 3.17, MValue = 2.53
+-------------------- Histogram --------------------
+[539.769 μs ; 577.593 μs) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[577.593 μs ; 600.622 μs) | @@@@@
+[600.622 μs ; 638.446 μs) | @@@@@@@@@@@@@
+[638.446 μs ; 665.680 μs) | @
+[665.680 μs ; 708.685 μs) | @@@@
+[708.685 μs ; 746.509 μs) | @@@@@@@@@@
+[746.509 μs ; 774.628 μs) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 655.300 μs, StdErr = 59.690 μs (9.11%), N = 3, StdDev = 103.387 μs
+Min = 545.930 μs, Q1 = 607.236 μs, Median = 668.543 μs, Q3 = 709.985 μs, Max = 751.427 μs
+IQR = 102.749 μs, LowerFence = 453.113 μs, UpperFence = 864.108 μs
+ConfidenceInterval = [-1,230.859 μs; 2,541.459 μs] (CI 99.9%), Margin = 1,886.159 μs (287.83% of Mean)
+Skewness = -0.13, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[451.844 μs ; 615.899 μs) | @
+[615.899 μs ; 804.071 μs) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 583.273 μs, StdErr = 3.315 μs (0.57%), N = 56, StdDev = 24.808 μs
+Min = 558.564 μs, Q1 = 565.822 μs, Median = 573.703 μs, Q3 = 590.250 μs, Max = 656.094 μs
+IQR = 24.428 μs, LowerFence = 529.179 μs, UpperFence = 626.893 μs
+ConfidenceInterval = [571.748 μs; 594.797 μs] (CI 99.9%), Margin = 11.524 μs (1.98% of Mean)
+Skewness = 1.43, Kurtosis = 4.22, MValue = 2.34
+-------------------- Histogram --------------------
+[558.391 μs ; 575.412 μs) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[575.412 μs ; 592.917 μs) | @@@@@@@@@@@
+[592.917 μs ; 616.778 μs) | @@@@@@@
+[616.778 μs ; 639.819 μs) | @@
+[639.819 μs ; 656.840 μs) | @@@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 747.037 μs, StdErr = 53.360 μs (7.14%), N = 3, StdDev = 92.422 μs
+Min = 692.729 μs, Q1 = 693.680 μs, Median = 694.630 μs, Q3 = 774.191 μs, Max = 853.751 μs
+IQR = 80.511 μs, LowerFence = 572.913 μs, UpperFence = 894.957 μs
+ConfidenceInterval = [-939.088 μs; 2,433.162 μs] (CI 99.9%), Margin = 1,686.125 μs (225.71% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[689.133 μs ; 857.348 μs) | @@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=100, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.674 ms, StdErr = 0.015 ms (0.57%), N = 45, StdDev = 0.102 ms
+Min = 2.567 ms, Q1 = 2.599 ms, Median = 2.629 ms, Q3 = 2.735 ms, Max = 2.951 ms
+IQR = 0.135 ms, LowerFence = 2.396 ms, UpperFence = 2.938 ms
+ConfidenceInterval = [2.621 ms; 2.728 ms] (CI 99.9%), Margin = 0.053 ms (2.00% of Mean)
+Skewness = 1.02, Kurtosis = 3.13, MValue = 2
+-------------------- Histogram --------------------
+[2.566 ms ; 2.641 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@
+[2.641 ms ; 2.751 ms) | @@@@@@@@@@@@
+[2.751 ms ; 2.829 ms) | @@@@
+[2.829 ms ; 2.989 ms) | @@@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.833 ms, StdErr = 0.134 ms (4.74%), N = 3, StdDev = 0.232 ms
+Min = 2.658 ms, Q1 = 2.701 ms, Median = 2.744 ms, Q3 = 2.920 ms, Max = 3.096 ms
+IQR = 0.219 ms, LowerFence = 2.372 ms, UpperFence = 3.249 ms
+ConfidenceInterval = [-1.409 ms; 7.074 ms] (CI 99.9%), Margin = 4.241 ms (149.73% of Mean)
+Skewness = 0.33, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[2.489 ms ; 2.912 ms) | @@
+[2.912 ms ; 3.308 ms) | @
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.748 ms, StdErr = 0.021 ms (0.78%), N = 90, StdDev = 0.204 ms
+Min = 2.566 ms, Q1 = 2.605 ms, Median = 2.672 ms, Q3 = 2.792 ms, Max = 3.416 ms
+IQR = 0.187 ms, LowerFence = 2.325 ms, UpperFence = 3.072 ms
+ConfidenceInterval = [2.675 ms; 2.821 ms] (CI 99.9%), Margin = 0.073 ms (2.66% of Mean)
+Skewness = 1.59, Kurtosis = 4.81, MValue = 2.21
+-------------------- Histogram --------------------
+[2.506 ms ; 2.575 ms) | @@
+[2.575 ms ; 2.694 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[2.694 ms ; 2.811 ms) | @@@@@@@@@@@@@@
+[2.811 ms ; 2.930 ms) | @@@@@@@
+[2.930 ms ; 2.988 ms) | 
+[2.988 ms ; 3.107 ms) | @@@@@@@@
+[3.107 ms ; 3.222 ms) | @@@@
+[3.222 ms ; 3.333 ms) | 
+[3.333 ms ; 3.476 ms) | @@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 2.641 ms, StdErr = 0.030 ms (1.13%), N = 3, StdDev = 0.052 ms
+Min = 2.594 ms, Q1 = 2.613 ms, Median = 2.633 ms, Q3 = 2.665 ms, Max = 2.697 ms
+IQR = 0.051 ms, LowerFence = 2.536 ms, UpperFence = 2.742 ms
+ConfidenceInterval = [1.695 ms; 3.587 ms] (CI 99.9%), Margin = 0.946 ms (35.81% of Mean)
+Skewness = 0.15, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[2.566 ms ; 2.661 ms) | @@
+[2.661 ms ; 2.744 ms) | @
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=500, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 5.581 ms, StdErr = 0.046 ms (0.82%), N = 97, StdDev = 0.450 ms
+Min = 5.093 ms, Q1 = 5.227 ms, Median = 5.410 ms, Q3 = 5.915 ms, Max = 6.957 ms
+IQR = 0.688 ms, LowerFence = 4.194 ms, UpperFence = 6.948 ms
+ConfidenceInterval = [5.426 ms; 5.736 ms] (CI 99.9%), Margin = 0.155 ms (2.78% of Mean)
+Skewness = 1.11, Kurtosis = 3.37, MValue = 2.51
+-------------------- Histogram --------------------
+[4.964 ms ; 5.108 ms) | @
+[5.108 ms ; 5.365 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[5.365 ms ; 5.628 ms) | @@@@@@@@@@@@@@@@@@@@@@
+[5.628 ms ; 5.915 ms) | @@@@@@
+[5.915 ms ; 6.172 ms) | @@@@@@@@@@@@@@
+[6.172 ms ; 6.454 ms) | @@@@@@
+[6.454 ms ; 6.814 ms) | @@@
+[6.814 ms ; 7.086 ms) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 5.273 ms, StdErr = 0.102 ms (1.93%), N = 3, StdDev = 0.176 ms
+Min = 5.162 ms, Q1 = 5.171 ms, Median = 5.181 ms, Q3 = 5.329 ms, Max = 5.476 ms
+IQR = 0.157 ms, LowerFence = 4.936 ms, UpperFence = 5.565 ms
+ConfidenceInterval = [2.057 ms; 8.489 ms] (CI 99.9%), Margin = 3.216 ms (61.00% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[5.159 ms ; 5.480 ms) | @@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 5.357 ms, StdErr = 0.029 ms (0.54%), N = 32, StdDev = 0.165 ms
+Min = 5.118 ms, Q1 = 5.225 ms, Median = 5.340 ms, Q3 = 5.456 ms, Max = 5.848 ms
+IQR = 0.230 ms, LowerFence = 4.879 ms, UpperFence = 5.801 ms
+ConfidenceInterval = [5.251 ms; 5.463 ms] (CI 99.9%), Margin = 0.106 ms (1.98% of Mean)
+Skewness = 0.78, Kurtosis = 3.5, MValue = 2
+-------------------- Histogram --------------------
+[5.106 ms ; 5.242 ms) | @@@@@@@@@
+[5.242 ms ; 5.410 ms) | @@@@@@@@@@@@@
+[5.410 ms ; 5.561 ms) | @@@@@@@@
+[5.561 ms ; 5.728 ms) | @
+[5.728 ms ; 5.916 ms) | @
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 5.491 ms, StdErr = 0.264 ms (4.81%), N = 3, StdDev = 0.457 ms
+Min = 5.159 ms, Q1 = 5.230 ms, Median = 5.302 ms, Q3 = 5.657 ms, Max = 6.013 ms
+IQR = 0.427 ms, LowerFence = 4.590 ms, UpperFence = 6.298 ms
+ConfidenceInterval = [-2.854 ms; 13.836 ms] (CI 99.9%), Margin = 8.345 ms (151.97% of Mean)
+Skewness = 0.34, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[4.743 ms ; 5.647 ms) | @@
+[5.647 ms ; 6.429 ms) | @
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=1000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 27.077 ms, StdErr = 0.100 ms (0.37%), N = 23, StdDev = 0.482 ms
+Min = 26.210 ms, Q1 = 26.731 ms, Median = 27.017 ms, Q3 = 27.378 ms, Max = 28.404 ms
+IQR = 0.647 ms, LowerFence = 25.760 ms, UpperFence = 28.348 ms
+ConfidenceInterval = [26.696 ms; 27.457 ms] (CI 99.9%), Margin = 0.381 ms (1.41% of Mean)
+Skewness = 0.64, Kurtosis = 3.46, MValue = 2
+-------------------- Histogram --------------------
+[26.102 ms ; 27.096 ms) | @@@@@@@@@@@@
+[27.096 ms ; 27.950 ms) | @@@@@@@@@@
+[27.950 ms ; 28.626 ms) | @
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 27.816 ms, StdErr = 1.132 ms (4.07%), N = 3, StdDev = 1.961 ms
+Min = 26.660 ms, Q1 = 26.684 ms, Median = 26.708 ms, Q3 = 28.394 ms, Max = 30.080 ms
+IQR = 1.710 ms, LowerFence = 24.119 ms, UpperFence = 30.959 ms
+ConfidenceInterval = [-7.955 ms; 63.588 ms] (CI 99.9%), Margin = 35.772 ms (128.60% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[26.586 ms ; 30.154 ms) | @@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 28.944 ms, StdErr = 0.295 ms (1.02%), N = 89, StdDev = 2.786 ms
+Min = 26.265 ms, Q1 = 26.958 ms, Median = 27.617 ms, Q3 = 30.141 ms, Max = 36.681 ms
+IQR = 3.183 ms, LowerFence = 22.183 ms, UpperFence = 34.916 ms
+ConfidenceInterval = [27.938 ms; 29.949 ms] (CI 99.9%), Margin = 1.006 ms (3.47% of Mean)
+Skewness = 1.42, Kurtosis = 4.03, MValue = 2
+-------------------- Histogram --------------------
+[25.446 ms ; 26.454 ms) | @
+[26.454 ms ; 28.092 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[28.092 ms ; 29.194 ms) | @@@@@@
+[29.194 ms ; 30.832 ms) | @@@@@@@@@@@@@@
+[30.832 ms ; 32.555 ms) | @@@@@@@
+[32.555 ms ; 34.623 ms) | @@@
+[34.623 ms ; 36.875 ms) | @@@@@@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 28.515 ms, StdErr = 0.370 ms (1.30%), N = 3, StdDev = 0.641 ms
+Min = 27.781 ms, Q1 = 28.293 ms, Median = 28.805 ms, Q3 = 28.883 ms, Max = 28.961 ms
+IQR = 0.590 ms, LowerFence = 27.407 ms, UpperFence = 29.768 ms
+ConfidenceInterval = [16.817 ms; 40.214 ms] (CI 99.9%), Margin = 11.699 ms (41.03% of Mean)
+Skewness = -0.36, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[27.197 ms ; 28.299 ms) | @
+[28.299 ms ; 29.545 ms) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=5000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 57.023 ms, StdErr = 0.263 ms (0.46%), N = 13, StdDev = 0.948 ms
+Min = 55.436 ms, Q1 = 56.443 ms, Median = 56.913 ms, Q3 = 57.625 ms, Max = 58.677 ms
+IQR = 1.182 ms, LowerFence = 54.670 ms, UpperFence = 59.398 ms
+ConfidenceInterval = [55.887 ms; 58.158 ms] (CI 99.9%), Margin = 1.136 ms (1.99% of Mean)
+Skewness = 0.25, Kurtosis = 1.87, MValue = 2
+-------------------- Histogram --------------------
+[54.907 ms ; 57.141 ms) | @@@@@@@@
+[57.141 ms ; 59.206 ms) | @@@@@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 71.161 ms, StdErr = 4.486 ms (6.30%), N = 3, StdDev = 7.770 ms
+Min = 65.250 ms, Q1 = 66.761 ms, Median = 68.272 ms, Q3 = 74.117 ms, Max = 79.962 ms
+IQR = 7.356 ms, LowerFence = 55.726 ms, UpperFence = 85.151 ms
+ConfidenceInterval = [-70.594 ms; 212.916 ms] (CI 99.9%), Margin = 141.755 ms (199.20% of Mean)
+Skewness = 0.32, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[59.690 ms ; 73.832 ms) | @@
+[73.832 ms ; 87.033 ms) | @
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=?]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 58.670 ms, StdErr = 0.342 ms (0.58%), N = 87, StdDev = 3.186 ms
+Min = 54.571 ms, Q1 = 56.569 ms, Median = 57.621 ms, Q3 = 59.502 ms, Max = 68.313 ms
+IQR = 2.933 ms, LowerFence = 52.169 ms, UpperFence = 63.902 ms
+ConfidenceInterval = [57.506 ms; 59.833 ms] (CI 99.9%), Margin = 1.164 ms (1.98% of Mean)
+Skewness = 1.25, Kurtosis = 3.61, MValue = 2.55
+-------------------- Histogram --------------------
+[54.336 ms ; 56.046 ms) | @@@@@@@@@@@
+[56.046 ms ; 57.933 ms) | @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+[57.933 ms ; 59.882 ms) | @@@@@@@@@@@@@
+[59.882 ms ; 61.861 ms) | @@@@@@@
+[61.861 ms ; 63.856 ms) | @@@@
+[63.856 ms ; 66.256 ms) | @@@@@@@@
+[66.256 ms ; 68.480 ms) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: Job-ACDQAM(Jit=RyuJit, Runtime=.NET 8.0, Force=True, Toolchain=.NET 8.0) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+
+QueryCompoundIndexBenchmark.Query_SimpleIndex_Baseline: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+Mean = 68.288 ms, StdErr = 4.286 ms (6.28%), N = 3, StdDev = 7.423 ms
+Min = 59.846 ms, Q1 = 65.535 ms, Median = 71.224 ms, Q3 = 72.509 ms, Max = 73.794 ms
+IQR = 6.974 ms, LowerFence = 55.075 ms, UpperFence = 82.969 ms
+ConfidenceInterval = [-67.130 ms; 203.706 ms] (CI 99.9%), Margin = 135.418 ms (198.30% of Mean)
+Skewness = -0.33, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[53.091 ms ; 65.754 ms) | @
+[65.754 ms ; 80.549 ms) | @@
+---------------------------------------------------
+
+QueryCompoundIndexBenchmark.Query_CompoundIndexVariant: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [DatasetSize=10000, ConnectionType=Direct, Password=SecurePassword]
+Runtime = .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI; GC = Concurrent Workstation
+There are not any results runs
+

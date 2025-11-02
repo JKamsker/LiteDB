@@ -56,6 +56,16 @@
 - **2025-11-05 update**:
   - Drafted spatial plugin release notes in `docs/spatial-plugin-migration-plan.md` and captured the copyable bullet list in `docs/release-template.md` so GitHub releases highlight plugin registration, `EnsureIndex` interception, and the new LINQ extensions.
   - Marked T020 complete in `tasks.md`; Phase 5 now focuses on the enablement checklist (T021).
+- **2025-11-06 update**:
+  - Published `docs/spatial-plugin-enable-checklist.md` consolidating quickstart, upgrade, diagnostics, and benchmark links for internal teams.
+  - Added a dedicated "Spatial Plugin Enablement" section to `README.md` and documented the walkthrough in `samples/SpatialApiSample/README.md`, pointing readers at the checklist and sample endpoints.
+  - Updated `publish-release.yml` and `publish-prerelease.yml` to pack spatial plugin NuGet artifacts alongside the core package without reintroducing spatial assemblies into `LiteDB.nupkg` (completes T023).
+  - Marked T021 complete in `tasks.md`; Phase 5 documentation scope is now fully closed.
+- **2025-11-07 update**:
+  - Added `--no-wait` support and console redirection guards to `LiteDB.Stress` so the stress harness can run unattended during validation.
+  - Executed `LiteDB.Benchmarks` spatial suite with `--job short --spatial-only --filter *SpatialQuery*`, capturing results in `BenchmarkDotNet.Artifacts/...SpatialQueryBenchmarks-report-github.md`; near/within mean latencies held at ~32 μs for dataset size 500 with unchanged allocations.
+  - Ran `LiteDB.Stress` scenarios (60 s test-01, 10 s test-02 to curb WAL explosion) via the new flag and recorded summaries in `artifacts_temp/test-01.log` and `artifacts_temp/test-02.log`; appended the numbers to `baselines.md`.
+  - Logged benchmark/stress outcomes under `specs/001-spatial-plugin-migration/baselines.md`, marking T022 complete.
 - **Partially scaffolded**:
   - Added `LiteDB.Spatial.Plugin.SpatialPlugin` with placeholder registration for expression functions, LINQ resolvers, query planning rules, and index interceptors.
   - Created `SpatialPluginServices`, `SpatialPluginRegistry`, and supporting runtime helpers (e.g., `SpatialInitializer`, `SpatialExpressionFunctions`) to bridge plugin extensions with core metadata (`SpatialMetadataStore`) and enable on-demand descriptor provisioning.
@@ -70,10 +80,13 @@
 ### Phase 5 – Documentation (T019–T021)
 - ✅ T019 – Quickstart and migration docs now teach the plugin-based `EnsureIndex` interception flow, LINQ `WhereNear` helpers, and attribute-based configuration.
 - ✅ T020 – Release notes template and plan now call out plugin registration, `EnsureIndex` interception, and the new query extensions.
-- ⏳ T021 – Update README/samples with enablement pointers to the refreshed docs.
+- ✅ T021 – Repository README and sample documentation link to the enablement checklist, quickstart, and diagnostics guidance.
 
 ### Phase 6 – Cross-cutting polish (T022–T025)
-- Benchmarks/stress comparisons, packaging adjustments, final validation, and documentation review are pending future work.
+- ✅ T022 – Benchmark/stress suites executed (spatial short-run benchmarks + stress harness logs added to `baselines.md`).
+- ✅ T023 – Release and prerelease workflows now pack the spatial plugin suite while keeping `LiteDB.nupkg` spatial-free.
+- ⏳ T024 – Capture final core vs plugin-enabled test runs for PR evidence.
+- ⏳ T025 – Perform final code/doc sanity review prior to PR.
 
 ## Current Repository State Highlights
 - Core solution (`LiteDB.sln`) builds without any spatial assemblies referenced in `LiteDB` or `LiteDB.Tests`; spatial code now lives purely under `LiteDB.Spatial.*` projects.
@@ -81,11 +94,8 @@
 - All Phase 1-3 TODO items are marked complete in `tasks.md`; Phases 4-6 remain open.
 
 ## Detailed Next Steps
-1. **T021 – Enablement checklist**  
-   - Add README and sample repository pointers that direct teams to the refreshed docs.  
-   - Ensure internal enablement checklists reference the quickstart, upgrade guide, and diagnostics documentation for first-line support.
+1. **T024 – Final verification runs**  
+   - Execute core solution tests without the plugin and spatial suites with the plugin, record command outputs for PR notes.
 
-2. **Phase 6 preparation (T022–T025)**  
-   - Plan benchmark/stress comparisons once docs/release notes are finalised.  
-   - Audit packaging scripts so core packages exclude spatial binaries while plugin nupkgs continue to ship required assets.  
-   - Schedule final validation runs (core without plugin, spatial with plugin) and documentation/code review sweep before opening the PR.
+2. **T025 – Code/documentation review sweep**  
+   - Audit modified files for formatting, XML comments, and doc cross-links before opening the migration PR.

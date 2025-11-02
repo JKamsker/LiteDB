@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>LiteDB.Benchmarks.Benchmarks.Generator.FileMetaDataGenerationDatabaseBenchmark-20251101-230801</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.13.12, Windows 11 (10.0.26100.6899)
+Unknown processor
+.NET SDK 9.0.306
+  [Host]     : .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI
+  Job-ACDQAM : .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI
+  ShortRun   : .NET 8.0.21 (8.0.2125.47513), X64 RyuJIT AVX-512F+CD+BW+DQ+VL+VBMI
+</code></pre>
+<pre><code>Jit=RyuJit  Runtime=.NET 8.0  Force=True  
+</code></pre>
+
+<table>
+<thead><tr><th>Method                </th><th>Job </th><th>Toolchain</th><th>IterationCount</th><th>LaunchCount</th><th>WarmupCount</th><th>N</th><th>Mean  </th><th>Error  </th><th>StdDev</th><th>Median</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>DataGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>10</td><td>11.08 &mu;s</td><td>0.221 &mu;s</td><td>0.403 &mu;s</td><td>10.97 &mu;s</td><td>0.6104</td><td>0.0153</td><td>-</td><td>9.99 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>10</td><td>11.72 &mu;s</td><td>0.240 &mu;s</td><td>0.689 &mu;s</td><td>11.55 &mu;s</td><td>0.6104</td><td>0.0153</td><td>-</td><td>9.99 KB</td>
+</tr><tr><td>DataGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>10</td><td>11.64 &mu;s</td><td>15.392 &mu;s</td><td>0.844 &mu;s</td><td>11.52 &mu;s</td><td>0.6104</td><td>0.0153</td><td>-</td><td>9.99 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>10</td><td>11.18 &mu;s</td><td>8.987 &mu;s</td><td>0.493 &mu;s</td><td>10.90 &mu;s</td><td>0.6104</td><td>0.0153</td><td>-</td><td>9.99 KB</td>
+</tr><tr><td>DataGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>50</td><td>53.86 &mu;s</td><td>1.073 &mu;s</td><td>1.357 &mu;s</td><td>53.91 &mu;s</td><td>2.9297</td><td>0.3662</td><td>-</td><td>48.29 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>50</td><td>55.01 &mu;s</td><td>1.097 &mu;s</td><td>2.690 &mu;s</td><td>54.36 &mu;s</td><td>2.9297</td><td>0.3662</td><td>-</td><td>48.29 KB</td>
+</tr><tr><td>DataGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>50</td><td>65.85 &mu;s</td><td>126.760 &mu;s</td><td>6.948 &mu;s</td><td>62.37 &mu;s</td><td>2.9297</td><td>0.3662</td><td>-</td><td>48.29 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>50</td><td>54.04 &mu;s</td><td>15.849 &mu;s</td><td>0.869 &mu;s</td><td>53.98 &mu;s</td><td>2.9297</td><td>0.3662</td><td>-</td><td>48.29 KB</td>
+</tr><tr><td>DataGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>100</td><td>105.97 &mu;s</td><td>1.900 &mu;s</td><td>1.685 &mu;s</td><td>106.47 &mu;s</td><td>5.8594</td><td>1.4648</td><td>-</td><td>96.19 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>100</td><td>108.68 &mu;s</td><td>2.119 &mu;s</td><td>3.821 &mu;s</td><td>108.45 &mu;s</td><td>5.8594</td><td>1.4648</td><td>-</td><td>96.19 KB</td>
+</tr><tr><td>DataGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>100</td><td>113.61 &mu;s</td><td>94.515 &mu;s</td><td>5.181 &mu;s</td><td>112.81 &mu;s</td><td>5.8594</td><td>1.4648</td><td>-</td><td>96.19 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>100</td><td>107.67 &mu;s</td><td>49.786 &mu;s</td><td>2.729 &mu;s</td><td>107.66 &mu;s</td><td>5.8594</td><td>1.4648</td><td>-</td><td>96.19 KB</td>
+</tr><tr><td>DataGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>500</td><td>525.34 &mu;s</td><td>8.598 &mu;s</td><td>9.556 &mu;s</td><td>526.11 &mu;s</td><td>28.3203</td><td>18.5547</td><td>-</td><td>476.02 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>500</td><td>555.40 &mu;s</td><td>13.046 &mu;s</td><td>37.431 &mu;s</td><td>541.88 &mu;s</td><td>28.3203</td><td>18.5547</td><td>-</td><td>476.02 KB</td>
+</tr><tr><td>DataGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>500</td><td>554.78 &mu;s</td><td>958.073 &mu;s</td><td>52.515 &mu;s</td><td>537.54 &mu;s</td><td>28.3203</td><td>18.5547</td><td>-</td><td>476.02 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>500</td><td>524.39 &mu;s</td><td>292.037 &mu;s</td><td>16.008 &mu;s</td><td>522.35 &mu;s</td><td>28.3203</td><td>18.5547</td><td>-</td><td>476.02 KB</td>
+</tr><tr><td>DataGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>1000</td><td>1,094.75 &mu;s</td><td>26.912 &mu;s</td><td>75.464 &mu;s</td><td>1,067.76 &mu;s</td><td>56.6406</td><td>44.9219</td><td>-</td><td>951.48 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>1000</td><td>1,069.89 &mu;s</td><td>20.064 &mu;s</td><td>32.966 &mu;s</td><td>1,062.16 &mu;s</td><td>56.6406</td><td>44.9219</td><td>-</td><td>951.48 KB</td>
+</tr><tr><td>DataGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>1000</td><td>1,040.69 &mu;s</td><td>192.898 &mu;s</td><td>10.573 &mu;s</td><td>1,036.53 &mu;s</td><td>56.6406</td><td>44.9219</td><td>-</td><td>951.48 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>1000</td><td>1,055.76 &mu;s</td><td>257.674 &mu;s</td><td>14.124 &mu;s</td><td>1,047.67 &mu;s</td><td>56.6406</td><td>44.9219</td><td>-</td><td>951.48 KB</td>
+</tr><tr><td>DataGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>5000</td><td>5,510.57 &mu;s</td><td>108.668 &mu;s</td><td>224.419 &mu;s</td><td>5,443.02 &mu;s</td><td>289.0625</td><td>281.2500</td><td>-</td><td>4808.02 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>5000</td><td>5,474.03 &mu;s</td><td>104.255 &mu;s</td><td>193.243 &mu;s</td><td>5,468.07 &mu;s</td><td>289.0625</td><td>281.2500</td><td>-</td><td>4808.02 KB</td>
+</tr><tr><td>DataGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>5000</td><td>5,744.79 &mu;s</td><td>11,049.649 &mu;s</td><td>605.669 &mu;s</td><td>5,478.43 &mu;s</td><td>289.0625</td><td>281.2500</td><td>-</td><td>4808.02 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>5000</td><td>5,401.61 &mu;s</td><td>687.336 &mu;s</td><td>37.675 &mu;s</td><td>5,394.95 &mu;s</td><td>289.0625</td><td>281.2500</td><td>-</td><td>4808.02 KB</td>
+</tr><tr><td>DataGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>10000</td><td>15,405.76 &mu;s</td><td>360.907 &mu;s</td><td>1,041.298 &mu;s</td><td>15,152.64 &mu;s</td><td>734.3750</td><td>718.7500</td><td>281.2500</td><td>9611.88 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>Job-ACDQAM</td><td>.NET 8.0</td><td>Default</td><td>Default</td><td>Default</td><td>10000</td><td>15,224.61 &mu;s</td><td>322.433 &mu;s</td><td>930.293 &mu;s</td><td>14,929.97 &mu;s</td><td>734.3750</td><td>718.7500</td><td>281.2500</td><td>9611.78 KB</td>
+</tr><tr><td>DataGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>10000</td><td>15,044.61 &mu;s</td><td>11,867.149 &mu;s</td><td>650.478 &mu;s</td><td>15,227.92 &mu;s</td><td>734.3750</td><td>718.7500</td><td>281.2500</td><td>9611.78 KB</td>
+</tr><tr><td>DataWithExclusionsGeneration</td><td>ShortRun</td><td>Default</td><td>3</td><td>1</td><td>3</td><td>10000</td><td>15,515.47 &mu;s</td><td>16,881.662 &mu;s</td><td>925.341 &mu;s</td><td>15,468.97 &mu;s</td><td>718.7500</td><td>687.5000</td><td>250.0000</td><td>9611.95 KB</td>
+</tr></tbody></table>
+</body>
+</html>
