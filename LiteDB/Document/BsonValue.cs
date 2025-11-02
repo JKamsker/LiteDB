@@ -1,4 +1,5 @@
-﻿using LiteDB.Engine;
+using LiteDB.Document.Bson;
+using LiteDB.Engine;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -693,6 +694,11 @@ namespace LiteDB
         /// </summary>
         internal virtual int GetBytesCount(bool recalc)
         {
+            if (BsonTypeSerializationHelper.TryGetCoreSize(this, out var pluginSize))
+            {
+                return pluginSize;
+            }
+
             switch (this.Type)
             {
                 case BsonType.Null:
@@ -712,7 +718,6 @@ namespace LiteDB
 
                 case BsonType.Boolean: return 1;
                 case BsonType.DateTime: return 8;
-                case BsonType.Vector: return 2 + (4 * this.AsVector.Length);
 
                 case BsonType.Document: return this.AsDocument.GetBytesCount(recalc);
                 case BsonType.Array: return this.AsArray.GetBytesCount(recalc);
