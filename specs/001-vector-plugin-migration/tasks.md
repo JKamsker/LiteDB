@@ -98,7 +98,7 @@
 - [X] T031 [US2] Verify VectorIndexStrategy.EnsureIndex creates VectorIndexMetadata and builds HNSW graph at `LiteDB.Vector/VectorIndexStrategy.cs`
 - [X] T032 [US2] Verify VectorIndexStrategy.DropIndex removes all VectorIndexPage instances and frees resources at `LiteDB.Vector/VectorIndexStrategy.cs`
 - [X] T033 [US2] Verify VectorIndexStrategy.OnDocumentUpsert maintains index consistency when documents change at `LiteDB.Vector/VectorIndexStrategy.cs`
-- [ ] T034 [US2] Verify VectorIndexStrategy.OnDocumentDelete removes nodes from graph structure at `LiteDB.Vector/VectorIndexStrategy.cs`
+- [X] T034 [US2] Verify VectorIndexStrategy.OnDocumentDelete removes nodes from graph structure at `LiteDB.Vector/VectorIndexStrategy.cs`
 
 ### Testing for User Story 2
 

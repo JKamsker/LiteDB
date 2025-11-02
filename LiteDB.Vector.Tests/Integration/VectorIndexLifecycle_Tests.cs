@@ -55,6 +55,19 @@ namespace LiteDB.Vector.Tests.Integration
 
             nearest.Should().Be(1);
 
+            collection.Delete(1);
+
+            var afterDelete = SnapshotHelper.GetVectorIndexState(db, "vectors", "embedding_idx");
+            afterDelete.Should().NotBeNull();
+            afterDelete!.NodeCount.Should().Be(documents.Length - 1);
+
+            var remainingMatch = collection.Query()
+                .TopKNear(x => x.Embedding, new[] { 1f, 0f, 0f }, k: 1)
+                .First()
+                .Id;
+
+            remainingMatch.Should().Be(4);
+
             var dropped = collection.DropIndex("embedding_idx");
             dropped.Should().BeTrue();
 

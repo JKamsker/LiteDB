@@ -233,7 +233,7 @@ try {
             $openBeforeDetailed = @($openBeforeDetailed | Where-Object { -not $simulatedClosedTasks.Contains($_.Line) })
         }
         Write-Host '--- Iteration plan ---'
-        $openBefore = $openBeforeDetailed | ForEach-Object { $_.Line }
+        $openBefore = @($openBeforeDetailed | ForEach-Object { $_.Line })
 
         if (-not $openBefore -or $openBefore.Count -eq 0) {
             Write-Host 'All tasks are complete. Exiting.'
@@ -331,23 +331,23 @@ try {
         if ($Simulate) {
             $openAfterDetailed = @($openAfterDetailed | Where-Object { -not $simulatedClosedTasks.Contains($_.Line) })
         }
-        $openAfter = $openAfterDetailed | ForEach-Object { $_.Line }
+        $openAfter = @($openAfterDetailed | ForEach-Object { $_.Line })
 
         $closed = @()
         if ($openBefore) {
             if ($openAfter) {
-                $closed = $openBefore | Where-Object { $openAfter -notcontains $_ }
+                $closed = @($openBefore | Where-Object { $openAfter -notcontains $_ })
             }
             else {
-                $closed = $openBefore
+                $closed = @($openBefore)
             }
         }
 
         if ($Simulate -and $simulatedThisIteration) {
-            $closed = $simulatedThisIteration
+            $closed = @($simulatedThisIteration)
         }
 
-        if ($closed -and $closed.Count -gt 0) {
+        if ($closed.Count -gt 0) {
             Write-Host 'Step 5: Closed tasks this iteration:'
             foreach ($item in $closed) {
                 Write-Host ("  - {0}" -f $item)
@@ -403,7 +403,7 @@ try {
             }
         }
 
-        if ($openAfter -and ($openAfter.Count -eq $openBefore.Count) -and (-not $closed)) {
+        if (($openAfter.Count -gt 0) -and ($openAfter.Count -eq $openBefore.Count) -and ($closed.Count -eq 0)) {
             Write-Warning 'No unchecked tasks were closed during this iteration. Stopping to avoid an infinite loop.'
             break
         }
