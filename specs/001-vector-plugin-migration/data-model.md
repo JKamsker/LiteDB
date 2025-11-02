@@ -188,7 +188,6 @@ public sealed class VectorSearchPlugin : ILitePlugin
         context.Indexes.Register(new VectorIndexStrategy(context.Logger, defaultMetric))
         context.Query.RegisterScoreProjection(new VectorScoreProjectionFactory())
 
-        // Provide connection-string activation (plugins=vector)
         context.Logger.Write(LogLevel.Debug, "VectorSearchPlugin enabled with default metric {0}", defaultMetric)
         
         context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.")

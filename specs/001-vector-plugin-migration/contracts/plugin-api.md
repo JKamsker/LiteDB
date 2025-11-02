@@ -40,7 +40,6 @@ using var db = new LiteDatabase(
 ```
 
 **Connection String Options**:
-- `plugins=vector` - Registers the plugin without requiring code changes (can be combined with other plugins using comma separation)
 - `vector.metric=cosine|euclidean|dotproduct` - Sets default metric for indexes and ad-hoc distance queries when a metric is not specified explicitly
 
 ---

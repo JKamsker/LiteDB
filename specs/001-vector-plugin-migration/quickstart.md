@@ -51,13 +51,15 @@ using var db = new LiteDatabase(
 // Vector operations are now available
 ```
 
-### Register with Connection String (No Code Changes)
+### Optional: Set Default Metric via Connection String
 
 ```csharp
-var connectionString = "Filename=mydata.db;plugins=vector;vector.metric=cosine";
-using var db = new LiteDatabase(connectionString);
+var connectionString = "mydata.db;vector.metric=cosine";
+using var db = new LiteDatabase(
+    connectionString,
+    plugins: new[] { VectorSearchPlugin.Instance });
 
-// Plugin is auto-registered, cosine becomes the default metric
+// All vector indexes will use Cosine by default
 ```
 
 ---

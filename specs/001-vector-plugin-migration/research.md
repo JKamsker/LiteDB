@@ -71,18 +71,15 @@ These are fundamental database structures and cannot be moved:
 **Rationale**:
 - Spatial plugins (LiteDB.Spatial.*, currently being migrated) provide a proven pattern
 - Users supply `VectorSearchPlugin.Instance` via the `LiteDatabase` constructor (`plugins` parameter), matching the spatial plugin pattern
-- Connection string supports default metric: `vector.metric=cosine`
-- Zero-configuration for common scenarios while allowing customization
+- Connection string still supports default metric configuration: `vector.metric=cosine`
+- Keeps registration explicit while avoiding repeated metric arguments
 
 **Best Practice Pattern**:
 ```csharp
-// Option 1: Explicit constructor registration
+var connectionString = "mydata.db;vector.metric=cosine";
 using var db = new LiteDatabase(
     connectionString,
     plugins: new[] { VectorSearchPlugin.Instance });
-
-// Option 2: Via connection string (future enhancement)
-var db = new LiteDatabase("mydata.db;plugins=vector");
 ```
 
 ### Distance Metric Implementation

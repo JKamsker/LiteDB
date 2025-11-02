@@ -140,7 +140,7 @@ Developers can use convenient extension methods for vector search operations on 
 **FR-024**: Vector search execution MUST apply an exact distance filter and resorting stage after approximate index traversal to guarantee correctness
 **FR-025**: Vector dimensions MUST be capped at `ushort.MaxValue` (65,535) with explicit validation during index creation, document writes, and ad-hoc queries
 **FR-026**: Vector helper APIs MUST include convenience builders (e.g., `Vector.Create`, `Vector.Normalize`) so callers are not forced to construct `BsonVector` manually
-**FR-027**: Documentation and packaging MUST describe installing `LiteDB.Vector`, enabling the plugin via connection string (`plugins:`), and highlight naming/metric semantics
+**FR-027**: Documentation and packaging MUST describe installing `LiteDB.Vector`, registering the plugin via the `plugins` constructor parameter, and highlight naming/metric semantics
 
 ##### Score Semantics & Error Handling
 
