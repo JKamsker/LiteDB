@@ -17,3 +17,4 @@
 - T013: Added metadata registration helpers to `LiteDB/Plugins/EnsureIndexContext.cs` ensuring interceptors can register and retrieve descriptors through the default plugin context.
 - T014: Added `LiteDB/Document/Bson/BsonTypeRegistry.cs` providing plugin-aware lookups with legacy fallbacks for core types.
 - T015: Extended `LiteDB/Document/BsonType.cs` with registry-backed resolution helpers and synced `LiteDatabaseServices` to refresh fallback metadata.
+- T016: Routed BsonValue sizing and JsonWriter output through registry-aware helpers so vector serialization flows via the new BSON registry.
