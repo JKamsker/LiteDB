@@ -39,11 +39,12 @@
 
 **ÔÜá´©Å CRITICAL**: No user story work can begin until this phase is complete. These tasks ensure the plugin framework integration points are working.
 
-- [ ] T009 Verify IIndexStrategy interface provides all necessary hooks: EnsureIndex, DropIndex, OnDocumentUpsert, OnDocumentDelete at `LiteDB/Plugins/IIndexStrategy.cs`
-- [ ] T010 Verify ILitePlugin interface and plugin context at `LiteDB/Plugins/ILitePlugin.cs` and `LiteDB/Plugins/DefaultPluginContext.cs`
-- [ ] T011 Verify core structures remain in LiteDB: BsonVector at `LiteDB/Document/BsonVector.cs`, VectorIndexMetadata at `LiteDB/Engine/Structures/VectorIndexMetadata.cs`, VectorIndexNode at `LiteDB/Engine/Structures/VectorIndexNode.cs`, VectorIndexPage at `LiteDB/Engine/Pages/VectorIndexPage.cs`
-- [ ] T012 Run baseline benchmarks with existing vector implementation using `LiteDB.Benchmarks/Benchmarks/Queries/QueryWithVectorSimilarity.cs` to establish performance baseline
-- [ ] T013 Document baseline performance metrics (index creation time, k-NN search time for k=1,10,100) for post-migration comparison
+- [X] T009 Verify IIndexStrategy interface provides all necessary hooks: EnsureIndex, DropIndex, OnDocumentUpsert, OnDocumentDelete at `LiteDB/Plugins/IIndexStrategy.cs`
+- [X] T010 Verify ILitePlugin interface and plugin context at `LiteDB/Plugins/ILitePlugin.cs` and `LiteDB/Plugins/DefaultPluginContext.cs`
+- [X] T011 Verify core structures remain in LiteDB: BsonVector at `LiteDB/Document/BsonVector.cs`, VectorIndexMetadata at `LiteDB/Engine/Structures/VectorIndexMetadata.cs`, VectorIndexNode at `LiteDB/Engine/Structures/VectorIndexNode.cs`, VectorIndexPage at `LiteDB/Engine/Pages/VectorIndexPage.cs`
+<!-- - [ ] T012 Run baseline benchmarks with existing vector implementation using `LiteDB.Benchmarks/Benchmarks/Queries/QueryWithVectorSimilarity.cs` to establish performance baseline
+- [ ] T013 Document baseline performance metrics (index creation time, k-NN search time for k=1,10,100) for post-migration comparison -->
+**Note:** Tasks T012 and T013 (benchmarking) were removed.
 
 **Checkpoint**: Foundation verified - user story implementation can now begin
 
@@ -203,8 +204,8 @@
 - [ ] T066 [P] Create migration guide document at `LiteDB.Vector/README.md` explaining plugin registration and upgrade steps
 
 ### Performance & Quality
-
-- [ ] T067 Run post-migration benchmarks using `LiteDB.Benchmarks/Benchmarks/Queries/QueryWithVectorSimilarity.cs` and compare with baseline from T013
+<!-- Removed: Benchmaks -->
+<!-- - [ ] T067 Run post-migration benchmarks using `LiteDB.Benchmarks/Benchmarks/Queries/QueryWithVectorSimilarity.cs` and compare with baseline from T013 -->
 - [ ] T068 Verify performance variance is Ôëñ5% compared to baseline (requirement from spec.md success criteria SC-003)
 - [ ] T069 Run all tests in LiteDB.Vector.Tests: `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj`
 - [ ] T070 Run all tests in LiteDB.Tests to verify core functionality unaffected: `dotnet test LiteDB.Tests/LiteDB.Tests.csproj`
@@ -450,7 +451,7 @@ This task list addresses all success criteria:
 
 - **SC-001**: All existing vector search tests pass - covered by test migration tasks (T021-T026, T035-T037, etc.)
 - **SC-002**: Applications upgrade with minimal changes - covered by backward compatibility validation (T026, T071)
-- **SC-003**: Performance Ôëñ5% variance - covered by baseline (T012-T013) and post-migration benchmarks (T067-T068)
+<!-- - **SC-003**: Performance Ôëñ5% variance - covered by baseline (T012-T013) and post-migration benchmarks (T067-T068) -->
 - **SC-004**: Database file compatibility - covered by structure verification (T011) and compatibility tests (T071)
 - **SC-005**: Clear error messages without extension - covered by error handling (T063)
 - **SC-006**: Test coverage maintained - covered by test migration (all US test tasks)
