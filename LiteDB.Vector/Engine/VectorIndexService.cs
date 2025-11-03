@@ -944,10 +944,12 @@ namespace LiteDB.Vector.Engine
 
             float[] buffer;
 
+            #pragma warning disable CS0618
             if (value.Type == BsonType.Vector)
             {
                 buffer = value.AsVector.ToArray();
             }
+            #pragma warning restore CS0618
             else if (value.IsArray)
             {
                 buffer = new float[value.AsArray.Count];

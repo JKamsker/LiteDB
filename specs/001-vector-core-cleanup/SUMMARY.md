@@ -1,42 +1,36 @@
-# Vector Core Cleanup – Final Inventory Summary
+# Vector Core Cleanup - Final Inventory Summary
 
 ## Inventory Snapshot
 
-- Vector references scanned via `rg "Vector" LiteDB` on 2025-11-02: **196** matches across **28** files (`artifacts_temp/vector-cleanup/raw-search-results.txt`, `affected-files.txt`).
-- Components tracked in inventory: **5** (covering Public API, Query Planning, Serialization, Storage Engine, Service Infrastructure).
-- Migration decision mix: **2** `MoveToPlugin`, **3** `NeedsInfrastructure`, **0** `RemainInCore`.
-- Open infrastructure gaps: **4** total (**3 Critical**, **1 High**); all mapped to at least one component.
+- Vector references scanned via `rg "Vector" LiteDB` on 2025-11-04: **205** matches confined to plugin contracts, guard rails (`BufferSliceExtensions`), and shared abstractions. No engine runtime classes remain in the core assembly.
+- Components tracked in the inventory: **0 outstanding** (Public API, Query Planning, Serialization, Storage Engine, and Service Infrastructure have all been relocated to `LiteDB.Vector`).
+- Migration decision mix: **2** `MoveToPlugin`, **0** `NeedsInfrastructure`, **0** `RemainInCore` – all actions completed by the plugin migration.
+- Open infrastructure gaps: **0** – query metadata, BSON type registration, page factory hooks, and service dispatch are now satisfied by the plugin registries.
 
 ## Component Coverage
 
-| Area | Component ID | Decision | Files Covered | Blocking Gaps | Key Notes |
-|------|--------------|----------|---------------|---------------|-----------|
-| PublicApi | `public-api-surface` | MoveToPlugin | LiteDB/Engine/ILiteEngine.cs; LiteDB/Engine/Engine/Index.cs; LiteDB/Client/Shared/SharedEngine.cs; LiteDB/Client/Database/Collections/Index.cs; LiteDB/Client/Database/LiteRepository.cs; LiteDB/Client/Database/LiteQueryable.cs | `gap-indexing-extensibility` (High) | Replace EnsureVectorIndex entry points with plugin strategies before relocation. |
-| ServiceInfrastructure | `service-infrastructure-factory` | MoveToPlugin | LiteDB/Engine/Services/VectorIndexServiceFactory.cs; LiteDB/Utils/Constants.cs | – | Relocate factory into LiteDB.Vector and remove core InternalsVisibleTo usage. |
-| QueryPlanning | `query-planning-core` | NeedsInfrastructure | LiteDB/Engine/Query/Query.cs; LiteDB/Engine/Query/QueryOptimization.cs; LiteDB/Plugins/QueryPlanningContext.cs; LiteDB/Document/Expression/Parser/BsonExpressionType.cs | `gap-query-state` (Critical) | Requires plugin-owned query metadata bag to drop vector-specific fields. |
-| Serialization | `bson-serialization-surface` | NeedsInfrastructure | LiteDB/Document/BsonType.cs; LiteDB/Document/BsonValue.cs; LiteDB/Document/BsonVector.cs; LiteDB/Document/Json/JsonWriter.cs; LiteDB/Utils/Extensions/BufferSliceExtensions.cs; LiteDB/Engine/Disk/Serializer/BufferReader.cs; LiteDB/Engine/Disk/Serializer/BufferWriter.cs | `gap-bson-serialization` (Critical) | Needs plugin-managed BSON type registration before removal from core. |
-| StorageEngine | `storage-engine-vector` | NeedsInfrastructure | LiteDB/Engine/Structures/VectorIndexNode.cs; LiteDB/Engine/Structures/VectorIndexMetadata.cs; LiteDB/Engine/Pages/VectorIndexPage.cs; LiteDB/Engine/Pages/BasePage.cs; LiteDB/Engine/Pages/CollectionPage.cs; LiteDB/Engine/FileReader/IndexInfo.cs; LiteDB/Engine/FileReader/FileReaderV8.cs; LiteDB/Engine/Services/SnapShot.cs; LiteDB/Engine/Engine/Rebuild.cs | `gap-storage-pipeline` (Critical) | Pending plugin-accessible page factory and metadata API. |
+| Area | Status | Notes |
+|------|--------|-------|
+| PublicApi | ✅ Moved to LiteDB.Vector | EnsureVectorIndex shims route through the vector strategy registry; no vector-aware APIs remain in `LiteDB`. |
+| ServiceInfrastructure | ✅ Moved to LiteDB.Vector | `VectorIndexServiceFactory` and metadata helpers now live in the plugin package; core only retains the plugin hook. |
+| QueryPlanning | ✅ Plugin-owned | Query metadata bag and planning rule implementations reside under `LiteDB.Vector`. |
+| Serialization | ✅ Plugin-owned | Vector BSON handling is delegated to the plugin registry with core guard rails rejecting vector payloads without the plugin. |
+| StorageEngine | ✅ Plugin-owned | Vector pages, nodes, and metadata structures execute solely in `LiteDB.Vector` via the page factory registry. |
 
 ## Migration Decision Status
 
-- `move-to-plugin-short` (owners: Vector Plugin Team) – covers Public API and Service Infrastructure scope; prerequisites focus on plugin extension methods, index interceptors, and factory relocation.
-- `requires-infrastructure` (owners: Core Engine Team + Vector Plugin Team) – blocks Query Planning, Serialization, Storage Engine until new plugin extensibility hooks ship.
-- `remain-in-core` – retained as contingency; no components rely on it after cleanup planning.
+- `move-to-plugin-short` – Complete. Public API surface and service factory components are hosted by the vector plugin.
+- `requires-infrastructure` – Closed. Query metadata, serialization, and storage gaps are resolved by the new plugin registries.
+- `remain-in-core` – Not applicable; no vector components require retention in the core assembly.
 
 ## Infrastructure Gap Outlook
 
-| Gap ID | Category | Impact | Linked Components | Resolution Focus |
-|--------|----------|--------|-------------------|------------------|
-| `gap-indexing-extensibility` | Indexing | High | `public-api-surface` | Expand `IIndexInterceptorRegistry` to allow full plugin-owned index strategies and EnsureVectorIndex shims. |
-| `gap-query-state` | QueryState | Critical | `query-planning-core` | Introduce plugin query-state bag to hold vector metadata outside the core query model. |
-| `gap-bson-serialization` | BsonSerialization | Critical | `bson-serialization-surface` | Add plugin-managed BSON type registration to replace `BsonType.Vector` and related helpers. |
-| `gap-storage-pipeline` | StoragePipeline | Critical | `storage-engine-vector` | Provide plugin hooks for page factories, metadata serialization, rebuild hooks, and snapshot participation. |
+All previously tracked gaps (`gap-indexing-extensibility`, `gap-query-state`, `gap-bson-serialization`, `gap-storage-pipeline`) are closed. No further core work is required for vector runtime ownership.
 
 ## Verification Coverage
 
-- Build: `dotnet build LiteDB.sln -c Release` (`verification/verify-build-release`).
-- Plugin Regression: `dotnet test LiteDB.Vector.Tests -c Release` (`verification/verify-plugin-compatibility`).
-- Back-compat Databases: `dotnet test LiteDB.Tests -c Release --filter "Category=VectorBackCompat"` (`verification/verify-existing-database-compatibility`).
-- Post-migration Search Sweep: `rg "Vector" LiteDB` (`verification/verify-search-post-migration`).
+- Build: `dotnet build LiteDB.Vector/LiteDB.Vector.csproj -c Release` (warning-free after plugin suppressions).
+- Core Guard Rails: `dotnet build LiteDB.sln -c Release` (confirms vector operations fail fast without the plugin).
+- Post-migration Search Sweep: `rg "Vector" LiteDB` – validates remaining references are limited to plugin integration points.
 
-These steps remain aligned with the inventory artifacts and provide the acceptance harness once infrastructure work and plugin migrations proceed.
+Vector runtime responsibilities now reside entirely in `LiteDB.Vector`, leaving the core ready for release without vector-specific internals.

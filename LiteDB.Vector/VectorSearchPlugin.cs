@@ -132,6 +132,7 @@ namespace LiteDB.Vector
                     throw new ArgumentException("Vector index page factory received an unexpected context instance.", nameof(ctx));
                 }));
 
+            #pragma warning disable CS0618
             var descriptor = new VectorIndexStrategyDescriptor(
                 pluginId: "LiteDB.Vector",
                 strategyId: "LiteDB.Vector",
@@ -150,6 +151,7 @@ namespace LiteDB.Vector
                 rebuildStrategy: _ => Task.CompletedTask,
                 requiredBsonTypes: new[] { (byte)BsonType.Vector },
                 requiredPageTypes: new[] { "VectorIndex" });
+            #pragma warning restore CS0618
 
             context.RegisterVectorIndexStrategy(descriptor);
 
