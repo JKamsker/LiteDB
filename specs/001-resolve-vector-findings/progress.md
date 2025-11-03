@@ -30,3 +30,4 @@
 - T022: Added QueryMetadataBag regression suite covering descriptor-backed bags, fallback construction, and vector metadata population when no plugin context exists.
 
 - T023: Added VectorRegistry integration coverage and updated VectorSearchPlugin to register query metadata, page factory, and vector strategy descriptors across the new plugin registries.
+- T023b: Added plugin-absent integration coverage validating vector index creation and query helpers emit the shared plugin-required error message, and updated `LiteEngine.EnsureVectorIndex` to reuse the compatibility guard for consistent guidance.
