@@ -56,7 +56,7 @@
 - [X] T015 [US1] Refactor `LiteDB/Document/BsonType.cs` to delegate vector lookups and registrations to `BsonTypeRegistry`.
 - [X] T016 [P] [US1] Update `LiteDB/Document/BsonValue.cs` and `LiteDB/Document/Json/JsonWriter.cs` to route serialization through the registry.
 - [X] T017 [US1] Introduce page factory support in `LiteDB/Engine/Pages/PageFactoryRegistry.cs` and integrate with `LiteDB/Engine/Pages/BasePage.cs`.
-- [ ] T018 [US1] Integrate page factory usage across `LiteDB/Engine/FileReader/FileReaderV8.cs`, `LiteDB/Engine/Engine/Rebuild.cs`, and `LiteDB/Engine/Services/SnapShot.cs`.
+- [X] T018 [US1] Integrate page factory usage across `LiteDB/Engine/FileReader/FileReaderV8.cs`, `LiteDB/Engine/Engine/Rebuild.cs`, and `LiteDB/Engine/Services/SnapShot.cs`.
 - [ ] T019 [US1] Create `LiteDB/Plugins/Indexing/VectorIndexStrategyDescriptor.cs` describing plugin-managed index strategies.
 - [ ] T020 [US1] Extend `LiteDB/Plugins/EnsureIndexContext.cs` to register and resolve vector index strategies through the new descriptor.
 - [ ] T021 [US1] Refactor `LiteDB/Client/Database/Collections/Index.cs` and `LiteDB/Client/Database/LiteQueryable.cs` to rely on plugin strategies and emit compatibility shims.
