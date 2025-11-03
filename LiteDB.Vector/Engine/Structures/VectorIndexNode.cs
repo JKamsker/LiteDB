@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using LiteDB.Engine;
 using System.Linq;
 using LiteDB.Vector.Utils;
 using static LiteDB.Constants;

@@ -4,21 +4,13 @@ using System.Linq;
 using System.Linq.Expressions;
 using LiteDB;
 using LiteDB.Plugins.Query;
+using LiteDB.Vector.Query;
 
 namespace LiteDB.Vector.Extensions
 {
     internal static class QueryableExtensions
     {
-        private const string PluginId = "LiteDB.Vector";
         private const byte DotProductMetric = (byte)VectorDistanceMetric.DotProduct;
-
-        private static readonly string[] ReservedMetadataKeys = new[]
-        {
-            "VectorField",
-            "TargetEmbedding",
-            "VectorMaxDistance",
-            "VectorMetric"
-        };
 
         internal static ILiteQueryable<T> WhereNear<T>(LiteQueryable<T> source, string vectorField, float[] target, double maxDistance, VectorDistanceMetric? metric)
         {
@@ -165,7 +157,7 @@ namespace LiteDB.Vector.Extensions
         {
             var metadata = TryGetExistingMetadata(source);
 
-            if (metadata != null && metadata.TryGet<byte?>(ReservedMetadataKeys[3], out var metric))
+            if (metadata != null && metadata.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var metric))
             {
                 return metric;
             }
@@ -173,10 +165,10 @@ namespace LiteDB.Vector.Extensions
             return null;
         }
 
-        private static QueryMetadataBag TryGetExistingMetadata<T>(LiteQueryable<T> source)
+        private static QueryMetadataBag? TryGetExistingMetadata<T>(LiteQueryable<T> source)
         {
             var query = source.GetQueryDefinition();
-            return query.TryGetMetadata(PluginId, out var metadata) ? metadata : null;
+            return query.TryGetMetadata(VectorQueryMetadata.PluginId, out var metadata) ? metadata : null;
         }
 
         private static QueryMetadataBag GetOrCreateMetadata<T>(LiteQueryable<T> source)
@@ -184,22 +176,24 @@ namespace LiteDB.Vector.Extensions
             var services = source.Database?.Services;
             var accessor = services?.QueryMetadata;
 
-            if (accessor != null && accessor.TryGetDescriptor(PluginId, out var descriptor))
+            if (accessor != null && accessor.TryGetDescriptor(VectorQueryMetadata.PluginId, out var descriptor))
             {
-                return source.GetOrCreateMetadata(PluginId, () => new QueryMetadataBag(descriptor));
+                return source.GetOrCreateMetadata(VectorQueryMetadata.PluginId, () => new QueryMetadataBag(descriptor));
             }
 
-            return source.GetOrCreateMetadata(PluginId, () => new QueryMetadataBag(PluginId, version: 1, ReservedMetadataKeys));
+            return source.GetOrCreateMetadata(
+                VectorQueryMetadata.PluginId,
+                () => new QueryMetadataBag(VectorQueryMetadata.PluginId, version: 1, VectorQueryMetadata.ReservedKeys));
         }
 
         private static void ConfigureVectorMetadata<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
         {
             var metadata = GetOrCreateMetadata(source);
 
-            metadata.Set(ReservedMetadataKeys[0], fieldExpr.Source);
-            metadata.Set(ReservedMetadataKeys[1], target?.ToArray());
-            metadata.Set(ReservedMetadataKeys[2], maxDistance);
-            metadata.Set(ReservedMetadataKeys[3], metric);
+            metadata.Set(VectorQueryMetadata.FieldKey, fieldExpr.Source);
+            metadata.Set(VectorQueryMetadata.TargetKey, target?.ToArray());
+            metadata.Set(VectorQueryMetadata.MaxDistanceKey, maxDistance);
+            metadata.Set(VectorQueryMetadata.MetricKey, metric);
         }
 
         private static BsonExpression CreateVectorDistanceFilter<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)

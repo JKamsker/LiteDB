@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using LiteDB;
+using LiteDB.Engine;
 using static LiteDB.Constants;
 
 namespace LiteDB.Vector.Engine

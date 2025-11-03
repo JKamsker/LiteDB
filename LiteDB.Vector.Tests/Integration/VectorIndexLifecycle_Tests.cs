@@ -5,6 +5,7 @@ using System.Reflection;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Vector;
+using LiteDB.Vector.Engine;
 
 namespace LiteDB.Vector.Tests.Integration
 {
@@ -110,13 +111,14 @@ namespace LiteDB.Vector.Tests.Integration
                     new Func<TransactionService, VectorIndexState>(transaction =>
                     {
                         using var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, addIfNotExists: false);
-                        var metadata = snapshot.CollectionPage.GetVectorIndexMetadata(indexName);
+                        var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata(indexName);
 
-                        if (metadata == null)
+                        if (metadataBuffer == null)
                         {
                             return null!;
                         }
 
+                        var metadata = VectorIndexMetadata.Wrap(metadataBuffer);
                         var nodeCount = CountNodes(snapshot, metadata.Root);
                         var metric = (VectorDistanceMetric)metadata.Metric;
 
