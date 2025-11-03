@@ -1,4 +1,5 @@
 using System;
+using LiteDB.Engine;
 using LiteDB.Plugins;
 
 namespace LiteDB
@@ -15,6 +16,7 @@ namespace LiteDB
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             BsonTypeResolver.ReplaceFallbackRegistry(context);
+            PageFactoryResolver.ReplaceFallbackRegistry(context);
         }
 
         /// <summary>
