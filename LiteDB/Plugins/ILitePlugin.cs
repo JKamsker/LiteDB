@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using LiteDB.Engine;
 using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Indexing;
 using LiteDB.Plugins.Query;
 using LiteDB.Plugins.Storage;
 
@@ -37,6 +38,8 @@ namespace LiteDB.Plugins
 
         IPageFactoryRegistry PageFactories { get; }
 
+        IVectorIndexStrategyRegistry VectorIndexes { get; }
+
         ILinqResolverRegistry LinqResolvers { get; }
 
         IIndexInterceptorRegistry IndexInterceptors { get; }
@@ -58,6 +61,12 @@ namespace LiteDB.Plugins
         bool TryGetBsonType(byte typeCode, out BsonTypeRegistration registration);
 
         bool TryGetBsonType(string name, out BsonTypeRegistration registration);
+
+        void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor);
+
+        bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor);
+
+        VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId);
 
         void RegisterPageFactory(PageFactoryRegistration registration);
 

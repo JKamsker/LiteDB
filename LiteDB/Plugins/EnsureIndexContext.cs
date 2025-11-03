@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using LiteDB.Engine;
 using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Indexing;
 using LiteDB.Plugins.Query;
 using LiteDB.Plugins.Storage;
 
@@ -101,9 +102,60 @@ namespace LiteDB.Plugins
         public IPageFactoryRegistry PageFactories => PluginContext?.PageFactories;
 
         /// <summary>
+        /// Gets the vector index strategy registry exposed by the plugin context.
+        /// </summary>
+        public IVectorIndexStrategyRegistry VectorIndexes => PluginContext?.VectorIndexes;
+
+        /// <summary>
         /// Gets the shared service provider available to plugins.
         /// </summary>
         public IServiceProvider Services => PluginContext?.Services;
+
+        /// <summary>
+        /// Registers a vector index strategy descriptor.
+        /// </summary>
+        /// <param name="descriptor">Descriptor describing the strategy.</param>
+        public void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor)
+        {
+            if (PluginContext == null)
+            {
+                throw new InvalidOperationException("Vector index strategy registration is unavailable because the plugin context has not been configured.");
+            }
+
+            PluginContext.RegisterVectorIndexStrategy(descriptor);
+        }
+
+        /// <summary>
+        /// Attempts to resolve a vector index strategy descriptor by identifier.
+        /// </summary>
+        /// <param name="strategyId">Identifier of the strategy.</param>
+        /// <param name="descriptor">Resolved descriptor.</param>
+        /// <returns>True when a matching descriptor was found.</returns>
+        public bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor)
+        {
+            if (PluginContext == null)
+            {
+                descriptor = null;
+                return false;
+            }
+
+            return PluginContext.TryGetVectorIndexStrategyDescriptor(strategyId, out descriptor);
+        }
+
+        /// <summary>
+        /// Gets the vector index strategy descriptor for the supplied identifier.
+        /// </summary>
+        /// <param name="strategyId">Identifier of the strategy.</param>
+        /// <returns>The registered descriptor.</returns>
+        public VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId)
+        {
+            if (PluginContext == null)
+            {
+                throw new InvalidOperationException("Vector index strategy descriptor lookup requires an active plugin context.");
+            }
+
+            return PluginContext.GetVectorIndexStrategyDescriptor(strategyId);
+        }
 
         /// <summary>
         /// Registers a query metadata descriptor for the supplied plugin identifier.
