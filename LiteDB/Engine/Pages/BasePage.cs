@@ -793,6 +793,11 @@ namespace LiteDB.Engine
             if (requestedType == typeof(IndexPage)) return PageType.Index;
             if (requestedType == typeof(DataPage)) return PageType.Data;
 
+            if (TryParsePageTypeFromName(requestedType, out var parsed))
+            {
+                return parsed;
+            }
+
             throw new InvalidCastException();
         }
 
@@ -802,7 +807,40 @@ namespace LiteDB.Engine
             if (requestedType == typeof(IndexPage)) return PageType.Index;
             if (requestedType == typeof(DataPage)) return PageType.Data;
 
+            if (TryParsePageTypeFromName(requestedType, out var parsed))
+            {
+                return parsed;
+            }
+
             throw new InvalidCastException();
+        }
+
+        private static bool TryParsePageTypeFromName(Type requestedType, out PageType pageType)
+        {
+            pageType = default;
+
+            if (requestedType == null)
+            {
+                return false;
+            }
+
+            var name = requestedType.Name;
+
+            if (string.Equals(name, "VectorIndexPage", StringComparison.Ordinal))
+            {
+                pageType = PageType.VectorIndex;
+                return true;
+            }
+
+            const string suffix = "Page";
+
+            if (string.IsNullOrEmpty(name) || !name.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var trimmed = name.Substring(0, name.Length - suffix.Length);
+            return Enum.TryParse(trimmed, ignoreCase: true, out pageType);
         }
 
         #endregion

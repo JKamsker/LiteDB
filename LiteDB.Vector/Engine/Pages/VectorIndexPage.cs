@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using LiteDB;
 using LiteDB.Engine;
-using static LiteDB.Constants;
+using static LiteDB.Vector.Engine.VectorEngineConstants;
+using static LiteDB.Vector.Utils.VectorEnsure;
 
 namespace LiteDB.Vector.Engine
 {
@@ -51,7 +52,7 @@ namespace LiteDB.Vector.Engine
         {
             ENSURE(freeBytes >= 0, "freeBytes must be positive");
 
-            return freeBytes >= MAX_INDEX_LENGTH ? (byte)0 : (byte)1;
+            return freeBytes >= MaxIndexLength ? (byte)0 : (byte)1;
         }
     }
 }

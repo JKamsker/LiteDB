@@ -65,6 +65,21 @@ namespace LiteDB.Vector.Tests.Querying
             });
         }
 
+        private static T InspectCollection<T>(LiteDatabase db, string collection, Func<Snapshot, T> selector)
+        {
+            var engine = (LiteEngine)EngineField.GetValue(db);
+            var method = AutoTransactionMethod.MakeGenericMethod(typeof(T));
+
+            return (T)method.Invoke(engine, new object[]
+            {
+                new Func<TransactionService, T>(transaction =>
+                {
+                    using var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
+                    return selector(snapshot);
+                })
+            });
+        }
+
         private static int CountNodes(Snapshot snapshot, PageAddress root)
         {
             if (root.IsEmpty)
@@ -216,6 +231,60 @@ namespace LiteDB.Vector.Tests.Querying
             return ordered;
         }
 
+        private static string CreateTempDatabasePath()
+        {
+            return Path.Combine(Path.GetTempPath(), $"vector-rebuild-{Guid.NewGuid():N}.db");
+        }
+
+        private static Dictionary<int, PageAddress> CollectNodeAddresses(Snapshot snapshot, VectorIndexMetadata metadata)
+        {
+            var result = new Dictionary<int, PageAddress>();
+
+            if (metadata.Root.IsEmpty)
+            {
+                return result;
+            }
+
+            var visited = new HashSet<PageAddress>();
+            var queue = new Queue<PageAddress>();
+            var dataService = new DataService(snapshot, snapshot.MaxItemsCount);
+
+            queue.Enqueue(metadata.Root);
+
+            while (queue.Count > 0)
+            {
+                var address = queue.Dequeue();
+
+                if (!visited.Add(address))
+                {
+                    continue;
+                }
+
+                var page = snapshot.GetPage<VectorIndexPage>(address.PageID);
+                var node = page.GetNode(address.Index);
+
+                using (var reader = new BufferReader(dataService.Read(node.DataBlock)))
+                {
+                    var document = reader.ReadDocument().GetValue();
+                    var id = document["_id"].AsInt32;
+                    result[id] = address;
+                }
+
+                for (var level = 0; level < node.LevelCount; level++)
+                {
+                    foreach (var neighbor in node.GetNeighbors(level))
+                    {
+                        if (!neighbor.IsEmpty)
+                        {
+                            queue.Enqueue(neighbor);
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
       
 
 
@@ -260,7 +329,7 @@ namespace LiteDB.Vector.Tests.Querying
 
             var options = new VectorIndexOptions((ushort)embedding.Length, VectorDistanceMetric.Cosine);
 
-            collection.EnsureIndex(x => x.Embedding, options);
+            collection.EnsureIndex("embedding_idx", x => x.Embedding, options);
 
             var document = new VectorDocument
             {
@@ -291,6 +360,132 @@ namespace LiteDB.Vector.Tests.Querying
             });
 
             storesInline.Should().BeFalse();
+        }
+
+        [Fact]
+        public void VectorIndex_Reuses_FreePages_After_Delete()
+        {
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            collection.Insert(new[]
+            {
+                new VectorDocument { Id = 1, Embedding = new[] { 1f, 0f, 0f }, Flag = true },
+                new VectorDocument { Id = 2, Embedding = new[] { 0f, 1f, 0f }, Flag = false },
+                new VectorDocument { Id = 3, Embedding = new[] { 0f, 0f, 1f }, Flag = true }
+            });
+
+            var options = new VectorIndexOptions(3, VectorDistanceMetric.Cosine);
+            collection.EnsureIndex("embedding_idx", x => x.Embedding, options).Should().BeTrue();
+
+            db.Checkpoint();
+
+            var vectorIndexNames = InspectCollection(db, "vectors", snapshot =>
+            {
+                return snapshot.CollectionPage.GetVectorIndexes().Select(pair => pair.Index.Name).ToArray();
+            });
+
+            vectorIndexNames.Should().Contain("embedding_idx");
+
+            InspectVectorIndex(db, "vectors", (snapshot, collation, metadata) => true)
+                .Should().BeTrue();
+
+            var initialAddresses = InspectVectorIndex(db, "vectors", (snapshot, collation, metadata) =>
+            {
+                return CollectNodeAddresses(snapshot, metadata);
+            });
+
+            initialAddresses.Should().ContainKey(2);
+            var removedAddress = initialAddresses[2];
+
+            collection.Delete(2).Should().BeTrue();
+
+            var reservedAfterDelete = InspectVectorIndex(db, "vectors", (snapshot, collation, metadata) => metadata.Reserved);
+            reservedAfterDelete.Should().Be(removedAddress.PageID);
+
+            collection.Insert(new VectorDocument
+            {
+                Id = 4,
+                Embedding = new[] { 0.5f, 0.5f, 0f },
+                Flag = false
+            });
+
+            var addressesAfterInsert = InspectVectorIndex(db, "vectors", (snapshot, collation, metadata) =>
+            {
+                return CollectNodeAddresses(snapshot, metadata);
+            });
+
+            addressesAfterInsert.Should().ContainKey(4);
+            addressesAfterInsert[4].PageID.Should().Be(removedAddress.PageID);
+        }
+
+        [Fact]
+        public void VectorIndex_Survives_Rebuild_With_Plugin_PageFactory()
+        {
+            var path = CreateTempDatabasePath();
+            var metric = VectorDistanceMetric.Euclidean;
+
+            var documents = Enumerable.Range(1, 16)
+                .Select(i => new VectorDocument
+                {
+                    Id = i,
+                    Embedding = new[] { (float)i, (float)(i * 2), (float)(i * 3) },
+                    Flag = i % 2 == 0
+                })
+                .ToList();
+
+            var target = new[] { 8f, 16f, 24f };
+            const int limit = 3;
+            var expected = ComputeExpectedRanking(documents, target, metric, limit)
+                .Select(result => result.Id)
+                .ToArray();
+
+            try
+            {
+                using (var db = new LiteDatabase(path, plugins: new[] { VectorSearchPlugin.Instance }))
+                {
+                    var collection = db.GetCollection<VectorDocument>("vectors");
+                    collection.Insert(documents);
+
+                    var options = new VectorIndexOptions(3, metric);
+                    collection.EnsureIndex("embedding_idx", CreateExpression(db, "$.Embedding"), options).Should().BeTrue();
+
+                    var beforeRebuild = collection.Query()
+                        .TopKNear(x => x.Embedding, target, limit)
+                        .ToArray();
+
+                    beforeRebuild.Select(x => x.Id).Should().Equal(expected);
+
+                    db.Rebuild();
+                }
+
+                using (var db = new LiteDatabase(path, plugins: new[] { VectorSearchPlugin.Instance }))
+                {
+                    var collection = db.GetCollection<VectorDocument>("vectors");
+
+                    var afterRebuild = collection.Query()
+                        .TopKNear(x => x.Embedding, target, limit)
+                        .ToArray();
+
+                    afterRebuild.Select(x => x.Id).Should().Equal(expected);
+
+                    var metadataState = InspectVectorIndex(db, "vectors", (snapshot, collation, metadata) =>
+                    {
+                        return (Dimensions: metadata.Dimensions, Metric: (VectorDistanceMetric)metadata.Metric, RootIsEmpty: metadata.Root.IsEmpty);
+                    });
+
+                    metadataState.Dimensions.Should().Be((ushort)3);
+                    metadataState.Metric.Should().Be(metric);
+                    metadataState.RootIsEmpty.Should().BeFalse();
+                }
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
         }
 
         [Fact]

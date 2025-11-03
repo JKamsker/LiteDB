@@ -31,6 +31,10 @@ All previously tracked gaps (`gap-indexing-extensibility`, `gap-query-state`, `g
 
 - Build: `dotnet build LiteDB.Vector/LiteDB.Vector.csproj -c Release` (warning-free after plugin suppressions).
 - Core Guard Rails: `dotnet build LiteDB.sln -c Release` (confirms vector operations fail fast without the plugin).
-- Post-migration Search Sweep: `rg "Vector" LiteDB` – validates remaining references are limited to plugin integration points.
+- Post-migration Search Sweep: `rg "Vector" LiteDB` - validates remaining references are limited to plugin integration points.
+
+## Follow-up Tracking
+
+- Follow-up `vector-plugin-abstractions`: replace the temporary `InternalsVisibleTo` shims once public plugin contracts expose engine concepts (`Snapshot`, `PageAddress`, `TransactionService`, page serialization helpers`). Track progress in the plugin migration backlog.
 
 Vector runtime responsibilities now reside entirely in `LiteDB.Vector`, leaving the core ready for release without vector-specific internals.
