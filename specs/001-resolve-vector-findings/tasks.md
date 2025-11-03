@@ -76,8 +76,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] Move `LiteDB/Engine/Services/VectorIndexServiceFactory.cs` into `LiteDB.Vector/Engine/Services/VectorIndexServiceFactory.cs` with plugin registration logic.
-- [ ] T025 [P] [US2] Relocate vector LINQ helpers from `LiteDB/Client/Database/LiteQueryable.cs` and `LiteDB/Client/Database/LiteRepository.cs` into `LiteDB.Vector/Extensions/QueryableExtensions.cs`.
+- [X] T024 [US2] Move `LiteDB/Engine/Services/VectorIndexServiceFactory.cs` into `LiteDB.Vector/Engine/Services/VectorIndexServiceFactory.cs` with plugin registration logic.
+- [X] T025 [P] [US2] Relocate vector LINQ helpers from `LiteDB/Client/Database/LiteQueryable.cs` and `LiteDB/Client/Database/LiteRepository.cs` into `LiteDB.Vector/Extensions/QueryableExtensions.cs`.
 - [ ] T026 [US2] Shift `LiteDB/Document/BsonVector.cs` and `LiteDB/Utils/Extensions/BufferSliceExtensions.cs` into appropriate namespaces under `LiteDB.Vector`.
 - [ ] T027 [US2] Move vector storage structures (`LiteDB/Engine/Pages/VectorIndexPage.cs`, `LiteDB/Engine/Structures/VectorIndexNode.cs`, `LiteDB/Engine/Structures/VectorIndexMetadata.cs`) into `LiteDB.Vector/Engine`.
 - [ ] T028 [US2] Implement vector strategy registration in `LiteDB.Vector/Engine/VectorIndexStrategy.cs` using the new registries.

@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using LiteDB.Engine;
 
-namespace LiteDB.Engine
+namespace LiteDB.Vector.Engine
 {
     internal interface IVectorIndexSearchService
     {

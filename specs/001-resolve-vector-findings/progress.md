@@ -31,3 +31,5 @@
 
 - T023: Added VectorRegistry integration coverage and updated VectorSearchPlugin to register query metadata, page factory, and vector strategy descriptors across the new plugin registries.
 - T023b: Added plugin-absent integration coverage validating vector index creation and query helpers emit the shared plugin-required error message, and updated `LiteEngine.EnsureVectorIndex` to reuse the compatibility guard for consistent guidance.
+- T024: Moved VectorIndexServiceFactory into LiteDB.Vector/Engine/Services, removing the core implementation and keeping plugin registration intact.
+- T025: Removed vector query helpers from LiteQueryable/LiteRepository, exposed public metadata APIs, and rebuilt plugin-side extensions (QueryableExtensions) to supply the runtime behavior.
