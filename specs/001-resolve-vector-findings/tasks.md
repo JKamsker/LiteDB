@@ -81,10 +81,10 @@
 - [x] T026 [US2] Shift `LiteDB/Document/BsonVector.cs` and `LiteDB/Utils/Extensions/BufferSliceExtensions.cs` into appropriate namespaces under `LiteDB.Vector`.
   - [x] T027 [US2] Move vector storage structures (`LiteDB/Engine/Pages/VectorIndexPage.cs`, `LiteDB/Engine/Structures/VectorIndexNode.cs`, `LiteDB/Engine/Structures/VectorIndexMetadata.cs`) into `LiteDB.Vector/Engine`.
   - [x] T028 [US2] Implement vector strategy registration in `LiteDB.Vector/Engine/VectorIndexStrategy.cs` using the new registries.
-- [ ] T029 [US2] Document the temporary need for vector-specific `InternalsVisibleTo` entries in `LiteDB/Utils/Constants.cs`, including the internal types still required by `LiteDB.Vector` and the abstraction work that will remove the dependency.
-- [ ] T029b [US2] Capture a follow-up tracking item for removing the friend assemblies once abstractions exist and confirm `dotnet build LiteDB.Vector -c Release` remains warning-free with the attributes retained.
+- [X] T029 [US2] Document the temporary need for vector-specific `InternalsVisibleTo` entries in `LiteDB/Utils/Constants.cs`, including the internal types still required by `LiteDB.Vector` and the abstraction work that will remove the dependency.
+- [X] T029b [US2] Capture a follow-up tracking item for removing the friend assemblies once abstractions exist and confirm `dotnet build LiteDB.Vector -c Release` remains warning-free with the attributes retained.
 - [X] T030 [US2] Execute `rg "Vector" LiteDB` and update `specs/001-vector-core-cleanup/SUMMARY.md` to catalog the remaining documented safety shims while confirming no unintended runtime code lingers in core.
-- [ ] T031 [P] [US2] Update `LiteDB.Vector.Tests/Integration/VectorIndexTests.cs` to cover relocated runtime behaviors and ensure parity.
+- [X] T031 [P] [US2] Update `LiteDB.Vector.Tests/Integration/VectorIndexTests.cs` to cover relocated runtime behaviors and ensure parity.
 
 **Checkpoint**: Vector runtime code is isolated within the plugin project, with only the documented safety shims remaining in core to guarantee databases stay consistent when the plugin is absent.
 

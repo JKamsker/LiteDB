@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using LiteDB.Engine;
 using System.Linq;
 using LiteDB.Vector.Utils;
-using static LiteDB.Constants;
+using static LiteDB.Vector.Engine.VectorEngineConstants;
 
 namespace LiteDB.Vector.Engine
 {
@@ -121,7 +121,7 @@ namespace LiteDB.Vector.Engine
                 2 + // vector length prefix
                 (dimensions * sizeof(float));
 
-            var maxNodeLength = PAGE_SIZE - PAGE_HEADER_SIZE - BasePage.SLOT_SIZE;
+            var maxNodeLength = PageSize - PageHeaderSize - BasePage.SLOT_SIZE;
 
             if (inlineLength <= maxNodeLength)
             {
