@@ -1,0 +1,269 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using LiteDB;
+using LiteDB.Plugins.Query;
+
+namespace LiteDB.Vector.Extensions
+{
+    internal static class QueryableExtensions
+    {
+        private const string PluginId = "LiteDB.Vector";
+        private const byte DotProductMetric = (byte)VectorDistanceMetric.DotProduct;
+
+        private static readonly string[] ReservedMetadataKeys = new[]
+        {
+            "VectorField",
+            "TargetEmbedding",
+            "VectorMaxDistance",
+            "VectorMetric"
+        };
+
+        internal static ILiteQueryable<T> WhereNear<T>(LiteQueryable<T> source, string vectorField, float[] target, double maxDistance, VectorDistanceMetric? metric)
+        {
+            if (string.IsNullOrWhiteSpace(vectorField))
+            {
+                throw new ArgumentNullException(nameof(vectorField));
+            }
+
+            var fieldExpr = BsonExpression.Create($"$.{vectorField}", source.ExpressionRegistry);
+            return WhereNear(source, fieldExpr, target, maxDistance, metric);
+        }
+
+        internal static ILiteQueryable<T> WhereNear<T, K>(LiteQueryable<T> source, Expression<Func<T, K>> field, float[] target, double maxDistance, VectorDistanceMetric? metric)
+        {
+            if (field == null)
+            {
+                throw new ArgumentNullException(nameof(field));
+            }
+
+            var fieldExpr = source.ResolveExpression(field);
+            return WhereNear(source, fieldExpr, target, maxDistance, metric);
+        }
+
+        internal static ILiteQueryable<T> WhereNear<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, VectorDistanceMetric? metric)
+        {
+            EnsureVectorPluginAvailable(source);
+
+            if (fieldExpr == null)
+            {
+                throw new ArgumentNullException(nameof(fieldExpr));
+            }
+
+            ValidateVectorArguments(target, maxDistance);
+
+            var existingMetric = GetQueryMetric(source);
+            var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric;
+
+            var filter = CreateVectorDistanceFilter(source, fieldExpr, target, maxDistance, metricByte);
+            source.Where(filter);
+
+            ConfigureVectorMetadata(source, fieldExpr, target, maxDistance, metricByte);
+
+            return source;
+        }
+
+        internal static ILiteQueryableResult<T> TopKNear<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, int k, VectorDistanceMetric? metric, double? maxDistance)
+        {
+            EnsureVectorPluginAvailable(source);
+
+            if (fieldExpr == null)
+            {
+                throw new ArgumentNullException(nameof(fieldExpr));
+            }
+
+            if (target == null || target.Length == 0)
+            {
+                throw new ArgumentException("Target vector must be provided.", nameof(target));
+            }
+
+            if (k <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(k), "Top-K must be greater than zero.");
+            }
+
+            var effectiveMaxDistance = maxDistance ?? double.MaxValue;
+            var existingMetric = GetQueryMetric(source);
+            var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric;
+
+            if (maxDistance.HasValue)
+            {
+                WhereNear(source, fieldExpr, target, effectiveMaxDistance, metric);
+            }
+            else
+            {
+                ConfigureVectorMetadata(source, fieldExpr, target, effectiveMaxDistance, metricByte);
+            }
+
+            var distanceExpression = CreateVectorDistanceExpression(source, fieldExpr, target, metricByte);
+
+            return source
+                .OrderBy(distanceExpression, global::LiteDB.Query.Ascending)
+                .ThenBy(BsonExpression.Create("$._id", source.ExpressionRegistry))
+                .Limit(k);
+        }
+
+        internal static ILiteQueryable<T> OrderByNearest<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, VectorDistanceMetric? metric, double? maxDistance)
+        {
+            EnsureVectorPluginAvailable(source);
+
+            if (fieldExpr == null)
+            {
+                throw new ArgumentNullException(nameof(fieldExpr));
+            }
+
+            if (target == null || target.Length == 0)
+            {
+                throw new ArgumentException("Target vector must be provided.", nameof(target));
+            }
+
+            var effectiveMaxDistance = maxDistance ?? double.MaxValue;
+            var existingMetric = GetQueryMetric(source);
+            var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric;
+
+            if (maxDistance.HasValue)
+            {
+                WhereNear(source, fieldExpr, target, effectiveMaxDistance, metric);
+            }
+            else
+            {
+                ConfigureVectorMetadata(source, fieldExpr, target, effectiveMaxDistance, metricByte);
+            }
+
+            var distanceExpression = CreateVectorDistanceExpression(source, fieldExpr, target, metricByte);
+
+            return source
+                .OrderBy(distanceExpression, global::LiteDB.Query.Ascending)
+                .ThenBy(BsonExpression.Create("$._id", source.ExpressionRegistry));
+        }
+
+        private static void EnsureVectorPluginAvailable<T>(LiteQueryable<T> source)
+        {
+            var services = source.Database?.Services;
+
+            if (VectorCompatibility.TryGetStrategy(services?.VectorIndexes) == null)
+            {
+                throw VectorCompatibility.PluginRequired();
+            }
+        }
+
+        private static void ValidateVectorArguments(float[] target, double maxDistance)
+        {
+            if (target == null || target.Length == 0)
+            {
+                throw new ArgumentException("Target vector must be provided.", nameof(target));
+            }
+
+            if (double.IsNaN(maxDistance))
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxDistance), "Similarity threshold must be a valid number.");
+            }
+        }
+
+        private static byte? GetQueryMetric<T>(LiteQueryable<T> source)
+        {
+            var metadata = TryGetExistingMetadata(source);
+
+            if (metadata != null && metadata.TryGet<byte?>(ReservedMetadataKeys[3], out var metric))
+            {
+                return metric;
+            }
+
+            return null;
+        }
+
+        private static QueryMetadataBag TryGetExistingMetadata<T>(LiteQueryable<T> source)
+        {
+            var query = source.GetQueryDefinition();
+            return query.TryGetMetadata(PluginId, out var metadata) ? metadata : null;
+        }
+
+        private static QueryMetadataBag GetOrCreateMetadata<T>(LiteQueryable<T> source)
+        {
+            var services = source.Database?.Services;
+            var accessor = services?.QueryMetadata;
+
+            if (accessor != null && accessor.TryGetDescriptor(PluginId, out var descriptor))
+            {
+                return source.GetOrCreateMetadata(PluginId, () => new QueryMetadataBag(descriptor));
+            }
+
+            return source.GetOrCreateMetadata(PluginId, () => new QueryMetadataBag(PluginId, version: 1, ReservedMetadataKeys));
+        }
+
+        private static void ConfigureVectorMetadata<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
+        {
+            var metadata = GetOrCreateMetadata(source);
+
+            metadata.Set(ReservedMetadataKeys[0], fieldExpr.Source);
+            metadata.Set(ReservedMetadataKeys[1], target?.ToArray());
+            metadata.Set(ReservedMetadataKeys[2], maxDistance);
+            metadata.Set(ReservedMetadataKeys[3], metric);
+        }
+
+        private static BsonExpression CreateVectorDistanceFilter<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
+        {
+            var threshold = AdjustThresholdForDotProduct(maxDistance, metric);
+
+            var parameters = new List<BsonValue>
+            {
+                new BsonArray(target.Select(value => new BsonValue(value))),
+                new BsonValue(threshold)
+            };
+
+            var metricPlaceholder = string.Empty;
+
+            if (metric.HasValue)
+            {
+                parameters.Add(new BsonValue(metric.Value));
+                metricPlaceholder = ", @2";
+            }
+
+            var vectorExpression = $"VECTOR_DIST({fieldExpr.Source}, @0{metricPlaceholder})";
+
+            return BsonExpression.Create($"({vectorExpression}) <= @1", source.ExpressionRegistry, parameters.ToArray());
+        }
+
+        private static BsonExpression CreateVectorDistanceExpression<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, byte? metric)
+        {
+            var parameters = new List<BsonValue>
+            {
+                new BsonArray(target.Select(value => new BsonValue(value)))
+            };
+
+            var metricPlaceholder = string.Empty;
+
+            if (metric.HasValue)
+            {
+                parameters.Add(new BsonValue(metric.Value));
+                metricPlaceholder = ", @1";
+            }
+
+            return BsonExpression.Create($"VECTOR_DIST({fieldExpr.Source}, @0{metricPlaceholder})", source.ExpressionRegistry, parameters.ToArray());
+        }
+
+        private static double AdjustThresholdForDotProduct(double maxDistance, byte? metric)
+        {
+            if (!metric.HasValue || metric.Value != DotProductMetric)
+            {
+                return maxDistance;
+            }
+
+            if (double.IsNaN(maxDistance) || double.IsInfinity(maxDistance))
+            {
+                return maxDistance;
+            }
+
+            if (maxDistance > 0d)
+            {
+                return -maxDistance;
+            }
+
+            return maxDistance;
+        }
+    }
+}
+
+
+

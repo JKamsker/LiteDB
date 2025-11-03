@@ -16,18 +16,6 @@ namespace LiteDB
 
         private readonly ILiteDatabase _db = null;
 
-        private LiteCollection<T> GetLiteCollection<T>(string collectionName)
-        {
-            var collection = _db.GetCollection<T>(collectionName);
-
-            if (collection is LiteCollection<T> liteCollection)
-            {
-                return liteCollection;
-            }
-
-            throw new InvalidOperationException("The current collection implementation does not support vector operations.");
-        }
-
         /// <summary>
         /// Get database instance
         /// </summary>
@@ -185,11 +173,6 @@ namespace LiteDB
             return _db.GetCollection<T>(collectionName).EnsureIndex(name, expression, unique);
         }
 
-        internal bool EnsureVectorIndex<T>(string name, BsonExpression expression, BsonDocument options, string? collectionName = null)
-        {
-            return this.GetLiteCollection<T>(collectionName).EnsureVectorIndex(name, expression, options);
-        }
-
         /// <summary>
         /// Create a new permanent index in all documents inside this collections if index not exists already. Returns true if index was created or false if already exits
         /// </summary>
@@ -199,11 +182,6 @@ namespace LiteDB
         public bool EnsureIndex<T>(BsonExpression expression, bool unique = false, string collectionName = null)
         {
             return _db.GetCollection<T>(collectionName).EnsureIndex(expression, unique);
-        }
-
-        internal bool EnsureVectorIndex<T>(BsonExpression expression, BsonDocument options, string? collectionName = null)
-        {
-            return this.GetLiteCollection<T>(collectionName).EnsureVectorIndex(expression, options);
         }
 
         /// <summary>
@@ -217,11 +195,6 @@ namespace LiteDB
             return _db.GetCollection<T>(collectionName).EnsureIndex(keySelector, unique);
         }
 
-        internal bool EnsureVectorIndex<T, K>(Expression<Func<T, K>> keySelector, BsonDocument options, string? collectionName = null)
-        {
-            return this.GetLiteCollection<T>(collectionName).EnsureVectorIndex(keySelector, options);
-        }
-
         /// <summary>
         /// Create a new permanent index in all documents inside this collections if index not exists already.
         /// </summary>
@@ -232,11 +205,6 @@ namespace LiteDB
         public bool EnsureIndex<T, K>(string name, Expression<Func<T, K>> keySelector, bool unique = false, string collectionName = null)
         {
             return _db.GetCollection<T>(collectionName).EnsureIndex(name, keySelector, unique);
-        }
-
-        internal bool EnsureVectorIndex<T, K>(string name, Expression<Func<T, K>> keySelector, BsonDocument options, string? collectionName = null)
-        {
-            return this.GetLiteCollection<T>(collectionName).EnsureVectorIndex(name, keySelector, options);
         }
 
 

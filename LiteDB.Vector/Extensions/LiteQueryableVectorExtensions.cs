@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using LiteDB.Vector.Extensions;
 
 namespace LiteDB.Vector
 {
@@ -36,7 +37,8 @@ namespace LiteDB.Vector
         /// </example>
         public static ILiteQueryable<T> WhereNear<T>(this ILiteQueryable<T> source, string vectorField, float[] target, double maxDistance, VectorDistanceMetric? metric = null)
         {
-            return Unwrap(source).VectorWhereNear(vectorField, target, maxDistance, ToMetricByte(metric));
+            var queryable = Unwrap(source);
+            return QueryableExtensions.WhereNear(queryable, vectorField, target, maxDistance, metric);
         }
 
         /// <summary>
@@ -57,7 +59,8 @@ namespace LiteDB.Vector
         /// </example>
         public static ILiteQueryable<T> WhereNear<T>(this ILiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, VectorDistanceMetric? metric = null)
         {
-            return Unwrap(source).VectorWhereNear(fieldExpr, target, maxDistance, ToMetricByte(metric));
+            var queryable = Unwrap(source);
+            return QueryableExtensions.WhereNear(queryable, fieldExpr, target, maxDistance, metric);
         }
 
         /// <summary>
@@ -80,7 +83,8 @@ namespace LiteDB.Vector
         /// </example>
         public static ILiteQueryable<T> WhereNear<T, K>(this ILiteQueryable<T> source, Expression<Func<T, K>> field, float[] target, double maxDistance, VectorDistanceMetric? metric = null)
         {
-            return Unwrap(source).VectorWhereNear(field, target, maxDistance, ToMetricByte(metric));
+            var queryable = Unwrap(source);
+            return QueryableExtensions.WhereNear(queryable, field, target, maxDistance, metric);
         }
 
         /// <summary>
@@ -104,7 +108,7 @@ namespace LiteDB.Vector
         public static IEnumerable<T> FindNearest<T>(this ILiteQueryable<T> source, string vectorField, float[] target, double maxDistance, VectorDistanceMetric? metric = null)
         {
             var queryable = Unwrap(source);
-            return queryable.VectorWhereNear(vectorField, target, maxDistance, ToMetricByte(metric)).ToEnumerable();
+            return QueryableExtensions.WhereNear(queryable, vectorField, target, maxDistance, metric).ToEnumerable();
         }
 
         /// <summary>
@@ -128,7 +132,9 @@ namespace LiteDB.Vector
         /// </example>
         public static ILiteQueryableResult<T> TopKNear<T, K>(this ILiteQueryable<T> source, Expression<Func<T, K>> field, float[] target, int k, VectorDistanceMetric? metric = null, double? maxDistance = null)
         {
-            return Unwrap(source).VectorTopKNear(field, target, k, ToMetricByte(metric), maxDistance);
+            var queryable = Unwrap(source);
+            var fieldExpr = queryable.ResolveExpression(field);
+            return QueryableExtensions.TopKNear(queryable, fieldExpr, target, k, metric, maxDistance);
         }
 
         /// <summary>
@@ -151,7 +157,9 @@ namespace LiteDB.Vector
         /// </example>
         public static ILiteQueryableResult<T> TopKNear<T>(this ILiteQueryable<T> source, string field, float[] target, int k, VectorDistanceMetric? metric = null, double? maxDistance = null)
         {
-            return Unwrap(source).VectorTopKNear(field, target, k, ToMetricByte(metric), maxDistance);
+            var queryable = Unwrap(source);
+            var fieldExpr = BsonExpression.Create($"$.{field}", queryable.ExpressionRegistry);
+            return QueryableExtensions.TopKNear(queryable, fieldExpr, target, k, metric, maxDistance);
         }
 
         /// <summary>
@@ -174,7 +182,8 @@ namespace LiteDB.Vector
         /// </example>
         public static ILiteQueryableResult<T> TopKNear<T>(this ILiteQueryable<T> source, BsonExpression fieldExpr, float[] target, int k, VectorDistanceMetric? metric = null, double? maxDistance = null)
         {
-            return Unwrap(source).VectorTopKNear(fieldExpr, target, k, ToMetricByte(metric), maxDistance);
+            var queryable = Unwrap(source);
+            return QueryableExtensions.TopKNear(queryable, fieldExpr, target, k, metric, maxDistance);
         }
 
         /// <summary>
@@ -198,7 +207,9 @@ namespace LiteDB.Vector
         /// </example>
         public static ILiteQueryable<T> OrderByNearest<T, K>(this ILiteQueryable<T> source, Expression<Func<T, K>> field, float[] target, VectorDistanceMetric? metric = null, double? maxDistance = null)
         {
-            return Unwrap(source).VectorOrderByNearest(field, target, ToMetricByte(metric), maxDistance);
+            var queryable = Unwrap(source);
+            var fieldExpr = queryable.ResolveExpression(field);
+            return QueryableExtensions.OrderByNearest(queryable, fieldExpr, target, metric, maxDistance);
         }
 
         /// <summary>
@@ -222,8 +233,10 @@ namespace LiteDB.Vector
         /// </example>
         public static ILiteQueryableResult<T> Nearest<T, K>(this ILiteQueryable<T> source, Expression<Func<T, K>> field, float[] target, int k, VectorDistanceMetric? metric = null, double? maxDistance = null)
         {
-            var queryable = Unwrap(source).VectorOrderByNearest(field, target, ToMetricByte(metric), maxDistance);
-            return queryable.Limit(k);
+            var queryable = Unwrap(source);
+            var fieldExpr = queryable.ResolveExpression(field);
+            var ordered = QueryableExtensions.OrderByNearest(queryable, fieldExpr, target, metric, maxDistance);
+            return ordered.Limit(k);
         }
 
         /// <summary>
@@ -260,7 +273,5 @@ namespace LiteDB.Vector
 
             throw new ArgumentException("Vector operations require LiteDB's default queryable implementation.", nameof(source));
         }
-
-        private static byte? ToMetricByte(VectorDistanceMetric? metric) => metric.HasValue ? (byte)metric.Value : (byte?)null;
     }
 }

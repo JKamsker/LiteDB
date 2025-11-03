@@ -2,6 +2,7 @@ using System;
 using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
+using LiteDB.Plugins.Query;
 
 namespace LiteDB
 {
@@ -34,6 +35,11 @@ namespace LiteDB
         /// Gets the query planner registry associated with the database.
         /// </summary>
         public IQueryPlannerRegistry QueryPlanner => _context.QueryPlanner;
+
+        /// <summary>
+        /// Gets the query metadata accessor associated with the database.
+        /// </summary>
+        public IQueryMetadataAccessor QueryMetadata => _context.QueryMetadata;
 
         /// <summary>
         /// Gets the LINQ resolver registry associated with the database.
