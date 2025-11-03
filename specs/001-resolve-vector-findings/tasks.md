@@ -57,7 +57,7 @@
 - [X] T016 [P] [US1] Update `LiteDB/Document/BsonValue.cs` and `LiteDB/Document/Json/JsonWriter.cs` to route serialization through the registry.
 - [X] T017 [US1] Introduce page factory support in `LiteDB/Engine/Pages/PageFactoryRegistry.cs` and integrate with `LiteDB/Engine/Pages/BasePage.cs`.
 - [X] T018 [US1] Integrate page factory usage across `LiteDB/Engine/FileReader/FileReaderV8.cs`, `LiteDB/Engine/Engine/Rebuild.cs`, and `LiteDB/Engine/Services/SnapShot.cs`.
-- [ ] T019 [US1] Create `LiteDB/Plugins/Indexing/VectorIndexStrategyDescriptor.cs` describing plugin-managed index strategies.
+- [X] T019 [US1] Create `LiteDB/Plugins/Indexing/VectorIndexStrategyDescriptor.cs` describing plugin-managed index strategies.
 - [ ] T020 [US1] Extend `LiteDB/Plugins/EnsureIndexContext.cs` to register and resolve vector index strategies through the new descriptor.
 - [ ] T021 [US1] Refactor `LiteDB/Client/Database/Collections/Index.cs` and `LiteDB/Client/Database/LiteQueryable.cs` to rely on plugin strategies and emit compatibility shims.
 - [ ] T022 [US1] Create and implement regression tests in `LiteDB.Tests/Engine/Plugins/QueryMetadataBagTests.cs` validating metadata bag fallback when the plugin is absent.
