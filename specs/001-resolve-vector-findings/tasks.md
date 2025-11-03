@@ -70,9 +70,9 @@
 
 ## Phase 4: User Story 2 - Migrate Vector Runtime to Plugin (Priority: P2)
 
-**Goal**: Relocate remaining vector runtime types, helpers, and storage structures into `LiteDB.Vector`, leaving only compatibility shims in the core.
+**Goal**: Relocate remaining vector runtime types, helpers, and storage structures into `LiteDB.Vector`, leaving only documented safety/compatibility shims in the core so databases stay consistent without the plugin loaded.
 
-**Independent Test**: `rg "Vector" LiteDB` shows only compatibility shims, and plugin integration tests confirm functionality matches pre-migration behavior.
+**Independent Test**: `rg "Vector" LiteDB` shows only documented safety/compatibility shims, and plugin integration tests confirm functionality matches pre-migration behavior.
 
 ### Implementation for User Story 2
 
@@ -81,12 +81,12 @@
 - [x] T026 [US2] Shift `LiteDB/Document/BsonVector.cs` and `LiteDB/Utils/Extensions/BufferSliceExtensions.cs` into appropriate namespaces under `LiteDB.Vector`.
   - [x] T027 [US2] Move vector storage structures (`LiteDB/Engine/Pages/VectorIndexPage.cs`, `LiteDB/Engine/Structures/VectorIndexNode.cs`, `LiteDB/Engine/Structures/VectorIndexMetadata.cs`) into `LiteDB.Vector/Engine`.
   - [x] T028 [US2] Implement vector strategy registration in `LiteDB.Vector/Engine/VectorIndexStrategy.cs` using the new registries.
-- [ ] T029 [US2] Remove vector-specific `InternalsVisibleTo` entries from `LiteDB/LiteDB.csproj`.
-- [ ] T029b [US2] Verify `dotnet build LiteDB.Vector -c Release` succeeds with zero errors/warnings after `InternalsVisibleTo` removal.
-- [X] T030 [US2] Execute `rg "Vector" LiteDB` and update `specs/001-vector-core-cleanup/SUMMARY.md` to document zero outstanding components.
+- [ ] T029 [US2] Document the temporary need for vector-specific `InternalsVisibleTo` entries in `LiteDB/Utils/Constants.cs`, including the internal types still required by `LiteDB.Vector` and the abstraction work that will remove the dependency.
+- [ ] T029b [US2] Capture a follow-up tracking item for removing the friend assemblies once abstractions exist and confirm `dotnet build LiteDB.Vector -c Release` remains warning-free with the attributes retained.
+- [X] T030 [US2] Execute `rg "Vector" LiteDB` and update `specs/001-vector-core-cleanup/SUMMARY.md` to catalog the remaining documented safety shims while confirming no unintended runtime code lingers in core.
 - [ ] T031 [P] [US2] Update `LiteDB.Vector.Tests/Integration/VectorIndexTests.cs` to cover relocated runtime behaviors and ensure parity.
 
-**Checkpoint**: Vector runtime code is isolated within the plugin project, and the core dependency surface is free from vector-specific implementations.
+**Checkpoint**: Vector runtime code is isolated within the plugin project, with only the documented safety shims remaining in core to guarantee databases stay consistent when the plugin is absent.
 
 ---
 
