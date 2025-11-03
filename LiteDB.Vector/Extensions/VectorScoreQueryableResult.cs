@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using LiteDB;
 using LiteDB.Vector.Engine;
+using LiteDB.Vector.Query;
 
 namespace LiteDB.Vector
 {
@@ -240,20 +241,36 @@ namespace LiteDB.Vector
                 var queryable = Unwrap(source);
                 var query = queryable.GetQueryDefinition();
 
-                if (query.VectorField == null || query.VectorTarget == null)
+                if (!query.TryGetMetadata(VectorQueryMetadata.PluginId, out var metadata))
                 {
                     throw new InvalidOperationException("Vector score projections require a preceding vector query operation.");
                 }
 
-                var metric = query.VectorMetric.HasValue
-                    ? (VectorDistanceMetric)query.VectorMetric.Value
-                    : VectorDistanceMetric.Cosine;
+                if (!metadata.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) ||
+                    string.IsNullOrWhiteSpace(field) ||
+                    !metadata.TryGet<float[]>(VectorQueryMetadata.TargetKey, out var target) ||
+                    target == null)
+                {
+                    throw new InvalidOperationException("Vector score projections require a preceding vector query operation.");
+                }
 
-                var fieldExpression = BsonExpression.Create(query.VectorField, queryable.ExpressionRegistry);
-                var target = query.VectorTarget.ToArray();
-                var maxDistance = query.VectorMaxDistance;
+                var metricValue = VectorDistanceMetric.Cosine;
 
-                return new VectorScoreContext<TDocument>(queryable, fieldExpression, target, metric, maxDistance);
+                if (metadata.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var metricBytes) && metricBytes.HasValue)
+                {
+                    metricValue = (VectorDistanceMetric)metricBytes.Value;
+                }
+
+                var maxDistance = double.MaxValue;
+
+                if (metadata.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var storedDistance))
+                {
+                    maxDistance = storedDistance;
+                }
+
+                var fieldExpression = BsonExpression.Create(field, queryable.ExpressionRegistry);
+
+                return new VectorScoreContext<TDocument>(queryable, fieldExpression, target, metricValue, maxDistance);
             }
 
             public bool ShouldInclude(VectorMatch<TDocument> match)

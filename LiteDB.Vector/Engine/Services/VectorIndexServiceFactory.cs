@@ -17,7 +17,7 @@ namespace LiteDB.Vector.Engine
 
     internal static class VectorIndexServiceFactory
     {
-        private static Func<Snapshot, Collation, IVectorIndexSearchService> _factory;
+        private static Func<Snapshot, Collation, IVectorIndexSearchService>? _factory;
 
         public static void Register(Func<Snapshot, Collation, IVectorIndexSearchService> factory)
         {

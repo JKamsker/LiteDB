@@ -64,9 +64,9 @@ namespace LiteDB.Vector
             var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"], context.Logger);
 
             context.RegisterQueryMetadata(
-                pluginId: "LiteDB.Vector",
+                pluginId: VectorQueryMetadata.PluginId,
                 version: 1,
-                reservedKeys: new[] { "VectorField", "VectorMetric", "TargetEmbedding", "VectorMaxDistance" });
+                reservedKeys: VectorQueryMetadata.ReservedKeys);
 
             VectorIndexServiceFactory.Register((snapshot, collation) => new VectorIndexSearchAdapter(snapshot, collation));
 

@@ -78,9 +78,9 @@
 
 - [X] T024 [US2] Move `LiteDB/Engine/Services/VectorIndexServiceFactory.cs` into `LiteDB.Vector/Engine/Services/VectorIndexServiceFactory.cs` with plugin registration logic.
 - [X] T025 [P] [US2] Relocate vector LINQ helpers from `LiteDB/Client/Database/LiteQueryable.cs` and `LiteDB/Client/Database/LiteRepository.cs` into `LiteDB.Vector/Extensions/QueryableExtensions.cs`.
-- [ ] T026 [US2] Shift `LiteDB/Document/BsonVector.cs` and `LiteDB/Utils/Extensions/BufferSliceExtensions.cs` into appropriate namespaces under `LiteDB.Vector`.
-- [ ] T027 [US2] Move vector storage structures (`LiteDB/Engine/Pages/VectorIndexPage.cs`, `LiteDB/Engine/Structures/VectorIndexNode.cs`, `LiteDB/Engine/Structures/VectorIndexMetadata.cs`) into `LiteDB.Vector/Engine`.
-- [ ] T028 [US2] Implement vector strategy registration in `LiteDB.Vector/Engine/VectorIndexStrategy.cs` using the new registries.
+- [x] T026 [US2] Shift `LiteDB/Document/BsonVector.cs` and `LiteDB/Utils/Extensions/BufferSliceExtensions.cs` into appropriate namespaces under `LiteDB.Vector`.
+  - [x] T027 [US2] Move vector storage structures (`LiteDB/Engine/Pages/VectorIndexPage.cs`, `LiteDB/Engine/Structures/VectorIndexNode.cs`, `LiteDB/Engine/Structures/VectorIndexMetadata.cs`) into `LiteDB.Vector/Engine`.
+  - [x] T028 [US2] Implement vector strategy registration in `LiteDB.Vector/Engine/VectorIndexStrategy.cs` using the new registries.
 - [ ] T029 [US2] Remove vector-specific `InternalsVisibleTo` entries from `LiteDB/LiteDB.csproj`.
 - [ ] T029b [US2] Verify `dotnet build LiteDB.Vector -c Release` succeeds with zero errors/warnings after `InternalsVisibleTo` removal.
 - [ ] T030 [US2] Execute `rg "Vector" LiteDB` and update `specs/001-vector-core-cleanup/SUMMARY.md` to document zero outstanding components.

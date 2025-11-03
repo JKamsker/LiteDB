@@ -33,3 +33,7 @@
 - T023b: Added plugin-absent integration coverage validating vector index creation and query helpers emit the shared plugin-required error message, and updated `LiteEngine.EnsureVectorIndex` to reuse the compatibility guard for consistent guidance.
 - T024: Moved VectorIndexServiceFactory into LiteDB.Vector/Engine/Services, removing the core implementation and keeping plugin registration intact.
 - T025: Removed vector query helpers from LiteQueryable/LiteRepository, exposed public metadata APIs, and rebuilt plugin-side extensions (QueryableExtensions) to supply the runtime behavior.
+## 2025-11-04
+
+- T026/T027: Rebuilt vector runtime plumbing after migration by restoring free-list helpers inside LiteDB.Vector/Engine/VectorIndexService.cs (GetFreeVectorPage/AddOrRemoveFreeVectorList and friends) and ensuring VectorIndexPage, VectorIndexNode, and VectorIndexMetadata now wrap the plugin-owned serializer in LiteDB.Plugins.Indexing/VectorIndexMetadataSerializer.cs. Latest dotnet build LiteDB.Vector/LiteDB.Vector.csproj -c Release succeeds (warnings only for intentional [Obsolete] shims).
+- T028: Centralised query metadata keys in LiteDB.Vector/Query/VectorQueryMetadata.cs and updated LiteDB.Vector/Extensions/QueryableExtensions.cs, LiteDB.Vector/Query/VectorIndexPlanningRule.cs, and LiteDB.Vector/Extensions/VectorScoreQueryableResult.cs to consume the metadata bag while keeping legacy Query.Vector* fallbacks behind CS0618 suppression. Vector scoring and planning now flow exclusively through the plugin registries.

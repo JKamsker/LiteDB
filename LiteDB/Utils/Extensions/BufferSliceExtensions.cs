@@ -1,6 +1,5 @@
 ﻿using LiteDB.Engine;
 using System;
-using System.Linq;
 using System.Text;
 using static LiteDB.Constants;
 
@@ -167,7 +166,8 @@ namespace LiteDB
 
                 case BsonType.MinValue: return BsonValue.MinValue;
                 case BsonType.MaxValue: return BsonValue.MaxValue;
-                case BsonType.Vector: return new BsonValue((object)ReadVector(buffer, offset));
+                case BsonType.Vector:
+                    throw new LiteException(0, "Vector BSON values are provided by the LiteDB.Vector plugin. Install the LiteDB.Vector package to enable vector serialization.");
 
                 default: throw new NotImplementedException();
             }
@@ -327,33 +327,11 @@ namespace LiteDB
 
                     case BsonType.Boolean: buffer[offset] = (value.AsBoolean) ? (byte)1 : (byte)0; break;
                     case BsonType.DateTime: buffer.Write(value.AsDateTime, offset); break;
-                    case BsonType.Vector: WriteVector(buffer, value.AsVector, offset); break;
+                    case BsonType.Vector:
+                        throw new LiteException(0, "Vector BSON values are provided by the LiteDB.Vector plugin. Install the LiteDB.Vector package to enable vector serialization.");
 
                     default: throw new NotImplementedException();
                 }
-            }
-        }
-
-        private static float[] ReadVector(BufferSlice buffer, int offset)
-        {
-            var count = buffer.ReadUInt16(offset);
-            offset += 2;
-            var vector = new float[count];
-            for (var i = 0; i < count; i++)
-            {
-                vector[i] = BitConverter.ToSingle(buffer.Array, buffer.Offset + offset + (i * 4));
-            }
-            return vector;
-        }
-
-        private static void WriteVector(BufferSlice buffer, float[] value, int offset)
-        {
-            buffer.Write((ushort)value.Length, offset);
-            offset += 2;
-            for (var i = 0; i < value.Length; i++)
-            {
-                BitConverter.GetBytes(value[i]).CopyTo(buffer.Array, buffer.Offset + offset);
-                offset += 4;
             }
         }
 

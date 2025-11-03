@@ -51,9 +51,16 @@ namespace LiteDB.Vector.Tests.Querying
                 new Func<TransactionService, T>(transaction =>
                 {
                     var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                    var metadata = snapshot.CollectionPage.GetVectorIndexMetadata("embedding_idx");
+                    var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata("embedding_idx");
 
-                    return metadata == null ? default : selector(snapshot, collation, metadata);
+                    if (metadataBuffer == null)
+                    {
+                        return default;
+                    }
+
+                    var metadata = VectorIndexMetadata.Wrap(metadataBuffer);
+
+                    return selector(snapshot, collation, metadata);
                 })
             });
         }

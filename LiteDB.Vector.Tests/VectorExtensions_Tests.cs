@@ -6,6 +6,7 @@ using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Vector;
+using LiteDB.Vector.Engine;
 using Xunit;
 
 namespace LiteDB.Vector.Tests

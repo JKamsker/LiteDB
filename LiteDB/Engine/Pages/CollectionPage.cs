@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -27,7 +28,7 @@ namespace LiteDB.Engine
         /// All indexes references for this collection
         /// </summary>
         private readonly Dictionary<string, CollectionIndex> _indexes = new Dictionary<string, CollectionIndex>();
-        private readonly Dictionary<string, VectorIndexMetadata> _vectorIndexes = new Dictionary<string, VectorIndexMetadata>();
+        private readonly Dictionary<string, byte[]> _vectorIndexes = new Dictionary<string, byte[]>();
 
         public CollectionPage(PageBuffer buffer, uint pageID)
             : base(buffer, pageID, PageType.Collection)
@@ -73,7 +74,7 @@ namespace LiteDB.Engine
                 for (var i = 0; i < vectorCount; i++)
                 {
                     var name = r.ReadCString();
-                    var metadata = new VectorIndexMetadata(r);
+                    var metadata = VectorIndexMetadataSerializer.Read(r);
 
                     _vectorIndexes[name] = metadata;
                 }
@@ -110,7 +111,7 @@ namespace LiteDB.Engine
                 foreach (var pair in _vectorIndexes)
                 {
                     w.WriteCString(pair.Key);
-                    pair.Value.UpdateBuffer(w);
+                    VectorIndexMetadataSerializer.Write(w, pair.Value);
                 }
             }
 
@@ -169,10 +170,10 @@ namespace LiteDB.Engine
 
         private static int GetVectorMetadataLength(string name)
         {
-            return StringEncoding.UTF8.GetByteCount(name) + 1 + VectorIndexMetadata.GetLength();
+            return VectorIndexMetadataSerializer.CalculateSerializedLength(name);
         }
 
-        public IEnumerable<(CollectionIndex Index, VectorIndexMetadata Metadata)> GetVectorIndexes()
+        public IEnumerable<(CollectionIndex Index, byte[] Metadata)> GetVectorIndexes()
         {
             foreach (var pair in _vectorIndexes)
             {
@@ -183,7 +184,7 @@ namespace LiteDB.Engine
             }
         }
 
-        public VectorIndexMetadata GetVectorIndexMetadata(string name)
+        public byte[] GetVectorIndexMetadata(string name)
         {
             return _vectorIndexes.TryGetValue(name, out var metadata) ? metadata : null;
         }
@@ -214,7 +215,7 @@ namespace LiteDB.Engine
             return index;
         }
 
-        public (CollectionIndex Index, VectorIndexMetadata Metadata) InsertVectorIndex(string name, string expr, ushort dimensions, byte metric, IExpressionRegistry registry = null)
+        public (CollectionIndex Index, byte[] Metadata) InsertVectorIndex(string name, string expr, ushort dimensions, byte metric, IExpressionRegistry registry = null)
         {
             if (_indexes.ContainsKey(name) || _vectorIndexes.ContainsKey(name))
             {
@@ -229,7 +230,7 @@ namespace LiteDB.Engine
 
             var index = new CollectionIndex(slot, 1, name, expr, false);
             index.BindExpressionRegistry(registry);
-            var metadata = new VectorIndexMetadata(slot, dimensions, metric);
+            var metadata = VectorIndexMetadataSerializer.Create(slot, dimensions, metric);
 
             _indexes[name] = index;
             _vectorIndexes[name] = metadata;

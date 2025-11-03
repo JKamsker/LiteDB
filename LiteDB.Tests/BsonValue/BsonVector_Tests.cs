@@ -4,6 +4,7 @@ using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Vector;
+using LiteDB.Vector.Document;
 using Xunit;
 
 namespace LiteDB.Tests.BsonValue_Types;

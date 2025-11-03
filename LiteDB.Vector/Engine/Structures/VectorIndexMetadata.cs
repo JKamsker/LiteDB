@@ -1,77 +1,57 @@
 using System;
+using LiteDB.Engine;
+using LiteDB.Plugins.Indexing;
 
 namespace LiteDB.Vector.Engine
 {
     /// <summary>
-    /// Metadata persisted for a vector-aware index.
+    /// Wraps the raw metadata buffer persisted for a vector-aware index and exposes typed accessors.
     /// </summary>
     internal sealed class VectorIndexMetadata
     {
-        /// <summary>
-        /// Slot index [0-255] reserved in the collection page.
-        /// </summary>
-        public byte Slot { get; }
+        private readonly byte[] _buffer;
 
-        /// <summary>
-        /// Number of components expected in vector payloads.
-        /// </summary>
-        public ushort Dimensions { get; }
+        private VectorIndexMetadata(byte[] buffer)
+        {
+            _buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
 
-        /// <summary>
-        /// Distance metric applied during nearest-neighbour evaluation.
-        /// </summary>
-        public byte Metric { get; }
+            if (_buffer.Length != VectorIndexMetadataSerializer.MetadataLength)
+            {
+                throw new ArgumentException($"Vector metadata payload must contain exactly {VectorIndexMetadataSerializer.MetadataLength} bytes.", nameof(buffer));
+            }
+        }
 
-        /// <summary>
-        /// Head pointer to the persisted vector index structure.
-        /// </summary>
-        public PageAddress Root { get; set; }
+        public byte Slot => VectorIndexMetadataSerializer.GetSlot(_buffer);
 
-        /// <summary>
-        /// Additional metadata for engine specific bookkeeping.
-        /// </summary>
-        public uint Reserved { get; set; }
+        public ushort Dimensions => VectorIndexMetadataSerializer.GetDimensions(_buffer);
 
-        public VectorIndexMetadata(byte slot, ushort dimensions, byte metric)
+        public byte Metric => VectorIndexMetadataSerializer.GetMetric(_buffer);
+
+        public PageAddress Root
+        {
+            get => VectorIndexMetadataSerializer.GetRoot(_buffer);
+            set => VectorIndexMetadataSerializer.SetRoot(_buffer, value);
+        }
+
+        public uint Reserved
+        {
+            get => VectorIndexMetadataSerializer.GetReserved(_buffer);
+            set => VectorIndexMetadataSerializer.SetReserved(_buffer, value);
+        }
+
+        internal byte[] Buffer => _buffer;
+
+        public static VectorIndexMetadata Wrap(byte[] buffer) => new VectorIndexMetadata(buffer);
+
+        public static VectorIndexMetadata Create(byte slot, ushort dimensions, byte metric)
         {
             if (dimensions == 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(dimensions), dimensions, "Dimensions must be greater than zero");
             }
 
-            this.Slot = slot;
-            this.Dimensions = dimensions;
-            this.Metric = metric;
-            this.Root = PageAddress.Empty;
-            this.Reserved = uint.MaxValue;
-        }
-
-        public VectorIndexMetadata(BufferReader reader)
-        {
-            this.Slot = reader.ReadByte();
-            this.Dimensions = reader.ReadUInt16();
-            this.Metric = reader.ReadByte();
-            this.Root = reader.ReadPageAddress();
-            this.Reserved = reader.ReadUInt32();
-        }
-
-        public void UpdateBuffer(BufferWriter writer)
-        {
-            writer.Write(this.Slot);
-            writer.Write(this.Dimensions);
-            writer.Write(this.Metric);
-            writer.Write(this.Root);
-            writer.Write(this.Reserved);
-        }
-
-        public static int GetLength()
-        {
-            return
-                1 + // Slot
-                2 + // Dimensions
-                1 + // Metric
-                PageAddress.SIZE + // Root
-                4; // Reserved
+            var buffer = VectorIndexMetadataSerializer.Create(slot, dimensions, metric);
+            return new VectorIndexMetadata(buffer);
         }
     }
 }

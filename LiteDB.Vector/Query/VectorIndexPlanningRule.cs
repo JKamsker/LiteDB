@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Vector.Engine;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
+using LiteDB.Vector.Query;
 
 namespace LiteDB.Vector.Query
 {
@@ -32,8 +35,15 @@ namespace LiteDB.Vector.Query
             string? expression = null;
             float[]? target = null;
             double maxDistance = double.MaxValue;
+            byte? metric = null;
             BsonExpression? consumedTerm = null;
             var matchedFromOrderBy = false;
+            QueryMetadataBag? metadataBag = null;
+
+            if (context.Query.TryGetMetadata(VectorQueryMetadata.PluginId, out var bag))
+            {
+                metadataBag = bag;
+            }
 
             foreach (var term in context.Terms)
             {
@@ -57,6 +67,41 @@ namespace LiteDB.Vector.Query
                 }
             }
 
+            if (expression == null && metadataBag != null)
+            {
+                if (metadataBag.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) &&
+                    !string.IsNullOrWhiteSpace(field) &&
+                    metadataBag.TryGet<float[]>(VectorQueryMetadata.TargetKey, out var bagTarget) &&
+                    bagTarget != null)
+                {
+                    expression = NormalizeVectorField(field);
+                    target = bagTarget;
+
+                    if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
+                    {
+                        maxDistance = bagDistance;
+                    }
+
+                    if (metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
+                    {
+                        metric = bagMetric;
+                    }
+
+                    matchedFromOrderBy = matchedFromOrderBy ||
+                        context.Query.OrderBy.Any(order =>
+                            order.Expression?.Type == BsonExpressionType.VectorDist ||
+                            order.Expression?.Type == BsonExpressionType.VectorSim);
+                }
+            }
+
+#pragma warning disable CS0618
+            if (!metric.HasValue && context.Query.VectorMetric.HasValue)
+            {
+                metric = context.Query.VectorMetric;
+            }
+#pragma warning restore CS0618
+
+#pragma warning disable CS0618
             if (expression == null && context.Query.VectorTarget != null && context.Query.VectorField != null)
             {
                 expression = NormalizeVectorField(context.Query.VectorField);
@@ -67,6 +112,7 @@ namespace LiteDB.Vector.Query
                         order.Expression?.Type == BsonExpressionType.VectorDist ||
                         order.Expression?.Type == BsonExpressionType.VectorSim);
             }
+#pragma warning restore CS0618
 
             if (expression == null || target == null)
             {
@@ -74,10 +120,12 @@ namespace LiteDB.Vector.Query
             }
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
-            var effectiveMaxDistance = NormalizeDotProductThreshold(maxDistance, context.Query.VectorMetric);
+            var effectiveMaxDistance = NormalizeDotProductThreshold(maxDistance, metric);
 
-            foreach (var (index, metadata) in collection.GetVectorIndexes())
+            foreach (var (index, metadataBuffer) in collection.GetVectorIndexes())
             {
+                var metadata = VectorIndexMetadata.Wrap(metadataBuffer);
+
                 if (!string.Equals(index.Expression, expression, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
