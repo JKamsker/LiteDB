@@ -10,7 +10,7 @@ param(
     [string]$TaskFile = 'specs/001-resolve-vector-findings/tasks.md',
     [string]$ProgressFile = 'specs/001-resolve-vector-findings/progress.md',
     [string]$InitialInstructions = @"
-Read github/prompts/speckit.implement.prompt.md and please resume with the vectorsearch plugin migration.
+Read .github/prompts/speckit.implement.prompt.md and please resume with the vectorsearch plugin migration.
 Status: specs/001-resolve-vector-findings/progress.md - add your progress to it whenever necessary.
 Also see specs\001-resolve-vector-findings\tasks.md
 "@,
