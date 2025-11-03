@@ -115,9 +115,6 @@ namespace LiteDB.Engine
                 [PageType.Index] = new FallbackFactory(
                     buffer => new IndexPage(buffer),
                     (buffer, pageId) => new IndexPage(buffer, pageId)),
-                [PageType.VectorIndex] = new FallbackFactory(
-                    buffer => new VectorIndexPage(buffer),
-                    (buffer, pageId) => new VectorIndexPage(buffer, pageId)),
                 [PageType.Data] = new FallbackFactory(
                     buffer => new DataPage(buffer),
                     (buffer, pageId) => new DataPage(buffer, pageId))

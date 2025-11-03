@@ -791,7 +791,6 @@ namespace LiteDB.Engine
             if (requestedType == typeof(HeaderPage)) return PageType.Header;
             if (requestedType == typeof(CollectionPage)) return PageType.Collection;
             if (requestedType == typeof(IndexPage)) return PageType.Index;
-            if (requestedType == typeof(VectorIndexPage)) return PageType.VectorIndex;
             if (requestedType == typeof(DataPage)) return PageType.Data;
 
             throw new InvalidCastException();
@@ -801,7 +800,6 @@ namespace LiteDB.Engine
         {
             if (requestedType == typeof(CollectionPage)) return PageType.Collection;
             if (requestedType == typeof(IndexPage)) return PageType.Index;
-            if (requestedType == typeof(VectorIndexPage)) return PageType.VectorIndex;
             if (requestedType == typeof(DataPage)) return PageType.Data;
 
             throw new InvalidCastException();

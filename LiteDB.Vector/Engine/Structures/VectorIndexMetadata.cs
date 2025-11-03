@@ -1,6 +1,6 @@
 using System;
 
-namespace LiteDB.Engine
+namespace LiteDB.Vector.Engine
 {
     /// <summary>
     /// Metadata persisted for a vector-aware index.
@@ -74,5 +74,4 @@ namespace LiteDB.Engine
                 4; // Reserved
         }
     }
-
 }

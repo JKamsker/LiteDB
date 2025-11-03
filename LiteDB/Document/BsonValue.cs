@@ -434,7 +434,7 @@ namespace LiteDB
         // Vector
         public static implicit operator BsonValue(float[] value)
         {
-            return new BsonVector(value);
+            return new BsonValue((object)value);
         }
 
         // Boolean

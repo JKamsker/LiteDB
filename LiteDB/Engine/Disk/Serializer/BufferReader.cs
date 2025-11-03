@@ -299,7 +299,7 @@ namespace LiteDB.Engine
                 values[i] = this.ReadSingle();
             }
 
-            return new BsonVector(values);
+            return new BsonValue((object)values);
         }
 
 
