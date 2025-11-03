@@ -28,3 +28,5 @@
 - T021: Updated collection and query client APIs to resolve vector work through the strategy registry, calling plugin delegates when present and surfacing compatibility shims when the plugin is absent.
 
 - T022: Added QueryMetadataBag regression suite covering descriptor-backed bags, fallback construction, and vector metadata population when no plugin context exists.
+
+- T023: Added VectorRegistry integration coverage and updated VectorSearchPlugin to register query metadata, page factory, and vector strategy descriptors across the new plugin registries.

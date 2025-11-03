@@ -14,18 +14,10 @@ namespace LiteDB
         private static readonly Lazy<LiteDatabaseServices> _default = new Lazy<LiteDatabaseServices>(CreateDefault, true);
 
         internal LiteDatabaseServices(ILitePluginContext context)
-            : this(context, applyFallback: true)
-        {
-        }
-
-        private LiteDatabaseServices(ILitePluginContext context, bool applyFallback)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
-            if (applyFallback)
-            {
-                BsonTypeResolver.ReplaceFallbackRegistry(context);
-                PageFactoryResolver.ReplaceFallbackRegistry(context);
-            }
+            BsonTypeResolver.ReplaceFallbackRegistry(context);
+            PageFactoryResolver.ReplaceFallbackRegistry(context);
         }
 
         /// <summary>
@@ -80,10 +72,7 @@ namespace LiteDB
         private static LiteDatabaseServices CreateDefault()
         {
             var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
-            var services = new LiteDatabaseServices(context, applyFallback: false);
-            BsonTypeResolver.ReplaceFallbackRegistry(context);
-            PageFactoryResolver.ReplaceFallbackRegistry(context);
-            return services;
+            return new LiteDatabaseServices(context);
         }
     }
 }

@@ -61,7 +61,7 @@
 - [X] T020 [US1] Extend `LiteDB/Plugins/EnsureIndexContext.cs` to register and resolve vector index strategies through the new descriptor.
 - [X] T021 [US1] Refactor `LiteDB/Client/Database/Collections/Index.cs` and `LiteDB/Client/Database/LiteQueryable.cs` to rely on plugin strategies and emit compatibility shims.
 - [X] T022 [US1] Create and implement regression tests in `LiteDB.Tests/Engine/Plugins/QueryMetadataBagTests.cs` validating metadata bag fallback when the plugin is absent.
-- [ ] T023 [P] [US1] Create and implement `LiteDB.Vector.Tests/Integration/VectorRegistryTests.cs` to confirm plugin registration flows exercise all new extension points.
+- [X] T023 [P] [US1] Create and implement `LiteDB.Vector.Tests/Integration/VectorRegistryTests.cs` to confirm plugin registration flows exercise all new extension points.
 - [ ] T023b [US1] Add integration test in `LiteDB.Tests/Engine/Plugins/PluginAbsentTests.cs` validating deterministic errors when vector operations run without plugin loaded.
 
 **Checkpoint**: Plugin extensibility infrastructure working end-to-end; core no longer requires vector-specific fields to execute vector workloads with the plugin available.
