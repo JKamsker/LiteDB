@@ -83,7 +83,7 @@
   - [x] T028 [US2] Implement vector strategy registration in `LiteDB.Vector/Engine/VectorIndexStrategy.cs` using the new registries.
 - [ ] T029 [US2] Remove vector-specific `InternalsVisibleTo` entries from `LiteDB/LiteDB.csproj`.
 - [ ] T029b [US2] Verify `dotnet build LiteDB.Vector -c Release` succeeds with zero errors/warnings after `InternalsVisibleTo` removal.
-- [ ] T030 [US2] Execute `rg "Vector" LiteDB` and update `specs/001-vector-core-cleanup/SUMMARY.md` to document zero outstanding components.
+- [X] T030 [US2] Execute `rg "Vector" LiteDB` and update `specs/001-vector-core-cleanup/SUMMARY.md` to document zero outstanding components.
 - [ ] T031 [P] [US2] Update `LiteDB.Vector.Tests/Integration/VectorIndexTests.cs` to cover relocated runtime behaviors and ensure parity.
 
 **Checkpoint**: Vector runtime code is isolated within the plugin project, and the core dependency surface is free from vector-specific implementations.

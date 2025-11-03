@@ -148,11 +148,13 @@ namespace LiteDB.Vector
                 return false;
             }
 
+            #pragma warning disable CS0618
             if (value.Type == BsonType.Vector)
             {
                 vector = value.AsVector.ToArray();
                 return ValidateVector(vector);
             }
+            #pragma warning restore CS0618
 
             if (value.IsArray)
             {
