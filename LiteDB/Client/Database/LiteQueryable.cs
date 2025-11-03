@@ -329,6 +329,14 @@ namespace LiteDB
             _query.VectorMetric = metric;
         }
 
+        private void EnsureVectorPluginAvailable()
+        {
+            if (VectorCompatibility.TryGetStrategy(_database?.Services?.VectorIndexes) == null)
+            {
+                throw VectorCompatibility.PluginRequired();
+            }
+        }
+
         internal ILiteQueryable<T> VectorWhereNear(string vectorField, float[] target, double maxDistance, byte? metric = null)
         {
             if (string.IsNullOrWhiteSpace(vectorField)) throw new ArgumentNullException(nameof(vectorField));
@@ -339,6 +347,8 @@ namespace LiteDB
 
         internal ILiteQueryable<T> VectorWhereNear(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric = null)
         {
+            this.EnsureVectorPluginAvailable();
+
             var effectiveMetric = metric ?? _query.VectorMetric;
 
             var filter = CreateVectorDistanceFilter(fieldExpr, target, maxDistance, effectiveMetric);
@@ -372,6 +382,8 @@ namespace LiteDB
 
         internal ILiteQueryableResult<T> VectorTopKNear(BsonExpression fieldExpr, float[] target, int k, byte? metric = null, double? maxDistance = null)
         {
+            this.EnsureVectorPluginAvailable();
+
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
             if (target == null || target.Length == 0) throw new ArgumentException("Target vector must be provided.", nameof(target));
             if (k <= 0) throw new ArgumentOutOfRangeException(nameof(k), "Top-K must be greater than zero.");
@@ -411,6 +423,8 @@ namespace LiteDB
 
         internal ILiteQueryable<T> VectorOrderByNearest(BsonExpression fieldExpr, float[] target, byte? metric = null, double? maxDistance = null)
         {
+            this.EnsureVectorPluginAvailable();
+
             if (fieldExpr == null) throw new ArgumentNullException(nameof(fieldExpr));
 
             var effectiveMaxDistance = maxDistance ?? double.MaxValue;

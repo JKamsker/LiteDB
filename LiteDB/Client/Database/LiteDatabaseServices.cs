@@ -1,6 +1,7 @@
 using System;
 using LiteDB.Engine;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
 
 namespace LiteDB
 {
@@ -43,6 +44,11 @@ namespace LiteDB
         /// Gets the index interceptor registry associated with the database.
         /// </summary>
         public IIndexInterceptorRegistry IndexInterceptors => _context.IndexInterceptors;
+
+        /// <summary>
+        /// Gets the vector index strategy registry associated with the database.
+        /// </summary>
+        public IVectorIndexStrategyRegistry VectorIndexes => _context.VectorIndexes;
 
         /// <summary>
         /// Gets the service provider exposed to plugins.
