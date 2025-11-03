@@ -9,6 +9,38 @@ using LiteDB.Plugins;
 namespace LiteDB.Plugins.Indexing
 {
     /// <summary>
+    /// Registry contract used to coordinate vector index strategy descriptors.
+    /// </summary>
+    public interface IVectorIndexStrategyRegistry
+    {
+        /// <summary>
+        /// Registers the supplied descriptor.
+        /// </summary>
+        /// <param name="descriptor">Descriptor describing the strategy.</param>
+        void Register(VectorIndexStrategyDescriptor descriptor);
+
+        /// <summary>
+        /// Attempts to resolve a descriptor by its identifier.
+        /// </summary>
+        /// <param name="strategyId">The logical strategy identifier.</param>
+        /// <param name="descriptor">Receives the descriptor when found.</param>
+        /// <returns>True when the descriptor exists.</returns>
+        bool TryGet(string strategyId, out VectorIndexStrategyDescriptor descriptor);
+
+        /// <summary>
+        /// Resolves a descriptor by its identifier.
+        /// </summary>
+        /// <param name="strategyId">The logical strategy identifier.</param>
+        /// <returns>The registered descriptor.</returns>
+        VectorIndexStrategyDescriptor Get(string strategyId);
+
+        /// <summary>
+        /// Gets all registered descriptors.
+        /// </summary>
+        IReadOnlyCollection<VectorIndexStrategyDescriptor> Registered { get; }
+    }
+
+    /// <summary>
     /// Delegate invoked when a vector-aware index ensure request is executed.
     /// </summary>
     /// <param name="context">Context describing the ensure operation.</param>

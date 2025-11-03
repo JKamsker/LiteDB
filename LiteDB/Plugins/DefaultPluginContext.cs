@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Indexing;
 using LiteDB.Plugins.Query;
 using LiteDB.Plugins.Storage;
 
@@ -17,6 +18,7 @@ namespace LiteDB.Plugins
             this.QueryMetadata = new QueryMetadataAccessor();
             this.BsonTypes = new PluginBsonTypeRegistry();
             this.PageFactories = new PageFactoryRegistry();
+            this.VectorIndexes = new VectorIndexStrategyRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
             this.IndexInterceptors = new IndexInterceptorRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
@@ -35,6 +37,8 @@ namespace LiteDB.Plugins
         public IBsonTypeRegistry BsonTypes { get; }
 
         public IPageFactoryRegistry PageFactories { get; }
+
+        public IVectorIndexStrategyRegistry VectorIndexes { get; }
 
         public ILinqResolverRegistry LinqResolvers { get; }
 
@@ -85,6 +89,21 @@ namespace LiteDB.Plugins
         {
             return this.PageFactories.TryGet(pageType, out registration);
         }
+
+        public void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor)
+        {
+            this.VectorIndexes.Register(descriptor);
+        }
+
+        public bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor)
+        {
+            return this.VectorIndexes.TryGet(strategyId, out descriptor);
+        }
+
+        public VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId)
+        {
+            return this.VectorIndexes.Get(strategyId);
+        }
     }
 
     internal sealed class QueryMetadataAccessor : IQueryMetadataAccessor
@@ -124,6 +143,57 @@ namespace LiteDB.Plugins
             }
 
             return descriptor;
+        }
+    }
+
+    internal sealed class VectorIndexStrategyRegistry : IVectorIndexStrategyRegistry
+    {
+        private readonly object _sync = new object();
+        private readonly Dictionary<string, VectorIndexStrategyDescriptor> _strategies = new Dictionary<string, VectorIndexStrategyDescriptor>(StringComparer.Ordinal);
+
+        public void Register(VectorIndexStrategyDescriptor descriptor)
+        {
+            if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
+
+            lock (_sync)
+            {
+                _strategies[descriptor.StrategyId] = descriptor;
+            }
+        }
+
+        public bool TryGet(string strategyId, out VectorIndexStrategyDescriptor descriptor)
+        {
+            if (string.IsNullOrWhiteSpace(strategyId))
+            {
+                descriptor = null;
+                return false;
+            }
+
+            lock (_sync)
+            {
+                return _strategies.TryGetValue(strategyId, out descriptor);
+            }
+        }
+
+        public VectorIndexStrategyDescriptor Get(string strategyId)
+        {
+            if (!TryGet(strategyId, out var descriptor))
+            {
+                throw new KeyNotFoundException($"No vector index strategy descriptor registered for '{strategyId}'.");
+            }
+
+            return descriptor;
+        }
+
+        public IReadOnlyCollection<VectorIndexStrategyDescriptor> Registered
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _strategies.Values.ToArray();
+                }
+            }
         }
     }
 

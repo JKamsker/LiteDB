@@ -24,3 +24,4 @@
 - T017: Introduced engine-side `PageFactoryRegistry` with plugin-aware fallbacks and updated `BasePage`/`LiteDatabaseServices` so page creation and reads are routed through plugin descriptors when available.
 - T018: Wired page factory resolver through FileReaderV8, rebuild orchestration, and snapshot flow-propagating plugin contexts so data readers and rebuild paths honor plugin-provided page implementations.
 - T019: Added `LiteDB/Plugins/Indexing/VectorIndexStrategyDescriptor.cs` defining delegates, dependency metadata, and context wrappers for plugin-managed vector index strategies.
+- T020: Expanded `EnsureIndexContext` and `ILitePluginContext` so plugins can register/query vector strategy descriptors via a dedicated registry wired through the default plugin context.
