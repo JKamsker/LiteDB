@@ -7,7 +7,7 @@
 
 ## Summary
 
-Deliver the infrastructure and migrations required to close every open gap from `specs/001-vector-core-cleanup`: ship plugin-owned query metadata, BSON type registration, storage page factories, and index strategies; relocate the remaining vector runtime code into `LiteDB.Vector`; and provide upgrade plus observability tooling so core releases no longer ship vector behavior while existing databases remain fully supported.
+Deliver the infrastructure and migrations required to close every open gap from `specs/001-vector-core-cleanup`: ship plugin-owned query metadata, BSON type registration, storage page factories, and index strategies; relocate the remaining vector runtime code into `LiteDB.Vector` while retaining only documented safety shims in core; and provide upgrade plus observability tooling so core releases no longer ship vector behavior while existing databases remain fully supported.
 
 ## Technical Context
 
@@ -18,7 +18,7 @@ Deliver the infrastructure and migrations required to close every open gap from 
 **Target Platform**: Cross-platform .NET environments (Windows, Linux, macOS) consistent with existing LiteDB targets  
 **Project Type**: Multi-project .NET solution (core library + plugin packages + accompanying tests)  
 **Performance Goals**: Ensure existing vector tests pass without significant slowdowns; no additional startup cost when plugin absent (formal benchmarking deferred)  
-**Constraints**: Must preserve backward compatibility for existing databases, keep `netstandard2.0` build warning-free, avoid new mandatory dependencies for non-vector consumers, and resolve all `gap-*` records without introducing new ones  
+**Constraints**: Must preserve backward compatibility for existing databases, keep `netstandard2.0` build warning-free, avoid new mandatory dependencies for non-vector consumers, and resolve all `gap-*` records without introducing new ones while explicitly allowing temporary `InternalsVisibleTo` entries and other documented safety shims for `LiteDB.Vector` until replacement plugin-facing abstractions land  
 **Scale/Scope**: Impacts all vector touch points in `LiteDB/` (Engine, Document, Client, Utils), LiteDB.Vector runtime, and supporting documentation/verification assets under `specs/001-vector-core-cleanup`
 
 ## Constitution Check

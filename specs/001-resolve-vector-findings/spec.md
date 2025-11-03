@@ -28,11 +28,11 @@ As the vector plugin owner, I want the remaining vector runtime types, helpers, 
 
 **Why this priority**: Relocating the implementation closes the inventory from `specs/001-vector-core-cleanup`, letting the plugin release iterate independently while slimming the core footprint.
 
-**Independent Test**: Run `rg "Vector" LiteDB` and confirm only compatibility shims or neutral terminology remain, then execute plugin integration tests to prove all relocated code paths succeed.
+**Independent Test**: Run `rg "Vector" LiteDB` and confirm only documented compatibility/safety shims or neutral terminology remain, then execute plugin integration tests to prove all relocated code paths succeed.
 
 **Acceptance Scenarios**:
 
-1. **Given** the new extensibility model, **When** service factories, query helpers, and storage classes are rebuilt into LiteDB.Vector, **Then** the core solution compiles without InternalsVisibleTo or vector-specific classes.
+1. **Given** the new extensibility model, **When** service factories, query helpers, and storage classes are rebuilt into LiteDB.Vector, **Then** the core solution compiles with only documented safety shims (including any temporary `InternalsVisibleTo` entries) and no broad vector runtime implementations remaining inside the core.
 2. **Given** an upgraded application upgrades both core and plugin packages, **When** it rebuilds vector indexes or executes similarity search, **Then** the behavior matches pre-migration results with parity metrics recorded in the verification checklist.
 
 ---
@@ -67,7 +67,7 @@ As operations supporting existing LiteDB workloads, I need automated upgrade gui
 - **FR-002**: Introduce a plugin-driven BSON type registration pipeline that deprecates hard-coded `BsonType.Vector` enums while maintaining backward-compatible readers until migration completes (`gap-bson-serialization` resolved).
 - **FR-003**: Design and ship plugin-accessible page factories and metadata serializers that allow LiteDB.Vector to host vector index pages, rebuild routines, and snapshot flows without touching `LiteDB.Engine.Pages` (`gap-storage-pipeline` resolved).
 - **FR-004**: Extend index extensibility so plugins register complete index strategies, replacing `EnsureVectorIndex` entry points with plugin-owned helpers and compatibility shims (`gap-indexing-extensibility` resolved).
-- **FR-005**: Relocate remaining vector runtime files from `LiteDB/` to `LiteDB.Vector/`, leaving only compatibility stubs and upgrade shims in core, and update the inventory to reflect zero outstanding vector decisions.
+- **FR-005**: Relocate remaining vector runtime files from `LiteDB/` to `LiteDB.Vector/`, leaving only documented compatibility and safety shims in core so databases remain consistent even when the plugin is absent, and update the inventory to reflect zero outstanding vector decisions.
 - **FR-006**: Produce migration guidance, automation scripts, and verification steps that cover database upgrades, package updates, telemetry, and regression suites referenced in `specs/001-vector-core-cleanup/verification`.
 - **FR-007**: Document observability and error-handling behaviors so deployments detect missing plugins or incompatible versions within one operational cycle, referencing the SUMMARY and roadmap artifacts.
 
