@@ -26,3 +26,5 @@
 - T019: Added `LiteDB/Plugins/Indexing/VectorIndexStrategyDescriptor.cs` defining delegates, dependency metadata, and context wrappers for plugin-managed vector index strategies.
 - T020: Expanded `EnsureIndexContext` and `ILitePluginContext` so plugins can register/query vector strategy descriptors via a dedicated registry wired through the default plugin context.
 - T021: Updated collection and query client APIs to resolve vector work through the strategy registry, calling plugin delegates when present and surfacing compatibility shims when the plugin is absent.
+
+- T022: Added QueryMetadataBag regression suite covering descriptor-backed bags, fallback construction, and vector metadata population when no plugin context exists.
