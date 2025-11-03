@@ -1,0 +1,30 @@
+*** Update File: LiteDB/Plugins/Bson/IBsonTypeRegistry.cs
+@@
+-        public BsonTypeRegistration(
+-            string pluginId,
+-            byte typeCode,
+-            string name,
+-            PluginBsonSerializer serializer,
+-            PluginBsonDeserializer deserializer,
+-            IReadOnlyCollection<byte> legacyAliases = null)
++        public BsonTypeRegistration(
++            string pluginId,
++            byte typeCode,
++            string name,
++            PluginBsonSerializer serializer,
++            PluginBsonDeserializer deserializer,
++            IReadOnlyCollection<byte> legacyAliases = null)
+         {
+             if (string.IsNullOrWhiteSpace(pluginId))
+             {
+                 throw new ArgumentException("Plugin identifier must be provided.", nameof(pluginId));
+             }
+ 
+-            if (typeCode < 128)
++            if (typeCode < 128 && !string.Equals(pluginId, "LiteDB.Core", StringComparison.Ordinal))
+             {
+                 throw new ArgumentOutOfRangeException(nameof(typeCode), "Plugin-reserved BSON type codes must be >= 128.");
+             }
+ 
+             PluginId = pluginId;
+*** End Patch

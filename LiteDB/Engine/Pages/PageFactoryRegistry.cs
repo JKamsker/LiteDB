@@ -233,7 +233,8 @@ namespace LiteDB.Engine
 
         private static PageFactoryRegistry CreateFallbackRegistry()
         {
-            return new PageFactoryRegistry(LiteDatabaseServices.Default.Context);
+            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            return new PageFactoryRegistry(context);
         }
     }
 }

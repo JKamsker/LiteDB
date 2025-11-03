@@ -94,7 +94,8 @@ namespace LiteDB
 
         private static BsonTypeRegistry CreateFallbackRegistry()
         {
-            return new BsonTypeRegistry(LiteDatabaseServices.Default.Context.BsonTypes);
+            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            return new BsonTypeRegistry(context.BsonTypes);
         }
     }
 }

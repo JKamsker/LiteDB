@@ -69,7 +69,7 @@ namespace LiteDB.Plugins.Bson
                 throw new ArgumentException("Plugin identifier must be provided.", nameof(pluginId));
             }
 
-            if (typeCode < 128)
+            if (typeCode < 128 && !string.Equals(pluginId, "LiteDB.Core", StringComparison.Ordinal))
             {
                 throw new ArgumentOutOfRangeException(nameof(typeCode), "Plugin-reserved BSON type codes must be >= 128.");
             }
