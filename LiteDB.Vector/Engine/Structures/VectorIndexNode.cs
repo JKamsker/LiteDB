@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LiteDB.Vector.Utils;
 using static LiteDB.Constants;
 
-namespace LiteDB.Engine
+namespace LiteDB.Vector.Engine
 {
     internal sealed class VectorIndexNode
     {
@@ -94,7 +95,7 @@ namespace LiteDB.Engine
 
             if (this.HasInlineVector)
             {
-                segment.Write(vector, P_VECTOR);
+                segment.WriteVector(vector, P_VECTOR);
             }
             else
             {
@@ -128,16 +129,27 @@ namespace LiteDB.Engine
             }
 
             storesInline = false;
-
-            return
-                PageAddress.SIZE + // DataBlock
-                1 + // Level count
-                (MaxLevels * LEVEL_STRIDE) +
-                2 + // sentinel prefix
-                PageAddress.SIZE; // pointer to external vector
+            return PageAddress.SIZE + 1 + (MaxLevels * LEVEL_STRIDE) + 2 + PageAddress.SIZE;
         }
 
-        public IReadOnlyList<PageAddress> GetNeighbors(int level)
+        public float[] ReadVector()
+        {
+            if (!this.HasInlineVector)
+            {
+                throw new InvalidOperationException("Vector is stored externally and must be loaded from the data pages.");
+            }
+
+            return _segment.ReadVector(P_VECTOR);
+        }
+
+        public void WriteExternalVector(PageAddress address)
+        {
+            _segment.Write((ushort)0, P_VECTOR);
+            _segment.Write(address, P_VECTOR_POINTER);
+            _page.IsDirty = true;
+        }
+
+        public IList<PageAddress> GetNeighbors(int level)
         {
             if (level < 0 || level >= MaxLevels)
             {
@@ -146,7 +158,9 @@ namespace LiteDB.Engine
 
             var offset = GetLevelOffset(level);
             var count = _segment.ReadByte(offset);
+
             var neighbors = new List<PageAddress>(count);
+
             var position = offset + 1;
 
             for (var i = 0; i < count; i++)
@@ -158,7 +172,7 @@ namespace LiteDB.Engine
             return neighbors;
         }
 
-        public void SetNeighbors(int level, IReadOnlyList<PageAddress> neighbors)
+        public void SetNeighbors(int level, IList<PageAddress> neighbors)
         {
             if (level < 0 || level >= MaxLevels)
             {
@@ -276,18 +290,8 @@ namespace LiteDB.Engine
                 throw new ArgumentException("Vector length must match node dimensions.", nameof(vector));
             }
 
-            _segment.Write(vector, P_VECTOR);
+            _segment.WriteVector(vector, P_VECTOR);
             _page.IsDirty = true;
-        }
-
-        public float[] ReadVector()
-        {
-            if (!this.HasInlineVector)
-            {
-                throw new InvalidOperationException("Vector is stored externally and must be loaded from the data pages.");
-            }
-
-            return _segment.ReadVector(P_VECTOR);
         }
     }
 }

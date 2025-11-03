@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using static LiteDB.Constants;
 
-namespace LiteDB.Engine
+namespace LiteDB.Vector.Engine
 {
     internal sealed class VectorIndexPage : BasePage
     {
