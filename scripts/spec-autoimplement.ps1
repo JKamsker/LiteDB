@@ -226,6 +226,7 @@ try {
     $iteration = 0
     $sessionMap = @{}
     $simulatedClosedTasks = [System.Collections.Generic.HashSet[string]]::new()
+    $noProgressCount = 0
 
     while ($true) {
         $openBeforeDetailed = @(Get-OpenTasksByPhase -Path $TaskFile)
@@ -352,9 +353,11 @@ try {
             foreach ($item in $closed) {
                 Write-Host ("  - {0}" -f $item)
             }
+            $noProgressCount = 0
         }
         else {
             Write-Host 'Step 5: No tasks were closed during this iteration.'
+            $noProgressCount++
         }
 
         if (-not $SkipCommit) {
@@ -404,8 +407,13 @@ try {
         }
 
         if (($openAfter.Count -gt 0) -and ($openAfter.Count -eq $openBefore.Count) -and ($closed.Count -eq 0)) {
-            Write-Warning 'No unchecked tasks were closed during this iteration. Stopping to avoid an infinite loop.'
-            break
+            if ($noProgressCount -ge 5) {
+                Write-Warning "No unchecked tasks were closed for $noProgressCount consecutive iterations. Stopping to avoid an infinite loop."
+                break
+            }
+            else {
+                Write-Host "No progress in this iteration. Continuing (no-progress count: $noProgressCount/5)."
+            }
         }
     }
 }
