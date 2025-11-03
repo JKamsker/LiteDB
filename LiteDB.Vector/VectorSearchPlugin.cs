@@ -1,8 +1,12 @@
 using System;
 using System.Globalization;
+using System.Threading.Tasks;
 using LiteDB;
-using LiteDB.Plugins;
 using LiteDB.Engine;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
+using LiteDB.Plugins.Query;
+using LiteDB.Plugins.Storage;
 using LiteDB.Vector.Engine;
 using LiteDB.Vector.Query;
 
@@ -59,6 +63,11 @@ namespace LiteDB.Vector
 
             var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"], context.Logger);
 
+            context.RegisterQueryMetadata(
+                pluginId: "LiteDB.Vector",
+                version: 1,
+                reservedKeys: new[] { "VectorField", "VectorMetric", "TargetEmbedding", "VectorMaxDistance" });
+
             VectorIndexServiceFactory.Register((snapshot, collation) => new VectorIndexSearchAdapter(snapshot, collation));
 
             context.Expressions.RegisterKeyword("VECTOR_DIST");
@@ -101,10 +110,48 @@ namespace LiteDB.Vector
                 convertScalarLeftToEnumerable: false,
                 isScalarResult: true);
 
-            context.Indexes.Register(new VectorIndexStrategy(context.Logger, defaultMetric));
+            var vectorIndexStrategy = new VectorIndexStrategy(context.Logger, defaultMetric);
+            context.Indexes.Register(vectorIndexStrategy);
             context.QueryPlanner.AddRule(new VectorIndexPlanningRule());
 
             context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.");
+
+            context.RegisterPageFactory(new PageFactoryRegistration(
+                pluginId: "LiteDB.Vector",
+                pageType: "VectorIndex",
+                compatibilityRange: ">=8.0",
+                factory: ctx =>
+                {
+                    if (ctx is PageConstructionContext construction)
+                    {
+                        return construction.IsNewPage
+                            ? new VectorIndexPage(construction.Buffer, construction.PageId)
+                            : new VectorIndexPage(construction.Buffer);
+                    }
+
+                    throw new ArgumentException("Vector index page factory received an unexpected context instance.", nameof(ctx));
+                }));
+
+            var descriptor = new VectorIndexStrategyDescriptor(
+                pluginId: "LiteDB.Vector",
+                strategyId: "LiteDB.Vector",
+                ensureIndex: ctx =>
+                {
+                    if (ctx == null)
+                    {
+                        throw new ArgumentNullException(nameof(ctx));
+                    }
+
+                    var result = ctx.EnsureContext.ExecuteDefault();
+                    ctx.EnsureContext.SetResult(result);
+                    return Task.FromResult(result);
+                },
+                queryPlanner: _ => Task.CompletedTask,
+                rebuildStrategy: _ => Task.CompletedTask,
+                requiredBsonTypes: new[] { (byte)BsonType.Vector },
+                requiredPageTypes: new[] { "VectorIndex" });
+
+            context.RegisterVectorIndexStrategy(descriptor);
 
         }
 
