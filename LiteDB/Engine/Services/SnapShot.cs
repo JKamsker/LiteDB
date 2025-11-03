@@ -227,7 +227,7 @@ namespace LiteDB.Engine
             {
                 // read page from log file
                 var buffer = _reader.ReadPage(walPosition.Position, _mode == LockMode.Write, FileOrigin.Log);
-                var dirty = BasePage.ReadPage<T>(buffer);
+                var dirty = BasePage.ReadPage<T>(buffer, _plugins);
 
                 origin = FileOrigin.Log;
                 position = walPosition.Position;
@@ -245,7 +245,7 @@ namespace LiteDB.Engine
             {
                 // read page from log file
                 var buffer = _reader.ReadPage(pos, _mode == LockMode.Write, FileOrigin.Log);
-                var logPage = BasePage.ReadPage<T>(buffer);
+                var logPage = BasePage.ReadPage<T>(buffer, _plugins);
 
                 // clear some data inside this page (will be override when write on log file)
                 logPage.TransactionID = 0;
@@ -263,7 +263,7 @@ namespace LiteDB.Engine
 
                 // read page from data file
                 var buffer = _reader.ReadPage(pagePosition, _mode == LockMode.Write, FileOrigin.Data);
-                var diskpage = BasePage.ReadPage<T>(buffer);
+                var diskpage = BasePage.ReadPage<T>(buffer, _plugins);
 
                 origin = FileOrigin.Data;
                 position = pagePosition;
@@ -427,7 +427,7 @@ namespace LiteDB.Engine
                 _transPages.NewPages.Add(pageID);
             }
 
-            var page = BasePage.CreatePage<T>(buffer, pageID);
+            var page = BasePage.CreatePage<T>(buffer, pageID, _plugins);
 
             // update local cache with new instance T page type
             if (page.PageType != PageType.Collection)

@@ -23,7 +23,7 @@ namespace LiteDB.Engine
             this.Close();
 
             // run build service
-            var rebuilder = new RebuildService(_settings);
+            var rebuilder = new RebuildService(_settings, _plugins);
 
             // return how many bytes of diference from original/rebuild version
             var diff = rebuilder.Rebuild(options);

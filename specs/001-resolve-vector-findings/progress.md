@@ -22,3 +22,4 @@
 ## 2025-11-03
 
 - T017: Introduced engine-side `PageFactoryRegistry` with plugin-aware fallbacks and updated `BasePage`/`LiteDatabaseServices` so page creation and reads are routed through plugin descriptors when available.
+- T018: Wired page factory resolver through FileReaderV8, rebuild orchestration, and snapshot flow—propagating plugin contexts so data readers and rebuild paths honor plugin-provided page implementations.

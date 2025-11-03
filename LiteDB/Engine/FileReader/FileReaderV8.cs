@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -46,11 +47,13 @@ namespace LiteDB.Engine
 
         private readonly EngineSettings _settings;
         private readonly IList<FileReaderError> _errors;
+        private readonly ILitePluginContext _plugins;
 
-        public FileReaderV8(EngineSettings settings, IList<FileReaderError> errors)
+        public FileReaderV8(EngineSettings settings, IList<FileReaderError> errors, ILitePluginContext plugins = null)
         {
             _settings = settings;
             _errors = errors;
+            _plugins = plugins;
         }
 
         /// <summary>
@@ -537,7 +540,9 @@ namespace LiteDB.Engine
 
                 ENSURE(read == PAGE_SIZE, "Page position {0} read only than {1} bytes (instead {2})", stream.Position, read, PAGE_SIZE);
 
-                var page = new BasePage(pageBuffer);
+                var page = BasePage.ReadPage(pageBuffer, _plugins);
+
+                pageInfo.PageType = page.PageType;
 
                 pageInfo.ColID = page.ColID;
 

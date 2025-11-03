@@ -16,7 +16,7 @@ namespace LiteDB.Engine
         private void Recovery(Collation collation)
         {
             // run build service
-            var rebuilder = new RebuildService(_settings);
+            var rebuilder = new RebuildService(_settings, _plugins);
             var options = new RebuildOptions
             {
                 Collation = collation,
