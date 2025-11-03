@@ -115,7 +115,7 @@ namespace LiteDB.Engine
 
             if (strategy == null)
             {
-                throw new LiteException(0, "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase.");
+                throw LiteDB.VectorCompatibility.PluginRequired();
             }
 
             return this.AutoTransaction(transaction =>
