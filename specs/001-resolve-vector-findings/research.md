@@ -36,6 +36,19 @@
 - **Rationale**: Edge cases call for deterministic failure modes. Observability helps operators identify configuration mistakes within one deployment cycle as demanded by the success criteria.
 - **Alternatives considered**: Silent failures with fallback behavior (would hide misconfiguration) or hard crashes (unacceptable for production workloads).
 
+## Follow-up Learnings (2025-11-06)
+
+- **Plugin Authoring Guidance**: Refreshing `docs/plugins/plugin-development.md` was necessary so third-party authors understand how to register query metadata bags, BSON type codes, and page factories. Without that documentation, external teams would keep duplicating the legacy vector approach instead of using the new registries.
+- **ValueTask Dependencies**: The core package now explicitly references `System.Threading.Tasks.Extensions` (4.5.4) for the `netstandard2.0` target, ensuring the async serializers/deserializers exposed by the plugin registries compile without implicitly relying on application dependencies.
+- **Packaging Verification**: Running `dotnet pack LiteDB/LiteDB.csproj -c Release` after all migrations confirmed the NuGet artifact still builds cleanly. The remaining warnings (nullable context, PBKDF2 constructors, CA2200) predate the cleanup and are tracked separately, so vector work did not introduce new packaging regressions.
+
+### Remaining Shims Requiring Follow-up
+
+- `LiteDB/Utils/Constants.cs`: The `InternalsVisibleTo` entries that grant `LiteDB.Vector` access to `BasePage`, `PageAddress`, `Snapshot`, and transaction internals remain in place. They are currently justified because the plugin still constructs pages and inspects snapshot services directly; replacing them requires new abstractions in the page factory registry and rebuild pipelines.
+- `LiteDB/Engine/Query/Query.cs`: `[Obsolete]` vector property shims persist so existing binaries continue compiling. They forward into `QueryMetadataBag` and emit diagnostics when accessed. Once consumers migrate to the metadata accessor (`LiteDatabase.Services.QueryMetadata`), these shims can be removed along with the obsolete warnings.
+- `LiteDB/Document/BsonType.cs` and `LiteDB.Document.Bson/BsonTypeRegistry.cs`: Core still registers a fallback `BsonType.Vector` descriptor so legacy data can be read without the plugin. The plan is to drop this fallback after the upgrade manifest graduates to required status and all persisted data uses plugin-owned type codes.
+- `LiteDB/Engine/Pages/BasePage.cs` and `LiteDB/Engine/Pages/PageFactoryRegistry.cs`: The engine maintains compatibility mappings that detect legacy vector page enums before deferring to plugin factories. These guards should be deleted once the plugin publishes page descriptors for every historic enum value and upgrade scripts rewrite the persisted metadata.
+
 ## Performance guardrails
 
 - **Decision**: Benchmark vector index build/search paths before and after migration, targeting ≤5% regression and publishing results alongside the upgrade validation checklist.
