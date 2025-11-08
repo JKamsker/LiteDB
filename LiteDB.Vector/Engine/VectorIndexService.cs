@@ -641,6 +641,11 @@ namespace LiteDB.Vector.Engine
             metadata.Reserved = uint.MaxValue;
             AddOrRemoveFreeVectorList(page, ref freeList);
             metadata.Reserved = freeList;
+
+            if (page.ItemsCount == 0)
+            {
+                _snapshot.DeletePage(page);
+            }
         }
 
         private VectorIndexNode GetNode(PageAddress address)
