@@ -116,7 +116,7 @@
 **Purpose**: Final documentation, packaging, and quality improvements affecting multiple stories.
 
 - [ ] T040 [P] Refresh `docs/plugins/plugin-development.md` with guidance for query metadata bags, BSON registries, and page factories.
-- [ ] T041 Verify `System.Threading.Tasks.Extensions` package reference exists in `LiteDB/LiteDB.csproj` for `netstandard2.0` ValueTask support; add if missing.
+- [X] T041 Verify `System.Threading.Tasks.Extensions` package reference exists in `LiteDB/LiteDB.csproj` for `netstandard2.0` ValueTask support; add if missing.
 - [ ] T042 Run `dotnet pack LiteDB/LiteDB.csproj -c Release` to verify packaging after vector migration.
 - [ ] T043 Document follow-up learnings and remaining shims in `specs/001-resolve-vector-findings/research.md`.
 
