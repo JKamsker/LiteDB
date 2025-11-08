@@ -98,7 +98,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Implement C# migration helpers in `scripts/vector/MigrationHelpers.cs` to handle database metadata relocation and validation.
+- [X] T032 [US3] Implement C# migration helpers in `scripts/vector/MigrationHelpers.cs` to handle database metadata relocation and validation.
 - [ ] T033 [US3] Implement `scripts/vector/Invoke-VectorUpgrade.ps1` orchestrating manifest-driven upgrades and validation commands using the migration helpers.
 - [ ] T034 [US3] Create `specs/001-resolve-vector-findings/migration/upgrade-manifest.json` documenting ordered upgrade steps and verification hooks.
 - [ ] T035 [P] [US3] Update `specs/001-vector-core-cleanup/verification/build-validation.json` with new plugin-first validation requirements.
