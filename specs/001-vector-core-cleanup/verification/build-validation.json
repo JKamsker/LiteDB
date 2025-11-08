@@ -1,8 +1,8 @@
 {
     "id": "verify-build-release",
     "category": "Build",
-    "command": "dotnet build LiteDB.sln -c Release",
-    "expectedOutcome": "Solution builds succeed without vector-related compiler warnings or plugin dependency leaks in LiteDB/ targets.",
+    "command": "dotnet build LiteDB.sln -c Release\npwsh -NoProfile -File scripts/vector/Invoke-VectorUpgrade.ps1 -DatabasePath <legacy-db-path> -DryRun -SkipValidations -ReportPath artifacts_temp/vector-followup/upgrade-report.md",
+    "expectedOutcome": "Release builds succeed for every target and the plugin-first upgrade orchestrator compiles MigrationHelpers, loads the upgrade manifest, and produces a dry-run report without surfacing vector references inside LiteDB/.",
     "phase": "PostMigration",
-    "notes": "Use CI Release configuration to ensure both netstandard2.0 and net8.0 targets compile cleanly after vector relocation."
+    "notes": "Use a sanitized legacy database copy when invoking the upgrade script. Preserve the generated report under artifacts_temp/vector-followup so reviewers can confirm manifest execution, helper wiring, and plugin registration telemetry."
 }

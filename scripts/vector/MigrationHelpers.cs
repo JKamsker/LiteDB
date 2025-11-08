@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins.Indexing;
@@ -208,7 +209,7 @@ namespace LiteDB.Vector.Tools
 
             var indexes = new List<VectorIndexSchema>();
             var where = BsonExpression.Create("pageType = 'Collection'");
-            var query = new Query();
+            var query = new LiteDB.Query();
             query.Where.Add(where);
 
             using (var reader = engine.Query("$dump", query))
@@ -238,7 +239,7 @@ namespace LiteDB.Vector.Tools
 
         private static IEnumerable<VectorIndexSchema> ExtractPageVectorIndexes(LiteEngine engine, int pageId, string collectionName)
         {
-            using var reader = engine.Query($"$dump({pageId})", new Query());
+            using var reader = engine.Query($"$dump({pageId})", new LiteDB.Query());
 
             while (reader.Read())
             {

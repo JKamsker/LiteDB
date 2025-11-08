@@ -8,10 +8,10 @@ graph TD
     end
 
     subgraph Gaps
-        G1[gap-indexing-extensibility<br/>Impact: High]
-        G2[gap-query-state<br/>Impact: Critical]
-        G3[gap-bson-serialization<br/>Impact: Critical]
-        G4[gap-storage-pipeline<br/>Impact: Critical]
+        G1[gap-indexing-extensibility<br/>Impact: High<br/>Status: Resolved]
+        G2[gap-query-state<br/>Impact: Critical<br/>Status: Resolved]
+        G3[gap-bson-serialization<br/>Impact: Critical<br/>Status: Resolved]
+        G4[gap-storage-pipeline<br/>Impact: Critical<br/>Status: Resolved]
     end
 
     C1[public-api-surface<br/>Area: PublicApi]
@@ -35,7 +35,7 @@ graph TD
     C5 --> G4
 
     D1 -. guides .-> LiteDB.Vector
-    D2 -. blocked by .-> InfrastructureUpgrades
+    D2 -. blocked by .-> InfrastructureUpgrades(Complete)
 ```
 
 **Legend**
@@ -43,3 +43,4 @@ graph TD
 - **Solid arrows** link inventory components to their governing migration decision or blocking gap.
 - **Dashed arrows** highlight external dependencies: `LiteDB.Vector` implementation work and the shared infrastructure upgrade stream.
 - Critical gaps (G2-G4) must be resolved before components `C3-C5` can migrate; `C1` and `C2` can advance in parallel once plugin shims land.
+- Status tags on the gap nodes now reflect the 2025-11-08 closure of every infrastructure dependency.
