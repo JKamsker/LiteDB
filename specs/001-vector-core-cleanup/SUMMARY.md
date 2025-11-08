@@ -32,6 +32,8 @@ All previously tracked gaps (`gap-indexing-extensibility`, `gap-query-state`, `g
 - Build: `dotnet build LiteDB.Vector/LiteDB.Vector.csproj -c Release` (warning-free after plugin suppressions).
 - Core Guard Rails: `dotnet build LiteDB.sln -c Release` (confirms vector operations fail fast without the plugin).
 - Post-migration Search Sweep: `rg "Vector" LiteDB` - validates remaining references are limited to plugin integration points.
+- Upgrade & Validation: `scripts/vector/Invoke-VectorUpgrade.ps1` executed against `artifacts_temp/vector-followup/quickstart.db` (report archived at `artifacts_temp/vector-followup/upgrade-report.md`).
+- Observability: `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -c Release --filter FullyQualifiedName~LiteDB.Tests.Engine.Plugins.PluginAbsentTests.EnsureVectorIndex_WithoutPlugin_ThrowsDeterministicError` plus a telemetry probe that forces `VectorSearchPlugin` to initialize without registries, producing the documented remediation warning.
 
 ## Follow-up Tracking
 

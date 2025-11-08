@@ -99,13 +99,13 @@
 ### Implementation for User Story 3
 
 - [X] T032 [US3] Implement C# migration helpers in `scripts/vector/MigrationHelpers.cs` to handle database metadata relocation and validation.
-- [ ] T033 [US3] Implement `scripts/vector/Invoke-VectorUpgrade.ps1` orchestrating manifest-driven upgrades and validation commands using the migration helpers.
-- [ ] T034 [US3] Create `specs/001-resolve-vector-findings/migration/upgrade-manifest.json` documenting ordered upgrade steps and verification hooks.
-- [ ] T035 [P] [US3] Update `specs/001-vector-core-cleanup/verification/build-validation.json` with new plugin-first validation requirements.
-- [ ] T036 [US3] Add structured diagnostics in `LiteDB/Engine/Engine/LiteEngine.cs` when vector operations run without a registered plugin.
-- [ ] T037 [P] [US3] Add telemetry helpers in `LiteDB.Vector/Utils/VectorTelemetry.cs` to emit incompatibility warnings and remediation guidance.
-- [ ] T038 [US3] Execute the quickstart flow from `specs/001-resolve-vector-findings/quickstart.md` and archive logs to `artifacts_temp/vector-followup/upgrade-report.md`.
-- [ ] T039 [US3] Update `specs/001-vector-core-cleanup/SUMMARY.md` and `specs/001-vector-core-cleanup/diagrams/component-dependencies.md` to mark gap resolution.
+- [X] T033 [US3] Implement `scripts/vector/Invoke-VectorUpgrade.ps1` orchestrating manifest-driven upgrades and validation commands using the migration helpers.
+- [X] T034 [US3] Create `specs/001-resolve-vector-findings/migration/upgrade-manifest.json` documenting ordered upgrade steps and verification hooks.
+- [X] T035 [P] [US3] Update `specs/001-vector-core-cleanup/verification/build-validation.json` with new plugin-first validation requirements.
+- [X] T036 [US3] Add structured diagnostics in `LiteDB/Engine/Engine/LiteEngine.cs` when vector operations run without a registered plugin.
+- [X] T037 [P] [US3] Add telemetry helpers in `LiteDB.Vector/Utils/VectorTelemetry.cs` to emit incompatibility warnings and remediation guidance.
+- [X] T038 [US3] Execute the quickstart flow from `specs/001-resolve-vector-findings/quickstart.md` and archive logs to `artifacts_temp/vector-followup/upgrade-report.md`.
+- [X] T039 [US3] Update `specs/001-vector-core-cleanup/SUMMARY.md` and `specs/001-vector-core-cleanup/diagrams/component-dependencies.md` to mark gap resolution.
 
 **Checkpoint**: Upgrade tooling, diagnostics, and documentation verify the plugin-backed implementation is production-ready.
 

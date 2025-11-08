@@ -1,0 +1,42 @@
+{
+  "manifestId": "vector-upgrade-v1",
+  "supportsInPlace": true,
+  "rollbackPlan": "Use the backup produced by Invoke-VectorUpgrade or redeploy the previous LiteDB/LiteDB.Vector packages, then re-run the manifest once plugin prerequisites are satisfied.",
+  "steps": [
+    {
+      "id": "preflight-capture",
+      "description": "Capture legacy vector index metadata for auditing prior to mutation.",
+      "category": "inspection",
+      "command": "helpers:capture",
+      "verifies": "Records a baseline schema so rebuild results and telemetry can be compared after the plugin takes ownership."
+    },
+    {
+      "id": "relocate-metadata",
+      "description": "Relocate vector metadata and execute LiteDatabase.Rebuild via MigrationHelpers.",
+      "category": "migration",
+      "command": "helpers:relocate",
+      "verifies": "Ensures LiteDB.Vector registers strategies, performs rebuilds, and validates plugin readiness before upgrade completes."
+    },
+    {
+      "id": "tests-solution",
+      "description": "Run the complete regression suite with solution-wide runsettings.",
+      "category": "validation",
+      "command": "Set-Location '{{RepoRoot}}'; dotnet test LiteDB.sln --settings tests.runsettings",
+      "verifies": "Confirms the upgrade did not introduce regressions in the wider solution."
+    },
+    {
+      "id": "tests-plugin",
+      "description": "Execute LiteDB.Vector integration tests on net8.0.",
+      "category": "validation",
+      "command": "Set-Location '{{RepoRoot}}'; dotnet test LiteDB.Vector.Tests -f net8.0",
+      "verifies": "Validates plugin-owned runtime paths and telemetry helpers."
+    },
+    {
+      "id": "scan-core",
+      "description": "Search LiteDB/ for unexpected vector references after migration.",
+      "category": "validation",
+      "command": "Set-Location '{{RepoRoot}}'; rg --color never \"Vector\" LiteDB",
+      "verifies": "Guards against regressions that reintroduce vector runtime code into the core assembly."
+    }
+  ]
+}
