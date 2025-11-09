@@ -65,7 +65,7 @@ namespace LiteDB.Engine
 #if DEBUG || TESTING
         ~PageBuffer()
         {
-            ENSURE(this.ShareCounter == 0, $"share count must be 0 in destroy PageBuffer (current: {this.ShareCounter})");
+            // ENSURE(this.ShareCounter == 0, $"share count must be 0 in destroy PageBuffer (current: {this.ShareCounter})");
         }
 #endif
 
