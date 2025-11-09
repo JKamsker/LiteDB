@@ -45,6 +45,11 @@ namespace LiteDB.Engine
                 return fallback.CreateExisting(buffer);
             }
 
+            if (pageType == PageType.VectorIndex)
+            {
+                throw VectorCompatibility.PluginRequired();
+            }
+
             return new BasePage(buffer);
         }
 
@@ -63,6 +68,11 @@ namespace LiteDB.Engine
             if (_fallbackFactories.TryGetValue(pageType, out var fallback))
             {
                 return fallback.CreateNew(buffer, pageId);
+            }
+
+            if (pageType == PageType.VectorIndex)
+            {
+                throw VectorCompatibility.PluginRequired();
             }
 
             return new BasePage(buffer, pageId, pageType);
