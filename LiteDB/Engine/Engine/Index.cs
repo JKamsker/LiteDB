@@ -203,7 +203,16 @@ namespace LiteDB.Engine
             }
 
             var exception = LiteDB.VectorCompatibility.PluginRequired();
-            exception.Data["VectorDiagnostics"] = diagnostics;
+
+            try
+            {
+                exception.Data["VectorDiagnostics"] = diagnostics;
+            }
+            catch (ArgumentException)
+            {
+                // .NET Framework requires Exception.Data values to be serializable. Fall back to JSON text.
+                exception.Data["VectorDiagnostics"] = diagnostics.ToString();
+            }
 
             LOG($"vector plugin missing: {diagnostics.ToString()}", "PLUGIN");
 

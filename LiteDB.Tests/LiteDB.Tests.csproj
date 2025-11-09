@@ -18,6 +18,12 @@
     <DefineConstants>$(DefineConstants);TESTING</DefineConstants>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+    <AppConfig>App.config</AppConfig>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+
   <PropertyGroup>
     <TestSdkVersion>17.12.0</TestSdkVersion>
     <XunitVersion>2.9.2</XunitVersion>
