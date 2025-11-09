@@ -13,7 +13,7 @@
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 - [X] T003 Create a reusable vector test fixture helper in LiteDB.Vector.Tests/Infrastructure/VectorTestContext.cs for building indexes and executing similarity queries across stories.
-- [ ] T004 [P] Extend LiteDB.Tests/Utils/DatabaseFactory.cs to spin up multiple LiteDatabase instances simultaneously for upcoming isolation tests.
+- [X] T004 [P] Extend LiteDB.Tests/Utils/DatabaseFactory.cs to spin up multiple LiteDatabase instances simultaneously for upcoming isolation tests.
 
 ---
 
