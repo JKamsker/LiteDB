@@ -38,6 +38,7 @@ namespace LiteDB.Vector.Query
             byte? metric = null;
             BsonExpression? consumedTerm = null;
             var matchedFromOrderBy = false;
+            var maxDistanceFromMetadata = false;
             QueryMetadataBag? metadataBag = null;
 
             if (context.Query.TryGetMetadata(VectorQueryMetadata.PluginId, out var bag))
@@ -67,30 +68,61 @@ namespace LiteDB.Vector.Query
                 }
             }
 
-            if (expression == null && metadataBag != null)
+            if (metadataBag != null)
             {
-                if (metadataBag.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) &&
-                    !string.IsNullOrWhiteSpace(field) &&
-                    metadataBag.TryGet<float[]>(VectorQueryMetadata.TargetKey, out var bagTarget) &&
-                    bagTarget != null)
+                if (expression == null)
                 {
-                    expression = NormalizeVectorField(field);
-                    target = bagTarget;
-
-                    if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
+                    if (metadataBag.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) &&
+                        !string.IsNullOrWhiteSpace(field) &&
+                        metadataBag.TryGet<float[]>(VectorQueryMetadata.TargetKey, out var bagTarget) &&
+                        bagTarget != null)
                     {
-                        maxDistance = bagDistance;
-                    }
+                        expression = NormalizeVectorField(field);
+                        target = bagTarget;
 
-                    if (metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
+                        if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
+                        {
+                            maxDistance = bagDistance;
+                            maxDistanceFromMetadata = true;
+                        }
+
+                        if (metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
+                        {
+                            metric = bagMetric;
+                        }
+
+                        matchedFromOrderBy = matchedFromOrderBy ||
+                            context.Query.OrderBy.Any(order =>
+                                order.Expression?.Type == BsonExpressionType.VectorDist ||
+                                order.Expression?.Type == BsonExpressionType.VectorSim);
+                    }
+                }
+                else if (metadataBag.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) &&
+                    !string.IsNullOrWhiteSpace(field))
+                {
+                    var normalizedField = NormalizeVectorField(field);
+
+                    if (string.Equals(normalizedField, expression, StringComparison.OrdinalIgnoreCase))
                     {
-                        metric = bagMetric;
-                    }
+                        if (target == null &&
+                            metadataBag.TryGet<float[]>(VectorQueryMetadata.TargetKey, out var bagTarget) &&
+                            bagTarget != null)
+                        {
+                            target = bagTarget;
+                        }
 
-                    matchedFromOrderBy = matchedFromOrderBy ||
-                        context.Query.OrderBy.Any(order =>
-                            order.Expression?.Type == BsonExpressionType.VectorDist ||
-                            order.Expression?.Type == BsonExpressionType.VectorSim);
+                        if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
+                        {
+                            maxDistance = bagDistance;
+                            maxDistanceFromMetadata = true;
+                        }
+
+                        if (!metric.HasValue &&
+                            metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
+                        {
+                            metric = bagMetric;
+                        }
+                    }
                 }
             }
 
@@ -120,7 +152,9 @@ namespace LiteDB.Vector.Query
             }
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
-            var effectiveMaxDistance = NormalizeDotProductThreshold(maxDistance, metric);
+            var effectiveMaxDistance = maxDistanceFromMetadata
+                ? maxDistance
+                : NormalizeDotProductThreshold(maxDistance, metric);
 
             foreach (var (index, metadataBuffer) in collection.GetVectorIndexes())
             {
