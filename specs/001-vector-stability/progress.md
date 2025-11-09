@@ -6,3 +6,6 @@
 
 ## 2025-11-10 00:40
 - Completed T003 by adding `LiteDB.Vector.Tests/Infrastructure/VectorTestContext.cs`, which seeds vector collections, normalizes expressions, configures metadata bags, and exposes helpers for `WhereNear`, `TopKNear`, and metadata-driven similarity queries; verified via `dotnet build LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj -c Debug`.
+
+## 2025-11-10 00:44
+- Completed T004 by extending `LiteDB.Tests/Utils/DatabaseFactory.cs` with `DatabaseFactoryOptions`, `LiteDatabaseGroup`, and `CreateMany`, enabling multi-instance LiteDatabase setups plus coordinated disposal; added `LiteDB.Tests/Utils/DatabaseFactoryTests.cs` to prove independent state and per-instance plugin wiring, confirmed with `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter DatabaseFactoryTests`.
