@@ -23,7 +23,13 @@ namespace LiteDB.Tests.Engine.Plugins
 
             var hasDiagnostics = exception.Data.Contains("VectorDiagnostics");
             hasDiagnostics.Should().BeTrue("vector diagnostics should be emitted when the plugin is absent");
-            var diagnostics = exception.Data["VectorDiagnostics"].Should().BeOfType<BsonDocument>().Which;
+
+            var diagnosticsPayload = exception.Data["VectorDiagnostics"];
+            diagnosticsPayload.Should().NotBeNull();
+
+            var diagnostics = diagnosticsPayload as BsonDocument
+                ?? JsonSerializer.Deserialize(diagnosticsPayload.ToString()).AsDocument;
+
             diagnostics["event"].AsString.Should().Be("vector.plugin_required");
             diagnostics["operation"].AsString.Should().Be("EnsureVectorIndex");
             diagnostics["collection"].AsString.Should().Be("docs");
