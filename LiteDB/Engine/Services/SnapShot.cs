@@ -228,15 +228,24 @@ namespace LiteDB.Engine
             {
                 // read page from log file
                 var buffer = _reader.ReadPage(walPosition.Position, _mode == LockMode.Write, FileOrigin.Log);
-                var dirty = BasePage.ReadPage<T>(buffer, _plugins);
 
-                origin = FileOrigin.Log;
-                position = walPosition.Position;
-                walVersion = _readVersion;
+                try
+                {
+                    var dirty = BasePage.ReadPage<T>(buffer, _plugins);
 
-                ENSURE(dirty.TransactionID == _transactionID, "this page must came from same transaction");
+                    origin = FileOrigin.Log;
+                    position = walPosition.Position;
+                    walVersion = _readVersion;
 
-                return dirty;
+                    ENSURE(dirty.TransactionID == _transactionID, "this page must came from same transaction");
+
+                    return dirty;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
             }
 
             // now, look inside wal-index
@@ -246,16 +255,25 @@ namespace LiteDB.Engine
             {
                 // read page from log file
                 var buffer = _reader.ReadPage(pos, _mode == LockMode.Write, FileOrigin.Log);
-                var logPage = BasePage.ReadPage<T>(buffer, _plugins);
 
-                // clear some data inside this page (will be override when write on log file)
-                logPage.TransactionID = 0;
-                logPage.IsConfirmed = false;
+                try
+                {
+                    var logPage = BasePage.ReadPage<T>(buffer, _plugins);
 
-                origin = FileOrigin.Log;
-                position = pos;
+                    // clear some data inside this page (will be override when write on log file)
+                    logPage.TransactionID = 0;
+                    logPage.IsConfirmed = false;
 
-                return logPage;
+                    origin = FileOrigin.Log;
+                    position = pos;
+
+                    return logPage;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
             }
             else
             {
@@ -264,14 +282,40 @@ namespace LiteDB.Engine
 
                 // read page from data file
                 var buffer = _reader.ReadPage(pagePosition, _mode == LockMode.Write, FileOrigin.Data);
-                var diskpage = BasePage.ReadPage<T>(buffer, _plugins);
 
-                origin = FileOrigin.Data;
-                position = pagePosition;
+                try
+                {
+                    var diskpage = BasePage.ReadPage<T>(buffer, _plugins);
 
-                ENSURE(diskpage.IsConfirmed == false || diskpage.TransactionID != 0, "page are not header-clear in data file");
+                    origin = FileOrigin.Data;
+                    position = pagePosition;
 
-                return diskpage;
+                    ENSURE(diskpage.IsConfirmed == false || diskpage.TransactionID != 0, "page are not header-clear in data file");
+
+                    return diskpage;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
+            }
+        }
+
+        private static void ReleaseBuffer(PageBuffer buffer)
+        {
+            if (buffer == null)
+            {
+                return;
+            }
+
+            if (buffer.ShareCounter > 0)
+            {
+                buffer.Release();
+            }
+            else if (buffer.ShareCounter == BUFFER_WRITABLE)
+            {
+                buffer.ShareCounter = 0;
             }
         }
 
