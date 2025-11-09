@@ -47,8 +47,9 @@ namespace LiteDB.Vector.Extensions
 
             var existingMetric = GetQueryMetric(source);
             var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric;
+            var adjustedMaxDistance = AdjustThresholdForDotProduct(maxDistance, metricByte);
 
-            var filter = CreateVectorDistanceFilter(source, fieldExpr, target, maxDistance, metricByte);
+            var filter = CreateVectorDistanceFilter(source, fieldExpr, target, adjustedMaxDistance, metricByte);
             source.Where(filter);
 
             ConfigureVectorMetadata(source, fieldExpr, target, maxDistance, metricByte);
@@ -198,12 +199,10 @@ namespace LiteDB.Vector.Extensions
 
         private static BsonExpression CreateVectorDistanceFilter<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
         {
-            var threshold = AdjustThresholdForDotProduct(maxDistance, metric);
-
             var parameters = new List<BsonValue>
             {
                 new BsonArray(target.Select(value => new BsonValue(value))),
-                new BsonValue(threshold)
+                new BsonValue(maxDistance)
             };
 
             var metricPlaceholder = string.Empty;
@@ -249,12 +248,7 @@ namespace LiteDB.Vector.Extensions
                 return maxDistance;
             }
 
-            if (maxDistance > 0d)
-            {
-                return -maxDistance;
-            }
-
-            return maxDistance;
+            return -maxDistance;
         }
     }
 }
