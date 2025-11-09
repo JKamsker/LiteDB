@@ -5,8 +5,8 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Populate regression summary in specs/001-vector-stability/research.md covering dot-product, legacy API removal, plugin scope, and artifact cleanup contexts.
-- [ ] T002 Document end-to-end verification steps (dotnet test targets + git commands) in specs/001-vector-stability/quickstart.md to guide repetitive validation (include “fail first” instructions for US1).
+- [X] T001 Populate regression summary in specs/001-vector-stability/research.md covering dot-product, legacy API removal, plugin scope, and artifact cleanup contexts.
+- [X] T002 Document end-to-end verification steps (dotnet test targets + git commands) in specs/001-vector-stability/quickstart.md to guide repetitive validation (include "fail first" instructions for US1).
 
 ---
 
