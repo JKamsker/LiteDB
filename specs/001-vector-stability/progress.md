@@ -38,3 +38,6 @@
 
 ## 2025-11-10 01:50
 - Completed T015 by replacing the static fallback registry in `LiteDB/Document/BsonType.cs` with a `ConditionalWeakTable` cache keyed by `ILitePluginContext`, ensuring each database owns an isolated BSON type registry while retaining a deterministic default context for legacy callers; the obsolete `ReplaceFallbackRegistry` no longer mutates global state. Verified with `dotnet build LiteDB/LiteDB.csproj -c Debug`.
+
+## 2025-11-10 02:00
+- Completed T016 by mirroring the per-context approach for page factories: `LiteDB/Engine/Pages/PageFactoryRegistry.cs` now caches registries via `ConditionalWeakTable` with a default plugin context, and `LiteDB/Client/Database/LiteDatabaseServices.cs` no longer mutates global state during construction. Confirmed with `dotnet build LiteDB/LiteDB.csproj -c Debug`.
