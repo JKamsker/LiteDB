@@ -25,6 +25,7 @@ namespace LiteDB.Plugins.Storage
 
     /// <summary>
     /// Registry contract that allows plugins to register page factories and related callbacks.
+    /// Implementations are expected to be thread-safe because page construction can occur concurrently within a database instance.
     /// </summary>
     public interface IPageFactoryRegistry
     {

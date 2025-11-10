@@ -41,3 +41,6 @@
 
 ## 2025-11-10 02:00
 - Completed T016 by mirroring the per-context approach for page factories: `LiteDB/Engine/Pages/PageFactoryRegistry.cs` now caches registries via `ConditionalWeakTable` with a default plugin context, and `LiteDB/Client/Database/LiteDatabaseServices.cs` no longer mutates global state during construction. Confirmed with `dotnet build LiteDB/LiteDB.csproj -c Debug`.
+
+## 2025-11-10 02:05
+- Completed T017 by promoting the plugin-side registries to reusable classes (`LiteDB/Plugins/Bson/PluginBsonTypeRegistry.cs`, `LiteDB/Plugins/Storage/PluginPageFactoryRegistry.cs`) and updating `ILitePluginContext` contracts/imports so each database can instantiate its own thread-safe BSON/page factory registries; `DefaultPluginContext` now composes these exposed implementations. Verified via `dotnet build LiteDB/LiteDB.csproj -c Debug`.

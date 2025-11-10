@@ -20,6 +20,7 @@ namespace LiteDB.Plugins.Bson
 
     /// <summary>
     /// Registry contract that allows plugins to reserve BSON type codes and provide serialization handlers.
+    /// Implementations must be thread-safe because a registry is shared by all collections within a single <see cref="LiteDatabase"/> instance.
     /// </summary>
     public interface IBsonTypeRegistry
     {
