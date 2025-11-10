@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Storage;
@@ -209,22 +210,16 @@ namespace LiteDB.Engine
     /// </summary>
     internal static class PageFactoryResolver
     {
-        private static readonly object _sync = new object();
-        private static PageFactoryRegistry _fallbackRegistry = CreateFallbackRegistry();
+        private static readonly ConditionalWeakTable<ILitePluginContext, PageFactoryRegistry> _registries = new ConditionalWeakTable<ILitePluginContext, PageFactoryRegistry>();
+        private static readonly ILitePluginContext _defaultContext = CreateDefaultContext();
 
         internal static PageFactoryRegistry GetRegistry(ILitePluginContext context)
         {
-            if (context == null)
-            {
-                lock (_sync)
-                {
-                    return _fallbackRegistry;
-                }
-            }
-
-            return new PageFactoryRegistry(context);
+            var target = context ?? _defaultContext;
+            return _registries.GetValue(target, static ctx => new PageFactoryRegistry(ctx));
         }
 
+        [Obsolete("Global page factory registries have been removed; registries are scoped per ILitePluginContext.")]
         internal static void ReplaceFallbackRegistry(ILitePluginContext context)
         {
             if (context == null)
@@ -232,16 +227,13 @@ namespace LiteDB.Engine
                 throw new ArgumentNullException(nameof(context));
             }
 
-            lock (_sync)
-            {
-                _fallbackRegistry = new PageFactoryRegistry(context);
-            }
+            _registries.Remove(context);
+            _registries.GetValue(context, static ctx => new PageFactoryRegistry(ctx));
         }
 
-        private static PageFactoryRegistry CreateFallbackRegistry()
+        private static ILitePluginContext CreateDefaultContext()
         {
-            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
-            return new PageFactoryRegistry(context);
+            return new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
         }
     }
 }
