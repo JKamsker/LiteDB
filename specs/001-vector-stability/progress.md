@@ -9,3 +9,9 @@
 
 ## 2025-11-10 00:44
 - Completed T004 by extending `LiteDB.Tests/Utils/DatabaseFactory.cs` with `DatabaseFactoryOptions`, `LiteDatabaseGroup`, and `CreateMany`, enabling multi-instance LiteDatabase setups plus coordinated disposal; added `LiteDB.Tests/Utils/DatabaseFactoryTests.cs` to prove independent state and per-instance plugin wiring, confirmed with `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter DatabaseFactoryTests`.
+
+## 2025-11-10 00:51
+- Completed T005 by adding `DotProductMaxDistanceRegression` to `LiteDB.Vector.Tests/VectorIndex_Tests.cs`, seeding vectors via `VectorTestContext` to assert both metadata-injected and LINQ `WhereNear` flows honor the same dot-product threshold before normalization fixes land.
+
+## 2025-11-10 00:59
+- Completed T006 by running `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj -f net8.0 --filter FullyQualifiedName~DotProductMaxDistanceRegression`, confirming the failure (`Expected metadataResults to be equal to {1}, but {1, 2, 3} contains 2 item(s) too many.`) and documenting the snapshot in `specs/001-vector-stability/quickstart.md`.
