@@ -39,9 +39,9 @@
 
 **Independent Test**: Build/test runs succeed without any LiteQueryable.WhereNear/TopKNear members in the tree.
 
-- [ ] T012 [US2] Remove the obsolete vector methods (and XML docs) from LiteDB/Client/Database/LiteQueryable.cs, including their backing fields/helpers.
-- [ ] T013 [US2] Update callers/tests to use LiteQueryableVectorExtensions exclusively; delete LiteQueryable-specific tests under LiteDB.Tests/Client/ that referenced the removed APIs.
-- [ ] T014 [US2] Sweep docs (docs/plugins/plugin-development.md, README snippets) to ensure no references remain to the deleted APIs.
+- [X] T012 [US2] Remove the obsolete vector methods (and XML docs) from LiteDB/Client/Database/LiteQueryable.cs, including their backing fields/helpers.
+- [X] T013 [US2] Update callers/tests to use LiteQueryableVectorExtensions exclusively; delete LiteQueryable-specific tests under LiteDB.Tests/Client/ that referenced the removed APIs.
+- [X] T014 [US2] Sweep docs (docs/plugins/plugin-development.md, README snippets) to ensure no references remain to the deleted APIs.
 
 ---
 

@@ -191,6 +191,8 @@ foreach (var function in db.Services.ExpressionRegistry.Functions)
 }
 ```
 
+> **Vector Query Reminder:** Core `LiteQueryable` no longer ships vector helpers such as `WhereNear`, `TopKNear`, or `FindNearest`. The LiteDB.Vector package provides those behaviors via `LiteQueryableVectorExtensions` (`LiteDB.Vector/Extensions/LiteQueryableVectorExtensions.cs`), so application and test code must `using LiteDB.Vector;` after registering `VectorSearchPlugin`.
+
 ## Testing & Diagnostics
 
 - Unit test individual registries (e.g., ensure expression functions behave as expected) and integration test by executing queries through `LiteDatabase`.
