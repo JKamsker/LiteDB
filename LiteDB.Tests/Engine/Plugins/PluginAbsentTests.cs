@@ -1,7 +1,9 @@
 using System;
 using FluentAssertions;
 using LiteDB;
+using LiteDB.Tests.Utils;
 using LiteDB.Vector;
+using LiteDB.Vector.Document;
 using Xunit;
 
 namespace LiteDB.Tests.Engine.Plugins
@@ -54,11 +56,48 @@ namespace LiteDB.Tests.Engine.Plugins
             exception.Message.Should().Be(MissingPluginMessage);
         }
 
+        [Fact]
+        public void VectorBsonType_ShouldRemainScopedToPluginEnabledDatabases()
+        {
+            using var databases = DatabaseFactory.CreateMany(
+                DatabaseFactoryOptions.InMemory(plugins: new[] { VectorSearchPlugin.Instance }),
+                DatabaseFactoryOptions.InMemory());
+
+            var pluginVectors = databases[0].GetCollection<BsonDocument>("vectors");
+            var vectorDocument = CreateVectorDocument(1);
+            pluginVectors.Insert(vectorDocument);
+
+            var reloaded = pluginVectors.FindById(1);
+            reloaded["embedding"].AsVector.Should().Equal(vectorDocument["embedding"].AsVector);
+
+            var vanillaCollection = databases[1].GetCollection<TestDocument>("vectors");
+            vanillaCollection.Insert(new TestDocument { Id = 1, Embedding = new[] { 1f, 0f, 0f } });
+
+            Action act = () =>
+            {
+                vanillaCollection
+                    .Query()
+                    .WhereNear(x => x.Embedding, new[] { 1f, 0f, 0f }, maxDistance: 0.1)
+                    .ToList();
+            };
+
+            act.Should().Throw<LiteException>().Which.Message.Should().Be(MissingPluginMessage);
+        }
+
         private sealed class TestDocument
         {
             public int Id { get; set; }
 
             public float[] Embedding { get; set; } = Array.Empty<float>();
+        }
+
+        private static BsonDocument CreateVectorDocument(int id)
+        {
+            return new BsonDocument
+            {
+                ["_id"] = id,
+                ["embedding"] = new BsonVector(new[] { 0.1f * id, 0.2f * id, 0.3f * id })
+            };
         }
     }
 }
