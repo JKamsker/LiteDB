@@ -5,12 +5,12 @@ using System.Linq.Expressions;
 using LiteDB;
 using LiteDB.Plugins.Query;
 using LiteDB.Vector.Query;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector.Extensions
 {
     internal static class QueryableExtensions
     {
-        private const byte DotProductMetric = (byte)VectorDistanceMetric.DotProduct;
 
         internal static ILiteQueryable<T> WhereNear<T>(LiteQueryable<T> source, string vectorField, float[] target, double maxDistance, VectorDistanceMetric? metric)
         {
@@ -47,7 +47,7 @@ namespace LiteDB.Vector.Extensions
 
             var existingMetric = GetQueryMetric(source);
             var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric;
-            var adjustedMaxDistance = AdjustThresholdForDotProduct(maxDistance, metricByte);
+            var adjustedMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metricByte);
 
             var filter = CreateVectorDistanceFilter(source, fieldExpr, target, adjustedMaxDistance, metricByte);
             source.Where(filter);
@@ -184,7 +184,7 @@ namespace LiteDB.Vector.Extensions
 
             return source.GetOrCreateMetadata(
                 VectorQueryMetadata.PluginId,
-                () => new QueryMetadataBag(VectorQueryMetadata.PluginId, version: 1, VectorQueryMetadata.ReservedKeys));
+                () => new QueryMetadataBag(VectorQueryMetadata.PluginId, version: VectorQueryMetadata.Version, VectorQueryMetadata.ReservedKeys));
         }
 
         private static void ConfigureVectorMetadata<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
@@ -193,8 +193,17 @@ namespace LiteDB.Vector.Extensions
 
             metadata.Set(VectorQueryMetadata.FieldKey, fieldExpr.Source);
             metadata.Set(VectorQueryMetadata.TargetKey, target?.ToArray());
-            metadata.Set(VectorQueryMetadata.MaxDistanceKey, maxDistance);
             metadata.Set(VectorQueryMetadata.MetricKey, metric);
+
+            if (maxDistance < double.MaxValue)
+            {
+                var normalized = VectorEnsure.NormalizeMaxDistance(maxDistance, metric);
+                metadata.Set(VectorQueryMetadata.MaxDistanceKey, normalized);
+            }
+            else
+            {
+                metadata.Remove(VectorQueryMetadata.MaxDistanceKey);
+            }
         }
 
         private static BsonExpression CreateVectorDistanceFilter<T>(LiteQueryable<T> source, BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
@@ -236,20 +245,6 @@ namespace LiteDB.Vector.Extensions
             return BsonExpression.Create($"VECTOR_DIST({fieldExpr.Source}, @0{metricPlaceholder})", source.ExpressionRegistry, parameters.ToArray());
         }
 
-        private static double AdjustThresholdForDotProduct(double maxDistance, byte? metric)
-        {
-            if (!metric.HasValue || metric.Value != DotProductMetric)
-            {
-                return maxDistance;
-            }
-
-            if (double.IsNaN(maxDistance) || double.IsInfinity(maxDistance))
-            {
-                return maxDistance;
-            }
-
-            return -maxDistance;
-        }
     }
 }
 

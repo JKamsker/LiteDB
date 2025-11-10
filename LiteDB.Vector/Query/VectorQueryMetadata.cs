@@ -6,6 +6,7 @@ namespace LiteDB.Vector.Query
     internal static class VectorQueryMetadata
     {
         internal const string PluginId = "LiteDB.Vector";
+        internal const int Version = 2;
 
         internal const string FieldKey = "VectorField";
         internal const string TargetKey = "TargetEmbedding";

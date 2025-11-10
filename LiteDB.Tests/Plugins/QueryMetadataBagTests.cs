@@ -58,5 +58,26 @@ namespace LiteDB.Tests.Plugins
             bag.Get<double>("VectorMaxDistance").Should().Be(0.15);
             bag.Get<byte?>("VectorMetric").Should().Be(1);
         }
+
+        [Fact]
+        public void VectorMetadataBag_ShouldUpgradeVersion_AndNormalizeDotProductDistance()
+        {
+            var _ = LiteDatabaseServices.Default;
+            var query = new Query();
+
+            var bag = new QueryMetadataBag("LiteDB.Vector", version: 1, reservedKeys: new[] { "VectorField", "TargetEmbedding", "VectorMaxDistance", "VectorMetric" });
+            bag.Set("VectorField", "$.embedding");
+            bag.Set("TargetEmbedding", new float[] { 1f, 0f });
+            bag.Set("VectorMaxDistance", 0.6);
+            bag.Set("VectorMetric", (byte)2); // DotProduct
+
+            query.AttachMetadata(bag);
+
+            query.VectorMaxDistance.Should().Be(-0.6);
+
+            query.TryGetMetadata("LiteDB.Vector", out var upgraded).Should().BeTrue();
+            upgraded!.Version.Should().Be(2);
+            upgraded.Get<double>("VectorMaxDistance").Should().Be(-0.6);
+        }
     }
 }

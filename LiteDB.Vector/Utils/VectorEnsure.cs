@@ -46,7 +46,7 @@ namespace LiteDB.Vector.Utils
                 return maxDistance;
             }
 
-            if (double.IsNaN(maxDistance) || double.IsInfinity(maxDistance))
+            if (double.IsNaN(maxDistance) || double.IsInfinity(maxDistance) || maxDistance >= double.MaxValue)
             {
                 return maxDistance;
             }
