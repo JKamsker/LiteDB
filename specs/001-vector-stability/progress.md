@@ -35,3 +35,6 @@
 - Completed T012 by deleting the obsolete `WhereNear`, `TopKNear`, and `FindNearest` members from `LiteDB/Client/Database/LiteQueryable.cs`, removing the last `VectorCompatibility` hooks from the core queryable surface so only the plugin extensions expose vector helpers.
 - Completed T013 by sweeping the tree (`rg -l "WhereNear" -g "*.cs"`, `git ls-files "LiteDB.Tests/Client/*"`) to confirm every caller lives in plugin-aware projects and already imports `LiteDB.Vector`; no LiteQueryable-specific client tests remained, so nothing needed deleting.
 - Completed T014 by updating `docs/plugins/plugin-development.md` and `LiteDB.Vector/README.md` with guidance that vector LINQ helpers now come exclusively from `LiteQueryableVectorExtensions`, making it clear that consumers must register `VectorSearchPlugin` and `using LiteDB.Vector;` to access `WhereNear`/`TopKNear`.
+
+## 2025-11-10 01:50
+- Completed T015 by replacing the static fallback registry in `LiteDB/Document/BsonType.cs` with a `ConditionalWeakTable` cache keyed by `ILitePluginContext`, ensuring each database owns an isolated BSON type registry while retaining a deterministic default context for legacy callers; the obsolete `ReplaceFallbackRegistry` no longer mutates global state. Verified with `dotnet build LiteDB/LiteDB.csproj -c Debug`.
