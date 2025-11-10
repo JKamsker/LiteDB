@@ -199,4 +199,11 @@ foreach (var function in db.Services.ExpressionRegistry.Functions)
 - If your plugin alters index planning, add regression tests similar to `LiteDB.Spatial.Core.Tests/Plugin/SpatialPluginIntegrationTests.cs:121`.
 - Provide CLI tooling or shell commands that call your diagnostics helper so operators can verify configuration in production.
 
+## Upgrade Tooling & Artifact Hygiene
+
+- Run `scripts/vector/Invoke-VectorUpgrade.ps1` from the repo root when migrating legacy databases; the script now defaults its `-BackupDirectory` to `artifacts_temp/vector-followup/databases/`, an ignored staging area that is created automatically.
+- If you prefer a different destination, always pass `-BackupDirectory` (or set `VectorMigrationOptions.BackupDirectory` when hosting the helpers directly) to another ignored path or a system temp directory; never leave `.db`, `.db-log`, or `.db-lock` files inside tracked folders.
+- Only commit textual artifacts (reports, logs) from `artifacts_temp/`; `.gitignore` blocks binary backups and sidecars, so remove any stray databases before sending a PR.
+- When sharing upgrade evidence, attach the Markdown report (`-ReportPath artifacts_temp/vector-followup/upgrade-report.md` by convention) rather than the database copies themselves.
+
 With these extension points you can introduce rich features while keeping the core engine stable. Study the spatial plugin for advanced patterns, and follow the checklist above to deliver a predictable, testable plugin experience.

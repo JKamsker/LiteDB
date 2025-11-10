@@ -151,6 +151,22 @@ function Initialize-MigrationHelpers {
     Add-Type -Path $sourcePath -ReferencedAssemblies $referenceAssemblies -CompilerOptions "/nowarn:1701" -IgnoreWarnings:$true | Out-Null
 }
 
+function Resolve-DefaultBackupDirectory {
+    param(
+        [string]$RepoRoot
+    )
+
+    if (-not $RepoRoot) {
+        throw "Repository root is required to resolve the default backup directory."
+    }
+
+    $artifactsRoot = Join-Path $RepoRoot "artifacts_temp"
+    $vectorFollowup = Join-Path $artifactsRoot "vector-followup"
+    $backupDirectory = Join-Path $vectorFollowup "databases"
+    [System.IO.Directory]::CreateDirectory($backupDirectory) | Out-Null
+    return (Resolve-Path $backupDirectory).Path
+}
+
 function Expand-Template {
     param(
         [string]$Template,
@@ -474,6 +490,9 @@ $resolvedBackupDirectory = $null
 if ($BackupDirectory) {
     $resolvedBackupDirectory = [System.IO.Path]::GetFullPath($BackupDirectory)
     [System.IO.Directory]::CreateDirectory($resolvedBackupDirectory) | Out-Null
+}
+else {
+    $resolvedBackupDirectory = Resolve-DefaultBackupDirectory -RepoRoot $repoRoot
 }
 
 $manifest = Get-Content -LiteralPath $resolvedManifestPath -Raw | ConvertFrom-Json -Depth 8
