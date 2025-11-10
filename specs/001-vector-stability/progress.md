@@ -44,3 +44,6 @@
 
 ## 2025-11-10 02:05
 - Completed T017 by promoting the plugin-side registries to reusable classes (`LiteDB/Plugins/Bson/PluginBsonTypeRegistry.cs`, `LiteDB/Plugins/Storage/PluginPageFactoryRegistry.cs`) and updating `ILitePluginContext` contracts/imports so each database can instantiate its own thread-safe BSON/page factory registries; `DefaultPluginContext` now composes these exposed implementations. Verified via `dotnet build LiteDB/LiteDB.csproj -c Debug`.
+
+## 2025-11-10 01:55
+- Completed T018 by expanding `LiteDB.Tests/Engine/PageFactoryRegistry_Tests.cs` with reflection helpers that inspect per-context `PageFactoryResolver` caches while two databases run in parallel, proving the vector page factory registration appears only in the plugin-enabled context and never bleeds into the plugin-free context. Validated via `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter FullyQualifiedName~PageFactoryRegistry_Tests`.

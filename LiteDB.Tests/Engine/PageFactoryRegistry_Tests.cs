@@ -20,6 +20,13 @@ namespace LiteDB.Tests.Engine
 
         private static readonly FieldInfo EngineField = typeof(LiteDatabase).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance)!;
         private static readonly MethodInfo AutoTransactionMethod = typeof(LiteEngine).GetMethod("AutoTransaction", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        private static readonly FieldInfo PluginContextField = typeof(LiteDatabase).GetField("_pluginContext", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        private static readonly Type PageFactoryResolverType = typeof(LiteDatabase).Assembly.GetType("LiteDB.Engine.PageFactoryResolver")!;
+        private static readonly MethodInfo GetPageFactoryRegistryMethod = PageFactoryResolverType.GetMethod("GetRegistry", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)!;
+        private static readonly Type PageFactoryRegistryType = typeof(LiteDatabase).Assembly.GetType("LiteDB.Engine.PageFactoryRegistry")!;
+        private static readonly MethodInfo TryGetPageFactoryRegistrationMethod = PageFactoryRegistryType.GetMethod("TryGetRegistration", BindingFlags.Instance | BindingFlags.Public)!;
+        private static readonly Type PageTypeEnum = typeof(LiteDatabase).Assembly.GetType("LiteDB.Engine.PageType")!;
+        private static readonly object VectorIndexPageType = Enum.Parse(PageTypeEnum, "VectorIndex");
 
         private sealed class VectorDocument
         {
@@ -51,6 +58,20 @@ namespace LiteDB.Tests.Engine
             act.Should()
                 .Throw<LiteException>()
                 .Which.Message.Should().Be(expectedMessage);
+        }
+
+        [Fact]
+        public void PageFactoryRegistriesShouldStayIsolatedAcrossPluginContexts()
+        {
+            using var databases = DatabaseFactory.CreateMany(
+                DatabaseFactoryOptions.InMemory(plugins: new[] { VectorSearchPlugin.Instance }),
+                DatabaseFactoryOptions.InMemory());
+
+            var vectorRegistry = GetPageFactoryRegistry(databases[0]);
+            var baselineRegistry = GetPageFactoryRegistry(databases[1]);
+
+            HasVectorPageRegistration(vectorRegistry).Should().BeTrue("the vector plugin registers the VectorIndex page when installed");
+            HasVectorPageRegistration(baselineRegistry).Should().BeFalse("vector page registrations must not leak into plugin-free contexts");
         }
 
         private static void SeedVectorIndex(string filename)
@@ -154,6 +175,18 @@ namespace LiteDB.Tests.Engine
             return Enumerable.Range(0, dimensions)
                 .Select(i => (float)Math.Sin((seed * 0.37) + (i * 0.11)))
                 .ToArray();
+        }
+
+        private static object GetPageFactoryRegistry(LiteDatabase database)
+        {
+            var context = PluginContextField.GetValue(database) ?? throw new InvalidOperationException("Plugin context not found.");
+            return GetPageFactoryRegistryMethod.Invoke(null, new[] { context }) ?? throw new InvalidOperationException("Registry resolution failed.");
+        }
+
+        private static bool HasVectorPageRegistration(object registry)
+        {
+            var args = new object[] { VectorIndexPageType, null };
+            return (bool)TryGetPageFactoryRegistrationMethod.Invoke(registry, args);
         }
     }
 }
