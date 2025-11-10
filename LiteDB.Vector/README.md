@@ -36,6 +36,8 @@ All public APIs keep their signatures. After registering the plugin you can cont
 - `collection.Query().TopKNear(...).WithVectorScore()`
 - `VECTOR_DIST` and `VECTOR_SIM` expressions
 
+These LINQ helpers now live in `LiteDB.Vector.LiteQueryableVectorExtensions`, so add `using LiteDB.Vector;` to any file that calls `WhereNear`, `TopKNear`, `FindNearest`, or `WithVectorScore`. The base `LiteQueryable` class no longer exposes those members directly.
+
 Existing database files remain compatible because on-disk structures still live in the core library.
 
 ## 4. Optional: Default Metric via Connection String
