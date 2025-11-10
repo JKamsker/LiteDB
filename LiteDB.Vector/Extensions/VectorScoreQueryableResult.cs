@@ -4,6 +4,7 @@ using System.Linq;
 using LiteDB;
 using LiteDB.Vector.Engine;
 using LiteDB.Vector.Query;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector
 {
@@ -256,16 +257,20 @@ namespace LiteDB.Vector
 
                 var metricValue = VectorDistanceMetric.Cosine;
 
-                if (metadata.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var metricBytes) && metricBytes.HasValue)
+                byte? metricBytes = null;
+
+                if (metadata.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var storedMetric) && storedMetric.HasValue)
                 {
-                    metricValue = (VectorDistanceMetric)metricBytes.Value;
+                    metricBytes = storedMetric;
+                    metricValue = (VectorDistanceMetric)storedMetric.Value;
                 }
 
                 var maxDistance = double.MaxValue;
 
                 if (metadata.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var storedDistance))
                 {
-                    maxDistance = storedDistance;
+                    var effectiveMetric = metricBytes ?? (byte)metricValue;
+                    maxDistance = VectorEnsure.NormalizeMaxDistance(storedDistance, effectiveMetric);
                 }
 
                 var fieldExpression = BsonExpression.Create(field, queryable.ExpressionRegistry);
@@ -280,14 +285,9 @@ namespace LiteDB.Vector
                     return true;
                 }
 
-                if (Metric == VectorDistanceMetric.DotProduct)
+                if (double.IsNaN(match.Distance))
                 {
-                    if (!match.Similarity.HasValue)
-                    {
-                        return false;
-                    }
-
-                    return match.Similarity.Value >= MaxDistance;
+                    return false;
                 }
 
                 return match.Distance <= MaxDistance;

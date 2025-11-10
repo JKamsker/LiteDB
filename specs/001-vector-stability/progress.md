@@ -21,3 +21,12 @@
 
 ## 2025-11-10 01:07
 - Completed T008 by teaching `LiteDB/Engine/Query/Query.cs` to version vector metadata bags at `VectorMetadataVersionNormalized = 2`, normalize max-distance writes via the new helper logic (including upgrades for legacy bags), and ensure `VectorMetric` updates re-normalize stored thresholds; validated via `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter QueryMetadataBagTests`.
+
+## 2025-11-10 01:14
+- Completed T009 by propagating the shared normalization into the plugin layer: `VectorQueryMetadata` now declares `Version = 2`, `VectorSearchPlugin` registers that version, `QueryableExtensions`/`VectorIndexPlanningRule` consume `VectorEnsure.NormalizeMaxDistance`, and test helpers (`VectorTestContext`) store normalized thresholds. Regression test still fails as expected (`Expected metadataResults to be equal to {1}, but {1, 2, 3} contains 2 item(s) too many.`) via `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj -f net8.0 --filter FullyQualifiedName~DotProductMaxDistanceRegression`.
+
+## 2025-11-10 01:31
+- Completed T010 by updating `VectorScoreQueryableResult` to interpret normalized thresholds (distance-based comparisons) and re-normalize legacy metadata reads; confirmed `VectorExtensions_Tests` still pass (`dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj -f net8.0 --filter FullyQualifiedName~VectorExtensions_Tests`) while the dot-product regression remains red for fail-first validation.
+
+## 2025-11-10 01:32
+- Completed T011 by extending `LiteDB.Tests/Plugins/QueryMetadataBagTests.cs` with a dot-product normalization upgrade test, ensuring legacy bags bump to version 2 and persist negated thresholds; validated via `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter QueryMetadataBagTests`.
