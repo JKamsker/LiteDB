@@ -23,8 +23,8 @@
 
 **Independent Test**: The new regression test in LiteDB.Vector.Tests/VectorIndex_Tests.cs fails on the base code and passes after the fix.
 
-- [ ] T005 [P] [US1] Add a regression test case in LiteDB.Vector.Tests/VectorIndex_Tests.cs that reproduces the incorrect dot-product maxDistance behavior via both metadata and LINQ entry points.
-- [ ] T006 [US1] Run the new regression test against current code, capture the failing output in specs/001-vector-stability/quickstart.md, and gate further work until the failure is confirmed.
+- [X] T005 [P] [US1] Add a regression test case in LiteDB.Vector.Tests/VectorIndex_Tests.cs that reproduces the incorrect dot-product maxDistance behavior via both metadata and LINQ entry points.
+- [X] T006 [US1] Run the new regression test against current code, capture the failing output in specs/001-vector-stability/quickstart.md, and gate further work until the failure is confirmed.
 - [ ] T007 [US1] Introduce a shared normalization helper (e.g., NormalizeMaxDistance) in LiteDB.Vector/Utils/VectorEnsure.cs for dot-product handling.
 - [ ] T008 [US1] Update LiteDB/Engine/Query/Query.cs metadata setters/getters to store normalized maxDistance values and version them safely.
 - [ ] T009 [US1] Adjust LiteDB.Vector/Query/VectorIndexPlanningRule.cs and LiteDB.Vector/Extensions/QueryableExtensions.cs to consume the helper for both metadata and legacy flows.
