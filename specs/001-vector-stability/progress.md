@@ -50,3 +50,12 @@
 
 ## 2025-11-10 02:05
 - Completed T019 by adding `VectorBsonType_ShouldRemainScopedToPluginEnabledDatabases` to `LiteDB.Tests/Engine/Plugins/PluginAbsentTests.cs`, which runs plugin-enabled and plugin-free databases simultaneously: the vector-enabled instance round-trips `BsonVector` documents while the vanilla instance still throws `VectorCompatibility.PluginRequired` when invoking `WhereNear`, confirming BSON/vector capabilities stay isolated per context. Verified with `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter FullyQualifiedName~PluginAbsentTests`.
+
+## 2025-11-10 02:20
+- Completed T020 by deleting the committed `quickstart*.db` backups under `artifacts_temp/vector-followup/` and expanding `.gitignore` with explicit rules for `.db`/backup outputs so future vector upgrade runs keep binary databases untracked while still allowing textual reports to live under `artifacts_temp/`.
+
+## 2025-11-10 02:27
+- Completed T021 by teaching `scripts/vector/Invoke-VectorUpgrade.ps1` to default its `-BackupDirectory` to `artifacts_temp/vector-followup/databases/` (creating it automatically) and updating `scripts/vector/MigrationHelpers.cs` so helper-driven backups now fall back to `%TEMP%/LiteDB/vector-upgrade/databases` when no directory is supplied, guaranteeing all generated `.db` files land in ignored or temporary locations.
+
+## 2025-11-10 02:32
+- Completed T022 by adding an "Upgrade Tooling & Artifact Hygiene" section to `docs/plugins/plugin-development.md`, instructing contributors to keep migration databases inside ignored paths (defaulting to `artifacts_temp/vector-followup/databases/` or explicit temp folders), to override `-BackupDirectory` when needed, and to commit only textual upgrade reports.

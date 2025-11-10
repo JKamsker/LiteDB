@@ -65,9 +65,9 @@
 
 **Independent Test**: git status after running scripts/vector/Invoke-VectorUpgrade.ps1 shows no tracked changes.
 
-- [ ] T020 [US4] Delete the existing rtifacts_temp/vector-followup/*.db files and extend .gitignore to exclude future .db/backup outputs under rtifacts_temp/.
-- [ ] T021 [P] [US4] Update scripts/vector/Invoke-VectorUpgrade.ps1 (and related helper scripts) to ensure generated databases land under ignored folders or temp directories.
-- [ ] T022 [US4] Document the artifact-cleanup expectation in docs/plugins/plugin-development.md so contributors reroute upgrade outputs locally.
+- [X] T020 [US4] Delete the existing rtifacts_temp/vector-followup/*.db files and extend .gitignore to exclude future .db/backup outputs under rtifacts_temp/.
+- [X] T021 [P] [US4] Update scripts/vector/Invoke-VectorUpgrade.ps1 (and related helper scripts) to ensure generated databases land under ignored folders or temp directories.
+- [X] T022 [US4] Document the artifact-cleanup expectation in docs/plugins/plugin-development.md so contributors reroute upgrade outputs locally.
 
 ---
 

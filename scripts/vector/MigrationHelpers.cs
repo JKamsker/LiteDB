@@ -365,11 +365,7 @@ namespace LiteDB.Vector.Tools
 
         private static string CreateBackup(string databasePath, string backupDirectory, bool overwrite)
         {
-            var directory = string.IsNullOrWhiteSpace(backupDirectory)
-                ? Path.GetDirectoryName(databasePath) ?? Directory.GetCurrentDirectory()
-                : Path.GetFullPath(backupDirectory);
-
-            Directory.CreateDirectory(directory);
+            var directory = ResolveBackupDirectory(backupDirectory);
 
             var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
             var baseName = Path.GetFileNameWithoutExtension(databasePath);
@@ -402,6 +398,20 @@ namespace LiteDB.Vector.Tools
             var name = Path.GetFileNameWithoutExtension(path);
             var extension = Path.GetExtension(path);
             return Path.Combine(directory, $"{name}{suffix}{extension}");
+        }
+
+        private static string ResolveBackupDirectory(string backupDirectory)
+        {
+            if (!string.IsNullOrWhiteSpace(backupDirectory))
+            {
+                var normalized = Path.GetFullPath(backupDirectory);
+                Directory.CreateDirectory(normalized);
+                return normalized;
+            }
+
+            var fallback = Path.Combine(Path.GetTempPath(), "LiteDB", "vector-upgrade", "databases");
+            Directory.CreateDirectory(fallback);
+            return fallback;
         }
 
         private readonly record struct VectorMetadataSnapshot(
