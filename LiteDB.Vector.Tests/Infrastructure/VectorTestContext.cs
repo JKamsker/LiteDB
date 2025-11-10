@@ -7,6 +7,7 @@ using LiteDB.Plugins;
 using LiteDB.Plugins.Query;
 using LiteDB.Vector;
 using LiteDB.Vector.Query;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector.Tests.Infrastructure
 {
@@ -263,12 +264,22 @@ namespace LiteDB.Vector.Tests.Infrastructure
 
             var bag = query.GetOrCreateMetadata(
                 VectorQueryMetadata.PluginId,
-                () => new QueryMetadataBag(VectorQueryMetadata.PluginId, version: 1, VectorQueryMetadata.ReservedKeys));
+                () => new QueryMetadataBag(VectorQueryMetadata.PluginId, version: VectorQueryMetadata.Version, VectorQueryMetadata.ReservedKeys));
 
             bag.Set(VectorQueryMetadata.FieldKey, NormalizeVectorField(vectorField));
             bag.Set(VectorQueryMetadata.TargetKey, target);
-            bag.Set(VectorQueryMetadata.MaxDistanceKey, maxDistance);
             bag.Set(VectorQueryMetadata.MetricKey, (byte)metric);
+
+            var normalized = VectorEnsure.NormalizeMaxDistance(maxDistance, (byte)metric);
+
+            if (maxDistance < double.MaxValue)
+            {
+                bag.Set(VectorQueryMetadata.MaxDistanceKey, normalized);
+            }
+            else
+            {
+                bag.Remove(VectorQueryMetadata.MaxDistanceKey);
+            }
 
             return bag;
         }

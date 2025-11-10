@@ -73,7 +73,7 @@ namespace LiteDB.Vector
 
                 context.RegisterQueryMetadata(
                     pluginId: VectorQueryMetadata.PluginId,
-                    version: 1,
+                    version: VectorQueryMetadata.Version,
                     reservedKeys: VectorQueryMetadata.ReservedKeys);
 
                 VectorIndexServiceFactory.Register((snapshot, collation) => new VectorIndexSearchAdapter(snapshot, collation));

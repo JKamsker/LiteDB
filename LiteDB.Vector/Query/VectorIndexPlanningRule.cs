@@ -7,6 +7,7 @@ using LiteDB.Vector.Engine;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Query;
 using LiteDB.Vector.Query;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector.Query
 {
@@ -38,7 +39,6 @@ namespace LiteDB.Vector.Query
             byte? metric = null;
             BsonExpression? consumedTerm = null;
             var matchedFromOrderBy = false;
-            var maxDistanceFromMetadata = false;
             QueryMetadataBag? metadataBag = null;
 
             if (context.Query.TryGetMetadata(VectorQueryMetadata.PluginId, out var bag))
@@ -83,7 +83,6 @@ namespace LiteDB.Vector.Query
                         if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
                         {
                             maxDistance = bagDistance;
-                            maxDistanceFromMetadata = true;
                         }
 
                         if (metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
@@ -114,7 +113,6 @@ namespace LiteDB.Vector.Query
                         if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
                         {
                             maxDistance = bagDistance;
-                            maxDistanceFromMetadata = true;
                         }
 
                         if (!metric.HasValue &&
@@ -152,9 +150,7 @@ namespace LiteDB.Vector.Query
             }
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
-            var effectiveMaxDistance = maxDistanceFromMetadata
-                ? maxDistance
-                : NormalizeDotProductThreshold(maxDistance, metric);
+            var effectiveMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metric);
 
             foreach (var (index, metadataBuffer) in collection.GetVectorIndexes())
             {
@@ -185,31 +181,6 @@ namespace LiteDB.Vector.Query
             }
 
             return false;
-        }
-
-        private static double NormalizeDotProductThreshold(double maxDistance, byte? queryMetric)
-        {
-            if (!queryMetric.HasValue)
-            {
-                return maxDistance;
-            }
-
-            if ((VectorDistanceMetric)queryMetric.Value != VectorDistanceMetric.DotProduct)
-            {
-                return maxDistance;
-            }
-
-            if (double.IsNaN(maxDistance) || double.IsPositiveInfinity(maxDistance))
-            {
-                return maxDistance;
-            }
-
-            if (maxDistance > 0d)
-            {
-                return maxDistance;
-            }
-
-            return -maxDistance;
         }
 
         private static bool TryParseVectorPredicate(BsonExpression? predicate, Collation collation, out string? expression, out float[]? target, out double maxDistance)
