@@ -18,6 +18,15 @@ Run this loop before implementing the dot-product fix to prove the regression ex
 3. **Expected outcome before the fix**: the test fails because metadata-provided `maxDistance` is not normalized. Record the failure message in this file when first observed.
 4. Do not move on to production fixes until this failure is reproduced.
 
+Latest failure snapshot (2025-11-10):
+
+```
+> dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj -f net8.0 --filter FullyQualifiedName~DotProductMaxDistanceRegression
+Failed LiteDB.Vector.Tests.Querying.VectorIndex_Tests.DotProductMaxDistanceRegression [126 ms]
+  Error Message:
+   Expected metadataResults to be equal to {1}, but {1, 2, 3} contains 2 item(s) too many.
+```
+
 ## End-to-End Verification Steps
 Run the following sequence whenever you need to validate accumulated changes:
 

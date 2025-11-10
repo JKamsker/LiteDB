@@ -1,8 +1,9 @@
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
-using LiteDB.Vector.Engine;
 using LiteDB.Vector;
+using LiteDB.Vector.Engine;
+using LiteDB.Vector.Tests.Infrastructure;
 using MathNet.Numerics.LinearAlgebra;
 using System;
 using System.Collections.Generic;
@@ -701,6 +702,47 @@ namespace LiteDB.Vector.Tests.Querying
                 .ToArray();
 
             results.Select(x => x.Id).Should().Equal(new[] { 1, 2 });
+        }
+
+        [Fact]
+        public void DotProductMaxDistanceRegression()
+        {
+            using var context = VectorTestContext.Create();
+            var collection = context.SeedCollection(
+                "vectors",
+                new[]
+                {
+                    new VectorDocument { Id = 1, Embedding = new[] { 1f, 0f } },
+                    new VectorDocument { Id = 2, Embedding = new[] { 0.6f, 0.6f } },
+                    new VectorDocument { Id = 3, Embedding = new[] { 0f, 1f } }
+                });
+
+            context.EnsureVectorIndex(
+                collection,
+                x => x.Embedding,
+                new VectorIndexOptions(2, VectorDistanceMetric.DotProduct),
+                indexName: "embedding_idx");
+
+            var target = new[] { 1f, 0f };
+            const double similarityThreshold = -0.75;
+
+            var metadataQuery = new LiteDB.Query();
+            context.ConfigureMetadata(metadataQuery, "$.Embedding", target, similarityThreshold, VectorDistanceMetric.DotProduct);
+
+            var metadataResults = collection
+                .Find(metadataQuery)
+                .Select(x => x.Id)
+                .ToArray();
+
+            metadataResults.Should().Equal(new[] { 1 });
+
+            var linqQueryable = context.GetQueryable(collection);
+            var linqResults = linqQueryable
+                .WhereNear(x => x.Embedding, target, maxDistance: similarityThreshold, metric: VectorDistanceMetric.DotProduct)
+                .Select(x => x.Id)
+                .ToArray();
+
+            linqResults.Should().Equal(new[] { 1 });
         }
 
         [Fact]
