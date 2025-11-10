@@ -15,3 +15,6 @@
 
 ## 2025-11-10 00:59
 - Completed T006 by running `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj -f net8.0 --filter FullyQualifiedName~DotProductMaxDistanceRegression`, confirming the failure (`Expected metadataResults to be equal to {1}, but {1, 2, 3} contains 2 item(s) too many.`) and documenting the snapshot in `specs/001-vector-stability/quickstart.md`.
+
+## 2025-11-10 01:02
+- Completed T007 by adding `VectorEnsure.NormalizeMaxDistance` in `LiteDB.Vector/Utils/VectorEnsure.cs`, centralizing the dot-product threshold negation logic so metadata, planner, and extension paths can share a single canonical normalization routine.
