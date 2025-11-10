@@ -17,7 +17,7 @@ namespace LiteDB.Plugins
             this.QueryPlanner = new QueryPlannerRegistry();
             this.QueryMetadata = new QueryMetadataAccessor();
             this.BsonTypes = new PluginBsonTypeRegistry();
-            this.PageFactories = new PageFactoryRegistry();
+            this.PageFactories = new PluginPageFactoryRegistry();
             this.VectorIndexes = new VectorIndexStrategyRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
             this.IndexInterceptors = new IndexInterceptorRegistry();
@@ -192,116 +192,6 @@ namespace LiteDB.Plugins
                 lock (_sync)
                 {
                     return _strategies.Values.ToArray();
-                }
-            }
-        }
-    }
-
-    internal sealed class PluginBsonTypeRegistry : IBsonTypeRegistry
-    {
-        private readonly object _sync = new object();
-        private readonly Dictionary<byte, BsonTypeRegistration> _typesByCode = new Dictionary<byte, BsonTypeRegistration>();
-        private readonly Dictionary<string, BsonTypeRegistration> _typesByName = new Dictionary<string, BsonTypeRegistration>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<byte, BsonTypeRegistration> _aliases = new Dictionary<byte, BsonTypeRegistration>();
-
-        public void Register(BsonTypeRegistration registration)
-        {
-            if (registration == null) throw new ArgumentNullException(nameof(registration));
-
-            lock (_sync)
-            {
-                _typesByCode[registration.TypeCode] = registration;
-
-                if (!string.IsNullOrWhiteSpace(registration.Name))
-                {
-                    _typesByName[registration.Name] = registration;
-                }
-
-                if (registration.LegacyAliases != null)
-                {
-                    foreach (var alias in registration.LegacyAliases)
-                    {
-                        _aliases[alias] = registration;
-                    }
-                }
-            }
-        }
-
-        public bool TryGetByTypeCode(byte typeCode, out BsonTypeRegistration registration)
-        {
-            lock (_sync)
-            {
-                if (_typesByCode.TryGetValue(typeCode, out registration))
-                {
-                    return true;
-                }
-
-                return _aliases.TryGetValue(typeCode, out registration);
-            }
-        }
-
-        public bool TryGetByName(string name, out BsonTypeRegistration registration)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                registration = null;
-                return false;
-            }
-
-            lock (_sync)
-            {
-                return _typesByName.TryGetValue(name, out registration);
-            }
-        }
-
-        public IReadOnlyCollection<BsonTypeRegistration> Registered
-        {
-            get
-            {
-                lock (_sync)
-                {
-                    return _typesByCode.Values.ToArray();
-                }
-            }
-        }
-    }
-
-    internal sealed class PageFactoryRegistry : IPageFactoryRegistry
-    {
-        private readonly object _sync = new object();
-        private readonly Dictionary<string, PageFactoryRegistration> _factories = new Dictionary<string, PageFactoryRegistration>(StringComparer.OrdinalIgnoreCase);
-
-        public void Register(PageFactoryRegistration registration)
-        {
-            if (registration == null) throw new ArgumentNullException(nameof(registration));
-
-            lock (_sync)
-            {
-                _factories[registration.PageType] = registration;
-            }
-        }
-
-        public bool TryGet(string pageType, out PageFactoryRegistration registration)
-        {
-            if (string.IsNullOrWhiteSpace(pageType))
-            {
-                registration = null;
-                return false;
-            }
-
-            lock (_sync)
-            {
-                return _factories.TryGetValue(pageType, out registration);
-            }
-        }
-
-        public IReadOnlyCollection<PageFactoryRegistration> Registered
-        {
-            get
-            {
-                lock (_sync)
-                {
-                    return _factories.Values.ToArray();
                 }
             }
         }

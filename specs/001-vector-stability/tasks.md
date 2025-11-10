@@ -53,7 +53,7 @@
 
 - [X] T015 [US3] Refactor LiteDB/Document/BsonType.cs (including BsonTypeResolver) to eliminate global singletons and cache registries strictly per ILitePluginContext.
 - [X] T016 [US3] Rework LiteDB/Engine/Pages/PageFactoryRegistry.cs and LiteDB/Client/Database/LiteDatabaseServices.cs to obtain registries purely from the owning context without mutating static state.
-- [ ] T017 [P] [US3] Update LiteDB/Plugins/DefaultPluginContext.cs plus related interfaces to expose thread-safe factory/type registries that can be instantiated per database.
+- [X] T017 [P] [US3] Update LiteDB/Plugins/DefaultPluginContext.cs plus related interfaces to expose thread-safe factory/type registries that can be instantiated per database.
 - [ ] T018 [US3] Add an isolation test in LiteDB.Tests/Engine/PageFactoryRegistry_Tests.cs proving two contexts retain distinct page factory registrations when run in parallel.
 - [ ] T019 [P] [US3] Add a BSON-type isolation test (two simultaneous LiteDatabase instances) in LiteDB.Tests/Engine/Plugins/PluginAbsentTests.cs (or a new fixture) to ensure vector serialization remains available only when the plugin is loaded.
 
