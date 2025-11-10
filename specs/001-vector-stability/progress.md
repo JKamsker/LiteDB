@@ -59,3 +59,11 @@
 
 ## 2025-11-10 02:32
 - Completed T022 by adding an "Upgrade Tooling & Artifact Hygiene" section to `docs/plugins/plugin-development.md`, instructing contributors to keep migration databases inside ignored paths (defaulting to `artifacts_temp/vector-followup/databases/` or explicit temp folders), to override `-BackupDirectory` when needed, and to commit only textual upgrade reports.
+
+## 2025-11-10 02:45
+- Completed T023 by executing the quickstart verification loop and archiving logs under `artifacts_temp/t023/`:
+  - `dotnet test LiteDB.Vector.Tests/LiteDB.Vector.Tests.csproj -f net8.0` → 5 failures remain (`VectorRegistry_Tests.Plugin_Should_Expose_Extension_Point_Registrations`, `VectorIndex_Tests.WhereNear_DotProduct_AllowsNegativeSimilarityThresholds`, `VectorIndex_Tests.WhereNear_MatchesReferenceOrdering (Euclidean/Cosine)`, `VectorIndex_Tests.DotProductMaxDistanceRegression`). See `artifacts_temp/t023/vector-net8.log`.
+  - `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter FullyQualifiedName~Vector` succeeded (`artifacts_temp/t023/tests-liteDB-net8-vector.log`).
+  - `scripts/run-tests-per-target.ps1 -Projects LiteDB.Tests,LiteDB.Vector.Tests` currently trips a StrictMode bug when filtering projects; reran unfiltered to capture the full matrix, which reproduced the same 5 LiteDB.Vector.Tests failures while the remaining TFMs passed (`artifacts_temp/t023/run-tests-per-target-full.log`).
+  - `dotnet test LiteDB.sln --settings tests.runsettings` also failed only because of the same vector test set (`artifacts_temp/t023/dotnet-test-sln.log`).
+  - `git status --short` and `git diff --stat` were clean, confirming no untracked artifacts after the runs.
