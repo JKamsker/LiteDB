@@ -257,48 +257,6 @@ namespace LiteDB
             return new LiteQueryable<K>(_engine, _mapper, _collection, _query, _expressions, _database, _linqResolvers);
         }
 
-        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]
-        public ILiteQueryable<T> WhereNear(string vectorField, float[] target, double maxDistance)
-        {
-            throw VectorCompatibility.PluginRequired();
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]
-        public ILiteQueryable<T> WhereNear(BsonExpression fieldExpr, float[] target, double maxDistance)
-        {
-            throw VectorCompatibility.PluginRequired();
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]
-        public ILiteQueryable<T> WhereNear<K>(Expression<Func<T, K>> field, float[] target, double maxDistance)
-        {
-            throw VectorCompatibility.PluginRequired();
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.FindNearest extension instead.")]
-        public IEnumerable<T> FindNearest(string vectorField, float[] target, double maxDistance)
-        {
-            throw VectorCompatibility.PluginRequired();
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.TopKNear extension instead.")]
-        public ILiteQueryableResult<T> TopKNear<K>(Expression<Func<T, K>> field, float[] target, int k)
-        {
-            throw VectorCompatibility.PluginRequired();
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.TopKNear extension instead.")]
-        public ILiteQueryableResult<T> TopKNear(string field, float[] target, int k)
-        {
-            throw VectorCompatibility.PluginRequired();
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.TopKNear extension instead.")]
-        public ILiteQueryableResult<T> TopKNear(BsonExpression fieldExpr, float[] target, int k)
-        {
-            throw VectorCompatibility.PluginRequired();
-        }
-
         #endregion
 
         #region Offset/Limit/ForUpdate

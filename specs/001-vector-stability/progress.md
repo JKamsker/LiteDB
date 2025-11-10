@@ -30,3 +30,8 @@
 
 ## 2025-11-10 01:32
 - Completed T011 by extending `LiteDB.Tests/Plugins/QueryMetadataBagTests.cs` with a dot-product normalization upgrade test, ensuring legacy bags bump to version 2 and persist negated thresholds; validated via `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter QueryMetadataBagTests`.
+
+## 2025-11-10 01:45
+- Completed T012 by deleting the obsolete `WhereNear`, `TopKNear`, and `FindNearest` members from `LiteDB/Client/Database/LiteQueryable.cs`, removing the last `VectorCompatibility` hooks from the core queryable surface so only the plugin extensions expose vector helpers.
+- Completed T013 by sweeping the tree (`rg -l "WhereNear" -g "*.cs"`, `git ls-files "LiteDB.Tests/Client/*"`) to confirm every caller lives in plugin-aware projects and already imports `LiteDB.Vector`; no LiteQueryable-specific client tests remained, so nothing needed deleting.
+- Completed T014 by updating `docs/plugins/plugin-development.md` and `LiteDB.Vector/README.md` with guidance that vector LINQ helpers now come exclusively from `LiteQueryableVectorExtensions`, making it clear that consumers must register `VectorSearchPlugin` and `using LiteDB.Vector;` to access `WhereNear`/`TopKNear`.
