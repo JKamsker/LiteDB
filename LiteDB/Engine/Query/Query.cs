@@ -29,6 +29,9 @@ namespace LiteDB
             VectorMetricKey
         };
 
+        private const int VectorMetadataVersionNormalized = 2;
+        private const byte DotProductMetric = 2;
+
         public BsonExpression Select { get; set; } = BsonExpression.Root;
 
         public List<BsonExpression> Includes { get; } = new List<BsonExpression>();
@@ -66,10 +69,14 @@ namespace LiteDB
         {
             get
             {
-                if (TryGetMetadata(LegacyVectorPluginId, out var bag) &&
-                    bag.TryGet<string>(VectorFieldKey, out var field))
+                if (TryGetMetadata(LegacyVectorPluginId, out var bag))
                 {
-                    return field;
+                    UpgradeVectorMetadataBag(bag);
+
+                    if (bag.TryGet<string>(VectorFieldKey, out var field))
+                    {
+                        return field;
+                    }
                 }
 
                 return null;
@@ -91,10 +98,14 @@ namespace LiteDB
         {
             get
             {
-                if (TryGetMetadata(LegacyVectorPluginId, out var bag) &&
-                    bag.TryGet<float[]>(VectorTargetKey, out var target))
+                if (TryGetMetadata(LegacyVectorPluginId, out var bag))
                 {
-                    return target;
+                    UpgradeVectorMetadataBag(bag);
+
+                    if (bag.TryGet<float[]>(VectorTargetKey, out var target))
+                    {
+                        return target;
+                    }
                 }
 
                 return null;
@@ -116,10 +127,14 @@ namespace LiteDB
         {
             get
             {
-                if (TryGetMetadata(LegacyVectorPluginId, out var bag) &&
-                    bag.TryGet<double>(VectorMaxDistanceKey, out var distance))
+                if (TryGetMetadata(LegacyVectorPluginId, out var bag))
                 {
-                    return distance;
+                    UpgradeVectorMetadataBag(bag);
+
+                    if (bag.TryGet<double>(VectorMaxDistanceKey, out var distance))
+                    {
+                        return distance;
+                    }
                 }
 
                 return double.MaxValue;
@@ -132,7 +147,10 @@ namespace LiteDB
                     return;
                 }
 
-                EnsureVectorMetadataBag().Set(VectorMaxDistanceKey, value);
+                var bag = EnsureVectorMetadataBag();
+                var metric = GetVectorMetric(bag);
+                var normalized = NormalizeVectorMaxDistance(value, metric);
+                bag.Set(VectorMaxDistanceKey, normalized);
             }
         }
 
@@ -141,10 +159,14 @@ namespace LiteDB
         {
             get
             {
-                if (TryGetMetadata(LegacyVectorPluginId, out var bag) &&
-                    bag.TryGet<byte?>(VectorMetricKey, out var metric))
+                if (TryGetMetadata(LegacyVectorPluginId, out var bag))
                 {
-                    return metric;
+                    UpgradeVectorMetadataBag(bag);
+
+                    if (bag.TryGet<byte?>(VectorMetricKey, out var metric))
+                    {
+                        return metric;
+                    }
                 }
 
                 return null;
@@ -157,7 +179,9 @@ namespace LiteDB
                     return;
                 }
 
-                EnsureVectorMetadataBag().Set(VectorMetricKey, value);
+                var bag = EnsureVectorMetadataBag();
+                bag.Set(VectorMetricKey, value);
+                NormalizeStoredVectorMaxDistance(bag);
             }
         }
 
@@ -335,10 +359,11 @@ namespace LiteDB
         {
             if (_metadata.TryGetValue(LegacyVectorPluginId, out var existing))
             {
+                UpgradeVectorMetadataBag(existing);
                 return existing;
             }
 
-            var bag = new QueryMetadataBag(LegacyVectorPluginId, version: 1, reservedKeys: LegacyVectorReservedKeys);
+            var bag = new QueryMetadataBag(LegacyVectorPluginId, version: VectorMetadataVersionNormalized, reservedKeys: LegacyVectorReservedKeys);
             _metadata[LegacyVectorPluginId] = bag;
             return bag;
         }
@@ -368,6 +393,8 @@ namespace LiteDB
                 return false;
             }
 
+            UpgradeVectorMetadataBag(bag);
+
             if (!bag.TryGet<string>(VectorFieldKey, out field) || string.IsNullOrWhiteSpace(field))
             {
                 return false;
@@ -389,6 +416,73 @@ namespace LiteDB
             }
 
             return true;
+        }
+
+        private void UpgradeVectorMetadataBag(QueryMetadataBag bag)
+        {
+            if (bag == null)
+            {
+                return;
+            }
+
+            if (bag.Version >= VectorMetadataVersionNormalized)
+            {
+                return;
+            }
+
+            NormalizeStoredVectorMaxDistance(bag);
+            bag.SetVersion(VectorMetadataVersionNormalized);
+        }
+
+        private void NormalizeStoredVectorMaxDistance(QueryMetadataBag bag)
+        {
+            if (bag == null)
+            {
+                return;
+            }
+
+            if (!bag.TryGet<double>(VectorMaxDistanceKey, out var stored))
+            {
+                return;
+            }
+
+            var metric = GetVectorMetric(bag);
+            var normalized = NormalizeVectorMaxDistance(stored, metric);
+
+            if (normalized != stored)
+            {
+                bag.Set(VectorMaxDistanceKey, normalized);
+            }
+        }
+
+        private static byte? GetVectorMetric(QueryMetadataBag bag)
+        {
+            if (bag != null && bag.TryGet<byte?>(VectorMetricKey, out var metric))
+            {
+                return metric;
+            }
+
+            return null;
+        }
+
+        private static double NormalizeVectorMaxDistance(double maxDistance, byte? metric)
+        {
+            if (!metric.HasValue || metric.Value != DotProductMetric)
+            {
+                return maxDistance;
+            }
+
+            if (double.IsNaN(maxDistance) || double.IsInfinity(maxDistance))
+            {
+                return maxDistance;
+            }
+
+            if (maxDistance > 0d)
+            {
+                return -maxDistance;
+            }
+
+            return maxDistance;
         }
 
         private static string NormalizeVectorField(string field)
