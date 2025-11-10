@@ -18,3 +18,6 @@
 
 ## 2025-11-10 01:02
 - Completed T007 by adding `VectorEnsure.NormalizeMaxDistance` in `LiteDB.Vector/Utils/VectorEnsure.cs`, centralizing the dot-product threshold negation logic so metadata, planner, and extension paths can share a single canonical normalization routine.
+
+## 2025-11-10 01:07
+- Completed T008 by teaching `LiteDB/Engine/Query/Query.cs` to version vector metadata bags at `VectorMetadataVersionNormalized = 2`, normalize max-distance writes via the new helper logic (including upgrades for legacy bags), and ensure `VectorMetric` updates re-normalize stored thresholds; validated via `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter QueryMetadataBagTests`.
