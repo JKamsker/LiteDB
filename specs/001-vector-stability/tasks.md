@@ -73,7 +73,7 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T023 Run the focused verification script from specs/001-vector-stability/quickstart.md (dotnet test suites + git status) and attach results to the PR.
+- [X] T023 Run the focused verification script from specs/001-vector-stability/quickstart.md (dotnet test suites + git status) and attach results to the PR.
 
 ---
 
