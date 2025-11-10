@@ -1,4 +1,5 @@
 using LiteDB;
+using LiteDB.Vector;
 using System.Diagnostics;
 
 namespace LiteDB.Vector.Utils
@@ -29,6 +30,28 @@ namespace LiteDB.Vector.Utils
             {
                 ENSURE(conditional, message);
             }
+        }
+
+        internal static double NormalizeMaxDistance(double maxDistance, byte? metric)
+        {
+            if (!metric.HasValue)
+            {
+                return maxDistance;
+            }
+
+            var metricValue = (VectorDistanceMetric)metric.Value;
+
+            if (metricValue != VectorDistanceMetric.DotProduct)
+            {
+                return maxDistance;
+            }
+
+            if (double.IsNaN(maxDistance) || double.IsInfinity(maxDistance))
+            {
+                return maxDistance;
+            }
+
+            return maxDistance > 0d ? -maxDistance : maxDistance;
         }
     }
 }
