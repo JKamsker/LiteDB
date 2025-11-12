@@ -225,3 +225,12 @@ FakesAssemblies/
 #!**/packages/repositories.config
 /LiteDB.BadJsonTest
 repro-summary.json
+# Vector upgrade artifacts
+artifacts_temp/
+artifacts_temp/**/*.db
+artifacts_temp/**/*.db-log
+artifacts_temp/**/*.db-lock
+artifacts_temp/**/*.db-shm
+artifacts_temp/**/*.db-wal
+artifacts_temp/**/*vector-backup*
+artifacts_temp/**/*-backup*.db

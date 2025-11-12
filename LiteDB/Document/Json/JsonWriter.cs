@@ -1,4 +1,5 @@
-﻿using System;
+using LiteDB.Document.Bson;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -43,6 +44,11 @@ namespace LiteDB
 
         private void WriteValue(BsonValue value)
         {
+            if (BsonTypeSerializationHelper.TryWriteCoreJson(this, value))
+            {
+                return;
+            }
+
             // use direct cast to better performance
             switch (value.Type)
             {

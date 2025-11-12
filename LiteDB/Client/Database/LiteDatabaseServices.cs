@@ -1,5 +1,8 @@
 using System;
+using LiteDB.Engine;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
+using LiteDB.Plugins.Query;
 
 namespace LiteDB
 {
@@ -32,6 +35,11 @@ namespace LiteDB
         public IQueryPlannerRegistry QueryPlanner => _context.QueryPlanner;
 
         /// <summary>
+        /// Gets the query metadata accessor associated with the database.
+        /// </summary>
+        public IQueryMetadataAccessor QueryMetadata => _context.QueryMetadata;
+
+        /// <summary>
         /// Gets the LINQ resolver registry associated with the database.
         /// </summary>
         public ILinqResolverRegistry LinqResolvers => _context.LinqResolvers;
@@ -40,6 +48,11 @@ namespace LiteDB
         /// Gets the index interceptor registry associated with the database.
         /// </summary>
         public IIndexInterceptorRegistry IndexInterceptors => _context.IndexInterceptors;
+
+        /// <summary>
+        /// Gets the vector index strategy registry associated with the database.
+        /// </summary>
+        public IVectorIndexStrategyRegistry VectorIndexes => _context.VectorIndexes;
 
         /// <summary>
         /// Gets the service provider exposed to plugins.

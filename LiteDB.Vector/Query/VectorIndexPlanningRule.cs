@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Vector.Engine;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
+using LiteDB.Vector.Query;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector.Query
 {
@@ -32,8 +36,15 @@ namespace LiteDB.Vector.Query
             string? expression = null;
             float[]? target = null;
             double maxDistance = double.MaxValue;
+            byte? metric = null;
             BsonExpression? consumedTerm = null;
             var matchedFromOrderBy = false;
+            QueryMetadataBag? metadataBag = null;
+
+            if (context.Query.TryGetMetadata(VectorQueryMetadata.PluginId, out var bag))
+            {
+                metadataBag = bag;
+            }
 
             foreach (var term in context.Terms)
             {
@@ -57,6 +68,70 @@ namespace LiteDB.Vector.Query
                 }
             }
 
+            if (metadataBag != null)
+            {
+                if (expression == null)
+                {
+                    if (metadataBag.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) &&
+                        !string.IsNullOrWhiteSpace(field) &&
+                        metadataBag.TryGet<float[]>(VectorQueryMetadata.TargetKey, out var bagTarget) &&
+                        bagTarget != null)
+                    {
+                        expression = NormalizeVectorField(field);
+                        target = bagTarget;
+
+                        if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
+                        {
+                            maxDistance = bagDistance;
+                        }
+
+                        if (metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
+                        {
+                            metric = bagMetric;
+                        }
+
+                        matchedFromOrderBy = matchedFromOrderBy ||
+                            context.Query.OrderBy.Any(order =>
+                                order.Expression?.Type == BsonExpressionType.VectorDist ||
+                                order.Expression?.Type == BsonExpressionType.VectorSim);
+                    }
+                }
+                else if (metadataBag.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) &&
+                    !string.IsNullOrWhiteSpace(field))
+                {
+                    var normalizedField = NormalizeVectorField(field);
+
+                    if (string.Equals(normalizedField, expression, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (target == null &&
+                            metadataBag.TryGet<float[]>(VectorQueryMetadata.TargetKey, out var bagTarget) &&
+                            bagTarget != null)
+                        {
+                            target = bagTarget;
+                        }
+
+                        if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
+                        {
+                            maxDistance = bagDistance;
+                        }
+
+                        if (!metric.HasValue &&
+                            metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
+                        {
+                            metric = bagMetric;
+                        }
+                    }
+                }
+            }
+
+#pragma warning disable CS0618
+            if (!metric.HasValue && context.Query.VectorMetric.HasValue)
+            {
+                metric = context.Query.VectorMetric;
+            }
+#pragma warning restore CS0618
+
+#pragma warning disable CS0618
             if (expression == null && context.Query.VectorTarget != null && context.Query.VectorField != null)
             {
                 expression = NormalizeVectorField(context.Query.VectorField);
@@ -67,6 +142,7 @@ namespace LiteDB.Vector.Query
                         order.Expression?.Type == BsonExpressionType.VectorDist ||
                         order.Expression?.Type == BsonExpressionType.VectorSim);
             }
+#pragma warning restore CS0618
 
             if (expression == null || target == null)
             {
@@ -74,10 +150,12 @@ namespace LiteDB.Vector.Query
             }
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
-            var effectiveMaxDistance = NormalizeDotProductThreshold(maxDistance, context.Query.VectorMetric);
+            var effectiveMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metric);
 
-            foreach (var (index, metadata) in collection.GetVectorIndexes())
+            foreach (var (index, metadataBuffer) in collection.GetVectorIndexes())
             {
+                var metadata = VectorIndexMetadata.Wrap(metadataBuffer);
+
                 if (!string.Equals(index.Expression, expression, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -103,31 +181,6 @@ namespace LiteDB.Vector.Query
             }
 
             return false;
-        }
-
-        private static double NormalizeDotProductThreshold(double maxDistance, byte? queryMetric)
-        {
-            if (!queryMetric.HasValue)
-            {
-                return maxDistance;
-            }
-
-            if ((VectorDistanceMetric)queryMetric.Value != VectorDistanceMetric.DotProduct)
-            {
-                return maxDistance;
-            }
-
-            if (double.IsNaN(maxDistance) || double.IsPositiveInfinity(maxDistance))
-            {
-                return maxDistance;
-            }
-
-            if (maxDistance > 0d)
-            {
-                return maxDistance;
-            }
-
-            return -maxDistance;
         }
 
         private static bool TryParseVectorPredicate(BsonExpression? predicate, Collation collation, out string? expression, out float[]? target, out double maxDistance)
@@ -196,11 +249,13 @@ namespace LiteDB.Vector.Query
                 return false;
             }
 
+            #pragma warning disable CS0618
             if (value.Type == BsonType.Vector)
             {
                 vector = value.AsVector.ToArray();
                 return true;
             }
+            #pragma warning restore CS0618
 
             if (!value.IsArray)
             {

@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
 
 using static LiteDB.Constants;
 
@@ -23,7 +24,7 @@ namespace LiteDB.Engine
             this.Close();
 
             // run build service
-            var rebuilder = new RebuildService(_settings);
+            var rebuilder = new RebuildService(_settings, _plugins);
 
             // return how many bytes of diference from original/rebuild version
             var diff = rebuilder.Rebuild(options);
@@ -81,10 +82,11 @@ namespace LiteDB.Engine
                     {
                         if (index.IndexType == 1 && index.VectorMetadata != null)
                         {
+                            var metadata = index.VectorMetadata;
                             var vectorOptions = new BsonDocument
                             {
-                                ["dimensions"] = (int)index.VectorMetadata.Dimensions,
-                                ["metric"] = (int)index.VectorMetadata.Metric
+                                ["dimensions"] = (int)VectorIndexMetadataSerializer.GetDimensions(metadata),
+                                ["metric"] = (int)VectorIndexMetadataSerializer.GetMetric(metadata)
                             };
 
                             this.EnsureVectorIndex(

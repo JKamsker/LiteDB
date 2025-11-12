@@ -1,4 +1,5 @@
-﻿using LiteDB.Plugins;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -227,15 +228,24 @@ namespace LiteDB.Engine
             {
                 // read page from log file
                 var buffer = _reader.ReadPage(walPosition.Position, _mode == LockMode.Write, FileOrigin.Log);
-                var dirty = BasePage.ReadPage<T>(buffer);
 
-                origin = FileOrigin.Log;
-                position = walPosition.Position;
-                walVersion = _readVersion;
+                try
+                {
+                    var dirty = BasePage.ReadPage<T>(buffer, _plugins);
 
-                ENSURE(dirty.TransactionID == _transactionID, "this page must came from same transaction");
+                    origin = FileOrigin.Log;
+                    position = walPosition.Position;
+                    walVersion = _readVersion;
 
-                return dirty;
+                    ENSURE(dirty.TransactionID == _transactionID, "this page must came from same transaction");
+
+                    return dirty;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
             }
 
             // now, look inside wal-index
@@ -245,16 +255,25 @@ namespace LiteDB.Engine
             {
                 // read page from log file
                 var buffer = _reader.ReadPage(pos, _mode == LockMode.Write, FileOrigin.Log);
-                var logPage = BasePage.ReadPage<T>(buffer);
 
-                // clear some data inside this page (will be override when write on log file)
-                logPage.TransactionID = 0;
-                logPage.IsConfirmed = false;
+                try
+                {
+                    var logPage = BasePage.ReadPage<T>(buffer, _plugins);
 
-                origin = FileOrigin.Log;
-                position = pos;
+                    // clear some data inside this page (will be override when write on log file)
+                    logPage.TransactionID = 0;
+                    logPage.IsConfirmed = false;
 
-                return logPage;
+                    origin = FileOrigin.Log;
+                    position = pos;
+
+                    return logPage;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
             }
             else
             {
@@ -263,14 +282,40 @@ namespace LiteDB.Engine
 
                 // read page from data file
                 var buffer = _reader.ReadPage(pagePosition, _mode == LockMode.Write, FileOrigin.Data);
-                var diskpage = BasePage.ReadPage<T>(buffer);
 
-                origin = FileOrigin.Data;
-                position = pagePosition;
+                try
+                {
+                    var diskpage = BasePage.ReadPage<T>(buffer, _plugins);
 
-                ENSURE(diskpage.IsConfirmed == false || diskpage.TransactionID != 0, "page are not header-clear in data file");
+                    origin = FileOrigin.Data;
+                    position = pagePosition;
 
-                return diskpage;
+                    ENSURE(diskpage.IsConfirmed == false || diskpage.TransactionID != 0, "page are not header-clear in data file");
+
+                    return diskpage;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
+            }
+        }
+
+        private static void ReleaseBuffer(PageBuffer buffer)
+        {
+            if (buffer == null)
+            {
+                return;
+            }
+
+            if (buffer.ShareCounter > 0)
+            {
+                buffer.Release();
+            }
+            else if (buffer.ShareCounter == BUFFER_WRITABLE)
+            {
+                buffer.ShareCounter = 0;
             }
         }
 
@@ -330,30 +375,6 @@ namespace LiteDB.Engine
                 page = this.GetPage<IndexPage>(freeIndexPageList);
 
                 ENSURE(page.FreeBytes > bytesLength, "this page shout be space enouth for this new node");
-                ENSURE(page.PageListSlot == 0, "this page should be in slot #0");
-            }
-
-            return page;
-        }
-
-        /// <summary>
-        /// Get a vector index page with enough free space for a new node.
-        /// </summary>
-        public VectorIndexPage GetFreeVectorPage(int bytesLength, ref uint freeVectorPageList)
-        {
-            ENSURE(!_disposed, "the snapshot is disposed");
-
-            VectorIndexPage page;
-
-            if (freeVectorPageList == uint.MaxValue)
-            {
-                page = this.NewPage<VectorIndexPage>();
-            }
-            else
-            {
-                page = this.GetPage<VectorIndexPage>(freeVectorPageList);
-
-                ENSURE(page.FreeBytes > bytesLength, "this page shout be space enouth for this new vector node");
                 ENSURE(page.PageListSlot == 0, "this page should be in slot #0");
             }
 
@@ -427,7 +448,7 @@ namespace LiteDB.Engine
                 _transPages.NewPages.Add(pageID);
             }
 
-            var page = BasePage.CreatePage<T>(buffer, pageID);
+            var page = BasePage.CreatePage<T>(buffer, pageID, _plugins);
 
             // update local cache with new instance T page type
             if (page.PageType != PageType.Collection)
@@ -520,42 +541,6 @@ namespace LiteDB.Engine
         }
 
         /// <summary>
-        /// Add/Remove a vector index page from single free list
-        /// </summary>
-        public void AddOrRemoveFreeVectorList(VectorIndexPage page, ref uint startPageID)
-        {
-            ENSURE(!_disposed, "the snapshot is disposed");
-
-            var newSlot = VectorIndexPage.FreeListSlot(page.FreeBytes);
-            var isOnList = page.PageListSlot == 0;
-            var mustKeep = newSlot == 0;
-
-            if (page.ItemsCount == 0)
-            {
-                if (isOnList)
-                {
-                    this.RemoveFreeList(page, ref startPageID);
-                }
-
-                this.DeletePage(page);
-            }
-            else
-            {
-                if (isOnList && !mustKeep)
-                {
-                    this.RemoveFreeList(page, ref startPageID);
-                }
-                else if (!isOnList && mustKeep)
-                {
-                    this.AddFreeList(page, ref startPageID);
-                }
-
-                page.PageListSlot = newSlot;
-                page.IsDirty = true;
-            }
-        }
-
-        /// <summary>
         /// Add page into double linked-list (always add as first element)
         /// </summary>
         private void AddFreeList<T>(T page, ref uint startPageID) where T : BasePage
@@ -574,7 +559,7 @@ namespace LiteDB.Engine
             page.NextPageID = startPageID;
             page.IsDirty = true;
 
-            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index pages must be first on free stack");
+            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index, "only data/index pages must be first on free stack");
 
             startPageID = page.PageID;
 
@@ -622,15 +607,15 @@ namespace LiteDB.Engine
         /// There is no re-use deleted page in same transaction - deleted pages will be in another linked list and will
         /// be part of Header free list page only in commit
         /// </summary>
-        private void DeletePage<T>(T page)
+        internal void DeletePage<T>(T page)
             where T : BasePage
         {
             ENSURE(page.PrevPageID == uint.MaxValue && page.NextPageID == uint.MaxValue, "before delete a page, no linked list with any another page");
             ENSURE(page.ItemsCount == 0 && page.UsedBytes == 0 && page.HighestIndex == byte.MaxValue && page.FragmentedBytes == 0, "no items on page when delete this page");
-            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index page can be deleted");
+            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index/vector pages can be deleted");
             DEBUG(!_collectionPage.FreeDataPageList.Any(x => x == page.PageID), "this page cann't be deleted because free data list page is linked o this page");
             DEBUG(!_collectionPage.GetCollectionIndexes().Any(x => x.FreeIndexPageList == page.PageID), "this page cann't be deleted because free index list page is linked o this page");
-            DEBUG(!_collectionPage.GetVectorIndexes().Any(x => x.Metadata.Reserved == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
+            DEBUG(!_collectionPage.GetVectorIndexes().Any(x => VectorIndexMetadataSerializer.GetReserved(x.Metadata) == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
             DEBUG(page.Buffer.Slice(PAGE_HEADER_SIZE, PAGE_SIZE - PAGE_HEADER_SIZE - 1).All(0), "page content shloud be empty");
 
             // mark page as empty and dirty
@@ -763,3 +748,6 @@ namespace LiteDB.Engine
         }
     }
 }
+
+
+

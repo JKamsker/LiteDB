@@ -1,7 +1,10 @@
 using System.Collections.Generic;
-using static LiteDB.Constants;
+using LiteDB;
+using LiteDB.Engine;
+using static LiteDB.Vector.Engine.VectorEngineConstants;
+using static LiteDB.Vector.Utils.VectorEnsure;
 
-namespace LiteDB.Engine
+namespace LiteDB.Vector.Engine
 {
     internal sealed class VectorIndexPage : BasePage
     {
@@ -49,7 +52,7 @@ namespace LiteDB.Engine
         {
             ENSURE(freeBytes >= 0, "freeBytes must be positive");
 
-            return freeBytes >= MAX_INDEX_LENGTH ? (byte)0 : (byte)1;
+            return freeBytes >= MaxIndexLength ? (byte)0 : (byte)1;
         }
     }
 }

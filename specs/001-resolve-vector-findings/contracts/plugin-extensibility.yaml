@@ -1,0 +1,248 @@
+openapi: 3.1.0
+info:
+  title: LiteDB Plugin Extensibility Contracts
+  version: 0.1.0
+  description: >
+    HTTP contract used by tooling and CI agents to register new vector-oriented
+    extension points with the LiteDB core runtime once the plugin-first
+    infrastructure is delivered.
+servers:
+  - url: https://extensions.litedb.dev/api
+    description: Placeholder host for automation that manages plugin descriptors.
+paths:
+  /plugins/{pluginId}/registrations/query-metadata:
+    post:
+      summary: Register or update a query metadata bag descriptor for a plugin.
+      tags: [QueryMetadata]
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryMetadataRegistration'
+      responses:
+        '201':
+          description: Query metadata bag accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryMetadataRegistration'
+        '409':
+          description: Descriptor conflict (version mismatch or reserved key).
+  /plugins/{pluginId}/registrations/bson-type:
+    post:
+      summary: Reserve a BSON type code and serialization delegates for a plugin.
+      tags: [BsonTypes]
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BsonTypeRegistration'
+      responses:
+        '201':
+          description: BSON type registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BsonTypeRegistration'
+        '409':
+          description: Type code already reserved or incompatible legacy aliases.
+  /plugins/{pluginId}/registrations/page-factory:
+    post:
+      summary: Register page factory handlers for plugin-owned page types.
+      tags: [Storage]
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageFactoryRegistration'
+      responses:
+        '201':
+          description: Page factory registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageFactoryRegistration'
+        '422':
+          description: Compatibility range invalid or missing rebuild hook for vector storage.
+  /plugins/{pluginId}/registrations/index-strategy:
+    post:
+      summary: Publish a vector index strategy descriptor that replaces EnsureVectorIndex.
+      tags: [IndexStrategies]
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IndexStrategyRegistration'
+      responses:
+        '201':
+          description: Strategy registered and available for routing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndexStrategyRegistration'
+        '400':
+          description: Referenced BSON types or page factories missing.
+  /plugins/{pluginId}/upgrade-manifests:
+    post:
+      summary: Submit an upgrade manifest describing migration steps for legacy databases.
+      tags: [Upgrade]
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpgradeManifest'
+      responses:
+        '201':
+          description: Upgrade manifest recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpgradeManifest'
+        '409':
+          description: Manifest exists for the supplied major version.
+components:
+  parameters:
+    PluginId:
+      name: pluginId
+      in: path
+      required: true
+      description: Identifier of the plugin (e.g., `LiteDB.Vector`).
+      schema:
+        type: string
+        minLength: 1
+  schemas:
+    QueryMetadataRegistration:
+      type: object
+      required: [pluginId, version, reservedKeys]
+      properties:
+        pluginId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        reservedKeys:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          description: Keys that will be accepted in the metadata bag.
+        description:
+          type: string
+          description: Summary of how the metadata is used.
+    BsonTypeRegistration:
+      type: object
+      required: [pluginId, typeCode, name, serializerContract, deserializerContract]
+      properties:
+        pluginId:
+          type: string
+        typeCode:
+          type: integer
+          minimum: 128
+          maximum: 255
+          description: Type codes ≥128 reserved for plugins.
+        name:
+          type: string
+        serializerContract:
+          type: string
+          description: Fully qualified delegate name implementing serialization.
+        deserializerContract:
+          type: string
+        legacyAliases:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 255
+          description: Historic codes that forward to the plugin registration.
+    PageFactoryRegistration:
+      type: object
+      required: [pluginId, pageType, factoryContract, compatibilityRange]
+      properties:
+        pluginId:
+          type: string
+        pageType:
+          type: string
+          enum: [VectorIndex, VectorMetadata, Custom]
+        factoryContract:
+          type: string
+          description: Delegate signature exported by the plugin assembly.
+        metadataSerializerContract:
+          type: string
+          description: Optional serializer delegate for page metadata.
+        rebuildHookContract:
+          type: string
+          description: Optional rebuild participant for engine pipelines.
+        compatibilityRange:
+          type: string
+          description: Semantic version range (e.g., ">=8.0").
+    IndexStrategyRegistration:
+      type: object
+      required: [pluginId, strategyId, ensureContract, plannerContract]
+      properties:
+        pluginId:
+          type: string
+        strategyId:
+          type: string
+          description: Name exposed to public APIs (e.g., "vector-cosine").
+        ensureContract:
+          type: string
+          description: Delegate implementing index creation and upgrades.
+        plannerContract:
+          type: string
+          description: Delegate injecting vector planning behavior.
+        rebuildContract:
+          type: string
+          description: Optional rebuild implementation contract.
+        requiredBsonTypes:
+          type: array
+          items:
+            type: integer
+        requiredPageTypes:
+          type: array
+          items:
+            type: string
+          description: Page types that must exist before strategy activation.
+    UpgradeManifest:
+      type: object
+      required: [pluginId, manifestId, steps, supportsInPlace]
+      properties:
+        pluginId:
+          type: string
+        manifestId:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            required: [id, description, command]
+            properties:
+              id:
+                type: string
+              description:
+                type: string
+              command:
+                type: string
+                description: Automation command to execute the step.
+              verifies:
+                type: string
+                description: Success criterion being validated.
+        supportsInPlace:
+          type: boolean
+        rollbackPlan:
+          type: string
+          description: Summary of how to revert if validation fails.

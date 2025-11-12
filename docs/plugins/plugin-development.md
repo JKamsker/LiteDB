@@ -33,6 +33,59 @@ All registries live under `ILitePluginContext` (`LiteDB/Plugins/ILitePlugin.cs:2
 - `QueryOptimization` asks each registered rule (ordered) to rewrite the plan; a rule must call `context.UseIndex` to take ownership (`LiteDB/Engine/Query/QueryOptimization.cs:173`).
 - The context exposes the current snapshot, query terms, and helper slots for residual filters, enabling advanced planners like spatial range searches.
 
+### Query Metadata Accessor
+
+- Register a metadata descriptor per plugin with `context.RegisterQueryMetadata(pluginId, version, reservedKeys)`; descriptors are routed through `IQueryMetadataAccessor` (`LiteDB/Plugins/Query/IQueryMetadataAccessor.cs`).
+- `QueryOptimization` and other engine paths call `Query.GetOrCreateMetadata`, so planning rules can retrieve a strongly typed `QueryMetadataBag` via `context.GetOrCreateMetadata(pluginId, factory)` (`LiteDB/Plugins/QueryPlanningContext.cs:74`).
+- Bags let you stash planner state (target embeddings, scoring hints, etc.) outside the `Query` object while enforcing reserved-key validation and versioning (`LiteDB/Plugins/Query/QueryMetadataBag.cs:14`).
+
+```csharp
+public override bool TryRewrite(QueryPlanningContext context)
+{
+    var bag = context.GetOrCreateMetadata(VectorQueryMetadata.PluginId);
+    bag.Set(VectorQueryMetadata.TargetEmbedding, target);
+    // Emit filters or call context.UseIndex(...)
+}
+```
+
+Use `LiteDatabase.Services.QueryMetadata` when application code needs to inspect descriptors or emit diagnostics after initialization (`LiteDB/Client/Database/LiteDatabaseServices.cs:32`).
+
+### BSON Type Registry
+
+- Plugins reserve type codes and serializers by calling `context.RegisterBsonType(new BsonTypeRegistration(...))` during initialization (`LiteDB/Plugins/Bson/IBsonTypeRegistry.cs`).
+- Type codes ≥128 keep core enums stable while allowing plugins to round-trip `ValueTask`-based serialization handlers (`LiteDB/Document/Bson/BsonTypeRegistry.cs:14`).
+- The registry feeds every BSON serialization path (`LiteDB/Document/BsonValue.cs`, `LiteDB/Document/Json/JsonWriter.cs`), so once a plugin registers a type, all writers/readers automatically delegate to the supplied delegates.
+
+```csharp
+context.RegisterBsonType(new BsonTypeRegistration(
+    pluginId: "LiteDB.Vector",
+    typeCode: 200,
+    name: "Vector128",
+    serializer: VectorBsonSerializer.SerializeAsync,
+    deserializer: VectorBsonSerializer.DeserializeAsync,
+    legacyAliases: new byte[] { (byte)BsonType.Vector }));
+```
+
+Fallback registrations keep legacy documents readable, but new writes should use the plugin-owned code path to avoid reintroducing core dependencies.
+
+### Page Factory Registry
+
+- Storage extensions register page constructors via `context.RegisterPageFactory(new PageFactoryRegistration(...))` (`LiteDB/Plugins/Storage/IPageFactoryRegistry.cs`).
+- Each registration declares a logical `pageType` and compatibility range so the engine can validate formats before `FileReaderV8` and `SnapShot` materialize pages (`LiteDB/Engine/Pages/PageFactoryRegistry.cs`, `LiteDB/Engine/FileReader/FileReaderV8.cs:52`).
+- Optional metadata serializers and rebuild hooks participate in checkpoints and `LiteDB/Engine/Engine/Rebuild.cs`, allowing plugins to persist auxiliary page headers and coordinate recovery.
+
+```csharp
+context.RegisterPageFactory(new PageFactoryRegistration(
+    pluginId: "LiteDB.Vector",
+    pageType: "VectorIndex",
+    compatibilityRange: ">=8.0",
+    factory: VectorPageFactory.Create,
+    metadataSerializer: VectorPageFactory.SerializeMetadataAsync,
+    rebuildHook: VectorPageFactory.OnRebuildAsync));
+```
+
+When a page type is registered, `LiteDatabaseServices` swaps the default fallback resolver so every page allocation/clone defers to the plugin without friend assemblies (`LiteDB/Client/Database/LiteDatabaseServices.cs:17`).
+
 ### LINQ Resolver Registry
 
 - `ILinqResolverRegistry.Register` wires `MethodInfo` / `MemberInfo` patterns to BSON expressions on a per-type basis (`LiteDB/Plugins/ILitePlugin.cs:145`).
@@ -138,10 +191,19 @@ foreach (var function in db.Services.ExpressionRegistry.Functions)
 }
 ```
 
+> **Vector Query Reminder:** Core `LiteQueryable` no longer ships vector helpers such as `WhereNear`, `TopKNear`, or `FindNearest`. The LiteDB.Vector package provides those behaviors via `LiteQueryableVectorExtensions` (`LiteDB.Vector/Extensions/LiteQueryableVectorExtensions.cs`), so application and test code must `using LiteDB.Vector;` after registering `VectorSearchPlugin`.
+
 ## Testing & Diagnostics
 
 - Unit test individual registries (e.g., ensure expression functions behave as expected) and integration test by executing queries through `LiteDatabase`.
 - If your plugin alters index planning, add regression tests similar to `LiteDB.Spatial.Core.Tests/Plugin/SpatialPluginIntegrationTests.cs:121`.
 - Provide CLI tooling or shell commands that call your diagnostics helper so operators can verify configuration in production.
+
+## Upgrade Tooling & Artifact Hygiene
+
+- Run `scripts/vector/Invoke-VectorUpgrade.ps1` from the repo root when migrating legacy databases; the script now defaults its `-BackupDirectory` to `artifacts_temp/vector-followup/databases/`, an ignored staging area that is created automatically.
+- If you prefer a different destination, always pass `-BackupDirectory` (or set `VectorMigrationOptions.BackupDirectory` when hosting the helpers directly) to another ignored path or a system temp directory; never leave `.db`, `.db-log`, or `.db-lock` files inside tracked folders.
+- Only commit textual artifacts (reports, logs) from `artifacts_temp/`; `.gitignore` blocks binary backups and sidecars, so remove any stray databases before sending a PR.
+- When sharing upgrade evidence, attach the Markdown report (`-ReportPath artifacts_temp/vector-followup/upgrade-report.md` by convention) rather than the database copies themselves.
 
 With these extension points you can introduce rich features while keeping the core engine stable. Study the spatial plugin for advanced patterns, and follow the checklist above to deliver a predictable, testable plugin experience.

@@ -8,6 +8,7 @@ using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Tests.Utils;
 using LiteDB.Vector;
+using LiteDB.Vector.Engine;
 using Xunit;
 
 namespace LiteDB.Tests.Engine
@@ -241,12 +242,14 @@ namespace LiteDB.Tests.Engine
             return ExecuteInTransaction(db, transaction =>
             {
                 var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                var metadata = snapshot.CollectionPage.GetVectorIndexMetadata(VectorIndexName);
+                var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata(VectorIndexName);
 
-                if (metadata == null)
+                if (metadataBuffer == null)
                 {
                     return default;
                 }
+
+                var metadata = VectorIndexMetadata.Wrap(metadataBuffer);
 
                 return selector(snapshot, metadata);
             });

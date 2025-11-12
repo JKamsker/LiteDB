@@ -211,7 +211,7 @@ namespace LiteDB.Vector.Engine
             var levelCount = this.SampleLevel();
             var length = VectorIndexNode.GetLength(vector.Length, out var storesInline);
             var freeList = metadata.Reserved;
-            var page = _snapshot.GetFreeVectorPage(length, ref freeList);
+            var page = GetFreeVectorPage(length, ref freeList);
             metadata.Reserved = freeList;
 
             PageAddress externalVector = PageAddress.Empty;
@@ -228,7 +228,7 @@ namespace LiteDB.Vector.Engine
 
                 freeList = metadata.Reserved;
                 metadata.Reserved = uint.MaxValue;
-                _snapshot.AddOrRemoveFreeVectorList(page, ref freeList);
+                AddOrRemoveFreeVectorList(page, ref freeList);
                 metadata.Reserved = freeList;
             }
             catch
@@ -316,7 +316,7 @@ namespace LiteDB.Vector.Engine
             PageAddress start,
             int level,
             Dictionary<PageAddress, float[]> vectorCache,
-            HashSet<PageAddress> globalVisited)
+            HashSet<PageAddress>? globalVisited)
         {
             var current = start;
             this.RegisterVisit(globalVisited, current);
@@ -363,7 +363,7 @@ namespace LiteDB.Vector.Engine
             int level,
             int maxResults,
             int explorationFactor,
-            HashSet<PageAddress> globalVisited,
+            HashSet<PageAddress>? globalVisited,
             Dictionary<PageAddress, float[]> vectorCache)
         {
             var results = new List<NodeDistance>();
@@ -439,14 +439,14 @@ namespace LiteDB.Vector.Engine
             node.SetNeighbors(level, pruned);
         }
 
-        private IReadOnlyList<PageAddress> PruneNeighbors(VectorIndexMetadata metadata, PageAddress source, List<PageAddress> neighbors, Dictionary<PageAddress, float[]> vectorCache)
+        private List<PageAddress> PruneNeighbors(VectorIndexMetadata metadata, PageAddress source, List<PageAddress> neighbors, Dictionary<PageAddress, float[]> vectorCache)
         {
             var unique = new HashSet<PageAddress>(neighbors.Where(x => !x.IsEmpty && x != source));
             var metric = (VectorDistanceMetric)metadata.Metric;
 
             if (unique.Count == 0)
             {
-                return Array.Empty<PageAddress>();
+                return new List<PageAddress>();
             }
 
             var sourceVector = this.GetVector(metadata, source, vectorCache);
@@ -552,7 +552,7 @@ namespace LiteDB.Vector.Engine
         private bool TryFindNode(VectorIndexMetadata metadata, PageAddress dataBlock, out PageAddress address, out VectorIndexNode node)
         {
             address = PageAddress.Empty;
-            node = null;
+            node = default!;
 
             if (metadata.Root.IsEmpty)
             {
@@ -639,8 +639,13 @@ namespace LiteDB.Vector.Engine
             page.DeleteNode(node.Position.Index);
             var freeList = metadata.Reserved;
             metadata.Reserved = uint.MaxValue;
-            _snapshot.AddOrRemoveFreeVectorList(page, ref freeList);
+            AddOrRemoveFreeVectorList(page, ref freeList);
             metadata.Reserved = freeList;
+
+            if (page.ItemsCount == 0)
+            {
+                _snapshot.DeletePage(page);
+            }
         }
 
         private VectorIndexNode GetNode(PageAddress address)
@@ -717,7 +722,7 @@ namespace LiteDB.Vector.Engine
             var totalBytes = vector.Length * sizeof(float);
             var bytesWritten = 0;
             var firstBlock = PageAddress.Empty;
-            DataBlock lastBlock = null;
+            DataBlock? lastBlock = null;
 
             while (bytesWritten < totalBytes)
             {
@@ -797,7 +802,7 @@ namespace LiteDB.Vector.Engine
             return (byte)level;
         }
 
-        private void RegisterVisit(HashSet<PageAddress> visited, PageAddress address)
+        private void RegisterVisit(HashSet<PageAddress>? visited, PageAddress address)
         {
             if (address.IsEmpty)
             {
@@ -935,7 +940,7 @@ namespace LiteDB.Vector.Engine
 
         private static bool TryExtractVector(BsonValue value, ushort expectedDimensions, out float[] vector)
         {
-            vector = null;
+            vector = null!;
 
             if (value.IsNull)
             {
@@ -944,10 +949,12 @@ namespace LiteDB.Vector.Engine
 
             float[] buffer;
 
+            #pragma warning disable CS0618
             if (value.Type == BsonType.Vector)
             {
                 buffer = value.AsVector.ToArray();
             }
+            #pragma warning restore CS0618
             else if (value.IsArray)
             {
                 buffer = new float[value.AsArray.Count];
@@ -979,6 +986,110 @@ namespace LiteDB.Vector.Engine
             vector = buffer;
             return true;
         }
+
+        private VectorIndexPage GetFreeVectorPage(int bytesLength, ref uint freeVectorPageList)
+        {
+            VectorIndexPage page;
+
+            if (freeVectorPageList == uint.MaxValue)
+            {
+                page = _snapshot.NewPage<VectorIndexPage>();
+            }
+            else
+            {
+                page = _snapshot.GetPage<VectorIndexPage>(freeVectorPageList);
+
+                if (page.FreeBytes <= bytesLength)
+                {
+                    page = _snapshot.NewPage<VectorIndexPage>();
+                }
+            }
+
+            page.IsDirty = true;
+            return page;
+        }
+
+        private void AddOrRemoveFreeVectorList(VectorIndexPage page, ref uint startPageId)
+        {
+            var newSlot = VectorIndexPage.FreeListSlot(page.FreeBytes);
+            var isOnList = page.PageListSlot == 0;
+            var mustBeOnList = newSlot == 0;
+
+            if (page.ItemsCount == 0)
+            {
+                if (isOnList)
+                {
+                    RemoveVectorPageFromFreeList(page, ref startPageId);
+                }
+
+                page.PageListSlot = byte.MaxValue;
+                page.IsDirty = true;
+                return;
+            }
+
+            if (isOnList && !mustBeOnList)
+            {
+                RemoveVectorPageFromFreeList(page, ref startPageId);
+                page.PageListSlot = byte.MaxValue;
+                page.IsDirty = true;
+            }
+            else if (!isOnList && mustBeOnList)
+            {
+                AddVectorPageToFreeList(page, ref startPageId);
+                page.PageListSlot = 0;
+                page.IsDirty = true;
+            }
+            else if (isOnList && mustBeOnList)
+            {
+                page.PageListSlot = 0;
+                page.IsDirty = true;
+            }
+        }
+
+        private void AddVectorPageToFreeList(VectorIndexPage page, ref uint startPageId)
+        {
+            if (startPageId != uint.MaxValue)
+            {
+                var next = _snapshot.GetPage<VectorIndexPage>(startPageId);
+                next.PrevPageID = page.PageID;
+                next.IsDirty = true;
+            }
+
+            page.PrevPageID = uint.MaxValue;
+            page.NextPageID = startPageId;
+            page.PageListSlot = 0;
+            page.IsDirty = true;
+
+            startPageId = page.PageID;
+            _snapshot.CollectionPage.IsDirty = true;
+        }
+
+        private void RemoveVectorPageFromFreeList(VectorIndexPage page, ref uint startPageId)
+        {
+            if (page.PrevPageID != uint.MaxValue)
+            {
+                var prev = _snapshot.GetPage<VectorIndexPage>(page.PrevPageID);
+                prev.NextPageID = page.NextPageID;
+                prev.IsDirty = true;
+            }
+
+            if (page.NextPageID != uint.MaxValue)
+            {
+                var next = _snapshot.GetPage<VectorIndexPage>(page.NextPageID);
+                next.PrevPageID = page.PrevPageID;
+                next.IsDirty = true;
+            }
+
+            if (startPageId == page.PageID)
+            {
+                startPageId = page.NextPageID;
+                _snapshot.CollectionPage.IsDirty = true;
+            }
+
+            page.PrevPageID = uint.MaxValue;
+            page.NextPageID = uint.MaxValue;
+            page.PageListSlot = byte.MaxValue;
+            page.IsDirty = true;
+        }
     }
 }
-

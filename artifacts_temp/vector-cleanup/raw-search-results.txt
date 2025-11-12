@@ -1,0 +1,196 @@
+./LiteDB\Utils\Constants.cs:[assembly: InternalsVisibleTo("LiteDB.Vector")]
+./LiteDB\Utils\Constants.cs:[assembly: InternalsVisibleTo("LiteDB.Vector.Tests")]
+./LiteDB\Plugins\QueryPlanningContext.cs:        internal bool VectorOrderConsumed { get; set; }
+./LiteDB\Document\Json\JsonWriter.cs:                case BsonType.Vector:
+./LiteDB\Document\Json\JsonWriter.cs:                    var vector = value.AsVector;
+./LiteDB\Client\Shared\SharedEngine.cs:        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, BsonDocument options)
+./LiteDB\Client\Shared\SharedEngine.cs:            return QueryDatabase(() => _engine.EnsureVectorIndex(collection, name, expression, options));
+./LiteDB\Utils\Extensions\BufferSliceExtensions.cs:        public static float[] ReadVector(this BufferSlice buffer, int offset)
+./LiteDB\Utils\Extensions\BufferSliceExtensions.cs:                case BsonType.Vector: return buffer.ReadVector(offset);
+./LiteDB\Utils\Extensions\BufferSliceExtensions.cs:                    case BsonType.Vector: buffer.Write(value.AsVector, offset); break;
+./LiteDB\Document\Expression\Parser\BsonExpressionType.cs:        VectorSim = 50,
+./LiteDB\Document\Expression\Parser\BsonExpressionType.cs:        VectorDist = 51
+./LiteDB\Engine\Pages\VectorIndexPage.cs:    internal sealed class VectorIndexPage : BasePage
+./LiteDB\Engine\Pages\VectorIndexPage.cs:        public VectorIndexPage(PageBuffer buffer)
+./LiteDB\Engine\Pages\VectorIndexPage.cs:            ENSURE(this.PageType == PageType.VectorIndex, "page type must be vector index page");
+./LiteDB\Engine\Pages\VectorIndexPage.cs:            if (this.PageType != PageType.VectorIndex) throw LiteException.InvalidPageType(PageType.VectorIndex, this);
+./LiteDB\Engine\Pages\VectorIndexPage.cs:        public VectorIndexPage(PageBuffer buffer, uint pageID)
+./LiteDB\Engine\Pages\VectorIndexPage.cs:            : base(buffer, pageID, PageType.VectorIndex)
+./LiteDB\Engine\Pages\VectorIndexPage.cs:        public VectorIndexNode GetNode(byte index)
+./LiteDB\Engine\Pages\VectorIndexPage.cs:            return new VectorIndexNode(this, index, segment);
+./LiteDB\Engine\Pages\VectorIndexPage.cs:        public VectorIndexNode InsertNode(PageAddress dataBlock, float[] vector, int bytesLength, byte levelCount, PageAddress externalVector)
+./LiteDB\Engine\Pages\VectorIndexPage.cs:            return new VectorIndexNode(this, index, segment, dataBlock, vector, levelCount, externalVector);
+./LiteDB\Engine\Pages\VectorIndexPage.cs:        public IEnumerable<VectorIndexNode> GetNodes()
+./LiteDB\Engine\Pages\CollectionPage.cs:        private readonly Dictionary<string, VectorIndexMetadata> _vectorIndexes = new Dictionary<string, VectorIndexMetadata>();
+./LiteDB\Engine\Pages\CollectionPage.cs:                    var metadata = new VectorIndexMetadata(r);
+./LiteDB\Engine\Pages\CollectionPage.cs:        private int GetSerializedLength(int additionalIndexLength, int additionalVectorLength)
+./LiteDB\Engine\Pages\CollectionPage.cs:            length += 1 + _vectorIndexes.Sum(x => GetVectorMetadataLength(x.Key)) + additionalVectorLength;
+./LiteDB\Engine\Pages\CollectionPage.cs:        private static int GetVectorMetadataLength(string name)
+./LiteDB\Engine\Pages\CollectionPage.cs:            return StringEncoding.UTF8.GetByteCount(name) + 1 + VectorIndexMetadata.GetLength();
+./LiteDB\Engine\Pages\CollectionPage.cs:        public IEnumerable<(CollectionIndex Index, VectorIndexMetadata Metadata)> GetVectorIndexes()
+./LiteDB\Engine\Pages\CollectionPage.cs:        public VectorIndexMetadata GetVectorIndexMetadata(string name)
+./LiteDB\Engine\Pages\CollectionPage.cs:        public (CollectionIndex Index, VectorIndexMetadata Metadata) InsertVectorIndex(string name, string expr, ushort dimensions, byte metric, IExpressionRegistry registry = null)
+./LiteDB\Engine\Pages\CollectionPage.cs:            var totalLength = this.GetSerializedLength(CollectionIndex.GetLength(name, expr), GetVectorMetadataLength(name));
+./LiteDB\Engine\Pages\CollectionPage.cs:            var metadata = new VectorIndexMetadata(slot, dimensions, metric);
+./LiteDB\Engine\Pages\BasePage.cs:    internal enum PageType { Empty = 0, Header = 1, Collection = 2, Index = 3, Data = 4, VectorIndex = 5 }
+./LiteDB\Engine\Pages\BasePage.cs:            if (typeof(T) == typeof(VectorIndexPage)) return (T)(object)new VectorIndexPage(buffer);
+./LiteDB\Engine\Pages\BasePage.cs:            if (typeof(T) == typeof(VectorIndexPage)) return (T)(object)new VectorIndexPage(buffer, pageID);
+./LiteDB\Client\Database\Collections\Index.cs:        internal bool EnsureVectorIndex(string name, BsonExpression expression, BsonDocument options)
+./LiteDB\Client\Database\Collections\Index.cs:            return _engine.EnsureVectorIndex(_collection, name, expression, options);
+./LiteDB\Client\Database\Collections\Index.cs:        internal bool EnsureVectorIndex(BsonExpression expression, BsonDocument options)
+./LiteDB\Client\Database\Collections\Index.cs:            return this.EnsureVectorIndex(name, expression, options);
+./LiteDB\Client\Database\Collections\Index.cs:        internal bool EnsureVectorIndex<K>(Expression<Func<T, K>> keySelector, BsonDocument options)
+./LiteDB\Client\Database\Collections\Index.cs:            return this.EnsureVectorIndex(expression, options);
+./LiteDB\Client\Database\Collections\Index.cs:        internal bool EnsureVectorIndex<K>(string name, Expression<Func<T, K>> keySelector, BsonDocument options)
+./LiteDB\Client\Database\Collections\Index.cs:            return this.EnsureVectorIndex(name, expression, options);
+./LiteDB\Client\Database\LiteRepository.cs:        internal bool EnsureVectorIndex<T>(string name, BsonExpression expression, BsonDocument options, string? collectionName = null)
+./LiteDB\Client\Database\LiteRepository.cs:            return this.GetLiteCollection<T>(collectionName).EnsureVectorIndex(name, expression, options);
+./LiteDB\Client\Database\LiteRepository.cs:        internal bool EnsureVectorIndex<T>(BsonExpression expression, BsonDocument options, string? collectionName = null)
+./LiteDB\Client\Database\LiteRepository.cs:            return this.GetLiteCollection<T>(collectionName).EnsureVectorIndex(expression, options);
+./LiteDB\Client\Database\LiteRepository.cs:        internal bool EnsureVectorIndex<T, K>(Expression<Func<T, K>> keySelector, BsonDocument options, string? collectionName = null)
+./LiteDB\Client\Database\LiteRepository.cs:            return this.GetLiteCollection<T>(collectionName).EnsureVectorIndex(keySelector, options);
+./LiteDB\Client\Database\LiteRepository.cs:        internal bool EnsureVectorIndex<T, K>(string name, Expression<Func<T, K>> keySelector, BsonDocument options, string? collectionName = null)
+./LiteDB\Client\Database\LiteRepository.cs:            return this.GetLiteCollection<T>(collectionName).EnsureVectorIndex(name, keySelector, options);
+./LiteDB\Engine\ILiteEngine.cs:        bool EnsureVectorIndex(string collection, string name, BsonExpression expression, BsonDocument options);
+./LiteDB\Client\Database\LiteQueryable.cs:        private static void ValidateVectorArguments(float[] target, double maxDistance)
+./LiteDB\Client\Database\LiteQueryable.cs:        private BsonExpression CreateVectorDistanceFilter(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
+./LiteDB\Client\Database\LiteQueryable.cs:            ValidateVectorArguments(target, maxDistance);
+./LiteDB\Client\Database\LiteQueryable.cs:        private BsonExpression CreateVectorDistanceExpression(BsonExpression fieldExpr, float[] target, byte? metric)
+./LiteDB\Client\Database\LiteQueryable.cs:            ValidateVectorArguments(target, double.MaxValue);
+./LiteDB\Client\Database\LiteQueryable.cs:        private void ConfigureVectorContext(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric)
+./LiteDB\Client\Database\LiteQueryable.cs:            _query.VectorField = fieldExpr.Source;
+./LiteDB\Client\Database\LiteQueryable.cs:            _query.VectorTarget = target?.ToArray();
+./LiteDB\Client\Database\LiteQueryable.cs:            _query.VectorMaxDistance = maxDistance;
+./LiteDB\Client\Database\LiteQueryable.cs:            _query.VectorMetric = metric;
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryable<T> VectorWhereNear(string vectorField, float[] target, double maxDistance, byte? metric = null)
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorWhereNear(fieldExpr, target, maxDistance, metric);
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryable<T> VectorWhereNear(BsonExpression fieldExpr, float[] target, double maxDistance, byte? metric = null)
+./LiteDB\Client\Database\LiteQueryable.cs:            var effectiveMetric = metric ?? _query.VectorMetric;
+./LiteDB\Client\Database\LiteQueryable.cs:            var filter = CreateVectorDistanceFilter(fieldExpr, target, maxDistance, effectiveMetric);
+./LiteDB\Client\Database\LiteQueryable.cs:            this.ConfigureVectorContext(fieldExpr, target, maxDistance, effectiveMetric);
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryable<T> VectorWhereNear<K>(Expression<Func<T, K>> field, float[] target, double maxDistance, byte? metric = null)
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorWhereNear(fieldExpr, target, maxDistance, metric);
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryableResult<T> VectorTopKNear<K>(Expression<Func<T, K>> field, float[] target, int k, byte? metric = null, double? maxDistance = null)
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorTopKNear(fieldExpr, target, k, metric, maxDistance);
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryableResult<T> VectorTopKNear(string field, float[] target, int k, byte? metric = null, double? maxDistance = null)
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorTopKNear(fieldExpr, target, k, metric, maxDistance);
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryableResult<T> VectorTopKNear(BsonExpression fieldExpr, float[] target, int k, byte? metric = null, double? maxDistance = null)
+./LiteDB\Client\Database\LiteQueryable.cs:                this.VectorWhereNear(fieldExpr, target, effectiveMaxDistance, metric);
+./LiteDB\Client\Database\LiteQueryable.cs:                this.ConfigureVectorContext(fieldExpr, target, effectiveMaxDistance, metric);
+./LiteDB\Client\Database\LiteQueryable.cs:            var distExpr = this.CreateVectorDistanceExpression(fieldExpr, target, metric);
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryable<T> VectorOrderByNearest<K>(Expression<Func<T, K>> field, float[] target, byte? metric = null, double? maxDistance = null)
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorOrderByNearest(fieldExpr, target, metric, maxDistance);
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryable<T> VectorOrderByNearest(string field, float[] target, byte? metric = null, double? maxDistance = null)
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorOrderByNearest(fieldExpr, target, metric, maxDistance);
+./LiteDB\Client\Database\LiteQueryable.cs:        internal ILiteQueryable<T> VectorOrderByNearest(BsonExpression fieldExpr, float[] target, byte? metric = null, double? maxDistance = null)
+./LiteDB\Client\Database\LiteQueryable.cs:                this.VectorWhereNear(fieldExpr, target, effectiveMaxDistance, metric);
+./LiteDB\Client\Database\LiteQueryable.cs:                this.ConfigureVectorContext(fieldExpr, target, effectiveMaxDistance, metric);
+./LiteDB\Client\Database\LiteQueryable.cs:            var distExpr = this.CreateVectorDistanceExpression(fieldExpr, target, metric);
+./LiteDB\Client\Database\LiteQueryable.cs:        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorWhereNear(vectorField, target, maxDistance);
+./LiteDB\Client\Database\LiteQueryable.cs:        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorWhereNear(fieldExpr, target, maxDistance);
+./LiteDB\Client\Database\LiteQueryable.cs:        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.WhereNear extension instead.")]
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorWhereNear(field, target, maxDistance);
+./LiteDB\Client\Database\LiteQueryable.cs:        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.FindNearest extension instead.")]
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorWhereNear(vectorField, target, maxDistance).ToEnumerable();
+./LiteDB\Client\Database\LiteQueryable.cs:        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.TopKNear extension instead.")]
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorTopKNear(field, target, k);
+./LiteDB\Client\Database\LiteQueryable.cs:        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.TopKNear extension instead.")]
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorTopKNear(field, target, k);
+./LiteDB\Client\Database\LiteQueryable.cs:        [Obsolete("Add `using LiteDB.Vector;` and call the LiteQueryableVectorExtensions.TopKNear extension instead.")]
+./LiteDB\Client\Database\LiteQueryable.cs:            return this.VectorTopKNear(fieldExpr, target, k);
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:    internal interface IVectorIndexSearchService
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:        void Upsert(CollectionIndex index, VectorIndexMetadata metadata, BsonDocument document, PageAddress dataBlock);
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:        void Delete(VectorIndexMetadata metadata, PageAddress dataBlock);
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:        IEnumerable<(BsonDocument Document, double Distance)> Search(VectorIndexMetadata metadata, float[] target, double maxDistance, int? limit);
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:        void Drop(VectorIndexMetadata metadata);
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:    internal static class VectorIndexServiceFactory
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:        private static Func<Snapshot, Collation, IVectorIndexSearchService> _factory;
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:        public static void Register(Func<Snapshot, Collation, IVectorIndexSearchService> factory)
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:        public static IVectorIndexSearchService Create(Snapshot snapshot, Collation collation)
+./LiteDB\Engine\Services\VectorIndexServiceFactory.cs:                throw new LiteException(0, "Vector indexing requires the LiteDB.Vector extension package. Install via: dotnet add package LiteDB.Vector");
+./LiteDB\Document\BsonType.cs:        Vector = 100,
+./LiteDB\Engine\Services\SnapShot.cs:        public VectorIndexPage GetFreeVectorPage(int bytesLength, ref uint freeVectorPageList)
+./LiteDB\Engine\Services\SnapShot.cs:            VectorIndexPage page;
+./LiteDB\Engine\Services\SnapShot.cs:            if (freeVectorPageList == uint.MaxValue)
+./LiteDB\Engine\Services\SnapShot.cs:                page = this.NewPage<VectorIndexPage>();
+./LiteDB\Engine\Services\SnapShot.cs:                page = this.GetPage<VectorIndexPage>(freeVectorPageList);
+./LiteDB\Engine\Services\SnapShot.cs:        public void AddOrRemoveFreeVectorList(VectorIndexPage page, ref uint startPageID)
+./LiteDB\Engine\Services\SnapShot.cs:            var newSlot = VectorIndexPage.FreeListSlot(page.FreeBytes);
+./LiteDB\Engine\Services\SnapShot.cs:            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index pages must be first on free stack");
+./LiteDB\Engine\Services\SnapShot.cs:            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index page can be deleted");
+./LiteDB\Engine\Services\SnapShot.cs:            DEBUG(!_collectionPage.GetVectorIndexes().Any(x => x.Metadata.Reserved == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
+./LiteDB\Document\BsonVector.cs:public class BsonVector(float[] values) : BsonValue(values)
+./LiteDB\Document\BsonVector.cs:    public float[] Values => AsVector;
+./LiteDB\Document\BsonVector.cs:        return new BsonVector((float[])Values.Clone());
+./LiteDB\Document\BsonVector.cs:        return obj is BsonVector other && Values.SequenceEqual(other.Values);
+./LiteDB\Document\BsonValue.cs:            this.Type = BsonType.Vector;
+./LiteDB\Document\BsonValue.cs:            else if (value is float[]) this.Type = BsonType.Vector;
+./LiteDB\Document\BsonValue.cs:        public float[] AsVector => (float[])this.RawValue;
+./LiteDB\Document\BsonValue.cs:        public bool IsVector => this.Type == BsonType.Vector;
+./LiteDB\Document\BsonValue.cs:        // Vector
+./LiteDB\Document\BsonValue.cs:            return value.AsVector;
+./LiteDB\Document\BsonValue.cs:        // Vector
+./LiteDB\Document\BsonValue.cs:            return new BsonVector(value);
+./LiteDB\Document\BsonValue.cs:                case BsonType.Vector:
+./LiteDB\Document\BsonValue.cs:                        var left = this.AsVector;
+./LiteDB\Document\BsonValue.cs:                        var right = other.AsVector;
+./LiteDB\Document\BsonValue.cs:                case BsonType.Vector: return 2 + (4 * this.AsVector.Length);
+./LiteDB\Engine\Engine\Rebuild.cs:                        if (index.IndexType == 1 && index.VectorMetadata != null)
+./LiteDB\Engine\Engine\Rebuild.cs:                                ["dimensions"] = (int)index.VectorMetadata.Dimensions,
+./LiteDB\Engine\Engine\Rebuild.cs:                                ["metric"] = (int)index.VectorMetadata.Metric
+./LiteDB\Engine\Engine\Rebuild.cs:                            this.EnsureVectorIndex(
+./LiteDB\Engine\Structures\VectorIndexNode.cs:    internal sealed class VectorIndexNode
+./LiteDB\Engine\Structures\VectorIndexNode.cs:        private readonly VectorIndexPage _page;
+./LiteDB\Engine\Structures\VectorIndexNode.cs:        public VectorIndexPage Page => _page;
+./LiteDB\Engine\Structures\VectorIndexNode.cs:        public bool HasInlineVector { get; }
+./LiteDB\Engine\Structures\VectorIndexNode.cs:        public PageAddress ExternalVector { get; }
+./LiteDB\Engine\Structures\VectorIndexNode.cs:        public VectorIndexNode(VectorIndexPage page, byte index, BufferSlice segment)
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                this.HasInlineVector = false;
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                this.ExternalVector = segment.ReadPageAddress(P_VECTOR_POINTER);
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                this.HasInlineVector = true;
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                this.ExternalVector = PageAddress.Empty;
+./LiteDB\Engine\Structures\VectorIndexNode.cs:        public VectorIndexNode(VectorIndexPage page, byte index, BufferSlice segment, PageAddress dataBlock, float[] vector, byte levelCount, PageAddress externalVector)
+./LiteDB\Engine\Structures\VectorIndexNode.cs:            this.HasInlineVector = externalVector.IsEmpty;
+./LiteDB\Engine\Structures\VectorIndexNode.cs:            this.ExternalVector = externalVector;
+./LiteDB\Engine\Structures\VectorIndexNode.cs:            if (this.HasInlineVector)
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                if (externalVector.IsEmpty)
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                    throw new ArgumentException("External vector address must be provided when vector is stored out of page.", nameof(externalVector));
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                segment.Write(externalVector, P_VECTOR_POINTER);
+./LiteDB\Engine\Structures\VectorIndexNode.cs:        public void UpdateVector(float[] vector)
+./LiteDB\Engine\Structures\VectorIndexNode.cs:            if (this.HasInlineVector == false)
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                throw new ArgumentException("Vector length must match node dimensions.", nameof(vector));
+./LiteDB\Engine\Structures\VectorIndexNode.cs:        public float[] ReadVector()
+./LiteDB\Engine\Structures\VectorIndexNode.cs:            if (!this.HasInlineVector)
+./LiteDB\Engine\Structures\VectorIndexNode.cs:                throw new InvalidOperationException("Vector is stored externally and must be loaded from the data pages.");
+./LiteDB\Engine\Structures\VectorIndexNode.cs:            return _segment.ReadVector(P_VECTOR);
+./LiteDB\Engine\Structures\VectorIndexMetadata.cs:    internal sealed class VectorIndexMetadata
+./LiteDB\Engine\Structures\VectorIndexMetadata.cs:        public VectorIndexMetadata(byte slot, ushort dimensions, byte metric)
+./LiteDB\Engine\Structures\VectorIndexMetadata.cs:        public VectorIndexMetadata(BufferReader reader)
+./LiteDB\Engine\Engine\Index.cs:        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, BsonDocument options)
+./LiteDB\Engine\Engine\Index.cs:            if (expression.Fields.Count == 0) throw new ArgumentException("Vector index expressions must reference a document field.", nameof(expression));
+./LiteDB\Engine\Engine\Index.cs:                throw new LiteException(0, "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase.");
+./LiteDB\Engine\FileReader\FileReaderV8.cs:                            VectorMetadata = index.IndexType == 1 ? collectionPage.GetVectorIndexMetadata(index.Name) : null
+./LiteDB\Engine\FileReader\IndexInfo.cs:        public VectorIndexMetadata VectorMetadata { get; set; }
+./LiteDB\Engine\Query\Query.cs:        public string VectorField { get; set; } = null;
+./LiteDB\Engine\Query\Query.cs:        public float[] VectorTarget { get; set; } = null;
+./LiteDB\Engine\Query\Query.cs:        public double VectorMaxDistance { get; set; } = double.MaxValue;
+./LiteDB\Engine\Query\Query.cs:        public byte? VectorMetric { get; set; } = null;
+./LiteDB\Engine\Query\Query.cs:        public bool HasVectorFilter => VectorField != null && VectorTarget != null;
+./LiteDB\Engine\Query\Query.cs:            if (this.HasVectorFilter)
+./LiteDB\Engine\Query\Query.cs:                var field = this.VectorField;
+./LiteDB\Engine\Query\Query.cs:                var metricSegment = this.VectorMetric.HasValue
+./LiteDB\Engine\Query\Query.cs:                    ? $", {this.VectorMetric.Value}"
+./LiteDB\Engine\Query\Query.cs:                var vectorExpr = $"VECTOR_DIST({field}, [{string.Join(",", this.VectorTarget)}]{metricSegment})";
+./LiteDB\Engine\Query\Query.cs:                    sb.AppendLine($"WHERE ({string.Join(" AND ", this.Where.Select(x => x.Source))}) AND {vectorExpr} <= {this.VectorMaxDistance}");
+./LiteDB\Engine\Query\Query.cs:                    sb.AppendLine($"WHERE {vectorExpr} <= {this.VectorMaxDistance}");
+./LiteDB\Engine\Query\QueryOptimization.cs:                if (planningContext.VectorOrderConsumed)
+./LiteDB\Engine\Disk\Serializer\BufferWriter.cs:            ENSURE(vector.Length <= ushort.MaxValue, "Vector length must fit into UInt16");
+./LiteDB\Engine\Disk\Serializer\BufferWriter.cs:                case BsonType.Vector:
+./LiteDB\Engine\Disk\Serializer\BufferWriter.cs:                    this.Write(value.AsVector); // ✅ This should exist
+./LiteDB\Engine\Disk\Serializer\BufferReader.cs:        private BsonValue ReadVector()
+./LiteDB\Engine\Disk\Serializer\BufferReader.cs:            return new BsonVector(values);
+./LiteDB\Engine\Disk\Serializer\BufferReader.cs:                case BsonType.Vector: return this.ReadVector();
+./LiteDB\Engine\Disk\Serializer\BufferReader.cs:            else if (type == 0x64) // Vector
+./LiteDB\Engine\Disk\Serializer\BufferReader.cs:                return this.ReadVector();

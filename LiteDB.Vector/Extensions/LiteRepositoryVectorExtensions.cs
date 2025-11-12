@@ -31,7 +31,9 @@ namespace LiteDB.Vector
         /// </example>
         public static bool EnsureIndex<T>(this ILiteRepository repository, string name, BsonExpression expression, VectorIndexOptions options, string? collectionName = null)
         {
-            return Unwrap(repository).EnsureVectorIndex<T>(name, expression, VectorExtensionHelpers.CreateOptionsDocument(options), collectionName);
+            var liteRepository = Unwrap(repository);
+            var collection = liteRepository.Database.GetCollection<T>(collectionName);
+            return collection.EnsureIndex(name, expression, options);
         }
 
         /// <summary>
@@ -50,7 +52,9 @@ namespace LiteDB.Vector
         /// </example>
         public static bool EnsureIndex<T>(this ILiteRepository repository, BsonExpression expression, VectorIndexOptions options, string? collectionName = null)
         {
-            return Unwrap(repository).EnsureVectorIndex<T>(expression, VectorExtensionHelpers.CreateOptionsDocument(options), collectionName);
+            var liteRepository = Unwrap(repository);
+            var collection = liteRepository.Database.GetCollection<T>(collectionName);
+            return collection.EnsureIndex(expression, options);
         }
 
         /// <summary>
@@ -70,7 +74,9 @@ namespace LiteDB.Vector
         /// </example>
         public static bool EnsureIndex<T, K>(this ILiteRepository repository, Expression<Func<T, K>> keySelector, VectorIndexOptions options, string? collectionName = null)
         {
-            return Unwrap(repository).EnsureVectorIndex(keySelector, VectorExtensionHelpers.CreateOptionsDocument(options), collectionName);
+            var liteRepository = Unwrap(repository);
+            var collection = liteRepository.Database.GetCollection<T>(collectionName);
+            return collection.EnsureIndex(keySelector, options);
         }
 
         /// <summary>
@@ -91,7 +97,9 @@ namespace LiteDB.Vector
         /// </example>
         public static bool EnsureIndex<T, K>(this ILiteRepository repository, string name, Expression<Func<T, K>> keySelector, VectorIndexOptions options, string? collectionName = null)
         {
-            return Unwrap(repository).EnsureVectorIndex(name, keySelector, VectorExtensionHelpers.CreateOptionsDocument(options), collectionName);
+            var liteRepository = Unwrap(repository);
+            var collection = liteRepository.Database.GetCollection<T>(collectionName);
+            return collection.EnsureIndex(name, keySelector, options);
         }
 
         private static LiteRepository Unwrap(ILiteRepository repository)

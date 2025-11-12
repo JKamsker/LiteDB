@@ -1,0 +1,8 @@
+{
+    "id": "verification-step-id",
+    "category": "Search",
+    "command": "rg \"Vector\" LiteDB",
+    "expectedOutcome": "Describe the observable condition that proves success.",
+    "phase": "PostMigration",
+    "notes": "Optional: include links to automation or manual instructions."
+}

@@ -182,6 +182,27 @@ namespace LiteDB.Engine
                 return false;
             }
 
+            if (pluginContext?.QueryMetadata != null)
+            {
+                foreach (var pluginId in _query.RegisteredMetadata)
+                {
+                    if (!pluginContext.QueryMetadata.TryGetDescriptor(pluginId, out var descriptor))
+                    {
+                        continue;
+                    }
+
+                    if (!_query.TryGetMetadata(pluginId, out var bag))
+                    {
+                        continue;
+                    }
+
+                    if (!bag.IsCompatibleWith(descriptor))
+                    {
+                        bag.ApplyDescriptor(descriptor);
+                    }
+                }
+            }
+
             var termsSnapshot = _terms.ToArray();
             var planningContext = new QueryPlanningContext(_snapshot, _query, Array.AsReadOnly(termsSnapshot), _queryPlan, pluginContext);
 

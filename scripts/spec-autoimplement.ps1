@@ -1,18 +1,18 @@
 <#
     Automates Codex runs against the vectorsearch migration spec until every task in
-    `specs/001-vector-plugin-migration/tasks.md` is closed. Each iteration
+    `specs/001-vector-stability/tasks.md` is closed. Each iteration
     launches a non-interactive Codex session, commits the resulting changes,
     and repeats with a fresh session.
 #>
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
-    [string]$TaskFile = 'specs/001-vector-plugin-migration/tasks.md',
-    [string]$ProgressFile = 'specs/001-vector-plugin-migration/progress.md',
+    [string]$TaskFile = 'specs/001-vector-stability/tasks.md',
+    [string]$ProgressFile = 'specs/001-vector-stability/progress.md',
     [string]$InitialInstructions = @"
-Read github/prompts/speckit.implement.prompt.md and please resume with the vectorsearch plugin migration.
-Status: specs/001-vector-plugin-migration/progress.md - add your progress to it whenever necessary.
-Also see specs\001-vector-plugin-migration\tasks.md
+Read .github/prompts/speckit.implement.prompt.md and please resume with the task.
+Status: specs/001-vector-stability/progress.md - add your progress to it whenever necessary.
+Also see tasks.md, plan.md, spec.md inside specs\001-vector-stability
 "@,
     [string]$CodexBinary = 'codex',
     [string[]]$CodexOptions = @('--yolo'),
@@ -226,6 +226,7 @@ try {
     $iteration = 0
     $sessionMap = @{}
     $simulatedClosedTasks = [System.Collections.Generic.HashSet[string]]::new()
+    $noProgressCount = 0
 
     while ($true) {
         $openBeforeDetailed = @(Get-OpenTasksByPhase -Path $TaskFile)
@@ -352,9 +353,11 @@ try {
             foreach ($item in $closed) {
                 Write-Host ("  - {0}" -f $item)
             }
+            $noProgressCount = 0
         }
         else {
             Write-Host 'Step 5: No tasks were closed during this iteration.'
+            $noProgressCount++
         }
 
         if (-not $SkipCommit) {
@@ -404,8 +407,13 @@ try {
         }
 
         if (($openAfter.Count -gt 0) -and ($openAfter.Count -eq $openBefore.Count) -and ($closed.Count -eq 0)) {
-            Write-Warning 'No unchecked tasks were closed during this iteration. Stopping to avoid an infinite loop.'
-            break
+            if ($noProgressCount -ge 5) {
+                Write-Warning "No unchecked tasks were closed for $noProgressCount consecutive iterations. Stopping to avoid an infinite loop."
+                break
+            }
+            else {
+                Write-Host "No progress in this iteration. Continuing (no-progress count: $noProgressCount/5)."
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -731,15 +732,30 @@ namespace LiteDB.Engine
         /// <summary>
         /// Create new page instance based on buffer (READ)
         /// </summary>
-        public static T ReadPage<T>(PageBuffer buffer)
+        public static BasePage ReadPage(PageBuffer buffer, ILitePluginContext context = null)
+        {
+            return PageFactoryResolver.GetRegistry(context).Read(buffer);
+        }
+
+        /// <summary>
+        /// Create new page instance based on buffer (READ)
+        /// </summary>
+        public static T ReadPage<T>(PageBuffer buffer, ILitePluginContext context = null)
             where T : BasePage
         {
-            if (typeof(T) == typeof(BasePage)) return (T)(object)new BasePage(buffer);
-            if (typeof(T) == typeof(HeaderPage)) return (T)(object)new HeaderPage(buffer);
-            if (typeof(T) == typeof(CollectionPage)) return (T)(object)new CollectionPage(buffer);
-            if (typeof(T) == typeof(IndexPage)) return (T)(object)new IndexPage(buffer);
-            if (typeof(T) == typeof(VectorIndexPage)) return (T)(object)new VectorIndexPage(buffer);
-            if (typeof(T) == typeof(DataPage)) return (T)(object)new DataPage(buffer);
+            var expected = ResolvePageTypeForRead(typeof(T));
+
+            var page = ReadPage(buffer, context);
+
+            if (typeof(T) != typeof(BasePage) && page.PageType != expected)
+            {
+                throw new InvalidCastException();
+            }
+
+            if (page is T typed)
+            {
+                return typed;
+            }
 
             throw new InvalidCastException();
         }
@@ -747,15 +763,84 @@ namespace LiteDB.Engine
         /// <summary>
         /// Create new page instance with new PageID and passed buffer (NEW)
         /// </summary>
-        public static T CreatePage<T>(PageBuffer buffer, uint pageID)
+        public static BasePage CreatePage(PageType pageType, PageBuffer buffer, uint pageID, ILitePluginContext context = null)
+        {
+            return PageFactoryResolver.GetRegistry(context).Create(pageType, buffer, pageID);
+        }
+
+        /// <summary>
+        /// Create new page instance with new PageID and passed buffer (NEW)
+        /// </summary>
+        public static T CreatePage<T>(PageBuffer buffer, uint pageID, ILitePluginContext context = null)
             where T : BasePage
         {
-            if (typeof(T) == typeof(CollectionPage)) return (T)(object)new CollectionPage(buffer, pageID);
-            if (typeof(T) == typeof(IndexPage)) return (T)(object)new IndexPage(buffer, pageID);
-            if (typeof(T) == typeof(VectorIndexPage)) return (T)(object)new VectorIndexPage(buffer, pageID);
-            if (typeof(T) == typeof(DataPage)) return (T)(object)new DataPage(buffer, pageID);
+            var pageType = ResolvePageTypeForCreate(typeof(T));
+            var page = CreatePage(pageType, buffer, pageID, context);
+
+            if (page is T typed)
+            {
+                return typed;
+            }
 
             throw new InvalidCastException();
+        }
+
+        private static PageType ResolvePageTypeForRead(Type requestedType)
+        {
+            if (requestedType == typeof(BasePage)) return PageType.Empty;
+            if (requestedType == typeof(HeaderPage)) return PageType.Header;
+            if (requestedType == typeof(CollectionPage)) return PageType.Collection;
+            if (requestedType == typeof(IndexPage)) return PageType.Index;
+            if (requestedType == typeof(DataPage)) return PageType.Data;
+
+            if (TryParsePageTypeFromName(requestedType, out var parsed))
+            {
+                return parsed;
+            }
+
+            throw new InvalidCastException();
+        }
+
+        private static PageType ResolvePageTypeForCreate(Type requestedType)
+        {
+            if (requestedType == typeof(CollectionPage)) return PageType.Collection;
+            if (requestedType == typeof(IndexPage)) return PageType.Index;
+            if (requestedType == typeof(DataPage)) return PageType.Data;
+
+            if (TryParsePageTypeFromName(requestedType, out var parsed))
+            {
+                return parsed;
+            }
+
+            throw new InvalidCastException();
+        }
+
+        private static bool TryParsePageTypeFromName(Type requestedType, out PageType pageType)
+        {
+            pageType = default;
+
+            if (requestedType == null)
+            {
+                return false;
+            }
+
+            var name = requestedType.Name;
+
+            if (string.Equals(name, "VectorIndexPage", StringComparison.Ordinal))
+            {
+                pageType = PageType.VectorIndex;
+                return true;
+            }
+
+            const string suffix = "Page";
+
+            if (string.IsNullOrEmpty(name) || !name.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var trimmed = name.Substring(0, name.Length - suffix.Length);
+            return Enum.TryParse(trimmed, ignoreCase: true, out pageType);
         }
 
         #endregion

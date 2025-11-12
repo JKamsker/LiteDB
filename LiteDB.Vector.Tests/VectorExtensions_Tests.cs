@@ -6,6 +6,7 @@ using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Vector;
+using LiteDB.Vector.Engine;
 using Xunit;
 
 namespace LiteDB.Vector.Tests
@@ -193,7 +194,8 @@ namespace LiteDB.Vector.Tests
                 new Func<TransactionService, VectorIndexMetadata>(transaction =>
                 {
                     var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                    return snapshot.CollectionPage.GetVectorIndexMetadata(indexName);
+                    var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata(indexName);
+                    return metadataBuffer != null ? VectorIndexMetadata.Wrap(metadataBuffer) : null;
                 })
             });
 

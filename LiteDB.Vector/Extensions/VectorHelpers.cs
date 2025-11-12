@@ -1,5 +1,5 @@
 using System;
-using LiteDB;
+using LiteDB.Vector.Document;
 
 namespace LiteDB.Vector
 {
