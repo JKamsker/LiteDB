@@ -46,7 +46,7 @@ namespace LiteDB.Vector.Extensions
             ValidateVectorArguments(target, maxDistance);
 
             var existingMetric = GetQueryMetric(source);
-            var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric;
+            var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric ?? ResolveMetricFromIndexes(source, fieldExpr);
             var adjustedMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metricByte);
 
             var filter = CreateVectorDistanceFilter(source, fieldExpr, target, adjustedMaxDistance, metricByte);
@@ -243,6 +243,52 @@ namespace LiteDB.Vector.Extensions
             }
 
             return BsonExpression.Create($"VECTOR_DIST({fieldExpr.Source}, @0{metricPlaceholder})", source.ExpressionRegistry, parameters.ToArray());
+        }
+
+        private static byte? ResolveMetricFromIndexes<T>(LiteQueryable<T> source, BsonExpression fieldExpr)
+        {
+            var database = source.Database;
+            var collection = source.CollectionName;
+
+            if (database == null || string.IsNullOrWhiteSpace(collection) || fieldExpr == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                var indexes = database.GetCollection("$indexes");
+
+                if (indexes == null)
+                {
+                    return null;
+                }
+
+                var filter = global::LiteDB.Query.And(
+                    global::LiteDB.Query.EQ("collection", collection),
+                    global::LiteDB.Query.EQ("expression", fieldExpr.Source),
+                    global::LiteDB.Query.EQ("type", "vector"));
+
+                var descriptor = indexes.FindOne(filter);
+
+                if (descriptor != null &&
+                    descriptor.TryGetValue("metric", out var metricValue) &&
+                    metricValue.IsNumber)
+                {
+                    var resolved = (byte)metricValue.AsInt32;
+
+                    if ((VectorDistanceMetric)resolved == VectorDistanceMetric.DotProduct)
+                    {
+                        return resolved;
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore system collection failures and fall back to caller-provided metric.
+            }
+
+            return null;
         }
 
     }

@@ -40,6 +40,7 @@ namespace LiteDB.Vector.Query
             BsonExpression? consumedTerm = null;
             var matchedFromOrderBy = false;
             QueryMetadataBag? metadataBag = null;
+            var maxDistanceNormalized = false;
 
             if (context.Query.TryGetMetadata(VectorQueryMetadata.PluginId, out var bag))
             {
@@ -51,6 +52,7 @@ namespace LiteDB.Vector.Query
                 if (TryParseVectorPredicate(term, collation, out expression, out target, out maxDistance))
                 {
                     consumedTerm = term;
+                    maxDistanceNormalized = true;
                     break;
                 }
             }
@@ -82,7 +84,9 @@ namespace LiteDB.Vector.Query
 
                         if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
                         {
+                            Console.WriteLine($"[Planner] metadata distance={bagDistance}");
                             maxDistance = bagDistance;
+                            maxDistanceNormalized = metadataBag.Version >= VectorQueryMetadata.Version;
                         }
 
                         if (metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
@@ -112,7 +116,9 @@ namespace LiteDB.Vector.Query
 
                         if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
                         {
+                            Console.WriteLine($"[Planner] metadata distance (matching field)={bagDistance}");
                             maxDistance = bagDistance;
+                            maxDistanceNormalized = metadataBag.Version >= VectorQueryMetadata.Version;
                         }
 
                         if (!metric.HasValue &&
@@ -123,6 +129,8 @@ namespace LiteDB.Vector.Query
                     }
                 }
             }
+
+            Console.WriteLine($"[Planner] post-metadata maxDistance={maxDistance}");
 
 #pragma warning disable CS0618
             if (!metric.HasValue && context.Query.VectorMetric.HasValue)
@@ -137,6 +145,7 @@ namespace LiteDB.Vector.Query
                 expression = NormalizeVectorField(context.Query.VectorField);
                 target = context.Query.VectorTarget?.ToArray();
                 maxDistance = context.Query.VectorMaxDistance;
+                maxDistanceNormalized = true;
                 matchedFromOrderBy = matchedFromOrderBy ||
                     context.Query.OrderBy.Any(order =>
                         order.Expression?.Type == BsonExpressionType.VectorDist ||
@@ -150,7 +159,6 @@ namespace LiteDB.Vector.Query
             }
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
-            var effectiveMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metric);
 
             foreach (var (index, metadataBuffer) in collection.GetVectorIndexes())
             {
@@ -165,6 +173,10 @@ namespace LiteDB.Vector.Query
                 {
                     continue;
                 }
+
+                byte? metricByte = metric ?? metadata.Metric;
+                Console.WriteLine($"[Planner] initial maxDistance={maxDistance} metric={metricByte} normalized={maxDistanceNormalized}");
+                var effectiveMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metricByte, maxDistanceNormalized);
 
                 var vectorIndex = new VectorIndexQuery(index.Name, snapshot, index, metadata, target, effectiveMaxDistance, limit, collation);
                 var consumed = consumedTerm != null ? new[] { consumedTerm } : Array.Empty<BsonExpression>();
@@ -187,7 +199,7 @@ namespace LiteDB.Vector.Query
         {
             expression = null;
             target = null;
-            maxDistance = double.NaN;
+            maxDistance = double.MaxValue;
 
             if (predicate == null)
             {
@@ -210,7 +222,7 @@ namespace LiteDB.Vector.Query
 
             expression = null;
             target = null;
-            maxDistance = double.NaN;
+            maxDistance = double.MaxValue;
             return false;
         }
 
@@ -227,7 +239,16 @@ namespace LiteDB.Vector.Query
             var field = expression.Left;
             if (field == null || string.IsNullOrEmpty(field.Source))
             {
-                return false;
+                if (!TryExtractVectorFieldFromSource(expression.Source, out var parsedField))
+                {
+                    return false;
+                }
+
+                fieldExpression = NormalizeVectorField(parsedField);
+            }
+            else
+            {
+                fieldExpression = field.Source;
             }
 
             var targetValue = expression.Right?.ExecuteScalar(collation);
@@ -236,7 +257,6 @@ namespace LiteDB.Vector.Query
                 return false;
             }
 
-            fieldExpression = field.Source;
             return true;
         }
 
@@ -249,7 +269,7 @@ namespace LiteDB.Vector.Query
                 return false;
             }
 
-            #pragma warning disable CS0618
+#pragma warning disable CS0618
             if (value.Type == BsonType.Vector)
             {
                 vector = value.AsVector.ToArray();
@@ -299,6 +319,60 @@ namespace LiteDB.Vector.Query
 
             number = value.AsDouble;
             return !double.IsNaN(number);
+        }
+
+        private static bool TryExtractVectorFieldFromSource(string source, out string fieldExpression)
+        {
+            fieldExpression = null;
+
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return false;
+            }
+
+            var openIndex = source.IndexOf('(');
+            if (openIndex < 0)
+            {
+                return false;
+            }
+
+            var depth = 0;
+            for (var i = openIndex + 1; i < source.Length; i++)
+            {
+                var ch = source[i];
+
+                if (ch == '(')
+                {
+                    depth++;
+                    continue;
+                }
+
+                if (ch == ')')
+                {
+                    if (depth == 0)
+                    {
+                        break;
+                    }
+
+                    depth--;
+                    continue;
+                }
+
+                if (ch == ',' && depth == 0)
+                {
+                    var segment = source.Substring(openIndex + 1, i - openIndex - 1).Trim();
+
+                    if (string.IsNullOrWhiteSpace(segment))
+                    {
+                        return false;
+                    }
+
+                    fieldExpression = segment;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static string NormalizeVectorField(string field)
