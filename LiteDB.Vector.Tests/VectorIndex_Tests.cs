@@ -724,7 +724,7 @@ namespace LiteDB.Vector.Tests.Querying
                 indexName: "embedding_idx");
 
             var target = new[] { 1f, 0f };
-            const double similarityThreshold = -0.75;
+            const double similarityThreshold = 0.75;
 
             var metadataQuery = new LiteDB.Query();
             context.ConfigureMetadata(metadataQuery, "$.Embedding", target, similarityThreshold, VectorDistanceMetric.DotProduct);
