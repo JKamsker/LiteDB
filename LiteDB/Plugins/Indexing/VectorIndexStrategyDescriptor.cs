@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Threading.Tasks;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
@@ -45,21 +44,21 @@ namespace LiteDB.Plugins.Indexing
     /// </summary>
     /// <param name="context">Context describing the ensure operation.</param>
     /// <returns>True when the ensure operation created or updated the index.</returns>
-    public delegate Task<bool> VectorIndexEnsureDelegate(VectorIndexEnsureContext context);
+    public delegate bool VectorIndexEnsureDelegate(VectorIndexEnsureContext context);
 
     /// <summary>
     /// Delegate invoked during query planning to allow the strategy to contribute vector behaviours.
     /// </summary>
     /// <param name="context">Query planning context.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    public delegate Task VectorIndexQueryPlannerDelegate(VectorIndexQueryPlannerContext context);
+    /// <returns>Nothing. Implementations can throw when planning fails.</returns>
+    public delegate void VectorIndexQueryPlannerDelegate(VectorIndexQueryPlannerContext context);
 
     /// <summary>
     /// Delegate invoked while orchestrating rebuild flows so the strategy can maintain metadata.
     /// </summary>
     /// <param name="context">Rebuild coordination context.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    public delegate Task VectorIndexRebuildDelegate(VectorIndexRebuildContext context);
+    /// <returns>Nothing. Implementations can throw when rebuild orchestration fails.</returns>
+    public delegate void VectorIndexRebuildDelegate(VectorIndexRebuildContext context);
 
     /// <summary>
     /// Describes a plugin-managed vector index strategy and its required infrastructure.

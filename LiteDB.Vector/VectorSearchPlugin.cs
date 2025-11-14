@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Threading.Tasks;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
@@ -153,10 +152,10 @@ namespace LiteDB.Vector
 
                         var result = ctx.EnsureContext.ExecuteDefault();
                         ctx.EnsureContext.SetResult(result);
-                        return Task.FromResult(result);
+                        return result;
                     },
-                    queryPlanner: _ => Task.CompletedTask,
-                    rebuildStrategy: _ => Task.CompletedTask,
+                    queryPlanner: _ => { },
+                    rebuildStrategy: _ => { },
                     requiredBsonTypes: new[] { (byte)BsonType.Vector },
                     requiredPageTypes: new[] { "VectorIndex" });
 #pragma warning restore CS0618

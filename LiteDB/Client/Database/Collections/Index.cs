@@ -212,7 +212,7 @@ namespace LiteDB
 
                 var vectorContext = new VectorIndexEnsureContext(ensureContext, options);
 
-                return descriptor.EnsureIndex(vectorContext).GetAwaiter().GetResult();
+                return descriptor.EnsureIndex(vectorContext);
             }
 
             return _engine.EnsureVectorIndex(_collection, name, expression, options);
