@@ -55,7 +55,7 @@ namespace LiteDB
                     return false;
                 }
 
-                if (!bag.TryGet<string>(VectorFieldKey, out var field) || string.IsNullOrWhiteSpace(field))
+                if (!bag.TryGet<string>(VectorFieldKey, out var @field) || string.IsNullOrWhiteSpace(@field))
                 {
                     return false;
                 }
@@ -73,9 +73,9 @@ namespace LiteDB
                 {
                     UpgradeVectorMetadataBag(bag);
 
-                    if (bag.TryGet<string>(VectorFieldKey, out var field))
+                    if (bag.TryGet<string>(VectorFieldKey, out var @field))
                     {
-                        return field;
+                        return @field;
                     }
                 }
 
