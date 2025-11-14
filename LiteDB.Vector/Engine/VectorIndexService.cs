@@ -69,6 +69,7 @@ namespace LiteDB.Vector.Engine
             double maxDistance,
             int? limit)
         {
+            Console.WriteLine($"[VectorIndexService] start rootEmpty={metadata.Root.IsEmpty}");
             if (metadata.Root.IsEmpty)
             {
                 this.LastVisitedCount = 0;
@@ -116,8 +117,10 @@ namespace LiteDB.Vector.Engine
                 && !double.IsPositiveInfinity(maxDistance)
                 && maxDistance < double.MaxValue;
 
-            var baseMinSimilarity = hasExplicitSimilarity ? maxDistance : double.NegativeInfinity;
+            var baseMinSimilarity = hasExplicitSimilarity ? -maxDistance : double.NegativeInfinity;
             var minSimilarity = baseMinSimilarity;
+
+            Console.WriteLine($"[VectorIndexService] metric={metric} targetDim={target.Length} limit={limit} maxDistance={maxDistance} candidates={candidates.Count}");
 
             foreach (var candidate in candidates)
             {
@@ -128,6 +131,10 @@ namespace LiteDB.Vector.Engine
 
                 if (!meetsThreshold)
                 {
+                    if (metric != VectorDistanceMetric.DotProduct)
+                    {
+                        Console.WriteLine($"[VectorIndexService] reject distance={compareDistance} prune={pruneDistance}");
+                    }
                     continue;
                 }
 
@@ -136,6 +143,11 @@ namespace LiteDB.Vector.Engine
                 var document = reader.ReadDocument().GetValue();
                 document.RawId = node.DataBlock;
                 results.Add((document, candidate.Distance, candidate.Similarity));
+
+                if (metric != VectorDistanceMetric.DotProduct)
+                {
+                    Console.WriteLine($"[VectorIndexService] accept distance={candidate.Distance}, docId={document["_id"]}");
+                }
             }
 
             if (metric == VectorDistanceMetric.DotProduct)

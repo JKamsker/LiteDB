@@ -256,8 +256,9 @@ namespace LiteDB.Vector
                 }
 
                 var metricValue = VectorDistanceMetric.Cosine;
-
                 byte? metricBytes = null;
+                var metadataVersion = metadata.Version;
+                var metadataNormalized = metadataVersion >= VectorQueryMetadata.Version;
 
                 if (metadata.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var storedMetric) && storedMetric.HasValue)
                 {
@@ -270,7 +271,7 @@ namespace LiteDB.Vector
                 if (metadata.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var storedDistance))
                 {
                     var effectiveMetric = metricBytes ?? (byte)metricValue;
-                    maxDistance = VectorEnsure.NormalizeMaxDistance(storedDistance, effectiveMetric);
+                    maxDistance = VectorEnsure.NormalizeMaxDistance(storedDistance, effectiveMetric, metadataNormalized);
                 }
 
                 var fieldExpression = BsonExpression.Create(field, queryable.ExpressionRegistry);

@@ -18,7 +18,7 @@ namespace LiteDB.Vector.Tests.Integration
 
             context.QueryMetadata.TryGetDescriptor("LiteDB.Vector", out var metadataDescriptor).Should().BeTrue();
             metadataDescriptor.Should().NotBeNull();
-            metadataDescriptor.Version.Should().Be(1);
+            metadataDescriptor.Version.Should().Be(2);
             metadataDescriptor.ReservedKeys.Should().BeEquivalentTo(new[] { "VectorField", "TargetEmbedding", "VectorMaxDistance", "VectorMetric" });
 
             context.PageFactories.TryGet("VectorIndex", out var pageFactory).Should().BeTrue();

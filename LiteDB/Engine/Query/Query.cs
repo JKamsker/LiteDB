@@ -447,7 +447,8 @@ namespace LiteDB
             }
 
             var metric = GetVectorMetric(bag);
-            var normalized = NormalizeVectorMaxDistance(stored, metric);
+            var alreadyNormalized = bag.Version >= VectorMetadataVersionNormalized;
+            var normalized = NormalizeVectorMaxDistance(stored, metric, alreadyNormalized);
 
             if (normalized != stored)
             {
@@ -465,9 +466,14 @@ namespace LiteDB
             return null;
         }
 
-        private static double NormalizeVectorMaxDistance(double maxDistance, byte? metric)
+        private static double NormalizeVectorMaxDistance(double maxDistance, byte? metric, bool alreadyNormalized = false)
         {
             if (!metric.HasValue || metric.Value != DotProductMetric)
+            {
+                return maxDistance;
+            }
+
+            if (alreadyNormalized)
             {
                 return maxDistance;
             }
@@ -477,12 +483,7 @@ namespace LiteDB
                 return maxDistance;
             }
 
-            if (maxDistance > 0d)
-            {
-                return -maxDistance;
-            }
-
-            return maxDistance;
+            return -maxDistance;
         }
 
         private static string NormalizeVectorField(string field)

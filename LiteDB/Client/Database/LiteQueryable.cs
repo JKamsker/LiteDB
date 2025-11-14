@@ -41,6 +41,8 @@ namespace LiteDB
 
         public BsonMapper Mapper => _mapper;
 
+        internal string CollectionName => _collection;
+
         public IExpressionRegistry ExpressionRegistry => _expressions;
 
         public LiteDatabase Database => _database;

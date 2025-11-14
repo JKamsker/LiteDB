@@ -32,7 +32,7 @@ namespace LiteDB.Vector.Utils
             }
         }
 
-        internal static double NormalizeMaxDistance(double maxDistance, byte? metric)
+        internal static double NormalizeMaxDistance(double maxDistance, byte? metric, bool alreadyNormalized = false)
         {
             if (!metric.HasValue)
             {
@@ -46,12 +46,17 @@ namespace LiteDB.Vector.Utils
                 return maxDistance;
             }
 
+            if (alreadyNormalized)
+            {
+                return maxDistance;
+            }
+
             if (double.IsNaN(maxDistance) || double.IsInfinity(maxDistance) || maxDistance >= double.MaxValue)
             {
                 return maxDistance;
             }
 
-            return maxDistance > 0d ? -maxDistance : maxDistance;
+            return -maxDistance;
         }
     }
 }
