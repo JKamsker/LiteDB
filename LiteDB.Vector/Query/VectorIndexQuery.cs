@@ -59,7 +59,6 @@ namespace LiteDB.Vector.Query
             _cache.Clear();
 
             var service = new VectorIndexService(_snapshot, _collation);
-            Console.WriteLine($"[VectorIndexQuery] metric={(VectorDistanceMetric)_metadata.Metric} maxDistance={_maxDistance}");
             var results = service.Search(_metadata, _target, _maxDistance, _limit).ToArray();
 
             foreach (var result in results)

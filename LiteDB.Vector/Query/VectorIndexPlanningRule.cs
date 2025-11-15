@@ -84,7 +84,6 @@ namespace LiteDB.Vector.Query
 
                         if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
                         {
-                            Console.WriteLine($"[Planner] metadata distance={bagDistance}");
                             maxDistance = bagDistance;
                             maxDistanceNormalized = metadataBag.Version >= VectorQueryMetadata.Version;
                         }
@@ -116,7 +115,6 @@ namespace LiteDB.Vector.Query
 
                         if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
                         {
-                            Console.WriteLine($"[Planner] metadata distance (matching field)={bagDistance}");
                             maxDistance = bagDistance;
                             maxDistanceNormalized = metadataBag.Version >= VectorQueryMetadata.Version;
                         }
@@ -130,7 +128,6 @@ namespace LiteDB.Vector.Query
                 }
             }
 
-            Console.WriteLine($"[Planner] post-metadata maxDistance={maxDistance}");
 
 #pragma warning disable CS0618
             if (!metric.HasValue && context.Query.VectorMetric.HasValue)
@@ -175,7 +172,6 @@ namespace LiteDB.Vector.Query
                 }
 
                 byte? metricByte = metric ?? metadata.Metric;
-                Console.WriteLine($"[Planner] initial maxDistance={maxDistance} metric={metricByte} normalized={maxDistanceNormalized}");
                 var effectiveMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metricByte, maxDistanceNormalized);
 
                 var vectorIndex = new VectorIndexQuery(index.Name, snapshot, index, metadata, target, effectiveMaxDistance, limit, collation);
