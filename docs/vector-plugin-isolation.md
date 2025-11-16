@@ -32,6 +32,7 @@ LiteDB 6.0 separates all vector search capabilities (BSON types, index metadata,
 4. **Run verification**
    - `dotnet test LiteDB.Tests --filter "FullyQualifiedName~Vector"`
    - `dotnet test LiteDB.Vector.Tests`
+   - `pwsh -File scripts/verify-vector-api.ps1 -NoBuild` (after a build) to ensure LiteDB.dll does not expose new `Vector*` APIs
    - `rg "Vector" LiteDB` (should only match extension points and tests once the repo is clean).
 
 ## Handling prerelease vector databases
@@ -57,7 +58,8 @@ Prerelase builds created vector metadata formats that GA releases refuse to load
 2. Execute the shared test suite with plugin optionality filters: `dotnet test LiteDB.sln --settings tests.runsettings`.
 3. Run `dotnet test LiteDB.Vector.Tests` independently to cover plugin-owned behaviors.
 4. (After T002) call `scripts/verify-vector-clean.ps1` in CI to gate accidental `"Vector"` references in core projects.
-5. Update documentation (README, shell usage, samples) to mention that vector search now requires installing and registering `LiteDB.Vector`.
+5. Execute `pwsh -File scripts/verify-vector-api.ps1 -NoBuild` against the built artifacts to fail the build if new `Vector*` symbols leak from LiteDB core.
+6. Update documentation (README, shell usage, samples) to mention that vector search now requires installing and registering `LiteDB.Vector`.
 
 ## Troubleshooting
 - **Still seeing `Vector*` symbols after removing the plugin reference**: Clean and rebuild the solution; ensure no project maintains a direct reference to `LiteDB.Vector`.

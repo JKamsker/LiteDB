@@ -1,0 +1,19 @@
+# Vector API allow list
+# Format: <kind>::<TypeFullName>[.<MemberName>]
+# Use PowerShell wildcard patterns when necessary.
+
+type::LiteDB.Plugins.Indexing.VectorIndexMetadataSerializer
+method::LiteDB.Engine.ILiteEngine.EnsureVectorIndex
+method::LiteDB.Engine.LiteEngine.EnsureVectorIndex
+method::LiteDB.SharedEngine.EnsureVectorIndex
+property::LiteDB.Query.HasVectorFilter
+property::LiteDB.Query.VectorField
+property::LiteDB.Query.VectorTarget
+property::LiteDB.Query.VectorMaxDistance
+property::LiteDB.Query.VectorMetric
+property::LiteDB.BsonValue.AsVector
+property::LiteDB.BsonValue.IsVector
+property::LiteDB.Plugins.QueryPlanningContext.VectorOrderConsumed
+field::LiteDB.BsonType.Vector
+field::LiteDB.BsonExpressionType.VectorSim
+field::LiteDB.BsonExpressionType.VectorDist
