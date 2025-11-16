@@ -15,8 +15,8 @@ LiteDB must remain fully functional without LiteDB.Vector, while all vector sear
 **Testing**: xUnit + FluentAssertions (LiteDB.Tests, LiteDB.Vector.Tests) plus integration stress scripts  
 **Target Platform**: Cross-platform .NET (Windows, Linux, macOS) via netstandard2.0/net8.0  
 **Project Type**: Multi-project library repo (LiteDB core, LiteDB.Vector, test suites, tools)  
-**Performance Goals**: ≤2% regression in vector benchmark suites; no measurable cost for non-vector scenarios  
-**Constraints**: Plugin optionality enforced; deterministic behavior for pre-release vector prototype databases (created during internal testing, not yet in production) when the plugin is absent; diagnostics must remain actionable (diagnostics explicitly cite LiteDB.Vector plugin ID per research); prerelease vector formats are not upgraded—vector operations simply fail with `LITE2002` until LiteDB.Vector is installed  
+**Performance Goals**: ≤2% regression in vector benchmark suites; no measurable cost for non-vector scenarios
+**Constraints**: Plugin optionality enforced; deterministic behavior for pre-release vector prototype databases (created during internal testing, not yet in production) when the plugin is absent; diagnostics must remain actionable (diagnostics explicitly cite LiteDB.Vector plugin ID per research decision #1); pre-release vector formats require explicit migration per research decision #3 (final pre-release build can read old format for drop operations; GA release does not auto-upgrade and emits `LITE2002` with migration guidance)  
 **Scale/Scope**: Touches core engine (indexing, storage, query), plugin framework, LiteDB.Vector, and both test suites; prototype vector database handling policy (default = allow database open but refuse vector-dependent operations so forward-compat remains covered before public release)
 
 ## Constitution Check
@@ -91,7 +91,14 @@ specs/001-vector-plugin-extraction/  # Feature docs/assets
 
 ## Outstanding Production Readiness Items
 
-- **Finalize storage identifiers**: Ensure BSON code `0x90`, page codes `0xE0–0xE3`, and `IndexKind = "vector.hnsw"` are enforced in CI (fail builds on conflicts and update all samples/docs).
-- **Add query registries**: Track work to land SQL function/operator/cost registries so planner/operators are genuinely plugin-owned (new tasks to be captured in `tasks.md`).
-- **Behavior matrix tests**: Create integration tests for every row in the authoritative matrix, including safe vs. unsafe prerelease artifacts and compaction/shrink refusal.
-- **Migration helper**: Deliver a plugin-side helper (`VectorMigrate.RebuildAll`) plus docs demonstrating logical export/rebuild workflows.
+**Resolved during spec review**:
+- ✅ Storage identifiers finalized (research decision #4); enforcement via T005a conflict detection and T024 verify script
+- ✅ Query registries designed (contracts/plugin-registries.md); implementation tasks added (T004b-d, T017-021)
+- ✅ Behavior matrix tests specified (T016a in tasks.md)
+- ✅ Migration helper documented (quickstart.md step 8; requires index enumeration API decision)
+
+**Remaining before implementation**:
+- **Index enumeration API**: Decide between adding `ILiteEngine.GetIndexInfo()`, using collection introspection, or storing plugin metadata in UserVersion for migration helper support (captured in quickstart.md implementation note).
+- **Performance baseline**: Document specific benchmark suite and metrics for the ≤2% regression criterion (e.g., vector index build time, k-NN query latency, memory overhead).
+- **CI integration**: Add `scripts/verify-vector-clean.ps1` and reserved identifier validation to CI pipeline gates before merging (T024, T025).
+- **Breaking changes communication**: Finalize prerelease-to-GA migration guide document for users with prototype vector databases (T022).

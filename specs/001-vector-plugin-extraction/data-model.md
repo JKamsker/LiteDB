@@ -25,12 +25,12 @@
 ## Entity: CustomBsonTypeDescriptor
 - **Purpose**: Plugin-defined BSON type exposed through the serializer/JSON writer.
 - **Key Fields**:
-  - `TypeCode` (byte, >99 to avoid conflicts)
+  - `TypeCode` (byte, must be within plugin's reserved range; e.g., `0x90-0x9F` (144-159) for LiteDB.Vector)
   - `Name` (string)
   - `Serializer` / `Deserializer` delegates
   - `JsonFormatter` delegate
 - **Relationships**: Registered per `PluginId`; used by BSON reader/writer.
-- **Validation**: TypeCode unique; handlers must throw informative errors when plugin absent.
+- **Validation**: TypeCode must be unique and within the plugin's reserved range; registrations outside reserved ranges or duplicate codes throw `InvalidOperationException`; handlers must throw informative errors when plugin absent.
 
 ## Entity: PluginPageFactory
 - **Purpose**: Describes custom page instantiation for storage engine (e.g., vector index pages).
@@ -46,7 +46,30 @@
 - **Purpose**: Determines how LiteDB reports plugin-related issues when functionality is missing.
 - **Key Fields**:
   - `PluginId`
-  - `MissingBehavior` (enum: RefuseDatabase | RefuseOperations | Allow)
+  - `MissingBehavior` (enum: RefuseDatabase | RefuseOperations | AllowIfSafe)
   - `MessageFormatter(ExceptionContext) -> LiteException`
 - **Relationships**: Consulted by engine when encountering plugin-owned indexes/pages.
 - **Validation**: MissingBehavior must align with stability guarantees; formatter must include PluginId in message text.
+- **Behavior Mapping**:
+  - `RefuseDatabase`: Maps to "Safe To Ignore = No" in behavior matrix; database refuses to open.
+  - `RefuseOperations`: Maps to standard GA plugin behavior; database opens, vector operations fail with `LITE2002`.
+  - `AllowIfSafe`: Maps to "Safe To Ignore = Yes" for prerelease artifacts; database opens with warning, operations fail only when accessing plugin-owned assets.
+
+## Entity: QueryOperatorRegistration
+- **Purpose**: Plugin-registered SQL operator/function for expression parsing and query planning.
+- **Key Fields**:
+  - `PluginId` (string)
+  - `OperatorName` (string, e.g., `VECTOR_DIST`, `VECTOR_KNN`)
+  - `ExpressionType` (BsonExpressionType enum value)
+  - `Parser` (Func<BsonExpression[], BsonExpression>)
+- **Relationships**: Referenced by expression parser when resolving unknown operators.
+- **Validation**: OperatorName must be unique; duplicate registrations throw `InvalidOperationException`.
+
+## Entity: PlannerCostHook
+- **Purpose**: Plugin-provided cost calculation for custom index types to influence query planner decisions.
+- **Key Fields**:
+  - `PluginId` (string)
+  - `IndexKind` (string, e.g., `vector.hnsw`)
+  - `CalculateCost` (Func<QueryCostContext, double>)
+- **Relationships**: Consulted by query planner when evaluating index candidates.
+- **Validation**: Cost calculations must be deterministic and return non-negative values; exceptions in cost calculation cause planner to skip that index candidate.

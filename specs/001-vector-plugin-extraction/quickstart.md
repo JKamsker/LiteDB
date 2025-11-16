@@ -9,8 +9,8 @@
 
    **Migration paths**:
 
-   - **Recommended**: Perform a logical export, create a fresh database with LiteDB.Vector enabled, reinsert documents, then re-run vector `EnsureIndex` calls.
-   - **Alternative**: Use the prerelease build to drop existing vector indexes, upgrade to the new release, install LiteDB.Vector, and recreate the indexes.
+   - **Recommended**: Perform a logical export (documents only), create a fresh database with GA release + LiteDB.Vector plugin, reinsert documents, then re-run vector `EnsureIndex` calls.
+   - **Alternative**: Use the final prerelease build to drop existing vector indexes (prerelease builds retain read-only access to old metadata format for drop operations), upgrade to GA release, install LiteDB.Vector plugin, and recreate the indexes. Note: GA releases cannot read prerelease formats and will emit `LITE2002` until indexes are dropped and recreated.
 2. **Register the plugin** when constructing the database. Existing constructors remain available; this overload keeps things non-breaking:
    ```csharp
    var options = new LiteDatabaseOptions
@@ -28,8 +28,8 @@
            pluginId: "LiteDB.Vector",
            typeCode: 0x90,
            name: "Vector",
-           serializer: VectorBsonSerializer.WriteAsync,
-           deserializer: VectorBsonSerializer.ReadAsync));
+           serializer: VectorBsonSerializer.Write,
+           deserializer: VectorBsonSerializer.Read));
 
        context.IndexMetadata.Register(new PluginIndexMetadataDescriptor(
            pluginId: "LiteDB.Vector",
@@ -101,12 +101,19 @@
    {
        public static void RebuildAll(LiteDatabase db, CancellationToken ct = default)
        {
-           foreach (var info in db.Engine.ListIndexes().Where(i => i.IndexKind == "vector.hnsw"))
+           // Note: Requires new ILiteEngine.GetIndexInfo() API to be added (see tasks.md Phase 6)
+           // Alternative: use existing GetCollectionNames() + UserVersion metadata approach
+           foreach (var info in db.GetIndexMetadata().Where(i => i.IndexKind == "vector.hnsw"))
            {
-               db.GetCollection(info.Collection)
-                 .DropIndex(info.Name);
-               db.GetCollection(info.Collection)
-                 .EnsureIndex(info.Name, info.Expression, new VectorIndexOptions((int)info["dimensions"]));
+               var collection = db.GetCollection(info.Collection);
+               collection.DropIndex(info.Name);
+
+               // Re-create using GA plugin with original options
+               var options = new VectorIndexOptions(
+                   dimensions: (int)info.Metadata["dimensions"],
+                   metric: (VectorMetric)info.Metadata["metric"]
+               );
+               collection.EnsureIndex(info.Name, info.Expression, options);
            }
        }
    }
@@ -114,3 +121,5 @@
    using var db = new LiteDatabase(connectionString, options: options);
    VectorMigrate.RebuildAll(db);
    ```
+
+   **Implementation Note**: The exact API for enumerating indexes needs definition. Options include adding `ILiteEngine.GetIndexInfo()`, using collection introspection, or storing plugin metadata in UserVersion.
