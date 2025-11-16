@@ -18,7 +18,6 @@ namespace LiteDB
         private readonly BsonAutoId _autoId;
         private readonly IExpressionRegistry _expressions;
         private readonly ILinqResolverRegistry _linqResolvers;
-        private readonly IIndexInterceptorRegistry _indexInterceptors;
 
         /// <summary>
         /// Get collection name
@@ -45,9 +44,7 @@ namespace LiteDB
 
         internal ILinqResolverRegistry LinqResolvers => _linqResolvers;
 
-        internal IIndexInterceptorRegistry IndexInterceptors => _indexInterceptors;
-
-        internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper, IExpressionRegistry expressions, LiteDatabase database, ILinqResolverRegistry linqResolvers, IIndexInterceptorRegistry indexInterceptors)
+        internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper, IExpressionRegistry expressions, LiteDatabase database, ILinqResolverRegistry linqResolvers)
         {
             _collection = name ?? mapper.ResolveCollectionName(typeof(T));
             _engine = engine;
@@ -56,7 +53,6 @@ namespace LiteDB
             _expressions = expressions;
             _database = database;
             _linqResolvers = linqResolvers;
-            _indexInterceptors = indexInterceptors;
 
             // if strong typed collection, get _id member mapped (if exists)
             if (typeof(T) == typeof(BsonDocument))

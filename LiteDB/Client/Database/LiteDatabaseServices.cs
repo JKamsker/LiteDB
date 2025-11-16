@@ -45,11 +45,6 @@ namespace LiteDB
         public ILinqResolverRegistry LinqResolvers => _context.LinqResolvers;
 
         /// <summary>
-        /// Gets the index interceptor registry associated with the database.
-        /// </summary>
-        public IIndexInterceptorRegistry IndexInterceptors => _context.IndexInterceptors;
-
-        /// <summary>
         /// Gets the custom index strategy registry associated with the database.
         /// </summary>
         public ICustomIndexStrategyRegistry CustomIndexes => _context.CustomIndexes;

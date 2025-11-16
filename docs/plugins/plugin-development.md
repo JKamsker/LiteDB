@@ -128,9 +128,9 @@ The spatial revamp demonstrates how a complex feature composes the registries:
 1. **Define the Plugin Class.** Implement `ILitePlugin` and prepare any services you need (cache, metadata store, DI populator).
 2. **Register Expression Surface.** Add keywords/operators/functions required for SQL and LINQ usage.
 3. **Bridge LINQ.** Register resolvers for any extension methods or helper types you expect consumers to call.
-4. **Install Index Strategies or Interceptors.**
+4. **Install Index Strategies.**
    - Use `IndexRegistry.Register` plus an `IIndexStrategy` implementation if you need a new on-disk index type.
-   - Use `IndexInterceptors.Register` when you want to hijack or extend the default `EnsureIndex` workflow.
+   - Use `RegisterCustomIndexStrategy` when you want higher-level helpers (e.g., vector extensions) to coordinate metadata, ensure/drop flows, and planner hooks through the plugin context.
 5. **Hook Query Planning.** Optionally add `IQueryPlanningRule` implementations to control index choice, returning residual filters when necessary.
 6. **Leverage Services.** Read the connection string for configuration, resolve DI services, and log status or warnings.
 7. **Persist State Carefully.** Prefer per-database caches (e.g., `ConditionalWeakTable`) so multiple `LiteDatabase` instances do not bleed state across each other.
@@ -154,18 +154,22 @@ public sealed class SamplePlugin : ILitePlugin
 
         context.QueryPlanner.AddRule(new SamplePlanningRule(context), order: 200);
 
-        context.IndexInterceptors.Register(ctx =>
-        {
-            if (!IsSampleIndex(ctx.Expression))
+        context.RegisterCustomIndexStrategy(new CustomIndexStrategyDescriptor(
+            pluginId: "SamplePlugin",
+            strategyId: "sample.index",
+            ensureIndex: ctx =>
             {
-                return false;
-            }
+                if (!IsSampleIndex(ctx.EnsureContext.Expression))
+                {
+                    return false;
+                }
 
-            // Optional: run the default handler with adjusted parameters.
-            ctx.ExecuteDefault(name: ctx.Name + "_sample");
-            ctx.SetResult(true);
-            return true;
-        });
+                // Optional: run the default handler with adjusted parameters.
+                ctx.EnsureContext.ExecuteDefault(name: ctx.EnsureContext.Name + "_sample");
+                ctx.EnsureContext.SetResult(true);
+                return true;
+            },
+            queryPlanner: _ => { }));
     }
 }
 ```

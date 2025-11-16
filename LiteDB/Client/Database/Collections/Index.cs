@@ -4,7 +4,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using LiteDB.Engine;
-using LiteDB.Plugins;
 
 namespace LiteDB
 {
@@ -20,11 +19,6 @@ namespace LiteDB
         {
             if (string.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
-
-            if (this.TryExecuteIndexInterceptors(name, expression, unique, out var handledResult))
-            {
-                return handledResult;
-            }
 
             return _engine.EnsureIndex(_collection, name, expression, unique);
         }
@@ -99,54 +93,6 @@ namespace LiteDB
         public bool DropIndex(string name)
         {
             return _engine.DropIndex(_collection, name);
-        }
-
-        private bool TryExecuteIndexInterceptors(string name, BsonExpression expression, bool unique, out bool handledResult)
-        {
-            handledResult = false;
-
-            var registry = _indexInterceptors;
-            if (registry == null)
-            {
-                return false;
-            }
-
-            var interceptors = registry.Interceptors;
-            if (interceptors == null)
-            {
-                return false;
-            }
-
-            var pluginContext = _database?.Services.Context;
-            var context = new EnsureIndexContext(
-                _database,
-                _engine as LiteEngine,
-                typeof(T),
-                _collection,
-                name,
-                expression,
-                unique,
-                _mapper,
-                pluginContext,
-                (indexName, indexExpression, indexUnique) => _engine.EnsureIndex(_collection, indexName, indexExpression, indexUnique));
-
-            foreach (var interceptor in interceptors)
-            {
-                if (interceptor == null)
-                {
-                    continue;
-                }
-
-                if (!interceptor(context))
-                {
-                    continue;
-                }
-
-                handledResult = context.Result ?? false;
-                return true;
-            }
-
-            return false;
         }
 
     }

@@ -24,7 +24,6 @@ namespace LiteDB.Plugins
             this.PageFactories = new PageTypeRegistry();
             this.CustomIndexes = new CustomIndexStrategyRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
-            this.IndexInterceptors = new IndexInterceptorRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
             this.Logger = logger ?? NullLogger.Instance;
             this.ConnectionString = connectionString ?? new ConnectionString();
@@ -53,8 +52,6 @@ namespace LiteDB.Plugins
         public ICustomIndexStrategyRegistry CustomIndexes { get; }
 
         public ILinqResolverRegistry LinqResolvers { get; }
-
-        public IIndexInterceptorRegistry IndexInterceptors { get; }
 
         public IServiceProvider Services { get; }
 
@@ -478,39 +475,6 @@ namespace LiteDB.Plugins
                 lock (_sync)
                 {
                     return _factories.Keys.ToArray();
-                }
-            }
-        }
-    }
-
-    internal sealed class IndexInterceptorRegistry : IIndexInterceptorRegistry
-    {
-        private readonly object _sync = new object();
-        private readonly SortedList<int, List<IndexInterceptor>> _interceptors = new SortedList<int, List<IndexInterceptor>>();
-
-        public void Register(IndexInterceptor interceptor, int order = 0)
-        {
-            if (interceptor == null) throw new ArgumentNullException(nameof(interceptor));
-
-            lock (_sync)
-            {
-                if (!_interceptors.TryGetValue(order, out var bucket))
-                {
-                    bucket = new List<IndexInterceptor>();
-                    _interceptors.Add(order, bucket);
-                }
-
-                bucket.Add(interceptor);
-            }
-        }
-
-        public IEnumerable<IndexInterceptor> Interceptors
-        {
-            get
-            {
-                lock (_sync)
-                {
-                    return _interceptors.Values.SelectMany(x => x).ToArray();
                 }
             }
         }

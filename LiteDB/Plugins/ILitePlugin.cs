@@ -50,8 +50,6 @@ namespace LiteDB.Plugins
 
         ILinqResolverRegistry LinqResolvers { get; }
 
-        IIndexInterceptorRegistry IndexInterceptors { get; }
-
         IServiceProvider Services { get; }
 
         ILogger Logger { get; }
@@ -199,23 +197,6 @@ namespace LiteDB.Plugins
         bool TryGetFactory(Type targetType, out LinqResolverFactory factory);
 
         IReadOnlyCollection<Type> RegisteredTypes { get; }
-    }
-
-    /// <summary>
-    /// Delegate invoked for index interception during <c>ILiteCollection.EnsureIndex</c> execution.
-    /// </summary>
-    /// <param name="context">The interception context.</param>
-    /// <returns>True when the interceptor handled the request and default processing should stop.</returns>
-    public delegate bool IndexInterceptor(EnsureIndexContext context);
-
-    /// <summary>
-    /// Registry responsible for orchestrating index interceptors.
-    /// </summary>
-    public interface IIndexInterceptorRegistry
-    {
-        void Register(IndexInterceptor interceptor, int order = 0);
-
-        IEnumerable<IndexInterceptor> Interceptors { get; }
     }
 
     /// <summary>
