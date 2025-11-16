@@ -20,12 +20,28 @@ namespace LiteDB.Plugins.Bson
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
 
+            ReservedCodeRanges.EnsurePluginOwnsReservedRange(
+                descriptor.PluginId,
+                descriptor.TypeCode,
+                ReservedCodeRanges.VectorBsonStart,
+                ReservedCodeRanges.VectorBsonEnd,
+                ReservedCodeRanges.VectorPluginId,
+                "BSON type code");
+
             lock (_sync)
             {
-                _typesByCode[descriptor.TypeCode] = descriptor;
+                if (_typesByCode.TryGetValue(descriptor.TypeCode, out var existingByCode))
+                {
+                    throw new InvalidOperationException($"BSON type code 0x{descriptor.TypeCode:X2} is already registered by plugin '{existingByCode.PluginId}'.");
+                }
 
                 if (!string.IsNullOrWhiteSpace(descriptor.Name))
                 {
+                    if (_typesByName.TryGetValue(descriptor.Name, out var existingByName))
+                    {
+                        throw new InvalidOperationException($"BSON type '{descriptor.Name}' is already registered by plugin '{existingByName.PluginId}'.");
+                    }
+
                     _typesByName[descriptor.Name] = descriptor;
                 }
 
@@ -33,9 +49,16 @@ namespace LiteDB.Plugins.Bson
                 {
                     foreach (var alias in descriptor.LegacyAliases)
                     {
+                        if (_aliases.ContainsKey(alias))
+                        {
+                            throw new InvalidOperationException($"BSON type alias 0x{alias:X2} is already registered by plugin '{_aliases[alias].PluginId}'.");
+                        }
+
                         _aliases[alias] = descriptor;
                     }
                 }
+
+                _typesByCode[descriptor.TypeCode] = descriptor;
             }
         }
 

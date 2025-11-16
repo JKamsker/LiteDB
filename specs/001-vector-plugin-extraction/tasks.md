@@ -30,7 +30,7 @@
 - [X] T004c Create LiteDB/Plugins/Query/IQueryOperatorRegistry.cs with QueryOperatorRegistration for plugin-defined operators (e.g., VECTOR_KNN)
 - [X] T004d Create LiteDB/Plugins/Query/IQueryCostModelRegistry.cs with QueryCostModelRegistration for plugin cost hooks
 - [X] T005 Extend LiteDB/Plugins/ILitePlugin.cs with IPluginDiagnosticPolicy and add the implementation scaffold in LiteDB/Plugins/PluginDiagnosticPolicy.cs
-- [ ] T005a Add conflict detection mechanism to all registries: validate reserved code ranges (BSON 0x90-0x9F, page 0xE0-0xEF for LiteDB.Vector) and throw InvalidOperationException on overlaps
+- [X] T005a Add conflict detection mechanism to all registries: validate reserved code ranges (BSON 0x90-0x9F, page 0xE0-0xEF for LiteDB.Vector) and throw InvalidOperationException on overlaps
 - [ ] T006 Update LiteDB/Plugins/DefaultPluginContext.cs and LiteDB/Client/Database/LiteDatabaseServices.cs to surface the new registries and diagnostic policy to consumers
 - [ ] T006a Remove InternalsVisibleTo declarations between LiteDB and LiteDB.Vector assemblies; verify all cross-assembly access now flows through plugin registries
 

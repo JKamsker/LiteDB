@@ -21,11 +21,35 @@ namespace LiteDB.Plugins.Storage
                 throw new ArgumentNullException(nameof(registration));
             }
 
+            ReservedCodeRanges.EnsurePluginOwnsReservedRange(
+                registration.PluginId,
+                registration.NumericCode,
+                ReservedCodeRanges.VectorPageStart,
+                ReservedCodeRanges.VectorPageEnd,
+                ReservedCodeRanges.VectorPluginId,
+                "Page type code");
+
             lock (_sync)
             {
+                if (_byCode.TryGetValue(registration.NumericCode, out var existingByCode))
+                {
+                    throw new InvalidOperationException($"Page type code 0x{registration.NumericCode:X2} is already registered by plugin '{existingByCode.PluginId}'.");
+                }
+
+                if (_byName.TryGetValue(registration.PageType, out var existingByName))
+                {
+                    throw new InvalidOperationException($"Page type '{registration.PageType}' is already registered by plugin '{existingByName.PluginId}'.");
+                }
+
+                var compositeKey = CreateCompositeKey(registration.PluginId, registration.PageType);
+                if (_byPluginAndName.ContainsKey(compositeKey))
+                {
+                    throw new InvalidOperationException($"Plugin '{registration.PluginId}' has already registered a page type named '{registration.PageType}'.");
+                }
+
                 _byCode[registration.NumericCode] = registration;
                 _byName[registration.PageType] = registration;
-                _byPluginAndName[CreateCompositeKey(registration.PluginId, registration.PageType)] = registration;
+                _byPluginAndName[compositeKey] = registration;
             }
         }
 

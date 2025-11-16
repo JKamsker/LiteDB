@@ -21,6 +21,11 @@ namespace LiteDB.Plugins.Query
 
             lock (_sync)
             {
+                if (_registrations.ContainsKey(registration.IndexKind))
+                {
+                    throw new InvalidOperationException($"Cost model for index kind '{registration.IndexKind}' is already registered by plugin '{_registrations[registration.IndexKind].PluginId}'.");
+                }
+
                 _registrations[registration.IndexKind] = registration;
             }
         }

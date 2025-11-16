@@ -21,6 +21,11 @@ namespace LiteDB.Plugins.Query
 
             lock (_sync)
             {
+                if (_operators.ContainsKey(registration.OperatorName))
+                {
+                    throw new InvalidOperationException($"Query operator '{registration.OperatorName}' is already registered by plugin '{_operators[registration.OperatorName].PluginId}'.");
+                }
+
                 _operators[registration.OperatorName] = registration;
             }
         }

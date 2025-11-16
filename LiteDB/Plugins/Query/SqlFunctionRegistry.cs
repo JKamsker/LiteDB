@@ -21,6 +21,11 @@ namespace LiteDB.Plugins.Query
 
             lock (_sync)
             {
+                if (_registrations.ContainsKey(registration.FunctionName))
+                {
+                    throw new InvalidOperationException($"SQL function '{registration.FunctionName}' is already registered by plugin '{_registrations[registration.FunctionName].PluginId}'.");
+                }
+
                 _registrations[registration.FunctionName] = registration;
             }
         }

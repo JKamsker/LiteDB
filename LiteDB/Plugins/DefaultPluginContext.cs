@@ -165,6 +165,11 @@ namespace LiteDB.Plugins
 
             lock (_sync)
             {
+                if (_strategies.TryGetValue(descriptor.StrategyId, out var existing))
+                {
+                    throw new InvalidOperationException($"Index strategy '{descriptor.StrategyId}' is already registered by plugin '{existing.PluginId}'.");
+                }
+
                 _strategies[descriptor.StrategyId] = descriptor;
             }
         }
