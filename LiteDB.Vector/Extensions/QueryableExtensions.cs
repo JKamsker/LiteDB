@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using LiteDB;
+using LiteDB.Vector.Utils;
 using LiteDB.Plugins.Query;
 using LiteDB.Vector.Query;
-using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector.Extensions
 {

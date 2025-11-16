@@ -92,7 +92,7 @@ namespace LiteDB.Engine
                             this.EnsureCustomIndex(
                                 collection,
                                 index.Name,
-                                LiteDB.VectorCompatibility.DefaultStrategyKind,
+                                ReservedCodeRanges.VectorStrategyKind,
                                 index.BsonExpr,
                                 vectorOptions);
                         }

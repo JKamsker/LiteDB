@@ -206,7 +206,7 @@ namespace LiteDB.Engine
                 diagnostics["options"] = optionCopy;
             }
 
-            var exception = LiteDB.VectorCompatibility.PluginRequired();
+            var exception = PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId);
 
             try
             {

@@ -52,7 +52,7 @@ namespace LiteDB.Engine
 
             if (pageType == PageType.VectorIndex)
             {
-                throw VectorCompatibility.PluginRequired();
+                throw PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId);
             }
 
             return new BasePage(buffer);
@@ -79,7 +79,7 @@ namespace LiteDB.Engine
 
             if (pageType == PageType.VectorIndex)
             {
-                throw VectorCompatibility.PluginRequired();
+                throw PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId);
             }
 
             return new BasePage(buffer, pageId, pageType);

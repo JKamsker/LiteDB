@@ -5,6 +5,8 @@ namespace LiteDB.Plugins
     internal static class ReservedCodeRanges
     {
         public const string VectorPluginId = "LiteDB.Vector";
+        public const string VectorStrategyKind = "vector";
+        public const string VectorIndexKind = "vector.hnsw";
         public const byte VectorBsonStart = 0x90;
         public const byte VectorBsonEnd = 0x9F;
         public const byte VectorPageStart = 0xE0;

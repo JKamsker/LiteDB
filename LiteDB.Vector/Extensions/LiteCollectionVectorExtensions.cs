@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector
 {
@@ -156,7 +157,7 @@ namespace LiteDB.Vector
 
             var database = collection.Database;
             var services = database?.Services;
-            var descriptor = global::LiteDB.VectorCompatibility.TryGetStrategy(services?.CustomIndexes);
+            var descriptor = VectorCompatibility.TryGetStrategy(services?.CustomIndexes);
             var pluginContext = services?.Context;
 
             if (descriptor == null || pluginContext == null)
@@ -177,7 +178,7 @@ namespace LiteDB.Vector
                 unique: false,
                 collection.Mapper,
                 pluginContext,
-                (indexName, indexExpression, _) => collection.Engine.EnsureCustomIndex(collection.Name, indexName, global::LiteDB.VectorCompatibility.DefaultStrategyKind, indexExpression, materializedOptions));
+                (indexName, indexExpression, _) => collection.Engine.EnsureCustomIndex(collection.Name, indexName, VectorCompatibility.DefaultStrategyKind, indexExpression, materializedOptions));
 
             var vectorContext = new CustomIndexEnsureContext(ensureContext, materializedOptions);
 

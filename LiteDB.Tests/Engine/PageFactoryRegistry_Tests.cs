@@ -6,6 +6,7 @@ using System.Runtime.ExceptionServices;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Plugins;
 using LiteDB.Tests.Utils;
 using LiteDB.Vector;
 using LiteDB.Vector.Engine;
@@ -53,7 +54,7 @@ namespace LiteDB.Tests.Engine
                 });
             };
 
-            var expectedMessage = VectorCompatibility.PluginRequired().Message;
+            var expectedMessage = PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId).Message;
 
             act.Should()
                 .Throw<LiteException>()

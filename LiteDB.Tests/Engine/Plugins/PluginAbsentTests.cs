@@ -1,6 +1,7 @@
 using System;
 using FluentAssertions;
 using LiteDB;
+using LiteDB.Plugins;
 using LiteDB.Tests.Utils;
 using LiteDB.Vector;
 using LiteDB.Vector.Document;
@@ -10,7 +11,7 @@ namespace LiteDB.Tests.Engine.Plugins
 {
     public class PluginAbsentTests
     {
-        private static readonly string MissingPluginMessage = VectorCompatibility.PluginRequired().Message;
+        private static readonly string MissingPluginMessage = PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId).Message;
 
         [Fact]
         public void EnsureVectorIndex_WithoutPlugin_ThrowsDeterministicError()
@@ -34,7 +35,7 @@ namespace LiteDB.Tests.Engine.Plugins
 
             diagnostics["event"].AsString.Should().Be("plugin.index_required");
             diagnostics["operation"].AsString.Should().Be("EnsureCustomIndex");
-            diagnostics["strategyKind"].AsString.Should().Be(VectorCompatibility.DefaultStrategyKind);
+            diagnostics["strategyKind"].AsString.Should().Be(ReservedCodeRanges.VectorStrategyKind);
             diagnostics["collection"].AsString.Should().Be("docs");
             diagnostics["pluginContextAvailable"].AsBoolean.Should().BeTrue();
             diagnostics["registeredStrategies"].AsArray.RawValue.Should().BeEmpty();
