@@ -49,13 +49,13 @@ namespace LiteDB
             return _registries.GetValue(target, static ctx => new BsonTypeRegistry(ctx.BsonTypes));
         }
 
-        internal static bool TryGet(ILitePluginContext context, byte typeCode, out BsonTypeRegistration registration)
+        internal static bool TryGet(ILitePluginContext context, byte typeCode, out CustomBsonTypeDescriptor registration)
         {
             var registry = GetRegistry(context);
             return registry.TryGet(typeCode, out registration);
         }
 
-        internal static bool TryGet(ILitePluginContext context, BsonType type, out BsonTypeRegistration registration)
+        internal static bool TryGet(ILitePluginContext context, BsonType type, out CustomBsonTypeDescriptor registration)
         {
             return TryGet(context, (byte)type, out registration);
         }
@@ -78,3 +78,4 @@ namespace LiteDB
         }
     }
 }
+

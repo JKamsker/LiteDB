@@ -94,7 +94,7 @@ namespace LiteDB.Plugins
         /// <summary>
         /// Gets the BSON type registry exposed by the plugin context.
         /// </summary>
-        public IBsonTypeRegistry BsonTypes => PluginContext?.BsonTypes;
+        public ICustomBsonTypeRegistry BsonTypes => PluginContext?.BsonTypes;
 
         /// <summary>
         /// Gets the page factory registry exposed by the plugin context.
@@ -261,6 +261,7 @@ namespace LiteDB.Plugins
         }
     }
 }
+
 
 
 

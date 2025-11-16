@@ -32,7 +32,7 @@
 - [X] T004 Verify `LiteDB/Plugins/` directory structure exists; create subdirectories `Query/`, `Bson/`, `Storage/`, `Indexing/` if missing.
 - [X] T005 Add query metadata accessor contract in `LiteDB/Plugins/Query/IQueryMetadataAccessor.cs`.
 - [X] T006 Extend `LiteDB/Plugins/DefaultPluginContext.cs` to expose registration and retrieval APIs for the metadata accessor.
-- [X] T007 Introduce plugin BSON type registry interface in `LiteDB/Plugins/Bson/IBsonTypeRegistry.cs` and register it with the plugin context.
+- [X] T007 Introduce plugin BSON type registry interface in `LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs` and register it with the plugin context.
 - [X] T008 Create page factory registry interface in `LiteDB/Plugins/Storage/IPageFactoryRegistry.cs` with placeholders for factory/metadata hooks.
 - [X] T009 Update `LiteDB/Plugins/ILitePlugin.cs` and `LiteDB/Plugins/EnsureIndexContext.cs` to surface the new registry contracts for downstream use.
 
@@ -144,4 +144,5 @@
 - **MVP Focus**: Finish US1 (extensibility) before touching runtime migrations; this unlocks plugin registration without destabilizing the core.
 - **Incremental Delivery**: Merge US1 changes, then US2 migrations, validating each with regression tests before proceeding.
 - **Operational Readiness**: Use US3 tasks to finalize upgrade tooling and diagnostics prior to release tagging, reducing production risk.
+
 

@@ -8,7 +8,7 @@
 - T004: Ensured `LiteDB/Plugins/` hosts `Query/`, `Bson/`, `Storage/`, and `Indexing/` subdirectories for upcoming extensibility contracts.
 - T005: Added `LiteDB/Plugins/Query/IQueryMetadataAccessor.cs` defining descriptor registration APIs for plugin-managed query metadata.
 - T006: Extended `LiteDB/Plugins/DefaultPluginContext.cs` with query metadata registration helpers backed by a thread-safe accessor implementation.
-- T007: Added `LiteDB/Plugins/Bson/IBsonTypeRegistry.cs` and initialized the default plugin context with a BSON type registry for plugin registrations.
+- T007: Added `LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs` and initialized the default plugin context with a BSON type registry for plugin registrations.
 - T008: Drafted `LiteDB/Plugins/Storage/IPageFactoryRegistry.cs` and wired the default context with a registry for page factory descriptors.
 - T009: Exposed query metadata, BSON type, and page factory registries through `ILitePluginContext` and `EnsureIndexContext` for plugin consumption.
 - T010: Added `LiteDB/Plugins/Query/QueryMetadataBag.cs` providing versioned, typed metadata storage validating reserved keys for plugin-managed query state.
@@ -59,4 +59,5 @@
 - T042: Ran `dotnet pack LiteDB/LiteDB.csproj -c Release`; packaging succeeded with the pre-existing nullable and AES PBKDF2 warnings plus CA2200 notices, producing `LiteDB.6.0.0-001-resolve-vector-findings.1.nupkg`.
 - T041: Added `System.Threading.Tasks.Extensions` (4.5.4) to the netstandard2.0 target item group in `LiteDB/LiteDB.csproj`, ensuring ValueTask-backed plugin APIs have the required reference and matching plan.md dependency notes.
 - T043: Documented follow-up learnings in `specs/001-resolve-vector-findings/research.md`, covering new plugin authoring guidance, the ValueTask dependency, packaging validation, and the remaining shims (InternalsVisibleTo, Query obsolete accessors, BSON fallback registrations, and legacy page mappings) that need future removal.
+
 

@@ -24,7 +24,7 @@
    ```csharp
    public void Initialize(LiteDatabase database, ILitePluginContext context)
    {
-       context.RegisterBsonType(new BsonTypeRegistration(
+       context.RegisterBsonType(new CustomBsonTypeDescriptor(
            pluginId: "LiteDB.Vector",
            typeCode: 0x90,
            name: "Vector",
@@ -123,3 +123,4 @@
    ```
 
    **Implementation Note**: The exact API for enumerating indexes needs definition. Options include adding `ILiteEngine.GetIndexInfo()`, using collection introspection, or storing plugin metadata in UserVersion.
+

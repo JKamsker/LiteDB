@@ -52,12 +52,12 @@ Use `LiteDatabase.Services.QueryMetadata` when application code needs to inspect
 
 ### BSON Type Registry
 
-- Plugins reserve type codes and serializers by calling `context.RegisterBsonType(new BsonTypeRegistration(...))` during initialization (`LiteDB/Plugins/Bson/IBsonTypeRegistry.cs`).
+- Plugins reserve type codes and serializers by calling `context.RegisterBsonType(new CustomBsonTypeDescriptor(...))` during initialization (`LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs`).
 - Type codes ≥128 keep core enums stable while allowing plugins to round-trip `ValueTask`-based serialization handlers (`LiteDB/Document/Bson/BsonTypeRegistry.cs:14`).
 - The registry feeds every BSON serialization path (`LiteDB/Document/BsonValue.cs`, `LiteDB/Document/Json/JsonWriter.cs`), so once a plugin registers a type, all writers/readers automatically delegate to the supplied delegates.
 
 ```csharp
-context.RegisterBsonType(new BsonTypeRegistration(
+context.RegisterBsonType(new CustomBsonTypeDescriptor(
     pluginId: "LiteDB.Vector",
     typeCode: 200,
     name: "Vector128",

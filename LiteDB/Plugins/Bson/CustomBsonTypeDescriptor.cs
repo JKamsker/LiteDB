@@ -9,60 +9,60 @@ namespace LiteDB.Plugins.Bson
     /// </summary>
     /// <param name="writer">Serialization target; treated as an opaque dependency until public abstractions are exposed.</param>
     /// <param name="value">Value to serialize.</param>
-    public delegate Task PluginBsonSerializer(object writer, object value);
+    public delegate Task CustomBsonSerializer(object writer, object value);
 
     /// <summary>
     /// Delegate invoked when deserializing data owned by a plugin-managed BSON type.
     /// </summary>
     /// <param name="reader">Source reader; treated as an opaque dependency until public abstractions are exposed.</param>
     /// <returns>The reconstructed value.</returns>
-    public delegate Task<object> PluginBsonDeserializer(object reader);
+    public delegate Task<object> CustomBsonDeserializer(object reader);
 
     /// <summary>
     /// Registry contract that allows plugins to reserve BSON type codes and provide serialization handlers.
     /// Implementations must be thread-safe because a registry is shared by all collections within a single <see cref="LiteDatabase"/> instance.
     /// </summary>
-    public interface IBsonTypeRegistry
+    public interface ICustomBsonTypeRegistry
     {
         /// <summary>
         /// Registers the supplied plugin BSON type descriptor.
         /// </summary>
-        /// <param name="registration">Descriptor describing the plugin-owned BSON type.</param>
-        void Register(BsonTypeRegistration registration);
+        /// <param name="descriptor">Descriptor describing the plugin-owned BSON type.</param>
+        void Register(CustomBsonTypeDescriptor descriptor);
 
         /// <summary>
         /// Attempts to resolve a registration by its reserved type code.
         /// </summary>
         /// <param name="typeCode">The BSON type code.</param>
-        /// <param name="registration">The registered descriptor if available.</param>
+        /// <param name="descriptor">The registered descriptor if available.</param>
         /// <returns>True when a descriptor exists.</returns>
-        bool TryGetByTypeCode(byte typeCode, out BsonTypeRegistration registration);
+        bool TryGetByTypeCode(byte typeCode, out CustomBsonTypeDescriptor descriptor);
 
         /// <summary>
         /// Attempts to resolve a registration by its canonical name.
         /// </summary>
         /// <param name="name">Human-readable name of the BSON type.</param>
-        /// <param name="registration">The registered descriptor if available.</param>
+        /// <param name="descriptor">The registered descriptor if available.</param>
         /// <returns>True when a descriptor exists.</returns>
-        bool TryGetByName(string name, out BsonTypeRegistration registration);
+        bool TryGetByName(string name, out CustomBsonTypeDescriptor descriptor);
 
         /// <summary>
         /// Gets the currently registered BSON type descriptors.
         /// </summary>
-        IReadOnlyCollection<BsonTypeRegistration> Registered { get; }
+        IReadOnlyCollection<CustomBsonTypeDescriptor> Registered { get; }
     }
 
     /// <summary>
     /// Describes a BSON type reserved for plugin-managed serialization.
     /// </summary>
-    public sealed class BsonTypeRegistration
+    public sealed class CustomBsonTypeDescriptor
     {
-        public BsonTypeRegistration(
+        public CustomBsonTypeDescriptor(
             string pluginId,
             byte typeCode,
             string name,
-            PluginBsonSerializer serializer,
-            PluginBsonDeserializer deserializer,
+            CustomBsonSerializer serializer,
+            CustomBsonDeserializer deserializer,
             IReadOnlyCollection<byte> legacyAliases = null)
         {
             if (string.IsNullOrWhiteSpace(pluginId))
@@ -101,12 +101,12 @@ namespace LiteDB.Plugins.Bson
         /// <summary>
         /// Gets the serializer delegate responsible for encoding plugin values.
         /// </summary>
-        public PluginBsonSerializer Serializer { get; }
+        public CustomBsonSerializer Serializer { get; }
 
         /// <summary>
         /// Gets the deserializer delegate responsible for decoding plugin values.
         /// </summary>
-        public PluginBsonDeserializer Deserializer { get; }
+        public CustomBsonDeserializer Deserializer { get; }
 
         /// <summary>
         /// Gets optional legacy aliases that should map to this registration.

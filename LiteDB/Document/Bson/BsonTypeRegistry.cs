@@ -10,11 +10,11 @@ namespace LiteDB.Document.Bson
     /// </summary>
     internal sealed class BsonTypeRegistry
     {
-        private readonly IBsonTypeRegistry _pluginRegistry;
-        private readonly Dictionary<byte, BsonTypeRegistration> _byCode = new Dictionary<byte, BsonTypeRegistration>();
-        private readonly Dictionary<string, BsonTypeRegistration> _byName = new Dictionary<string, BsonTypeRegistration>(StringComparer.Ordinal);
+        private readonly ICustomBsonTypeRegistry _pluginRegistry;
+        private readonly Dictionary<byte, CustomBsonTypeDescriptor> _byCode = new Dictionary<byte, CustomBsonTypeDescriptor>();
+        private readonly Dictionary<string, CustomBsonTypeDescriptor> _byName = new Dictionary<string, CustomBsonTypeDescriptor>(StringComparer.Ordinal);
 
-        public BsonTypeRegistry(IBsonTypeRegistry pluginRegistry)
+        public BsonTypeRegistry(ICustomBsonTypeRegistry pluginRegistry)
         {
             _pluginRegistry = pluginRegistry ?? throw new ArgumentNullException(nameof(pluginRegistry));
             RegisterBuiltinTypes();
@@ -23,7 +23,7 @@ namespace LiteDB.Document.Bson
         /// <summary>
         /// Attempts to locate a type registration for the supplied BSON type code.
         /// </summary>
-        public bool TryGet(byte typeCode, out BsonTypeRegistration registration)
+        public bool TryGet(byte typeCode, out CustomBsonTypeDescriptor registration)
         {
             if (_pluginRegistry.TryGetByTypeCode(typeCode, out registration))
             {
@@ -36,7 +36,7 @@ namespace LiteDB.Document.Bson
         /// <summary>
         /// Attempts to locate a type registration by canonical name.
         /// </summary>
-        public bool TryGet(string name, out BsonTypeRegistration registration)
+        public bool TryGet(string name, out CustomBsonTypeDescriptor registration)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -55,7 +55,7 @@ namespace LiteDB.Document.Bson
         /// <summary>
         /// Registers a legacy core BSON type for fallback handling.
         /// </summary>
-        public void RegisterFallback(BsonTypeRegistration registration)
+        public void RegisterFallback(CustomBsonTypeDescriptor registration)
         {
             if (registration == null)
             {
@@ -73,21 +73,21 @@ namespace LiteDB.Document.Bson
 
         private void RegisterBuiltinTypes()
         {
-            RegisterFallback(new BsonTypeRegistration(
+            RegisterFallback(new CustomBsonTypeDescriptor(
                 pluginId: "LiteDB.Core",
                 typeCode: (byte)BsonType.MinValue,
                 name: nameof(BsonType.MinValue),
                 serializer: LegacyNotSupportedSerializer,
                 deserializer: LegacyNotSupportedDeserializer));
 
-            RegisterFallback(new BsonTypeRegistration(
+            RegisterFallback(new CustomBsonTypeDescriptor(
                 pluginId: "LiteDB.Core",
                 typeCode: (byte)BsonType.Null,
                 name: nameof(BsonType.Null),
                 serializer: LegacyNotSupportedSerializer,
                 deserializer: LegacyNotSupportedDeserializer));
 
-            RegisterFallback(new BsonTypeRegistration(
+            RegisterFallback(new CustomBsonTypeDescriptor(
                 pluginId: "LiteDB.Core",
                 typeCode: (byte)BsonType.Vector,
                 name: "Vector",
@@ -112,3 +112,5 @@ namespace LiteDB.Document.Bson
         }
     }
 }
+
+

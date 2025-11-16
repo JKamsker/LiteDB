@@ -42,14 +42,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BsonTypeRegistration'
+              $ref: '#/components/schemas/CustomBsonTypeDescriptor'
       responses:
         '201':
           description: BSON type registered.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BsonTypeRegistration'
+                $ref: '#/components/schemas/CustomBsonTypeDescriptor'
         '409':
           description: Type code already reserved or incompatible legacy aliases.
   /plugins/{pluginId}/registrations/page-factory:
@@ -144,7 +144,7 @@ components:
         description:
           type: string
           description: Summary of how the metadata is used.
-    BsonTypeRegistration:
+    CustomBsonTypeDescriptor:
       type: object
       required: [pluginId, typeCode, name, serializerContract, deserializerContract]
       properties:
@@ -246,3 +246,4 @@ components:
         rollbackPlan:
           type: string
           description: Summary of how to revert if validation fails.
+

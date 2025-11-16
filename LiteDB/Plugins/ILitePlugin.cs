@@ -34,7 +34,7 @@ namespace LiteDB.Plugins
 
         IQueryMetadataAccessor QueryMetadata { get; }
 
-        IBsonTypeRegistry BsonTypes { get; }
+        ICustomBsonTypeRegistry BsonTypes { get; }
 
         IPageFactoryRegistry PageFactories { get; }
 
@@ -56,11 +56,11 @@ namespace LiteDB.Plugins
 
         QueryMetadataDescriptor GetQueryMetadataDescriptor(string pluginId);
 
-        void RegisterBsonType(BsonTypeRegistration registration);
+        void RegisterBsonType(CustomBsonTypeDescriptor registration);
 
-        bool TryGetBsonType(byte typeCode, out BsonTypeRegistration registration);
+        bool TryGetBsonType(byte typeCode, out CustomBsonTypeDescriptor registration);
 
-        bool TryGetBsonType(string name, out BsonTypeRegistration registration);
+        bool TryGetBsonType(string name, out CustomBsonTypeDescriptor registration);
 
         void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor);
 
@@ -215,6 +215,8 @@ namespace LiteDB.Plugins
         void SetPluginContext(ILitePluginContext context);
     }
 }
+
+
 
 
 

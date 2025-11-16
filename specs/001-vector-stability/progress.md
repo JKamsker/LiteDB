@@ -43,7 +43,7 @@
 - Completed T016 by mirroring the per-context approach for page factories: `LiteDB/Engine/Pages/PageFactoryRegistry.cs` now caches registries via `ConditionalWeakTable` with a default plugin context, and `LiteDB/Client/Database/LiteDatabaseServices.cs` no longer mutates global state during construction. Confirmed with `dotnet build LiteDB/LiteDB.csproj -c Debug`.
 
 ## 2025-11-10 02:05
-- Completed T017 by promoting the plugin-side registries to reusable classes (`LiteDB/Plugins/Bson/PluginBsonTypeRegistry.cs`, `LiteDB/Plugins/Storage/PluginPageFactoryRegistry.cs`) and updating `ILitePluginContext` contracts/imports so each database can instantiate its own thread-safe BSON/page factory registries; `DefaultPluginContext` now composes these exposed implementations. Verified via `dotnet build LiteDB/LiteDB.csproj -c Debug`.
+- Completed T017 by promoting the plugin-side registries to reusable classes (`LiteDB/Plugins/Bson/CustomBsonTypeRegistry.cs`, `LiteDB/Plugins/Storage/PluginPageFactoryRegistry.cs`) and updating `ILitePluginContext` contracts/imports so each database can instantiate its own thread-safe BSON/page factory registries; `DefaultPluginContext` now composes these exposed implementations. Verified via `dotnet build LiteDB/LiteDB.csproj -c Debug`.
 
 ## 2025-11-10 01:55
 - Completed T018 by expanding `LiteDB.Tests/Engine/PageFactoryRegistry_Tests.cs` with reflection helpers that inspect per-context `PageFactoryResolver` caches while two databases run in parallel, proving the vector page factory registration appears only in the plugin-enabled context and never bleeds into the plugin-free context. Validated via `dotnet test LiteDB.Tests/LiteDB.Tests.csproj -f net8.0 --filter FullyQualifiedName~PageFactoryRegistry_Tests`.
@@ -67,3 +67,4 @@
   - `scripts/run-tests-per-target.ps1 -Projects LiteDB.Tests,LiteDB.Vector.Tests` currently trips a StrictMode bug when filtering projects; reran unfiltered to capture the full matrix, which reproduced the same 5 LiteDB.Vector.Tests failures while the remaining TFMs passed (`artifacts_temp/t023/run-tests-per-target-full.log`).
   - `dotnet test LiteDB.sln --settings tests.runsettings` also failed only because of the same vector test set (`artifacts_temp/t023/dotnet-test-sln.log`).
   - `git status --short` and `git diff --stat` were clean, confirming no untracked artifacts after the runs.
+

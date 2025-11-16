@@ -24,7 +24,7 @@
 
 - [X] T003 Generalize LiteDB/Plugins/Indexing/CustomIndexStrategyDescriptor.cs into a plugin-agnostic CustomIndexStrategy descriptor and registry (ICustomIndexStrategyRegistry)
 - [X] T003a Create LiteDB/Plugins/Indexing/IPluginIndexMetadataRegistry.cs with PluginIndexMetadataDescriptor for metadata serialization separate from strategy operations
-- [ ] T004 Add LiteDB/Plugins/Bson/CustomBsonTypeDescriptor.cs plus registration hooks (ICustomBsonTypeRegistry) for plugin-defined BSON handlers
+- [X] T004 Add LiteDB/Plugins/Bson/CustomBsonTypeDescriptor.cs plus registration hooks (ICustomBsonTypeRegistry) for plugin-defined BSON handlers
 - [ ] T004a Add LiteDB/Plugins/Storage/IPageTypeRegistry.cs with PageFactoryRegistration and PageConstructionContext for plugin-owned page types
 - [ ] T004b Create LiteDB/Plugins/Query/ISqlFunctionRegistry.cs with SqlFunctionRegistration for plugin-defined SQL functions
 - [ ] T004c Create LiteDB/Plugins/Query/IQueryOperatorRegistry.cs with QueryOperatorRegistration for plugin-defined operators (e.g., VECTOR_KNN)

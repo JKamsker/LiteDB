@@ -16,7 +16,7 @@ namespace LiteDB.Plugins
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
             this.QueryMetadata = new QueryMetadataAccessor();
-            this.BsonTypes = new PluginBsonTypeRegistry();
+            this.BsonTypes = new CustomBsonTypeRegistry();
             this.PageFactories = new PluginPageFactoryRegistry();
             this.CustomIndexes = new CustomIndexStrategyRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
@@ -34,7 +34,7 @@ namespace LiteDB.Plugins
 
         public IQueryMetadataAccessor QueryMetadata { get; }
 
-        public IBsonTypeRegistry BsonTypes { get; }
+        public ICustomBsonTypeRegistry BsonTypes { get; }
 
         public IPageFactoryRegistry PageFactories { get; }
 
@@ -65,17 +65,17 @@ namespace LiteDB.Plugins
             return this.QueryMetadata.GetDescriptor(pluginId);
         }
 
-        public void RegisterBsonType(BsonTypeRegistration registration)
+        public void RegisterBsonType(CustomBsonTypeDescriptor registration)
         {
             this.BsonTypes.Register(registration);
         }
 
-        public bool TryGetBsonType(byte typeCode, out BsonTypeRegistration registration)
+        public bool TryGetBsonType(byte typeCode, out CustomBsonTypeDescriptor registration)
         {
             return this.BsonTypes.TryGetByTypeCode(typeCode, out registration);
         }
 
-        public bool TryGetBsonType(string name, out BsonTypeRegistration registration)
+        public bool TryGetBsonType(string name, out CustomBsonTypeDescriptor registration)
         {
             return this.BsonTypes.TryGetByName(name, out registration);
         }
@@ -506,6 +506,9 @@ namespace LiteDB.Plugins
         }
     }
 }
+
+
+
 
 
 
