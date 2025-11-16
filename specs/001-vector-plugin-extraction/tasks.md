@@ -26,9 +26,9 @@
 - [X] T003a Create LiteDB/Plugins/Indexing/IPluginIndexMetadataRegistry.cs with PluginIndexMetadataDescriptor for metadata serialization separate from strategy operations
 - [X] T004 Add LiteDB/Plugins/Bson/CustomBsonTypeDescriptor.cs plus registration hooks (ICustomBsonTypeRegistry) for plugin-defined BSON handlers
 - [X] T004a Add LiteDB/Plugins/Storage/IPageTypeRegistry.cs with PageFactoryRegistration and PageConstructionContext for plugin-owned page types
-- [ ] T004b Create LiteDB/Plugins/Query/ISqlFunctionRegistry.cs with SqlFunctionRegistration for plugin-defined SQL functions
-- [ ] T004c Create LiteDB/Plugins/Query/IQueryOperatorRegistry.cs with QueryOperatorRegistration for plugin-defined operators (e.g., VECTOR_KNN)
-- [ ] T004d Create LiteDB/Plugins/Query/IQueryCostModelRegistry.cs with QueryCostModelRegistration for plugin cost hooks
+- [X] T004b Create LiteDB/Plugins/Query/ISqlFunctionRegistry.cs with SqlFunctionRegistration for plugin-defined SQL functions
+- [X] T004c Create LiteDB/Plugins/Query/IQueryOperatorRegistry.cs with QueryOperatorRegistration for plugin-defined operators (e.g., VECTOR_KNN)
+- [X] T004d Create LiteDB/Plugins/Query/IQueryCostModelRegistry.cs with QueryCostModelRegistration for plugin cost hooks
 - [ ] T005 Extend LiteDB/Plugins/ILitePlugin.cs with IPluginDiagnosticPolicy and add the implementation scaffold in LiteDB/Plugins/PluginDiagnosticPolicy.cs
 - [ ] T005a Add conflict detection mechanism to all registries: validate reserved code ranges (BSON 0x90-0x9F, page 0xE0-0xEF for LiteDB.Vector) and throw InvalidOperationException on overlaps
 - [ ] T006 Update LiteDB/Plugins/DefaultPluginContext.cs and LiteDB/Client/Database/LiteDatabaseServices.cs to surface the new registries and diagnostic policy to consumers
