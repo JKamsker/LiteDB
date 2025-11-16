@@ -28,7 +28,12 @@ As an engine maintainer, I want page factories, index metadata serializers, rebu
 
 **Why this priority**: Prevents future coupling and lets other custom index/page types adopt the same mechanism.
 
-**Independent Test**: Run rebuild/import with LiteDB.Vector present—metadata read/write flows exclusively through plugin serializers. Remove the plugin—core emits a generic “custom strategy missing” error without referencing vector types.
+**Independent Test**: Run rebuild/import with LiteDB.Vector present-metadata read/write flows exclusively through plugin serializers. Remove the plugin-core emits a generic "custom strategy missing" error without referencing vector types.
+
+**Implementation Notes**:
+
+- Collection pages will expose a plugin-agnostic metadata bag rather than a `VectorIndexMetadataSerializer` hook. Each entry records `{ pluginId, payload }`, keeping the payload opaque until the owning plugin registers a serializer. Core surfaces the pluginId to diagnostics and refuses to open that index when the plugin is missing, but other indexes/collections remain available.
+- Page types follow the same pattern: plugins reserve page type identifiers (e.g., `"VectorIndex"`) via the page factory registry. Persisted pages store the numeric code plus pluginId so core can reject unsupported page types deterministically instead of hardcoding `PageType.VectorIndex`.
 
 **Acceptance Scenarios**:
 
@@ -55,6 +60,7 @@ As a plugin author, I need the query planner and BSON serializer to accept dynam
 ### Edge Cases
 
 - What happens when an older database contains vector pages but LiteDB.Vector is not loaded? Core must keep LiteDB functional by either refusing to open the database, isolating only affected collections/documents, or allowing read-only access when stability is not impacted, and the chosen behavior must be deterministic and documented.
+- When LiteDB(Vector) is absent yet plugin-owned metadata/page types are detected, LiteDB MUST log a single warning for the database lifetime, allow the database to open, and keep all non-plugin collections fully writable. Any operation that touches the plugin-owned index/page/BSON type MUST throw the standard `VectorCompatibility.PluginRequired` exception (with diagnostics) rather than blocking the entire database.
 - How does the system behave if multiple plugins register different custom page types or BSON codes that overlap? Need deterministic precedence rules and conflict detection surfaced via plugin diagnostics.
 - How are upgrade/downgrade scenarios handled when vector metadata versions change? Plugin must negotiate metadata schema or fail gracefully with actionable guidance.
 
@@ -70,6 +76,7 @@ As a plugin author, I need the query planner and BSON serializer to accept dynam
 - **FR-006**: Diagnostics for missing plugin functionality MUST use plugin-agnostic wording while optionally referencing the plugin ID for guidance [NEEDS CLARIFICATION: Should diagnostics include the plugin ID in user-facing text or remain generic?].
 - **FR-007**: Documentation and samples MUST describe vector capabilities as an optional plugin feature, pointing users to LiteDB.Vector installation and usage steps.
 - **FR-008**: LiteDB MUST remain fully functional without LiteDB.Vector; when opening databases created with vector search enabled, the engine MUST follow one of the documented behaviors: (a) refuse to open the database up front, (b) refuse to open only documents/collections that require the missing plugin while keeping the rest stable, or (c) allow the database to open if the absence does not impact stability, and the system MUST log which path was chosen.
+- **FR-009**: Core MUST replace vector-specific metadata structures with generic plugin registries: collection pages store plugin-owned metadata blobs annotated with `pluginId`, rebuild/import uses plugin-provided serializers for any custom index metadata, and the page factory registry treats plugin-reserved page types uniformly so no `Vector*` enums or helpers remain in LiteDB once the plugin is removed.
 
 ### Key Entities *(include if feature involves data)*
 

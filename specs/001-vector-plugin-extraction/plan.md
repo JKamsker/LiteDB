@@ -61,3 +61,29 @@ specs/001-vector-plugin-extraction/  # Feature docs/assets
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | _None_ |  |  |
+
+## Requirement & Success Criteria Mapping
+
+### Functional Requirements → Tasks
+
+| Requirement | Task Coverage | Notes |
+|-------------|---------------|-------|
+| FR-001 (core exposes only neutral extension points) | T003, T007, T008, T009, T010, T011 | Removes public `Vector*` members, routes interception through plugin registries, and proves the API surface via optionality tests. |
+| FR-002 (LiteDB.Vector owns end-to-end vector features) | T009, T015, T020 | Rebuilds plugin extensions, registers metadata/page factories, and wires query/BSON hooks from LiteDB.Vector. |
+| FR-003 (plugin-managed metadata serializers) | T012, T013, T015, T016 | Replaces CollectionPage slots, updates rebuild/file reader flows, registers LiteDB.Vector serializers, and verifies compatibility. |
+| FR-004 (plugin-provided query operators/planner rules) | T017, T019, T020, T021 | Removes vector tokens from core, defers planning to plugin rules, and tests planner behavior with/without the plugin. |
+| FR-005 (plugin-defined BSON handlers) | T004, T018, T020 | Introduces the BSON registry, removes vector handlers from core, and registers the handler inside LiteDB.Vector. |
+| FR-006 (diagnostics cite plugin ID) | T005, T014, T015, T016 | Adds the diagnostic policy, enforces plugin-required errors when accessing protected assets, and verifies payloads via tests. |
+| FR-007 (docs/samples describe plugin optionality) | T001, T022, T023 | Updates migration guides, README/docs, and the quickstart walkthrough to highlight plugin installation steps. |
+| FR-008 (deterministic behavior without plugin) | T014, T016 | Implements the “warn once, throw on access” policy and exercises it against prototype databases. |
+| FR-009 (generic plugin metadata/page registries) | T012, T013, T015 | Swaps vector-specific metadata/page hooks for plugin-agnostic registries and ensures the plugin re-registers its descriptors. |
+
+### Success Criteria → Tasks
+
+| Success Criterion | Task Coverage | Validation Mechanism |
+|-------------------|---------------|----------------------|
+| SC-001 (`rg "Vector" LiteDB` clean outside hooks) | T002, T007-T010 | `scripts/verify-vector-clean.ps1` enforces the grep check after vector APIs move to the plugin. |
+| SC-002 (API surface unchanged aside from removals) | T007, T008, T011 | Optionality tests plus API diff review during T011 confirm the LiteDB-only assembly no longer exposes vector symbols. |
+| SC-003 (=2% regression ceiling with plugin installed) | T009, T020 | Vector benchmarks run as part of plugin extension rewrites; regressions gated before closing Phase 5. |
+| SC-004 (consolidated plugin absence diagnostics) | T005, T014, T015 | Diagnostic policy work and engine enforcement emit a single `VectorCompatibility.PluginRequired` path validated by tests. |
+| SC-005 (deterministic behavior with/without plugin) | T014, T016 | VectorMetadataCompatibilityTests exercise prototype files both ways, asserting warning + targeted failures only. |
