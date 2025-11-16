@@ -16,8 +16,8 @@ LiteDB must remain fully functional without LiteDB.Vector, while all vector sear
 **Target Platform**: Cross-platform .NET (Windows, Linux, macOS) via netstandard2.0/net8.0  
 **Project Type**: Multi-project library repo (LiteDB core, LiteDB.Vector, test suites, tools)  
 **Performance Goals**: ≤2% regression in vector benchmark suites; no measurable cost for non-vector scenarios  
-**Constraints**: Plugin optionality enforced; deterministic behavior for legacy vector databases when plugin absent; diagnostics must remain actionable (diagnostics explicitly cite LiteDB.Vector plugin ID per research)  
-**Scale/Scope**: Touches core engine (indexing, storage, query), plugin framework, LiteDB.Vector, and both test suites; legacy vector database handling policy (default = allow database open but refuse vector-dependent operations)
+**Constraints**: Plugin optionality enforced; deterministic behavior for pre-release vector prototype databases (created during internal testing, not yet in production) when the plugin is absent; diagnostics must remain actionable (diagnostics explicitly cite LiteDB.Vector plugin ID per research)  
+**Scale/Scope**: Touches core engine (indexing, storage, query), plugin framework, LiteDB.Vector, and both test suites; prototype vector database handling policy (default = allow database open but refuse vector-dependent operations so forward-compat remains covered before public release)
 
 ## Constitution Check
 

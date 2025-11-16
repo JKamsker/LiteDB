@@ -57,9 +57,9 @@
 - [ ] T013 [P] [US2] Update LiteDB/Engine/Engine/Rebuild.cs and LiteDB/Engine/FileReader/FileReaderV8.cs to reconstruct vector indexes through plugin-provided serializers and strategies
 - [ ] T014 [US2] Enforce the "refuse vector operations" policy in LiteDB/Engine/Engine/Index.cs and LiteDB/Engine/Services/SnapShot.cs when plugin assets are absent
 - [ ] T015 [US2] Register metadata serializers and diagnostic policy inside LiteDB.Vector/Engine/VectorIndexStrategy.cs and LiteDB.Vector/VectorSearchPlugin.cs
-- [ ] T016 [US2] Add LiteDB.Tests/Engine/VectorMetadataCompatibilityTests.cs covering legacy file access with and without the plugin
+- [ ] T016 [US2] Add LiteDB.Tests/Engine/VectorMetadataCompatibilityTests.cs covering pre-release prototype file access with and without the plugin
 
-**Checkpoint**: Legacy databases behave deterministically; metadata is fully plugin-owned.
+**Checkpoint**: Prototype (pre-release) vector databases behave deterministically; metadata is fully plugin-owned.
 
 ---
 

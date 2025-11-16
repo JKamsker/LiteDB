@@ -33,7 +33,7 @@ As an engine maintainer, I want page factories, index metadata serializers, rebu
 **Acceptance Scenarios**:
 
 1. **Given** LiteDB.Vector registers its metadata serializer, **When** rebuilding a database, **Then** core delegates metadata operations through the serializer interface without referencing vector classes.
-2. **Given** the plugin is absent, **When** legacy files contain vector metadata, **Then** core aborts with a plugin-agnostic diagnostic indicating no strategy is registered for that custom index type.
+2. **Given** the plugin is absent, **When** pre-release prototype files (produced during development builds) contain vector metadata, **Then** core aborts with a plugin-agnostic diagnostic indicating no strategy is registered for that custom index type.
 
 ---
 
