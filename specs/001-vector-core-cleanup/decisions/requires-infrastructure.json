@@ -1,0 +1,15 @@
+{
+    "id": "requires-infrastructure",
+    "status": "NeedsInfrastructure",
+    "owners": [
+        "Core Engine Team",
+        "Vector Plugin Team"
+    ],
+    "prerequisites": [
+        "Design plugin-managed query metadata bag",
+        "Implement plugin-managed BSON type registration",
+        "Design plugin-accessible page factory and metadata API"
+    ],
+    "targetRelease": "Post-plugin extensibility upgrades",
+    "justification": "Query planning, BSON serialization, and storage layers depend on new plugin extensibility points before vector code can relocate safely."
+}

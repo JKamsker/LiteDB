@@ -182,6 +182,27 @@ namespace LiteDB.Engine
                 return false;
             }
 
+            if (pluginContext?.QueryMetadata != null)
+            {
+                foreach (var pluginId in _query.RegisteredMetadata)
+                {
+                    if (!pluginContext.QueryMetadata.TryGetDescriptor(pluginId, out var descriptor))
+                    {
+                        continue;
+                    }
+
+                    if (!_query.TryGetMetadata(pluginId, out var bag))
+                    {
+                        continue;
+                    }
+
+                    if (!bag.IsCompatibleWith(descriptor))
+                    {
+                        bag.ApplyDescriptor(descriptor);
+                    }
+                }
+            }
+
             var termsSnapshot = _terms.ToArray();
             var planningContext = new QueryPlanningContext(_snapshot, _query, Array.AsReadOnly(termsSnapshot), _queryPlan, pluginContext);
 
@@ -237,6 +258,11 @@ namespace LiteDB.Engine
                     }
                 }
 
+                if (planningContext.VectorOrderConsumed)
+                {
+                    _vectorOrderConsumed = true;
+                }
+
                 pluginFilters = planningContext.AdditionalFilters;
                 replaceFilters = planningContext.ReplaceFilters;
             }
@@ -244,31 +270,22 @@ namespace LiteDB.Engine
             {
                 if (_queryPlan.Index == null)
                 {
-                    if (this.TrySelectVectorIndex(out var vectorIndex, out selected))
+                    var indexCost = this.ChooseIndex(_queryPlan.Fields);
+
+                    if (indexCost != null)
                     {
-                        _queryPlan.Index = vectorIndex;
-                        _queryPlan.IndexCost = vectorIndex.GetCost(null);
-                        _queryPlan.IndexExpression = vectorIndex.Expression;
+                        _queryPlan.Index = indexCost.Index;
+                        _queryPlan.IndexCost = indexCost.Cost;
+                        _queryPlan.IndexExpression = indexCost.IndexExpression;
+                        selected = indexCost.Expression;
                     }
                     else
                     {
-                        var indexCost = this.ChooseIndex(_queryPlan.Fields);
+                        var pk = _snapshot.CollectionPage.PK;
 
-                        if (indexCost != null)
-                        {
-                            _queryPlan.Index = indexCost.Index;
-                            _queryPlan.IndexCost = indexCost.Cost;
-                            _queryPlan.IndexExpression = indexCost.IndexExpression;
-                            selected = indexCost.Expression;
-                        }
-                        else
-                        {
-                            var pk = _snapshot.CollectionPage.PK;
-
-                            _queryPlan.Index = new IndexAll("_id", Query.Ascending);
-                            _queryPlan.IndexCost = _queryPlan.Index.GetCost(pk);
-                            _queryPlan.IndexExpression = "$._id";
-                        }
+                        _queryPlan.Index = new IndexAll("_id", Query.Ascending);
+                        _queryPlan.IndexCost = _queryPlan.Index.GetCost(pk);
+                        _queryPlan.IndexExpression = "$._id";
                     }
                 }
                 else
@@ -395,219 +412,6 @@ namespace LiteDB.Engine
             }
 
             return lowest;
-        }
-
-        private bool TrySelectVectorIndex(out VectorIndexQuery index, out BsonExpression consumedTerm)
-        {
-            index = null;
-            consumedTerm = null;
-
-            string expression = null;
-            float[] target = null;
-            double maxDistance = double.MaxValue;
-            var matchedFromOrderBy = false;
-
-            foreach (var term in _terms)
-            {
-                if (this.TryParseVectorPredicate(term, out expression, out target, out maxDistance))
-                {
-                    consumedTerm = term;
-                    break;
-                }
-            }
-
-            if (expression == null && _query.OrderBy.Count > 0)
-            {
-                foreach (var order in _query.OrderBy)
-                {
-                    if (this.TryParseVectorExpression(order.Expression, out expression, out target))
-                    {
-                        matchedFromOrderBy = true;
-                        maxDistance = double.MaxValue;
-                        break;
-                    }
-                }
-            }
-
-            if (expression == null && _query.VectorTarget != null && _query.VectorField != null)
-            {
-                expression = NormalizeVectorField(_query.VectorField);
-                target = _query.VectorTarget?.ToArray();
-                maxDistance = _query.VectorMaxDistance;
-                matchedFromOrderBy = matchedFromOrderBy || (_query.OrderBy.Any(order => order.Expression?.Type == BsonExpressionType.VectorSim));
-            }
-
-            if (expression == null || target == null)
-            {
-                consumedTerm = null;
-                return false;
-            }
-
-            int? limit = _query.Limit != int.MaxValue ? _query.Limit : (int?)null;
-
-            foreach (var (candidate, metadata) in _snapshot.CollectionPage.GetVectorIndexes())
-            {
-                if (!string.Equals(candidate.Expression, expression, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (metadata.Dimensions != target.Length)
-                {
-                    continue;
-                }
-
-                index = new VectorIndexQuery(candidate.Name, _snapshot, candidate, metadata, target, maxDistance, limit, _collation);
-
-                if (matchedFromOrderBy)
-                {
-                    _vectorOrderConsumed = true;
-                }
-
-                return true;
-            }
-
-            consumedTerm = null;
-            return false;
-        }
-
-        private bool TryParseVectorPredicate(BsonExpression predicate, out string expression, out float[] target, out double maxDistance)
-        {
-            expression = null;
-            target = null;
-            maxDistance = double.NaN;
-
-            if (predicate == null)
-            {
-                return false;
-            }
-
-            if ((predicate.Type == BsonExpressionType.LessThan || predicate.Type == BsonExpressionType.LessThanOrEqual) &&
-                this.TryParseVectorExpression(predicate.Left, out expression, out target) &&
-                TryConvertToDouble(predicate.Right?.ExecuteScalar(_collation), out maxDistance))
-            {
-                return true;
-            }
-
-            if ((predicate.Type == BsonExpressionType.GreaterThan || predicate.Type == BsonExpressionType.GreaterThanOrEqual) &&
-                this.TryParseVectorExpression(predicate.Right, out expression, out target) &&
-                TryConvertToDouble(predicate.Left?.ExecuteScalar(_collation), out maxDistance))
-            {
-                return true;
-            }
-
-            expression = null;
-            target = null;
-            maxDistance = double.NaN;
-            return false;
-        }
-
-        private bool TryParseVectorExpression(BsonExpression expression, out string fieldExpression, out float[] target)
-        {
-            fieldExpression = null;
-            target = null;
-
-            if (expression == null || expression.Type != BsonExpressionType.VectorSim)
-            {
-                return false;
-            }
-
-            var field = expression.Left;
-            if (field == null || string.IsNullOrEmpty(field.Source))
-            {
-                return false;
-            }
-
-            var targetValue = expression.Right?.ExecuteScalar(_collation);
-
-            if (!TryConvertToVector(targetValue, out target))
-            {
-                return false;
-            }
-
-            fieldExpression = field.Source;
-            return true;
-        }
-
-        private static bool TryConvertToVector(BsonValue value, out float[] vector)
-        {
-            vector = null;
-
-            if (value == null || value.IsNull)
-            {
-                return false;
-            }
-
-            if (value.Type == BsonType.Vector)
-            {
-                vector = value.AsVector.ToArray();
-                return true;
-            }
-
-            if (!value.IsArray)
-            {
-                return false;
-            }
-
-            var array = value.AsArray;
-            var buffer = new float[array.Count];
-
-            for (var i = 0; i < array.Count; i++)
-            {
-                var item = array[i];
-
-                if (item.IsNull)
-                {
-                    return false;
-                }
-
-                try
-                {
-                    buffer[i] = (float)item.AsDouble;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-
-            vector = buffer;
-            return true;
-        }
-
-        private static bool TryConvertToDouble(BsonValue value, out double number)
-        {
-            number = double.NaN;
-
-            if (value == null || value.IsNull || !value.IsNumber)
-            {
-                return false;
-            }
-
-            number = value.AsDouble;
-            return !double.IsNaN(number);
-        }
-
-        private static string NormalizeVectorField(string field)
-        {
-            if (string.IsNullOrWhiteSpace(field))
-            {
-                return field;
-            }
-
-            field = field.Trim();
-
-            if (field.StartsWith("$", StringComparison.Ordinal))
-            {
-                return field;
-            }
-
-            if (field.StartsWith(".", StringComparison.Ordinal))
-            {
-                field = field.Substring(1);
-            }
-
-            return "$." + field;
         }
 
         #endregion

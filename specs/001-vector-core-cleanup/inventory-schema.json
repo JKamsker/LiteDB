@@ -1,0 +1,337 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://litedb.dev/specs/001-vector-core-cleanup/inventory-schema.json",
+    "title": "LiteDB Vector Cleanup Inventory Schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "components",
+        "decisions",
+        "gaps",
+        "verificationSteps",
+        "metadata"
+    ],
+    "properties": {
+        "metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "generatedAt",
+                "schemaVersion"
+            ],
+            "properties": {
+                "generatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "schemaVersion": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                },
+                "source": {
+                    "type": "string",
+                    "description": "Optional identifier for the tool or process that produced the snapshot."
+                },
+                "notes": {
+                    "type": "string"
+                }
+            }
+        },
+        "components": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/VectorComponentRecord"
+            },
+            "description": "Vector-related records that still live under LiteDB/."
+        },
+        "decisions": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/MigrationDecision"
+            },
+            "description": "Migration decisions that guide each component record."
+        },
+        "gaps": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/PluginInfrastructureGap"
+            },
+            "description": "Infrastructure gaps blocking migration decisions."
+        },
+        "verificationSteps": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/VerificationStep"
+            },
+            "description": "Verification steps grouped globally and referenced by components."
+        }
+    },
+    "$defs": {
+        "ComponentArea": {
+            "type": "string",
+            "enum": [
+                "PublicApi",
+                "QueryPlanning",
+                "Serialization",
+                "StorageEngine",
+                "ServiceInfrastructure"
+            ]
+        },
+        "DecisionStatus": {
+            "type": "string",
+            "enum": [
+                "MoveToPlugin",
+                "NeedsInfrastructure",
+                "RemainInCore"
+            ]
+        },
+        "GapCategory": {
+            "type": "string",
+            "enum": [
+                "QueryState",
+                "BsonSerialization",
+                "StoragePipeline",
+                "Indexing",
+                "Diagnostics"
+            ]
+        },
+        "GapImpact": {
+            "type": "string",
+            "enum": [
+                "Critical",
+                "High",
+                "Medium",
+                "Low"
+            ]
+        },
+        "VerificationCategory": {
+            "type": "string",
+            "enum": [
+                "Search",
+                "Build",
+                "Compatibility",
+                "Plugin",
+                "Regression"
+            ]
+        },
+        "VerificationPhase": {
+            "type": "string",
+            "enum": [
+                "PreMigration",
+                "DuringMigration",
+                "PostMigration"
+            ]
+        },
+        "VectorComponentRecord": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "area",
+                "files",
+                "scopeSummary",
+                "decisionId",
+                "verificationStepIds"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "area": {
+                    "$ref": "#/$defs/ComponentArea"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "pattern": "^LiteDB/.+"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "scopeSummary": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "decisionId": {
+                    "type": "string",
+                    "description": "Identifier of the associated MigrationDecision."
+                },
+                "requiredGapIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                },
+                "verificationStepIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "notes": {
+                    "type": "string"
+                }
+            }
+        },
+        "MigrationDecision": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "status",
+                "owners",
+                "prerequisites"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "status": {
+                    "$ref": "#/$defs/DecisionStatus"
+                },
+                "owners": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "prerequisites": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "default": []
+                },
+                "targetRelease": {
+                    "type": "string"
+                },
+                "justification": {
+                    "type": "string",
+                    "description": "Mandatory explanation when status is RemainInCore."
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "status": {
+                                "const": "MoveToPlugin"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "prerequisites": {
+                                "minItems": 1
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "status": {
+                                "const": "RemainInCore"
+                            }
+                        }
+                    },
+                    "then": {
+                        "required": [
+                            "justification"
+                        ]
+                    }
+                }
+            ]
+        },
+        "PluginInfrastructureGap": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "category",
+                "description",
+                "impact",
+                "status"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "category": {
+                    "$ref": "#/$defs/GapCategory"
+                },
+                "description": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "impact": {
+                    "$ref": "#/$defs/GapImpact"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "Open",
+                        "Resolved"
+                    ]
+                },
+                "workItem": {
+                    "type": "string"
+                },
+                "linkedComponentIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true,
+                    "default": []
+                }
+            }
+        },
+        "VerificationStep": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "category",
+                "command",
+                "expectedOutcome",
+                "phase"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "category": {
+                    "$ref": "#/$defs/VerificationCategory"
+                },
+                "command": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "expectedOutcome": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "phase": {
+                    "$ref": "#/$defs/VerificationPhase"
+                },
+                "notes": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

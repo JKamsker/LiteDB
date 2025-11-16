@@ -1,0 +1,13 @@
+{
+    "id": "gap-query-state",
+    "category": "QueryState",
+    "description": "Need plugin-owned query metadata bag to replace VectorField, VectorTarget, VectorMaxDistance, and VectorMetric properties on LiteDB.Engine.Query.Query.",
+    "impact": "Critical",
+    "status": "Open",
+    "workItem": null,
+    "linkedComponentIds": [
+        "query-planning-core"
+    ],
+    "proposedSolution": "Extend the plugin system with a query-state bag or strongly typed accessor so vector plugins can persist planning metadata without core-owned fields.",
+    "backwardCompatibility": "Maintain current query planners by mapping legacy properties into the plugin bag until all call sites adopt the extensibility API; ensure existing queries execute without plugin by surfacing clear errors."
+}

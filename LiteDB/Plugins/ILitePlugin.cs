@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
 using LiteDB.Engine;
+using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Indexing;
+using LiteDB.Plugins.Query;
+using LiteDB.Plugins.Storage;
 
 namespace LiteDB.Plugins
 {
@@ -28,6 +32,14 @@ namespace LiteDB.Plugins
 
         IQueryPlannerRegistry QueryPlanner { get; }
 
+        IQueryMetadataAccessor QueryMetadata { get; }
+
+        IBsonTypeRegistry BsonTypes { get; }
+
+        IPageFactoryRegistry PageFactories { get; }
+
+        IVectorIndexStrategyRegistry VectorIndexes { get; }
+
         ILinqResolverRegistry LinqResolvers { get; }
 
         IIndexInterceptorRegistry IndexInterceptors { get; }
@@ -37,6 +49,28 @@ namespace LiteDB.Plugins
         ILogger Logger { get; }
 
         ConnectionString ConnectionString { get; }
+
+        void RegisterQueryMetadata(string pluginId, int version, IReadOnlyCollection<string> reservedKeys);
+
+        bool TryGetQueryMetadataDescriptor(string pluginId, out QueryMetadataDescriptor descriptor);
+
+        QueryMetadataDescriptor GetQueryMetadataDescriptor(string pluginId);
+
+        void RegisterBsonType(BsonTypeRegistration registration);
+
+        bool TryGetBsonType(byte typeCode, out BsonTypeRegistration registration);
+
+        bool TryGetBsonType(string name, out BsonTypeRegistration registration);
+
+        void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor);
+
+        bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor);
+
+        VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId);
+
+        void RegisterPageFactory(PageFactoryRegistration registration);
+
+        bool TryGetPageFactory(string pageType, out PageFactoryRegistration registration);
     }
 
     /// <summary>

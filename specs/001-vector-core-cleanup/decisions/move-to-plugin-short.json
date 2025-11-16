@@ -1,0 +1,13 @@
+{
+    "id": "move-to-plugin-short",
+    "status": "MoveToPlugin",
+    "owners": [
+        "Vector Plugin Team"
+    ],
+    "prerequisites": [
+        "Replace with plugin extension methods and index interceptors",
+        "Relocate factory to LiteDB.Vector and replace InternalsVisibleTo"
+    ],
+    "targetRelease": "vNext (plugin parity)",
+    "justification": "Vector-facing APIs and service factories can relocate immediately once plugin extension points wrap EnsureVectorIndex and the factory lives under LiteDB.Vector."
+}

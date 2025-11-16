@@ -1,5 +1,6 @@
 ﻿using LiteDB.Plugins;
-using LiteDB.Vector;
+using LiteDB.Plugins.Indexing;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -99,7 +100,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Create a new vector index (or do nothing if already exists) for a collection/field.
         /// </summary>
-        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options)
+        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, BsonDocument options)
         {
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
@@ -111,25 +112,19 @@ namespace LiteDB.Engine
             if (!name.IsWord()) throw LiteException.InvalidIndexName(name, collection, "Use only [a-Z$_]");
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
 
-            var strategy = _plugins?.Indexes?.GetByKind("vector");
-
-            if (strategy == null)
-            {
-                throw new LiteException(0, "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase.");
-            }
+            var strategy = _plugins?.Indexes?.GetByKind("vector") ?? throw this.CreateVectorPluginRequiredException(
+                operation: "EnsureVectorIndex",
+                collection: collection,
+                indexName: name,
+                expression: expression.Source,
+                options: options);
 
             return this.AutoTransaction(transaction =>
             {
                 var snapshot = transaction.CreateSnapshot(LockMode.Write, collection, true);
                 var collectionPage = snapshot.CollectionPage;
 
-                var optionDocument = new BsonDocument
-                {
-                    ["dimensions"] = (int)options.Dimensions,
-                    ["metric"] = (int)options.Metric
-                };
-
-                return strategy.EnsureIndex(snapshot, collectionPage, name, expression, optionDocument);
+                return strategy.EnsureIndex(snapshot, collectionPage, name, expression, options);
             });
         }
 
@@ -164,7 +159,12 @@ namespace LiteDB.Engine
 
                     if (strategy == null)
                     {
-                        throw new LiteException(0, $"Index '{name}' requires a registered plugin to be dropped.");
+                        throw this.CreateVectorPluginRequiredException(
+                            operation: "DropVectorIndex",
+                            collection: collection,
+                            indexName: name,
+                            expression: index.Expression,
+                            options: null);
                     }
 
                     return strategy.DropIndex(snapshot, col, name);
@@ -178,6 +178,64 @@ namespace LiteDB.Engine
 
                 return true;
             });
+        }
+
+        private LiteException CreateVectorPluginRequiredException(string operation, string collection, string indexName, string expression, BsonDocument options)
+        {
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = "vector.plugin_required",
+                ["operation"] = operation ?? string.Empty,
+                ["collection"] = collection ?? string.Empty,
+                ["index"] = indexName ?? string.Empty,
+                ["expression"] = expression ?? string.Empty,
+                ["pluginContextAvailable"] = _plugins != null,
+                ["strategyRegistryAvailable"] = _plugins?.VectorIndexes != null,
+                ["expectedStrategyId"] = LiteDB.VectorCompatibility.DefaultStrategyId,
+                ["registeredStrategies"] = this.GetRegisteredVectorStrategies()
+            };
+
+            if (options != null && options.Count > 0)
+            {
+                var optionCopy = new BsonDocument();
+                options.CopyTo(optionCopy);
+                diagnostics["options"] = optionCopy;
+            }
+
+            var exception = LiteDB.VectorCompatibility.PluginRequired();
+
+            try
+            {
+                exception.Data["VectorDiagnostics"] = diagnostics;
+            }
+            catch (ArgumentException)
+            {
+                // .NET Framework requires Exception.Data values to be serializable. Fall back to JSON text.
+                exception.Data["VectorDiagnostics"] = diagnostics.ToString();
+            }
+
+            LOG($"vector plugin missing: {diagnostics.ToString()}", "PLUGIN");
+
+            return exception;
+        }
+
+        private BsonArray GetRegisteredVectorStrategies()
+        {
+            var array = new BsonArray();
+            var registered = _plugins?.VectorIndexes?.Registered;
+
+            if (registered != null)
+            {
+                foreach (var descriptor in registered)
+                {
+                    if (descriptor?.StrategyId != null)
+                    {
+                        array.Add(descriptor.StrategyId);
+                    }
+                }
+            }
+
+            return array;
         }
     }
 }

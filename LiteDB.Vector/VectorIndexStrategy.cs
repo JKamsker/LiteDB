@@ -1,12 +1,16 @@
 using System;
+using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
+using LiteDB.Vector.Engine;
 
 namespace LiteDB.Vector
 {
     internal sealed class VectorIndexStrategy : IIndexStrategy
     {
+        private const string PluginNotRegisteredMessage = "Vector operations require the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance when constructing LiteDatabase (e.g., new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })).";
+
         private readonly ILogger _logger;
         private readonly VectorDistanceMetric? _defaultMetric;
 
@@ -34,7 +38,8 @@ namespace LiteDB.Vector
             var (dimensions, metric) = this.ParseOptions(options);
 
             var existing = typedCollection.GetCollectionIndex(name);
-            var existingMetadata = typedCollection.GetVectorIndexMetadata(name);
+            var existingMetadataBuffer = typedCollection.GetVectorIndexMetadata(name);
+            var existingMetadata = existingMetadataBuffer != null ? VectorIndexMetadata.Wrap(existingMetadataBuffer) : null;
 
             if (existing != null && existing.IndexType != this.IndexTypeCode)
             {
@@ -48,7 +53,7 @@ namespace LiteDB.Vector
                     throw LiteException.IndexAlreadyExist(name);
                 }
 
-                if (existingMetadata.Dimensions != dimensions || existingMetadata.Metric != metric)
+                if (existingMetadata.Dimensions != dimensions || (VectorDistanceMetric)existingMetadata.Metric != metric)
                 {
                     throw new LiteException(0, $"Vector index '{name}' already exists with different options.");
                 }
@@ -58,18 +63,20 @@ namespace LiteDB.Vector
 
             _logger?.Write(LogLevel.Information, $"Creating vector index '{typedSnapshot.CollectionName}.{name}'.");
 
-            var tuple = typedCollection.InsertVectorIndex(name, expression.Source, dimensions, metric);
+            var registry = typedSnapshot.Plugins?.Expressions;
+            var tuple = typedCollection.InsertVectorIndex(name, expression.Source, dimensions, (byte)metric, registry);
+            var metadata = VectorIndexMetadata.Wrap(tuple.Metadata);
 
             var indexer = new IndexService(typedSnapshot, typedSnapshot.Collation, typedSnapshot.MaxItemsCount);
             var data = new DataService(typedSnapshot, typedSnapshot.MaxItemsCount);
-            var vectorService = new VectorIndexService(typedSnapshot, typedSnapshot.Collation);
+            var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
 
-            foreach (var pkNode in new IndexAll("_id", Query.Ascending).Run(typedCollection, indexer))
+            foreach (var pkNode in new IndexAll("_id", global::LiteDB.Query.Ascending).Run(typedCollection, indexer))
             {
                 using (var reader = new BufferReader(data.Read(pkNode.DataBlock)))
                 {
                     var doc = reader.ReadDocument(expression.Fields).GetValue();
-                    vectorService.Upsert(tuple.Index, tuple.Metadata, doc, pkNode.DataBlock);
+                    vectorService.Upsert(tuple.Index, metadata, doc, pkNode.DataBlock);
                 }
             }
 
@@ -85,15 +92,15 @@ namespace LiteDB.Vector
             var typedSnapshot = ExpectSnapshot(snapshot);
             var typedCollection = ExpectCollection(collection);
 
-            var metadata = typedCollection.GetVectorIndexMetadata(name);
+            var metadataBuffer = typedCollection.GetVectorIndexMetadata(name);
 
-            if (metadata == null)
+            if (metadataBuffer == null)
             {
                 return false;
             }
 
-            var vectorService = new VectorIndexService(typedSnapshot, typedSnapshot.Collation);
-            vectorService.Drop(metadata);
+            var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
+            vectorService.Drop(VectorIndexMetadata.Wrap(metadataBuffer));
 
             typedCollection.DeleteCollectionIndex(name);
 
@@ -112,9 +119,19 @@ namespace LiteDB.Vector
             var typedCollection = ExpectCollection(collection);
             var typedAddress = ExpectPageAddress(dataBlock);
 
-            var vectorService = new VectorIndexService(typedSnapshot, typedSnapshot.Collation);
+            var vectorIndexes = typedCollection
+                .GetVectorIndexes()
+                .Select(x => (x.Index, VectorIndexMetadata.Wrap(x.Metadata)))
+                .ToArray();
 
-            foreach (var (index, metadata) in typedCollection.GetVectorIndexes())
+            if (vectorIndexes.Length == 0)
+            {
+                return;
+            }
+
+            var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
+
+            foreach (var (index, metadata) in vectorIndexes)
             {
                 vectorService.Upsert(index, metadata, document, typedAddress);
             }
@@ -129,9 +146,19 @@ namespace LiteDB.Vector
             var typedCollection = ExpectCollection(collection);
             var typedAddress = ExpectPageAddress(dataBlock);
 
-            var vectorService = new VectorIndexService(typedSnapshot, typedSnapshot.Collation);
+            var vectorIndexes = typedCollection
+                .GetVectorIndexes()
+                .Select(x => (x.Index, VectorIndexMetadata.Wrap(x.Metadata)))
+                .ToArray();
 
-            foreach (var (_, metadata) in typedCollection.GetVectorIndexes())
+            if (vectorIndexes.Length == 0)
+            {
+                return;
+            }
+
+            var vectorService = VectorIndexServiceFactory.Create(typedSnapshot, typedSnapshot.Collation);
+
+            foreach (var (_, metadata) in vectorIndexes)
             {
                 vectorService.Delete(metadata, typedAddress);
             }
@@ -139,12 +166,22 @@ namespace LiteDB.Vector
 
         private static Snapshot ExpectSnapshot(object value)
         {
-            return value as Snapshot ?? throw new ArgumentException("Snapshot context was not recognized.", nameof(value));
+            if (value is Snapshot snapshot)
+            {
+                return snapshot;
+            }
+
+            throw new LiteException(0, $"{PluginNotRegisteredMessage} Snapshot context was not recognized.");
         }
 
         private static CollectionPage ExpectCollection(object value)
         {
-            return value as CollectionPage ?? throw new ArgumentException("Collection context was not recognized.", nameof(value));
+            if (value is CollectionPage collection)
+            {
+                return collection;
+            }
+
+            throw new LiteException(0, $"{PluginNotRegisteredMessage} Collection context was not recognized.");
         }
 
         private static PageAddress ExpectPageAddress(object value)
@@ -154,7 +191,7 @@ namespace LiteDB.Vector
                 return address;
             }
 
-            throw new ArgumentException("Page address context was not recognized.", nameof(value));
+            throw new LiteException(0, $"{PluginNotRegisteredMessage} Page address context was not recognized.");
         }
 
         private (ushort Dimensions, VectorDistanceMetric Metric) ParseOptions(BsonDocument options)
@@ -162,6 +199,13 @@ namespace LiteDB.Vector
             if (!options.TryGetValue("dimensions", out var dimensionValue) || !dimensionValue.IsNumber)
             {
                 throw new LiteException(0, "Vector index options must include a numeric 'dimensions' value.");
+            }
+
+            var dimensionNumber = dimensionValue.AsInt32;
+
+            if (dimensionNumber <= 0 || dimensionNumber > ushort.MaxValue)
+            {
+                throw new LiteException(0, $"Vector dimension limit ({ushort.MaxValue}) exceeded or invalid value provided.");
             }
 
             VectorDistanceMetric metric;
@@ -179,7 +223,21 @@ namespace LiteDB.Vector
             }
             else if (metricValue.IsNumber)
             {
-                metric = (VectorDistanceMetric)metricValue.AsInt32;
+                var raw = metricValue.AsInt32;
+
+                if (raw < byte.MinValue || raw > byte.MaxValue)
+                {
+                    throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
+                }
+
+                var candidate = (VectorDistanceMetric)(byte)raw;
+
+                if (!Enum.IsDefined(typeof(VectorDistanceMetric), candidate))
+                {
+                    throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
+                }
+
+                metric = candidate;
             }
             else if (metricValue.IsString && Enum.TryParse<VectorDistanceMetric>(metricValue.AsString, true, out var parsedMetric))
             {
@@ -190,7 +248,7 @@ namespace LiteDB.Vector
                 throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
             }
 
-            var dimensions = (ushort)dimensionValue.AsInt32;
+            var dimensions = (ushort)dimensionNumber;
 
             return (dimensions, metric);
         }

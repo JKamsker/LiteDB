@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -16,11 +17,13 @@ namespace LiteDB.Engine
     internal class RebuildService
     {
         private readonly EngineSettings _settings;
+        private readonly ILitePluginContext _plugins;
         private readonly int _fileVersion;
 
-        public RebuildService(EngineSettings settings)
+        public RebuildService(EngineSettings settings, ILitePluginContext plugins)
         {
             _settings = settings;
+            _plugins = plugins;
 
             // test for prior version
             var bufferV7 = this.ReadFirstBytes(false);
@@ -46,7 +49,7 @@ namespace LiteDB.Engine
             // open file reader
             using (var reader = _fileVersion == 7 ?
                 new FileReaderV7(_settings) :
-                (IFileReader)new FileReaderV8(_settings, options.Errors))
+                (IFileReader)new FileReaderV8(_settings, options.Errors, _plugins))
             {
                 // open file reader and ready to import to new temp engine instance
                 reader.Open();
@@ -59,6 +62,11 @@ namespace LiteDB.Engine
                     Password = options.Password,
                 }))
                 {
+                    if (_plugins != null)
+                    {
+                        ((IPluginHost)engine).SetPluginContext(_plugins);
+                    }
+
                     // copy all database to new Log file with NO checkpoint during all rebuild
                     engine.Pragma(Pragmas.CHECKPOINT, 0);
 

@@ -1,0 +1,14 @@
+{
+    "id": "component-id",
+    "area": "PublicApi",
+    "files": [
+        "LiteDB/Client/Database/LiteQueryable.cs"
+    ],
+    "scopeSummary": "Describe the vector-specific behavior covered by this component grouping.",
+    "decisionId": "migration-decision-id",
+    "requiredGapIds": [],
+    "verificationStepIds": [
+        "verification-step-id"
+    ],
+    "notes": "Add optional context, sequencing guidance, or blockers."
+}

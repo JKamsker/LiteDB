@@ -1,0 +1,13 @@
+{
+    "id": "gap-storage-pipeline",
+    "category": "StoragePipeline",
+    "description": "Need plugin-accessible page factory and metadata API to support VectorIndexPage, VectorIndexMetadata, rebuild routines, and file reader participation.",
+    "impact": "Critical",
+    "status": "Open",
+    "workItem": null,
+    "linkedComponentIds": [
+        "storage-engine-vector"
+    ],
+    "proposedSolution": "Design plugin-accessible page factory and metadata extension APIs so LiteDB.Vector can register custom index pages, metadata serializers, and rebuild hooks.",
+    "backwardCompatibility": "Guarantee legacy vector index pages remain readable by keeping default page IDs and providing migration tooling before core types are removed."
+}

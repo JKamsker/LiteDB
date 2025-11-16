@@ -1,0 +1,62 @@
+# Progress Log
+
+## 2025-11-02
+
+- T001 Complete: Confirmed active branch `001-vector-core-cleanup` already exists from master.
+- T002 Complete: Verified documentation structure present under `specs/001-vector-core-cleanup/`.
+- T003 Complete: Created inventory workspace directory at `artifacts_temp/vector-cleanup/`.
+- T004 Complete: Validated ripgrep (`rg`) 14.1.1 available for upcoming searches.
+- T005 Complete: Authored `inventory-schema.json` describing components, decisions, gaps, and verification relationships per data-model guidance.
+- T006 Complete: Added `templates/component-record.json` with placeholders for area, files, decisions, and verification references.
+- T007 Complete: Added `templates/migration-decision.json` capturing status, owners, and prerequisite scaffolding.
+- T008 Complete: Added `templates/infrastructure-gap.json` detailing category, impact, and linkage fields for blocked work.
+- T009 Complete: Added `templates/verification-step.json` outlining command, expected outcome, and migration phase metadata.
+- T010 Complete: Ran `dotnet build LiteDB.sln -c Release`; build succeeded with existing nullable and net461 support warnings.
+- T011 Complete: Generated raw vector search hits via `rg` into `artifacts_temp/vector-cleanup/raw-search-results.txt` for downstream parsing.
+- T012 Complete: Normalized raw search hit file paths and persisted unique list to `artifacts_temp/vector-cleanup/affected-files.txt`.
+- T013-T017, T020-T029 Complete: Authored component inventories for Public API, Query planning, BSON serialization, Storage engine, and Service infrastructure areas with scoped file lists, required metadata, and placeholder decision references.
+- T018 Complete: Validated inventory records contain area, file listings, scope summaries, and decision identifiers.
+- T019 Complete: Reconciled inventory file sets with `affected-files.txt`; coverage matches comprehensive ripgrep results.
+- T030 Complete: Published inventory index README summarizing component records, coverage metrics, and pending follow-up actions.
+- T031-T034 Complete: Established verification step documents for search, build, plugin, and legacy database validations targeting post-migration readiness.
+- T035 Complete: Documented verified 196-match inventory in spec.md with linkage to component records.
+- T036 Complete: Re-ran rg inventory (196 hits / 28 files) and revalidated inventory JSON coverage with zero mismatches.
+- T037 Complete: Authored `decisions/move-to-plugin-short.json` capturing short-term migration plan with Vector Plugin Team ownership.
+- T038 Complete: Authored `decisions/requires-infrastructure.json` outlining infrastructure-dependent blocking prerequisites with joint ownership.
+- T039 Complete: Authored `decisions/remain-in-core.json` documenting fallback stance and reevaluation trigger.
+- T040 Complete: Updated `inventory/public-api.json` to reference `move-to-plugin-short` decision and captured prerequisite for plugin extension methods and interceptors.
+- T041 Complete: Linked `inventory/service-infrastructure.json` to the short-term decision and noted factory relocation plus InternalsVisibleTo cleanup.
+- T042 Complete: Linked `inventory/query-planning.json` to `requires-infrastructure` decision with query metadata bag dependency.
+- T043 Complete: Linked `inventory/bson-serialization.json` to infrastructure decision and recorded BSON type registry prerequisite.
+- T044 Complete: Linked `inventory/storage-engine.json` to infrastructure decision highlighting page factory and metadata API requirement.
+- T058 Complete: Updated migration decision ownership so short-term moves are explicitly assigned to the Vector Plugin Team.
+- T059 Complete: Recorded joint Core Engine + Vector Plugin Team ownership on infrastructure-dependent migration decision.
+- T045 Complete: Authored `migration/priority-1-service-factory.md` outlining relocation strategy and sequence for the service factory.
+- T050 Complete: Documented detailed execution sequence in the priority 1 plan covering plugin bootstrap, refactors, and cleanup.
+- T046 Complete: Authored `migration/priority-2-public-api.md` capturing the EnsureVectorIndex deprecation plan and plugin extensions.
+- T049 Complete: Added explicit migration steps for the public API surface in the priority 2 plan.
+- T047 Complete: Authored `migration/priority-3-query-metadata.md` describing the metadata bag design and prerequisites.
+- T051 Complete: Recorded plugin infrastructure prerequisites for query planning within the priority 3 plan.
+- T048 Complete: Authored `migration/priority-4-storage-bson.md` defining storage and BSON migration strategy.
+- T052 Complete: Documented BSON type registration prerequisites in the priority 4 plan.
+- T053 Complete: Documented storage engine page factory prerequisites in the priority 4 plan.
+- T054 Complete: Added database compatibility notes to every migration plan to preserve existing vector indexes without rebuild.
+- T055 Complete: Added performance guardrails (≤2% regression) across all migration plans.
+- T056 Complete: Created `migration/validation-checklist.md` capturing go/no-go checks for each priority.
+- T057 Complete: Added fallback strategies for plugin-absent deployments to each migration plan.
+- T060 Complete: Expanded spec migration priorities with per-plan prerequisites, compatibility, performance, and fallback summaries referencing new documentation.
+- T061-T064 Complete: Created initial PluginInfrastructureGap JSON scaffolding for query state, BSON serialization, storage pipeline, and indexing under `specs/001-vector-core-cleanup/gaps/` with category, status, impact defaults, and linked component placeholders.
+- T065-T080 Complete: Populated gap JSON files with descriptions, critical/high impact levels, proposed solutions, and backward compatibility notes, and linked corresponding inventory records via `requiredGapIds`.
+- T088-T089 Complete: Added infrastructure gap summary section to spec.md capturing all four gaps with impacts, proposed upgrades, and compatibility coverage.
+- T081-T087 Complete: Authored infrastructure roadmap with scope estimates and acceptance criteria per gap, and added reusable gap tracking issue template for future work intake.
+- T090 Complete: Compiled `SUMMARY.md` aggregating inventory coverage, migration decisions, gap status, and verification steps to finalize the vector cleanup snapshot.
+- T091 Complete: Captured final research synthesis summarizing inventory totals, dual-track migration focus, and next-step guidance for plugin/core teams.
+- T092 Complete: Delivered Mermaid dependency diagram linking components to decisions and infrastructure gaps for stakeholder visualization.
+- T093 Complete: Ran PowerShell schema checks to confirm all inventory, decision, gap, and verification JSON files parse cleanly and conform to required field contracts.
+- T094 Complete: Verified every path listed in inventory JSON records maps to an existing repository file.
+- T095 Complete: Cross-referenced component decision and gap linkages; recorded `remain-in-core` as an unused contingency while validating all referenced IDs resolve.
+- T096 Complete: Executed full verification suite (`dotnet test LiteDB.sln --settings tests.runsettings`, `dotnet test LiteDB.Vector.Tests`) with success, noting expected legacy TFMs warnings only.
+- T097 Complete: Added vector cleanup process guidance to `AGENTS.md`, including inventory locations and required verification commands.
+- T098 Complete: Authored executive summary outlining current status, outstanding gaps, and team responsibilities.
+- T099 Complete: Documented actionable next steps and handoff checklist within the executive summary for core and plugin implementation teams.
+- T100 Complete: Re-ran `rg "Vector" .\LiteDB`, normalized results, and confirmed 196 matches across 28 files align exactly with `affected-files.txt`.

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using LiteDB.Engine;
+using LiteDB.Plugins.Query;
 using EngineIndex = LiteDB.Engine.Index;
+using LiteDbQuery = LiteDB.Query;
 
 namespace LiteDB.Plugins
 {
@@ -13,10 +15,11 @@ namespace LiteDB.Plugins
     {
         private readonly List<BsonExpression> _consumedTerms = new List<BsonExpression>();
         private readonly List<BsonExpression> _additionalFilters = new List<BsonExpression>();
+        private readonly ILitePluginContext _pluginContext;
 
         internal QueryPlanningContext(
             Snapshot snapshot,
-            Query query,
+            LiteDbQuery query,
             IReadOnlyList<BsonExpression> terms,
             QueryPlan plan,
             ILitePluginContext pluginContext)
@@ -25,7 +28,7 @@ namespace LiteDB.Plugins
             Query = query ?? throw new ArgumentNullException(nameof(query));
             Terms = terms ?? throw new ArgumentNullException(nameof(terms));
             Plan = plan ?? throw new ArgumentNullException(nameof(plan));
-            PluginContext = pluginContext;
+            _pluginContext = pluginContext;
         }
 
         internal Snapshot Snapshot { get; }
@@ -33,18 +36,21 @@ namespace LiteDB.Plugins
         /// <summary>
         /// Gets the query definition being optimized.
         /// </summary>
-        public Query Query { get; }
+        public LiteDbQuery Query { get; }
 
         internal IReadOnlyList<BsonExpression> Terms { get; }
 
         internal QueryPlan Plan { get; }
 
-        internal ILitePluginContext PluginContext { get; }
-
         /// <summary>
         /// Gets the ambient service provider exposed by the database, if any.
         /// </summary>
-        public IServiceProvider Services => PluginContext?.Services;
+        public IServiceProvider Services => _pluginContext?.Services;
+
+        /// <summary>
+        /// Gets the metadata accessor registered by plugins, if available.
+        /// </summary>
+        public IQueryMetadataAccessor QueryMetadata => _pluginContext?.QueryMetadata;
 
         internal bool HasRewrite => _selectedIndex != null;
 
@@ -61,6 +67,54 @@ namespace LiteDB.Plugins
         internal IReadOnlyList<BsonExpression> AdditionalFilters => new ReadOnlyCollection<BsonExpression>(_additionalFilters);
 
         internal bool ReplaceFilters => _replaceFilters;
+
+        /// <summary>
+        /// Indicates whether the plugin consumed an order-by clause while planning.
+        /// </summary>
+        public bool VectorOrderConsumed { get; set; }
+
+        /// <summary>
+        /// Attempts to retrieve an attached metadata bag for the supplied plugin.
+        /// </summary>
+        /// <param name="pluginId">Identifier of the plugin that owns the metadata.</param>
+        /// <param name="bag">The metadata bag when present.</param>
+        /// <returns>True when metadata is available.</returns>
+        public bool TryGetMetadata(string pluginId, out QueryMetadataBag bag)
+        {
+            if (Query == null)
+            {
+                bag = null;
+                return false;
+            }
+
+            return Query.TryGetMetadata(pluginId, out bag);
+        }
+
+        /// <summary>
+        /// Gets the metadata bag for a plugin, creating one from the registered descriptor when necessary.
+        /// </summary>
+        /// <param name="pluginId">Identifier of the plugin that owns the metadata.</param>
+        /// <param name="factory">Optional factory used to create the metadata bag.</param>
+        /// <returns>The metadata bag associated with the plugin.</returns>
+        public QueryMetadataBag GetOrCreateMetadata(string pluginId, Func<QueryMetadataBag> factory = null)
+        {
+            if (Query == null)
+            {
+                throw new InvalidOperationException("Query metadata is unavailable because the query context was not supplied.");
+            }
+
+            QueryMetadataBag DefaultFactory()
+            {
+                if (QueryMetadata != null && QueryMetadata.TryGetDescriptor(pluginId, out var descriptor))
+                {
+                    return new QueryMetadataBag(descriptor);
+                }
+
+                return new QueryMetadataBag(pluginId, version: 1, reservedKeys: Array.Empty<string>());
+            }
+
+            return Query.GetOrCreateMetadata(pluginId, factory ?? DefaultFactory);
+        }
 
         private EngineIndex _selectedIndex;
         private string _selectedIndexExpression;

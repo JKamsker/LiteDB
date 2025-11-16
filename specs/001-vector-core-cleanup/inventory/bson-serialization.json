@@ -1,0 +1,20 @@
+{
+    "id": "bson-serialization-surface",
+    "area": "Serialization",
+    "files": [
+        "LiteDB/Document/BsonType.cs",
+        "LiteDB/Document/BsonValue.cs",
+        "LiteDB/Document/BsonVector.cs",
+        "LiteDB/Document/Json/JsonWriter.cs",
+        "LiteDB/Utils/Extensions/BufferSliceExtensions.cs",
+        "LiteDB/Engine/Disk/Serializer/BufferReader.cs",
+        "LiteDB/Engine/Disk/Serializer/BufferWriter.cs"
+    ],
+    "scopeSummary": "Adds BsonType.Vector, conversion helpers, JSON serialization, and binary encoding for float arrays",
+    "decisionId": "requires-infrastructure",
+    "requiredGapIds": [
+        "gap-bson-serialization"
+    ],
+    "verificationStepIds": [],
+    "notes": "Blocked until plugin-managed BSON type registration exists; decision now tracks infrastructure dependency."
+}

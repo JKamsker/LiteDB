@@ -1,4 +1,4 @@
-﻿using LiteDB.Engine;
+using LiteDB.Engine;
 
 using System;
 using System.Diagnostics;
@@ -6,8 +6,12 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 
 #pragma warning disable CS0436 // Type conflicts with imported type
+// TODO-vector-plugin-abstractions: Remove these friend assemblies once the plugin no longer depends on
+// engine internals such as Snapshot, PageAddress, TransactionService, and BasePage serialization helpers.
+// LiteDB.Vector currently requires access while the page factory and rebuild abstractions solidify.
 [assembly: InternalsVisibleTo("LiteDB.Tests")]
 [assembly: InternalsVisibleTo("LiteDB.Vector")]
+[assembly: InternalsVisibleTo("LiteDB.Vector.Tests")]
 #pragma warning restore CS0436
 #if DEBUG || TESTING
 [assembly: InternalsVisibleTo("ConsoleApp1")]
