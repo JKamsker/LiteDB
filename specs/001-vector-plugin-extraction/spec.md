@@ -69,7 +69,7 @@ As a plugin author, I need the query planner and BSON serializer to accept dynam
 ### Functional Requirements
 
 - **FR-001**: Core LiteDB assemblies MUST expose vector functionality only through neutral extension points; no public `Vector*` members or enum values remain once the plugin is removed.
-- **FR-002**: LiteDB.Vector MUST provide end-to-end vector index creation, drop, diagnostics, and query planning by registering services through official plugin registries rather than `InternalsVisibleTo`.
+- **FR-002**: LiteDB.Vector MUST provide end-to-end vector index creation, drop, diagnostics, and query planning by registering services through official plugin registries, while any temporary `InternalsVisibleTo` declarations remain tightly scoped and validated so LiteDB core exposes, ideally little to no, vector APIs.
 - **FR-003**: Rebuild/import flows MUST serialize vector metadata exclusively via plugin-provided `IIndexMetadataSerializer` instances and refuse to operate on metadata whose serializer is absent.
 - **FR-004**: Query planning and expression parsing MUST rely on plugin-registered SQL functions/operators and planner cost hooks so tokens like `VECTOR_SIM`, `VECTOR_DIST`, or `VECTOR_KNN` exist only when LiteDB.Vector enables them and the planner only considers vector paths when the plugin registers them.
 - **FR-005**: BSON serialization MUST allow plugin-defined type codes/handlers, enabling LiteDB.Vector to inject its vector type implementation without core awareness.
