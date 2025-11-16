@@ -84,6 +84,20 @@ As a plugin author, I need the query planner and BSON serializer to accept dynam
 - **CustomBsonTypeDescriptor**: Holds plugin-registered BSON type code, serializer/deserializer delegates, and JSON formatter behavior.
 - **PluginPageFactory**: Describes plugin-owned page types with logical names, numeric codes, and constructors used by storage services.
 
+### Extensibility Interfaces *(new design details)*
+
+| Interface/Type | Namespace | Description |
+|----------------|-----------|-------------|
+| `IPluginIndexMetadataRegistry` + `PluginIndexMetadataDescriptor` | `LiteDB.Plugins.Indexing` | Core exposes a registry that lets plugins register metadata serializers. Each descriptor defines `PluginId`, `string IndexKind`, `Func<byte[], PluginIndexMetadata> Deserialize`, and `Func<PluginIndexMetadata, byte[]> Serialize`. Collection pages persist metadata as `{byte pluginIdLength}{pluginIdUtf8}{byte payloadLengthLo}{byte payloadLengthHi}{payloadBytes}`, enabling the engine to store opaque blobs even when the plugin is absent. LiteDB.Vector registers a descriptor for `IndexKind = "vector"` that understands the existing slot/dimension/metric payload. |
+| `IPageTypeRegistry` + extended `PageFactoryRegistration` | `LiteDB.Plugins.Storage` | Builds on the current page factory registry by adding explicit page-type declarations: plugins call `context.RegisterPageFactory(new PageFactoryRegistration(pluginId: "LiteDB.Vector", pageType: "VectorIndex", numericCode: 0x80, compatibilityRange: ">=8.0", factory: ...))`. Persisted pages record the numeric code plus the pluginId so that, if the plugin is missing, `PageFactoryRegistry` can warn once and throw `VectorCompatibility.PluginRequired()` only when that page type is accessed. |
+| `IBsonTypeRegistry` + `PluginBsonTypeRegistration` | `LiteDB.Plugins.Bson` | Plugins reserve BSON type codes using `context.RegisterBsonType(new BsonTypeRegistration(pluginId, typeCode, name, serializer, deserializer, legacyAliases))`. LiteDB.Vector supplies the `BsonType.Vector` handler (legacy alias `0x64`) so BSON serialization/deserialization flows through the plugin. Core keeps `LiteDB.Core` registrations for built-in types but no longer contains vector-specific serializers. |
+
+**LiteDB.Vector Migration Path**
+
+1. During `VectorSearchPlugin.Initialize`, register the BSON handler, metadata descriptor (`IndexKind = "vector"`), and page factory (`pageType = "VectorIndex"`) before hooking up query/index services.
+2. When the plugin is absent, collection pages still contain `{pluginId="LiteDB.Vector", payload=legacy blob}` records. The registry reports “missing serializer” so core emits the standardized `plugin_required` diagnostic while leaving other collections writable.
+3. Rebuild/import/FileReader consult `IPluginIndexMetadataRegistry` to serialize/deserialize plugin-owned metadata. If no serializer exists, they emit the same diagnostic and skip the affected index.
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
