@@ -62,6 +62,7 @@ namespace LiteDB.Engine
                     var snapshot = transaction.CreateSnapshot(LockMode.Write, collection, true);
                     var indexer = new IndexService(snapshot, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
                     var data = new DataService(snapshot, _disk.MAX_ITEMS_COUNT);
+                    // TODO Phase 3F: Replace direct VectorIndexService with plugin registry pattern
                     var vectorService = new VectorIndexService(snapshot, _header.Pragmas.Collation);
 
                     // get all documents from current collection
@@ -76,6 +77,7 @@ namespace LiteDB.Engine
                     }
 
                     // first create all user indexes (exclude _id index)
+                    // TODO Phase 3F: Replace direct vector index creation with plugin registry pattern
                     foreach (var index in reader.GetIndexes(collection))
                     {
                         if (index.IndexType == 1 && index.VectorMetadata != null)

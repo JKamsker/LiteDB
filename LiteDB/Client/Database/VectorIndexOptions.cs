@@ -4,20 +4,21 @@ namespace LiteDB
 {
     /// <summary>
     /// Options used when creating a vector-aware index.
+    /// INTERNAL: This class will be removed in a future version. Vector functionality is moving to LiteDB.Vector plugin.
     /// </summary>
-    public sealed class VectorIndexOptions
+    internal sealed class VectorIndexOptions
     {
         /// <summary>
         /// Gets the expected dimensionality of the indexed vectors.
         /// </summary>
-        public ushort Dimensions { get; }
+        internal ushort Dimensions { get; }
 
         /// <summary>
         /// Gets the distance metric used when comparing vectors.
         /// </summary>
-        public VectorDistanceMetric Metric { get; }
+        internal VectorDistanceMetric Metric { get; }
 
-        public VectorIndexOptions(ushort dimensions, VectorDistanceMetric metric = VectorDistanceMetric.Cosine)
+        internal VectorIndexOptions(ushort dimensions, VectorDistanceMetric metric = VectorDistanceMetric.Cosine)
         {
             if (dimensions == 0)
             {

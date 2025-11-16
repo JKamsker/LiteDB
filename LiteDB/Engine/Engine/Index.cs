@@ -96,8 +96,9 @@ namespace LiteDB.Engine
 
         /// <summary>
         /// Create a new vector index (or do nothing if already exists) for a collection/field.
+        /// INTERNAL: This method is private and will be replaced with plugin registry pattern in Phase 3F.
         /// </summary>
-        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options)
+        private bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options)
         {
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
@@ -186,6 +187,8 @@ namespace LiteDB.Engine
                 // no index, no drop
                 if (index == null) return false;
 
+                // TODO Phase 3F: Replace direct VectorIndexService usage with plugin registry pattern
+                // Check if plugin is registered for vector indexes and delegate to plugin
                 if (index.IndexType == 1)
                 {
                     var metadata = col.GetVectorIndexMetadata(name);
