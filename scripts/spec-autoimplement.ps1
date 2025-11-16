@@ -1,18 +1,18 @@
 <#
     Automates Codex runs against the vectorsearch migration spec until every task in
-    `specs/specs\001-vector-plugin-extraction/tasks.md` is closed. Each iteration
+    `specs/001-vector-plugin-extraction/tasks.md` is closed. Each iteration
     launches a non-interactive Codex session, commits the resulting changes,
     and repeats with a fresh session.
 #>
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
-    [string]$TaskFile = 'specs/specs\001-vector-plugin-extraction/tasks.md',
-    [string]$ProgressFile = 'specs/specs\001-vector-plugin-extraction/progress.md',
+    [string]$TaskFile = 'specs/001-vector-plugin-extraction/tasks.md',
+    [string]$ProgressFile = 'specs/001-vector-plugin-extraction/progress.md',
     [string]$InitialInstructions = @"
 Read .github/prompts/speckit.implement.prompt.md and please resume with the task.
-Status: specs/specs\001-vector-plugin-extraction/progress.md - add your progress to it whenever necessary.
-Also see tasks.md, plan.md, spec.md inside specs\specs\001-vector-plugin-extraction
+Status: specs/001-vector-plugin-extraction/progress.md - add your progress to it whenever necessary.
+Also see tasks.md, plan.md, spec.md inside specs\001-vector-plugin-extraction
 "@,
     [string]$CodexBinary = 'codex',
     [string[]]$CodexOptions = @('--yolo'),
