@@ -36,7 +36,7 @@ namespace LiteDB.Plugins
 
         ICustomBsonTypeRegistry BsonTypes { get; }
 
-        IPageFactoryRegistry PageFactories { get; }
+        IPageTypeRegistry PageFactories { get; }
 
         ICustomIndexStrategyRegistry CustomIndexes { get; }
 

@@ -70,7 +70,7 @@ Fallback registrations keep legacy documents readable, but new writes should use
 
 ### Page Factory Registry
 
-- Storage extensions register page constructors via `context.RegisterPageFactory(new PageFactoryRegistration(...))` (`LiteDB/Plugins/Storage/IPageFactoryRegistry.cs`).
+- Storage extensions register page constructors via `context.RegisterPageFactory(new PageFactoryRegistration(...))` (`LiteDB/Plugins/Storage/IPageTypeRegistry.cs`).
 - Each registration declares a logical `pageType` and compatibility range so the engine can validate formats before `FileReaderV8` and `SnapShot` materialize pages (`LiteDB/Engine/Pages/PageFactoryRegistry.cs`, `LiteDB/Engine/FileReader/FileReaderV8.cs:52`).
 - Optional metadata serializers and rebuild hooks participate in checkpoints and `LiteDB/Engine/Engine/Rebuild.cs`, allowing plugins to persist auxiliary page headers and coordinate recovery.
 

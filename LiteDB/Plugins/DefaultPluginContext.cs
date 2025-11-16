@@ -17,7 +17,7 @@ namespace LiteDB.Plugins
             this.QueryPlanner = new QueryPlannerRegistry();
             this.QueryMetadata = new QueryMetadataAccessor();
             this.BsonTypes = new CustomBsonTypeRegistry();
-            this.PageFactories = new PluginPageFactoryRegistry();
+            this.PageFactories = new PageTypeRegistry();
             this.CustomIndexes = new CustomIndexStrategyRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
             this.IndexInterceptors = new IndexInterceptorRegistry();
@@ -36,7 +36,7 @@ namespace LiteDB.Plugins
 
         public ICustomBsonTypeRegistry BsonTypes { get; }
 
-        public IPageFactoryRegistry PageFactories { get; }
+        public IPageTypeRegistry PageFactories { get; }
 
         public ICustomIndexStrategyRegistry CustomIndexes { get; }
 

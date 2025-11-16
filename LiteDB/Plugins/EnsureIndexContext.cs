@@ -99,7 +99,7 @@ namespace LiteDB.Plugins
         /// <summary>
         /// Gets the page factory registry exposed by the plugin context.
         /// </summary>
-        public IPageFactoryRegistry PageFactories => PluginContext?.PageFactories;
+        public IPageTypeRegistry PageFactories => PluginContext?.PageFactories;
 
         /// <summary>
         /// Gets the custom index strategy registry exposed by the plugin context.

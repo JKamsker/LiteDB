@@ -126,17 +126,23 @@ namespace LiteDB.Vector
                 context.RegisterPageFactory(new PageFactoryRegistration(
                     pluginId: "LiteDB.Vector",
                     pageType: "VectorIndex",
+                    numericCode: 0xE0,
                     compatibilityRange: ">=8.0",
                     factory: ctx =>
                     {
-                        if (ctx is PageConstructionContext construction)
+                        if (ctx == null)
                         {
-                            return construction.IsNewPage
-                                ? new VectorIndexPage(construction.Buffer, construction.PageId)
-                                : new VectorIndexPage(construction.Buffer);
+                            throw new ArgumentNullException(nameof(ctx));
                         }
 
-                        throw new ArgumentException("Vector index page factory received an unexpected context instance.", nameof(ctx));
+                        if (ctx.Buffer is not PageBuffer buffer)
+                        {
+                            throw new InvalidOperationException("Vector page factory requires a PageBuffer instance.");
+                        }
+
+                        return ctx.IsNewPage
+                            ? new VectorIndexPage(buffer, ctx.PageId)
+                            : new VectorIndexPage(buffer);
                     }));
 
 #pragma warning disable CS0618

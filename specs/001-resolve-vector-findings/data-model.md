@@ -43,7 +43,7 @@
   - `rebuildHook` (Func<RebuildContext, ValueTask>): Optional callback to participate in engine rebuilds.
   - `compatibilityRange` (string): Supported format versions (e.g., `>=8.0`).
 - **Relationships**:
-  - Registered with the core `IPageFactoryRegistry`.
+  - Registered with the core `IPageTypeRegistry`.
   - Consumed by vector index strategies during index maintenance.
 - **Validation Rules**:
   - `factory` must only produce pages deriving from `BasePage`.

@@ -33,7 +33,7 @@
 - [X] T005 Add query metadata accessor contract in `LiteDB/Plugins/Query/IQueryMetadataAccessor.cs`.
 - [X] T006 Extend `LiteDB/Plugins/DefaultPluginContext.cs` to expose registration and retrieval APIs for the metadata accessor.
 - [X] T007 Introduce plugin BSON type registry interface in `LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs` and register it with the plugin context.
-- [X] T008 Create page factory registry interface in `LiteDB/Plugins/Storage/IPageFactoryRegistry.cs` with placeholders for factory/metadata hooks.
+- [X] T008 Create page factory registry interface in `LiteDB/Plugins/Storage/IPageTypeRegistry.cs` with placeholders for factory/metadata hooks.
 - [X] T009 Update `LiteDB/Plugins/ILitePlugin.cs` and `LiteDB/Plugins/EnsureIndexContext.cs` to surface the new registry contracts for downstream use.
 
 **Checkpoint**: Foundational registries and context plumbing ready—user story implementation can now proceed.

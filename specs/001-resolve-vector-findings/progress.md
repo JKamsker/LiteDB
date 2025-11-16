@@ -9,7 +9,7 @@
 - T005: Added `LiteDB/Plugins/Query/IQueryMetadataAccessor.cs` defining descriptor registration APIs for plugin-managed query metadata.
 - T006: Extended `LiteDB/Plugins/DefaultPluginContext.cs` with query metadata registration helpers backed by a thread-safe accessor implementation.
 - T007: Added `LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs` and initialized the default plugin context with a BSON type registry for plugin registrations.
-- T008: Drafted `LiteDB/Plugins/Storage/IPageFactoryRegistry.cs` and wired the default context with a registry for page factory descriptors.
+- T008: Drafted `LiteDB/Plugins/Storage/IPageTypeRegistry.cs` and wired the default context with a registry for page factory descriptors.
 - T009: Exposed query metadata, BSON type, and page factory registries through `ILitePluginContext` and `EnsureIndexContext` for plugin consumption.
 - T010: Added `LiteDB/Plugins/Query/QueryMetadataBag.cs` providing versioned, typed metadata storage validating reserved keys for plugin-managed query state.
 - T011: Refactored `LiteDB/Engine/Query/Query.cs` to store plugin metadata bags, route SQL rendering through bag lookups, and keep legacy vector accessors as obsolete shims.

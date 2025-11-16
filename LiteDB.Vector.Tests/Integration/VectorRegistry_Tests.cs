@@ -25,6 +25,7 @@ namespace LiteDB.Vector.Tests.Integration
             pageFactory.Should().NotBeNull();
             pageFactory.PluginId.Should().Be("LiteDB.Vector");
             pageFactory.PageType.Should().Be("VectorIndex");
+            pageFactory.NumericCode.Should().Be(0xE0);
 
             context.CustomIndexes.Registered.Should().NotBeEmpty();
             var strategy = context.CustomIndexes.Registered.FirstOrDefault(x => x.StrategyId == "LiteDB.Vector");
