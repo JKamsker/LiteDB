@@ -35,6 +35,18 @@ namespace LiteDB
         /// </summary>
         public EntityMapper EntityMapper => _entity;
 
+        internal ILiteEngine Engine => _engine;
+
+        internal LiteDatabase Database => _database;
+
+        internal BsonMapper Mapper => _mapper;
+
+        internal IExpressionRegistry Expressions => _expressions;
+
+        internal ILinqResolverRegistry LinqResolvers => _linqResolvers;
+
+        internal IIndexInterceptorRegistry IndexInterceptors => _indexInterceptors;
+
         internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper, IExpressionRegistry expressions, LiteDatabase database, ILinqResolverRegistry linqResolvers, IIndexInterceptorRegistry indexInterceptors)
         {
             _collection = name ?? mapper.ResolveCollectionName(typeof(T));

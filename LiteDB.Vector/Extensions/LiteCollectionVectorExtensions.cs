@@ -1,5 +1,9 @@
 using System;
 using System.Linq.Expressions;
+using System.Text.RegularExpressions;
+using LiteDB.Engine;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
 
 namespace LiteDB.Vector
 {
@@ -31,7 +35,15 @@ namespace LiteDB.Vector
         /// </example>
         public static bool EnsureIndex<T>(this ILiteCollection<T> collection, string name, BsonExpression expression, VectorIndexOptions options)
         {
-            return Unwrap(collection).EnsureVectorIndex(name, expression, VectorExtensionHelpers.CreateOptionsDocument(options));
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+            if (expression == null) throw new ArgumentNullException(nameof(expression));
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
+            return EnsureVectorIndex(
+                Unwrap(collection),
+                name,
+                expression,
+                VectorExtensionHelpers.CreateOptionsDocument(options));
         }
 
         /// <summary>
@@ -49,7 +61,16 @@ namespace LiteDB.Vector
         /// </example>
         public static bool EnsureIndex<T>(this ILiteCollection<T> collection, BsonExpression expression, VectorIndexOptions options)
         {
-            return Unwrap(collection).EnsureVectorIndex(expression, VectorExtensionHelpers.CreateOptionsDocument(options));
+            if (expression == null) throw new ArgumentNullException(nameof(expression));
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
+            var generatedName = Regex.Replace(expression.Source, @"[^a-z0-9]", "", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+            return EnsureVectorIndex(
+                Unwrap(collection),
+                generatedName,
+                expression,
+                VectorExtensionHelpers.CreateOptionsDocument(options));
         }
 
         /// <summary>
@@ -68,7 +89,17 @@ namespace LiteDB.Vector
         /// </example>
         public static bool EnsureIndex<T, K>(this ILiteCollection<T> collection, Expression<Func<T, K>> keySelector, VectorIndexOptions options)
         {
-            return Unwrap(collection).EnsureVectorIndex(keySelector, VectorExtensionHelpers.CreateOptionsDocument(options));
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
+            var concrete = Unwrap(collection);
+            var expression = concrete.GetIndexExpression(keySelector, convertEnumerableToMultiKey: false);
+            var generatedName = Regex.Replace(expression.Source, @"[^a-z0-9]", "", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+            return EnsureVectorIndex(
+                concrete,
+                generatedName,
+                expression,
+                VectorExtensionHelpers.CreateOptionsDocument(options));
         }
 
         /// <summary>
@@ -88,7 +119,17 @@ namespace LiteDB.Vector
         /// </example>
         public static bool EnsureIndex<T, K>(this ILiteCollection<T> collection, string name, Expression<Func<T, K>> keySelector, VectorIndexOptions options)
         {
-            return Unwrap(collection).EnsureVectorIndex(name, keySelector, VectorExtensionHelpers.CreateOptionsDocument(options));
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
+            var concrete = Unwrap(collection);
+            var expression = concrete.GetIndexExpression(keySelector, convertEnumerableToMultiKey: false);
+
+            return EnsureVectorIndex(
+                concrete,
+                name,
+                expression,
+                VectorExtensionHelpers.CreateOptionsDocument(options));
         }
 
         private static LiteCollection<T> Unwrap<T>(ILiteCollection<T> collection)
@@ -104,6 +145,39 @@ namespace LiteDB.Vector
             }
 
             throw new ArgumentException("Vector index operations require LiteDB's default collection implementation.", nameof(collection));
+        }
+
+        private static bool EnsureVectorIndex<T>(LiteCollection<T> collection, string name, BsonExpression expression, BsonDocument options)
+        {
+            if (collection == null) throw new ArgumentNullException(nameof(collection));
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+            if (expression == null) throw new ArgumentNullException(nameof(expression));
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
+            var database = collection.Database;
+            var services = database?.Services;
+            var descriptor = global::LiteDB.VectorCompatibility.TryGetStrategy(services?.VectorIndexes);
+
+            if (descriptor != null && services?.Context != null)
+            {
+                var ensureContext = new EnsureIndexContext(
+                    database,
+                    collection.Engine as LiteEngine,
+                    typeof(T),
+                    collection.Name,
+                    name,
+                    expression,
+                    unique: false,
+                    collection.Mapper,
+                    services.Context,
+                    (indexName, indexExpression, _) => collection.Engine.EnsureVectorIndex(collection.Name, indexName, indexExpression, options));
+
+                var vectorContext = new VectorIndexEnsureContext(ensureContext, options);
+
+                return descriptor.EnsureIndex(vectorContext);
+            }
+
+            return collection.Engine.EnsureVectorIndex(collection.Name, name, expression, options);
         }
     }
 }
