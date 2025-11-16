@@ -88,3 +88,10 @@ specs/001-vector-plugin-extraction/  # Feature docs/assets
 | SC-003 (=2% regression ceiling with plugin installed) | T009, T020 | Vector benchmarks run as part of plugin extension rewrites; regressions gated before closing Phase 5. |
 | SC-004 (consolidated plugin absence diagnostics) | T005, T014, T015 | Diagnostic policy work and engine enforcement emit a single `VectorCompatibility.PluginRequired` path validated by tests. |
 | SC-005 (deterministic behavior with/without plugin) | T014, T016 | VectorMetadataCompatibilityTests exercise prototype files both ways, asserting warning + targeted failures only. |
+
+## Outstanding Production Readiness Items
+
+- **Finalize storage identifiers**: Ensure BSON code `0x90`, page codes `0xE0–0xE3`, and `IndexKind = "vector.hnsw"` are enforced in CI (fail builds on conflicts and update all samples/docs).
+- **Add query registries**: Track work to land SQL function/operator/cost registries so planner/operators are genuinely plugin-owned (new tasks to be captured in `tasks.md`).
+- **Behavior matrix tests**: Create integration tests for every row in the authoritative matrix, including safe vs. unsafe prerelease artifacts and compaction/shrink refusal.
+- **Migration helper**: Deliver a plugin-side helper (`VectorMigrate.RebuildAll`) plus docs demonstrating logical export/rebuild workflows.

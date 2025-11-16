@@ -87,6 +87,13 @@ As a plugin author, I need the query planner and BSON serializer to accept dynam
 - **QueryOperatorRegistration / PlannerCostHook**: Registry entries that allow plugins to add SQL functions/operators (`VECTOR_DIST`, `VECTOR_KNN`, etc.) plus planner rule/cost contributions so vector plans exist only when the plugin registers them.
 - **Reserved Identifier Ranges**: LiteDB core documents reserved BSON type codes (e.g., `0x90–0x9F`) and page type codes (e.g., `0xE0–0xEF`) for LiteDB.Vector; plugins must declare their codes during registration so conflicts are rejected.
 
+### Storage Identifiers (final)
+
+- **BSON type – Vector**: `0x90` (plugin-owned; no legacy aliases remain in core).
+- **Page types – Vector storage**: `0xE0–0xE3` reserved for LiteDB.Vector (current release uses `0xE0` for `VectorIndexPage`).
+- **IndexKind – HNSW**: `"vector.hnsw"` for metadata descriptors and strategy registration.
+- Core validates these IDs so other plugins cannot collide. Unknown plugin IDs encountered without the plugin follow the behavior matrix defined below.
+
 ### Extensibility Interfaces *(new design details)*
 
 | Interface/Type | Namespace | Description |
@@ -101,17 +108,24 @@ As a plugin author, I need the query planner and BSON serializer to accept dynam
 1. During `VectorSearchPlugin.Initialize`, register the BSON handler (new plugin-owned type code), metadata descriptor (`IndexKind = "vector.hnsw"`), SQL operators/cost hooks, and page factory (`pageType = "VectorIndex"`, code `0xE0`) before hooking up query/index services.
 2. When the plugin is absent, collection pages still contain `{pluginId="LiteDB.Vector", payload=vector blob}` records. The registry reports "missing serializer" so core emits the standardized `LITE2002` diagnostic while leaving other collections writable.
 3. Rebuild/import/FileReader consult `IPluginIndexMetadataRegistry` to serialize/deserialize plugin-owned metadata. If no serializer exists, they emit the same diagnostic and skip the affected index.
+4. LiteDB.Vector exposes a helper (for example, `VectorMigrate.RebuildAll`) that applications can call to drop prerelease indexes and recreate them using the GA plugin once it is installed.
 
-### Plugin Absence Behavior Matrix
+### Behavior Matrix (authoritative)
 
-| Operation | Plugin Assets Present? | Plugin Loaded? | Expected Result |
-|-----------|-----------------------:|:--------------:|-----------------|
-| Open database | Yes | No | Database opens; log a single warning referencing `LiteDB.Vector`. Non-vector collections remain writable. |
-| Non-vector reads/writes | Yes | No | Allowed. |
-| Vector Ensure/Drop/Rebuild/Query | Yes | No | Fail with `LITE2002` (`VectorCompatibility.PluginRequired`) and diagnostics naming the plugin and index/collection. |
-| Compaction/Shrink affecting plugin pages | Yes | No | Block with `LITE2002` unless the operation can skip plugin pages entirely. |
-| Logical backup/export | Yes | No | Allowed (documents only); warn that vector indexes were skipped. |
-| Any vector operation | Yes | Yes | Succeeds once LiteDB.Vector registers all required hooks. |
+| Scenario | Safe To Ignore? | Plugin Loaded? | Outcome |
+|----------|----------------:|:--------------:|---------|
+| Prerelease vector artifacts detected | Yes | No | Database opens; warn once. Non-vector reads/writes allowed. Vector operations fail with `Vector.LegacyIndexNeedsRebuild (LITE2002)` and remediation text. |
+| Prerelease vector artifacts detected | No | No | Database refuses to open with `Vector.LegacyIndexNeedsRebuild (LITE2002)` because the artifacts are unsafe to ignore. |
+| GA vector data present | — | No | Database opens; warn once. Vector Ensure/Drop/Rebuild/Query fail with `Vector.PluginRequired (LITE2002)` naming `LiteDB.Vector`. |
+| GA vector data present | — | Yes | Full functionality (BSON, operators, planner, diagnostics) is available. |
+| No vector data present | — | Yes/No | Standard LiteDB behavior. |
+
+**Compaction & Shrink**: If a compaction/shrink would rewrite plugin-owned pages and the plugin is missing, refuse the operation with `Vector.PluginRequired`. If the operation can skip those pages safely, log the warning but continue.
+
+**Backup & Restore**:
+
+- **Logical export/import** (documents only) always succeeds and is the recommended migration path.
+- **Raw file backup** is permitted but does not change the unsupported state; restoring still requires LiteDB.Vector before vector features work.
 
 ## Success Criteria *(mandatory)*
 

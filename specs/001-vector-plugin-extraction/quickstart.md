@@ -11,11 +11,14 @@
 
    - **Recommended**: Perform a logical export, create a fresh database with LiteDB.Vector enabled, reinsert documents, then re-run vector `EnsureIndex` calls.
    - **Alternative**: Use the prerelease build to drop existing vector indexes, upgrade to the new release, install LiteDB.Vector, and recreate the indexes.
-2. **Register the plugin** when constructing the database:
+2. **Register the plugin** when constructing the database. Existing constructors remain available; this overload keeps things non-breaking:
    ```csharp
-   using var db = new LiteDatabase(
-       connectionString,
-       plugins: new ILitePlugin[] { VectorSearchPlugin.Instance });
+   var options = new LiteDatabaseOptions
+   {
+       Plugins = new ILitePlugin[] { VectorSearchPlugin.Instance }
+   };
+
+   using var db = new LiteDatabase(connectionString, options: options);
    ```
 3. **(For plugin authors) Register extension points inside `Initialize`**—LiteDB.Vector does this for you, but custom plugins follow the same pattern:
    ```csharp
@@ -78,7 +81,7 @@
    var options = new VectorIndexOptions(dimensions: 384);
    db.GetCollection<MyDoc>("docs").EnsureIndex(x => x.Embedding, options);
    ```
-6. **Optional: inspect raw metadata from inside the plugin**—for example, `VectorIndexStrategy` can deserialize payloads using the registered descriptor:
+6. **Optional: inspect raw metadata from inside the plugin**-for example, `VectorIndexStrategy` can deserialize payloads using the registered descriptor:
    ```csharp
    public sealed class VectorIndexStrategy : CustomIndexStrategy
    {
@@ -92,3 +95,22 @@
    }
    ```
 7. **Testing**: execute both `dotnet test LiteDB.Tests --filter Vector` and `dotnet test LiteDB.Vector.Tests` to validate optional-plugin behavior.
+8. **Migration helper**: LiteDB.Vector can provide a convenience API so applications can rebuild prerelease indexes after installing the plugin:
+   ```csharp
+   public static class VectorMigrate
+   {
+       public static void RebuildAll(LiteDatabase db, CancellationToken ct = default)
+       {
+           foreach (var info in db.Engine.ListIndexes().Where(i => i.IndexKind == "vector.hnsw"))
+           {
+               db.GetCollection(info.Collection)
+                 .DropIndex(info.Name);
+               db.GetCollection(info.Collection)
+                 .EnsureIndex(info.Name, info.Expression, new VectorIndexOptions((int)info["dimensions"]));
+           }
+       }
+   }
+
+   using var db = new LiteDatabase(connectionString, options: options);
+   VectorMigrate.RebuildAll(db);
+   ```
