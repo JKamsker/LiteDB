@@ -13,8 +13,8 @@
 
 **Purpose**: Establish documentation and tooling needed for the migration effort.
 
-- [ ] T001 Create migration guide capturing optional-plugin requirements in docs/vector-plugin-isolation.md
-- [ ] T002 Add scripts/verify-vector-clean.ps1 to fail builds when core LiteDB still references "Vector" outside extension points
+- [X] T001 Create migration guide capturing optional-plugin requirements in docs/vector-plugin-isolation.md
+- [X] T002 Add scripts/verify-vector-clean.ps1 to fail builds when core LiteDB still references "Vector" outside extension points
 
 ---
 
