@@ -16,6 +16,7 @@ namespace LiteDB.Plugins
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
             this.QueryMetadata = new QueryMetadataAccessor();
+            this.DiagnosticPolicy = DefaultPluginDiagnosticPolicy.Instance;
             this.BsonTypes = new CustomBsonTypeRegistry();
             this.PageFactories = new PageTypeRegistry();
             this.CustomIndexes = new CustomIndexStrategyRegistry();
@@ -33,6 +34,8 @@ namespace LiteDB.Plugins
         public IQueryPlannerRegistry QueryPlanner { get; }
 
         public IQueryMetadataAccessor QueryMetadata { get; }
+
+        public IPluginDiagnosticPolicy DiagnosticPolicy { get; private set; }
 
         public ICustomBsonTypeRegistry BsonTypes { get; }
 
@@ -63,6 +66,11 @@ namespace LiteDB.Plugins
         public QueryMetadataDescriptor GetQueryMetadataDescriptor(string pluginId)
         {
             return this.QueryMetadata.GetDescriptor(pluginId);
+        }
+
+        public void SetDiagnosticPolicy(IPluginDiagnosticPolicy policy)
+        {
+            DiagnosticPolicy = policy ?? throw new ArgumentNullException(nameof(policy));
         }
 
         public void RegisterBsonType(CustomBsonTypeDescriptor registration)
