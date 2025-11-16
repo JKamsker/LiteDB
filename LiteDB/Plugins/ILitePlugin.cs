@@ -36,6 +36,12 @@ namespace LiteDB.Plugins
 
         IPluginDiagnosticPolicy DiagnosticPolicy { get; }
 
+        ISqlFunctionRegistry SqlFunctions { get; }
+
+        IQueryOperatorRegistry QueryOperators { get; }
+
+        IQueryCostModelRegistry QueryCostModels { get; }
+
         ICustomBsonTypeRegistry BsonTypes { get; }
 
         IPageTypeRegistry PageFactories { get; }
@@ -75,6 +81,12 @@ namespace LiteDB.Plugins
         void RegisterPageFactory(PageFactoryRegistration registration);
 
         bool TryGetPageFactory(string pageType, out PageFactoryRegistration registration);
+
+        void RegisterSqlFunction(SqlFunctionRegistration registration);
+
+        void RegisterQueryOperator(QueryOperatorRegistration registration);
+
+        void RegisterQueryCostModel(QueryCostModelRegistration registration);
     }
 
     /// <summary>

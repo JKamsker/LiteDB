@@ -17,6 +17,9 @@ namespace LiteDB.Plugins
             this.QueryPlanner = new QueryPlannerRegistry();
             this.QueryMetadata = new QueryMetadataAccessor();
             this.DiagnosticPolicy = DefaultPluginDiagnosticPolicy.Instance;
+            this.SqlFunctions = new SqlFunctionRegistry();
+            this.QueryOperators = new QueryOperatorRegistry();
+            this.QueryCostModels = new QueryCostModelRegistry();
             this.BsonTypes = new CustomBsonTypeRegistry();
             this.PageFactories = new PageTypeRegistry();
             this.CustomIndexes = new CustomIndexStrategyRegistry();
@@ -36,6 +39,12 @@ namespace LiteDB.Plugins
         public IQueryMetadataAccessor QueryMetadata { get; }
 
         public IPluginDiagnosticPolicy DiagnosticPolicy { get; private set; }
+
+        public ISqlFunctionRegistry SqlFunctions { get; }
+
+        public IQueryOperatorRegistry QueryOperators { get; }
+
+        public IQueryCostModelRegistry QueryCostModels { get; }
 
         public ICustomBsonTypeRegistry BsonTypes { get; }
 
@@ -96,6 +105,21 @@ namespace LiteDB.Plugins
         public bool TryGetPageFactory(string pageType, out PageFactoryRegistration registration)
         {
             return this.PageFactories.TryGet(pageType, out registration);
+        }
+
+        public void RegisterSqlFunction(SqlFunctionRegistration registration)
+        {
+            this.SqlFunctions.Register(registration);
+        }
+
+        public void RegisterQueryOperator(QueryOperatorRegistration registration)
+        {
+            this.QueryOperators.Register(registration);
+        }
+
+        public void RegisterQueryCostModel(QueryCostModelRegistration registration)
+        {
+            this.QueryCostModels.Register(registration);
         }
 
         public void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor)

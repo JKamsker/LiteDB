@@ -55,6 +55,26 @@ namespace LiteDB
         public ICustomIndexStrategyRegistry CustomIndexes => _context.CustomIndexes;
 
         /// <summary>
+        /// Gets the SQL function registry associated with the database.
+        /// </summary>
+        public ISqlFunctionRegistry SqlFunctions => _context.SqlFunctions;
+
+        /// <summary>
+        /// Gets the query operator registry associated with the database.
+        /// </summary>
+        public IQueryOperatorRegistry QueryOperators => _context.QueryOperators;
+
+        /// <summary>
+        /// Gets the query cost model registry associated with the database.
+        /// </summary>
+        public IQueryCostModelRegistry QueryCostModels => _context.QueryCostModels;
+
+        /// <summary>
+        /// Gets the plugin diagnostic policy associated with the database.
+        /// </summary>
+        public IPluginDiagnosticPolicy DiagnosticPolicy => _context.DiagnosticPolicy;
+
+        /// <summary>
         /// Gets the service provider exposed to plugins.
         /// </summary>
         public IServiceProvider Services => _context.Services;
