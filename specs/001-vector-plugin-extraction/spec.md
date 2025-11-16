@@ -71,32 +71,47 @@ As a plugin author, I need the query planner and BSON serializer to accept dynam
 - **FR-001**: Core LiteDB assemblies MUST expose vector functionality only through neutral extension points; no public `Vector*` members or enum values remain once the plugin is removed.
 - **FR-002**: LiteDB.Vector MUST provide end-to-end vector index creation, drop, diagnostics, and query planning by registering services through official plugin registries rather than `InternalsVisibleTo`.
 - **FR-003**: Rebuild/import flows MUST serialize vector metadata exclusively via plugin-provided `IIndexMetadataSerializer` instances and refuse to operate on metadata whose serializer is absent.
-- **FR-004**: Query planning and expression parsing MUST rely on plugin-registered operators so tokens like `VECTOR_SIM` and `VECTOR_DIST` exist only when LiteDB.Vector enables them.
+- **FR-004**: Query planning and expression parsing MUST rely on plugin-registered SQL functions/operators and planner cost hooks so tokens like `VECTOR_SIM`, `VECTOR_DIST`, or `VECTOR_KNN` exist only when LiteDB.Vector enables them and the planner only considers vector paths when the plugin registers them.
 - **FR-005**: BSON serialization MUST allow plugin-defined type codes/handlers, enabling LiteDB.Vector to inject its vector type implementation without core awareness.
 - **FR-006**: Diagnostics for missing plugin functionality MUST use plugin-agnostic wording while optionally referencing the plugin ID for guidance [NEEDS CLARIFICATION: Should diagnostics include the plugin ID in user-facing text or remain generic?].
 - **FR-007**: Documentation and samples MUST describe vector capabilities as an optional plugin feature, pointing users to LiteDB.Vector installation and usage steps.
 - **FR-008**: LiteDB MUST remain fully functional without LiteDB.Vector; when opening databases created with vector search enabled, the engine MUST follow one of the documented behaviors: (a) refuse to open the database up front, (b) refuse to open only documents/collections that require the missing plugin while keeping the rest stable, or (c) allow the database to open if the absence does not impact stability, and the system MUST log which path was chosen.
-- **FR-009**: Core MUST replace vector-specific metadata structures with generic plugin registries: collection pages store plugin-owned metadata blobs annotated with `pluginId`, rebuild/import uses plugin-provided serializers for any custom index metadata, and the page factory registry treats plugin-reserved page types uniformly so no `Vector*` enums or helpers remain in LiteDB once the plugin is removed.
+- **FR-009**: Core MUST replace vector-specific metadata structures with generic plugin registries: collection pages store plugin-owned metadata blobs annotated with `pluginId`, rebuild/import uses plugin-provided serializers for any custom index metadata, and the page factory registry treats plugin-reserved page types uniformly so no `Vector*` enums or helpers remain in LiteDB once the plugin is removed. Reserved identifier ranges (e.g., BSON type codes `0x90–0x9F`, page codes `0xE0–0xEF`) MUST be documented and validated so conflicts are rejected at build time.
+- **FR-010**: Core MUST NOT parse or upgrade prerelease vector formats. If plugin-owned assets (indexes, BSON types, page codes) are encountered without the owning plugin, vector operations MUST fail with a single diagnostic (`LITE2002`, including the `PluginId`, collection/index identifiers, and remediation) while non-vector data stays accessible.
 
 ### Key Entities *(include if feature involves data)*
 
 - **CustomIndexStrategy**: Represents plugin-defined index logic (ensure/drop delegates, metadata serializer reference, diagnostic metadata).
 - **CustomBsonTypeDescriptor**: Holds plugin-registered BSON type code, serializer/deserializer delegates, and JSON formatter behavior.
 - **PluginPageFactory**: Describes plugin-owned page types with logical names, numeric codes, and constructors used by storage services.
+- **QueryOperatorRegistration / PlannerCostHook**: Registry entries that allow plugins to add SQL functions/operators (`VECTOR_DIST`, `VECTOR_KNN`, etc.) plus planner rule/cost contributions so vector plans exist only when the plugin registers them.
+- **Reserved Identifier Ranges**: LiteDB core documents reserved BSON type codes (e.g., `0x90–0x9F`) and page type codes (e.g., `0xE0–0xEF`) for LiteDB.Vector; plugins must declare their codes during registration so conflicts are rejected.
 
 ### Extensibility Interfaces *(new design details)*
 
 | Interface/Type | Namespace | Description |
 |----------------|-----------|-------------|
-| `IPluginIndexMetadataRegistry` + `PluginIndexMetadataDescriptor` | `LiteDB.Plugins.Indexing` | Core exposes a registry that lets plugins register metadata serializers. Each descriptor defines `PluginId`, `string IndexKind`, `Func<byte[], PluginIndexMetadata> Deserialize`, and `Func<PluginIndexMetadata, byte[]> Serialize`. Collection pages persist metadata as `{byte pluginIdLength}{pluginIdUtf8}{byte payloadLengthLo}{byte payloadLengthHi}{payloadBytes}`, enabling the engine to store opaque blobs even when the plugin is absent. LiteDB.Vector registers a descriptor for `IndexKind = "vector"` that understands the existing slot/dimension/metric payload. |
-| `IPageTypeRegistry` + extended `PageFactoryRegistration` | `LiteDB.Plugins.Storage` | Builds on the current page factory registry by adding explicit page-type declarations: plugins call `context.RegisterPageFactory(new PageFactoryRegistration(pluginId: "LiteDB.Vector", pageType: "VectorIndex", numericCode: 0x80, compatibilityRange: ">=8.0", factory: ...))`. Persisted pages record the numeric code plus the pluginId so that, if the plugin is missing, `PageFactoryRegistry` can warn once and throw `VectorCompatibility.PluginRequired()` only when that page type is accessed. |
-| `IBsonTypeRegistry` + `PluginBsonTypeRegistration` | `LiteDB.Plugins.Bson` | Plugins reserve BSON type codes using `context.RegisterBsonType(new BsonTypeRegistration(pluginId, typeCode, name, serializer, deserializer, legacyAliases))`. LiteDB.Vector supplies the `BsonType.Vector` handler (legacy alias `0x64`) so BSON serialization/deserialization flows through the plugin. Core keeps `LiteDB.Core` registrations for built-in types but no longer contains vector-specific serializers. |
+| `IPluginIndexMetadataRegistry` + `PluginIndexMetadataDescriptor` | `LiteDB.Plugins.Indexing` | Core exposes a registry that lets plugins register metadata serializers. Each descriptor defines `PluginId`, `string IndexKind`, `Func<byte[], PluginIndexMetadata> Deserialize`, and `Func<PluginIndexMetadata, byte[]> Serialize`. Collection pages persist metadata as `{byte pluginIdLength}{pluginIdUtf8}{byte payloadLengthLo}{byte payloadLengthHi}{payloadBytes}`, enabling the engine to store opaque blobs even when the plugin is absent. LiteDB.Vector registers a descriptor for `IndexKind = "vector.hnsw"` (or similar) that understands the slot/dimension/metric payload. |
+| `IPageTypeRegistry` + extended `PageFactoryRegistration` | `LiteDB.Plugins.Storage` | Builds on the current page factory registry by adding explicit page-type declarations: plugins call `context.RegisterPageFactory(new PageFactoryRegistration(pluginId: "LiteDB.Vector", pageType: "VectorIndex", numericCode: 0xE0, compatibilityRange: ">=8.0", factory: ...))`. Persisted pages record the numeric code plus the pluginId so that, if the plugin is missing, `PageFactoryRegistry` can warn once and throw `VectorCompatibility.PluginRequired()` only when that page type is accessed, and reserved numeric ranges prevent overlaps. |
+| `IBsonTypeRegistry` + `PluginBsonTypeRegistration` | `LiteDB.Plugins.Bson` | Plugins reserve BSON type codes using `context.RegisterBsonType(new BsonTypeRegistration(pluginId, typeCode, name, serializer, deserializer))`. LiteDB.Vector supplies the handler using a new plugin-owned type code (e.g., `0x90`) so BSON serialization/deserialization flows through the plugin with no legacy aliases in core. Core keeps `LiteDB.Core` registrations for built-in types but no longer contains vector-specific serializers. |
+| `ISqlFunctionRegistry` / `IQueryOperatorRegistry` / `IQueryCostModelRegistry` | `LiteDB.Plugins.Query` | New registries that allow plugins to add SQL functions/operators plus cost model hooks. LiteDB.Vector uses them to register `VECTOR_DIST`, `VECTOR_SIM`, `VECTOR_KNN`, etc., and to advertise planner rules and costs only when the plugin is loaded. |
 
 **LiteDB.Vector Migration Path**
 
-1. During `VectorSearchPlugin.Initialize`, register the BSON handler, metadata descriptor (`IndexKind = "vector"`), and page factory (`pageType = "VectorIndex"`) before hooking up query/index services.
-2. When the plugin is absent, collection pages still contain `{pluginId="LiteDB.Vector", payload=legacy blob}` records. The registry reports “missing serializer” so core emits the standardized `plugin_required` diagnostic while leaving other collections writable.
+1. During `VectorSearchPlugin.Initialize`, register the BSON handler (new plugin-owned type code), metadata descriptor (`IndexKind = "vector.hnsw"`), SQL operators/cost hooks, and page factory (`pageType = "VectorIndex"`, code `0xE0`) before hooking up query/index services.
+2. When the plugin is absent, collection pages still contain `{pluginId="LiteDB.Vector", payload=vector blob}` records. The registry reports "missing serializer" so core emits the standardized `LITE2002` diagnostic while leaving other collections writable.
 3. Rebuild/import/FileReader consult `IPluginIndexMetadataRegistry` to serialize/deserialize plugin-owned metadata. If no serializer exists, they emit the same diagnostic and skip the affected index.
+
+### Plugin Absence Behavior Matrix
+
+| Operation | Plugin Assets Present? | Plugin Loaded? | Expected Result |
+|-----------|-----------------------:|:--------------:|-----------------|
+| Open database | Yes | No | Database opens; log a single warning referencing `LiteDB.Vector`. Non-vector collections remain writable. |
+| Non-vector reads/writes | Yes | No | Allowed. |
+| Vector Ensure/Drop/Rebuild/Query | Yes | No | Fail with `LITE2002` (`VectorCompatibility.PluginRequired`) and diagnostics naming the plugin and index/collection. |
+| Compaction/Shrink affecting plugin pages | Yes | No | Block with `LITE2002` unless the operation can skip plugin pages entirely. |
+| Logical backup/export | Yes | No | Allowed (documents only); warn that vector indexes were skipped. |
+| Any vector operation | Yes | Yes | Succeeds once LiteDB.Vector registers all required hooks. |
 
 ## Success Criteria *(mandatory)*
 
