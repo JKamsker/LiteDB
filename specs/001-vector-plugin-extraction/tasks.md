@@ -23,7 +23,7 @@
 **Purpose**: Introduce shared abstractions enabling all user stories.
 
 - [X] T003 Generalize LiteDB/Plugins/Indexing/CustomIndexStrategyDescriptor.cs into a plugin-agnostic CustomIndexStrategy descriptor and registry (ICustomIndexStrategyRegistry)
-- [ ] T003a Create LiteDB/Plugins/Indexing/IPluginIndexMetadataRegistry.cs with PluginIndexMetadataDescriptor for metadata serialization separate from strategy operations
+- [X] T003a Create LiteDB/Plugins/Indexing/IPluginIndexMetadataRegistry.cs with PluginIndexMetadataDescriptor for metadata serialization separate from strategy operations
 - [ ] T004 Add LiteDB/Plugins/Bson/CustomBsonTypeDescriptor.cs plus registration hooks (ICustomBsonTypeRegistry) for plugin-defined BSON handlers
 - [ ] T004a Add LiteDB/Plugins/Storage/IPageTypeRegistry.cs with PageFactoryRegistration and PageConstructionContext for plugin-owned page types
 - [ ] T004b Create LiteDB/Plugins/Query/ISqlFunctionRegistry.cs with SqlFunctionRegistration for plugin-defined SQL functions
