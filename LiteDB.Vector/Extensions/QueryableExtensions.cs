@@ -135,7 +135,7 @@ namespace LiteDB.Vector.Extensions
         {
             var services = source.Database?.Services;
 
-            if (VectorCompatibility.TryGetStrategy(services?.VectorIndexes) == null)
+            if (VectorCompatibility.TryGetStrategy(services?.CustomIndexes) == null)
             {
                 throw VectorCompatibility.PluginRequired();
             }
@@ -293,6 +293,7 @@ namespace LiteDB.Vector.Extensions
 
     }
 }
+
 
 
 

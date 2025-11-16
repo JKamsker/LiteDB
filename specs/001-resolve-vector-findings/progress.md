@@ -23,7 +23,7 @@
 
 - T017: Introduced engine-side `PageFactoryRegistry` with plugin-aware fallbacks and updated `BasePage`/`LiteDatabaseServices` so page creation and reads are routed through plugin descriptors when available.
 - T018: Wired page factory resolver through FileReaderV8, rebuild orchestration, and snapshot flow-propagating plugin contexts so data readers and rebuild paths honor plugin-provided page implementations.
-- T019: Added `LiteDB/Plugins/Indexing/VectorIndexStrategyDescriptor.cs` defining delegates, dependency metadata, and context wrappers for plugin-managed vector index strategies.
+- T019: Added `LiteDB/Plugins/Indexing/CustomIndexStrategyDescriptor.cs` defining delegates, dependency metadata, and context wrappers for plugin-managed vector index strategies.
 - T020: Expanded `EnsureIndexContext` and `ILitePluginContext` so plugins can register/query vector strategy descriptors via a dedicated registry wired through the default plugin context.
 - T021: Updated collection and query client APIs to resolve vector work through the strategy registry, calling plugin delegates when present and surfacing compatibility shims when the plugin is absent.
 
@@ -59,3 +59,4 @@
 - T042: Ran `dotnet pack LiteDB/LiteDB.csproj -c Release`; packaging succeeded with the pre-existing nullable and AES PBKDF2 warnings plus CA2200 notices, producing `LiteDB.6.0.0-001-resolve-vector-findings.1.nupkg`.
 - T041: Added `System.Threading.Tasks.Extensions` (4.5.4) to the netstandard2.0 target item group in `LiteDB/LiteDB.csproj`, ensuring ValueTask-backed plugin APIs have the required reference and matching plan.md dependency notes.
 - T043: Documented follow-up learnings in `specs/001-resolve-vector-findings/research.md`, covering new plugin authoring guidance, the ValueTask dependency, packaging validation, and the remaining shims (InternalsVisibleTo, Query obsolete accessors, BSON fallback registrations, and legacy page mappings) that need future removal.
+

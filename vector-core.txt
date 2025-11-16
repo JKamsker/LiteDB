@@ -6,34 +6,34 @@ LiteDB\Utils\Extensions\BufferSliceExtensions.cs:169:                case BsonTy
 LiteDB\Utils\Extensions\BufferSliceExtensions.cs:170:                    throw new LiteException(0, "Vector BSON values are provided by the LiteDB.Vector plugin. Install the LiteDB.Vector package to enable vector serialization.");
 LiteDB\Utils\Extensions\BufferSliceExtensions.cs:330:                    case BsonType.Vector:
 LiteDB\Utils\Extensions\BufferSliceExtensions.cs:331:                        throw new LiteException(0, "Vector BSON values are provided by the LiteDB.Vector plugin. Install the LiteDB.Vector package to enable vector serialization.");
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:13:    public interface IVectorIndexStrategyRegistry
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:19:        void Register(VectorIndexStrategyDescriptor descriptor);
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:27:        bool TryGet(string strategyId, out VectorIndexStrategyDescriptor descriptor);
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:34:        VectorIndexStrategyDescriptor Get(string strategyId);
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:39:        IReadOnlyCollection<VectorIndexStrategyDescriptor> Registered { get; }
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:47:    public delegate bool VectorIndexEnsureDelegate(VectorIndexEnsureContext context);
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:54:    public delegate void VectorIndexQueryPlannerDelegate(VectorIndexQueryPlannerContext context);
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:61:    public delegate void VectorIndexRebuildDelegate(VectorIndexRebuildContext context);
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:66:    public sealed class VectorIndexStrategyDescriptor
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:68:        public VectorIndexStrategyDescriptor(
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:71:            VectorIndexEnsureDelegate ensureIndex,
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:72:            VectorIndexQueryPlannerDelegate queryPlanner,
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:73:            VectorIndexRebuildDelegate rebuildStrategy = null,
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:111:        public VectorIndexEnsureDelegate EnsureIndex { get; }
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:116:        public VectorIndexQueryPlannerDelegate QueryPlanner { get; }
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:121:        public VectorIndexRebuildDelegate RebuildStrategy { get; }
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:137:    public sealed class VectorIndexEnsureContext
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:139:        public VectorIndexEnsureContext(EnsureIndexContext ensureContext, BsonDocument options)
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:159:    public sealed class VectorIndexQueryPlannerContext
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:161:        public VectorIndexQueryPlannerContext(QueryPlanningContext planningContext)
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:175:    public sealed class VectorIndexRebuildContext
-LiteDB\Plugins\Indexing\VectorIndexStrategyDescriptor.cs:177:        public VectorIndexRebuildContext(LiteEngine engine, ILitePluginContext pluginContext)
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:13:    public interface ICustomIndexStrategyRegistry
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:19:        void Register(CustomIndexStrategyDescriptor descriptor);
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:27:        bool TryGet(string strategyId, out CustomIndexStrategyDescriptor descriptor);
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:34:        CustomIndexStrategyDescriptor Get(string strategyId);
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:39:        IReadOnlyCollection<CustomIndexStrategyDescriptor> Registered { get; }
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:47:    public delegate bool CustomIndexEnsureDelegate(CustomIndexEnsureContext context);
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:54:    public delegate void CustomIndexQueryPlannerDelegate(CustomIndexQueryPlannerContext context);
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:61:    public delegate void CustomIndexRebuildDelegate(CustomIndexRebuildContext context);
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:66:    public sealed class CustomIndexStrategyDescriptor
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:68:        public CustomIndexStrategyDescriptor(
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:71:            CustomIndexEnsureDelegate ensureIndex,
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:72:            CustomIndexQueryPlannerDelegate queryPlanner,
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:73:            CustomIndexRebuildDelegate rebuildStrategy = null,
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:111:        public CustomIndexEnsureDelegate EnsureIndex { get; }
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:116:        public CustomIndexQueryPlannerDelegate QueryPlanner { get; }
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:121:        public CustomIndexRebuildDelegate RebuildStrategy { get; }
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:137:    public sealed class CustomIndexEnsureContext
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:139:        public CustomIndexEnsureContext(EnsureIndexContext ensureContext, BsonDocument options)
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:159:    public sealed class CustomIndexQueryPlannerContext
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:161:        public CustomIndexQueryPlannerContext(QueryPlanningContext planningContext)
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:175:    public sealed class CustomIndexRebuildContext
+LiteDB\Plugins\Indexing\CustomIndexStrategyDescriptor.cs:177:        public CustomIndexRebuildContext(LiteEngine engine, ILitePluginContext pluginContext)
 LiteDB\Plugins\Indexing\VectorIndexMetadataSerializer.cs:11:    public static class VectorIndexMetadataSerializer
 LiteDB\Plugins\Indexing\VectorIndexMetadataSerializer.cs:41:                throw new ArgumentException($"Vector metadata payload must contain exactly {MetadataLength} bytes.", nameof(metadata));
-LiteDB\Plugins\ILitePlugin.cs:41:        IVectorIndexStrategyRegistry VectorIndexes { get; }
-LiteDB\Plugins\ILitePlugin.cs:65:        void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor);
-LiteDB\Plugins\ILitePlugin.cs:67:        bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor);
-LiteDB\Plugins\ILitePlugin.cs:69:        VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId);
+LiteDB\Plugins\ILitePlugin.cs:41:        ICustomIndexStrategyRegistry CustomIndexes { get; }
+LiteDB\Plugins\ILitePlugin.cs:65:        void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor);
+LiteDB\Plugins\ILitePlugin.cs:67:        bool TryGetCustomIndexStrategyDescriptor(string strategyId, out CustomIndexStrategyDescriptor descriptor);
+LiteDB\Plugins\ILitePlugin.cs:69:        CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId);
 LiteDB\Document\BsonValue.cs:125:            this.Type = BsonType.Vector;
 LiteDB\Document\BsonValue.cs:145:            else if (value is float[]) this.Type = BsonType.Vector;
 LiteDB\Document\BsonValue.cs:258:        public float[] AsVector => (float[])this.RawValue;
@@ -46,34 +46,34 @@ LiteDB\Document\BsonValue.cs:599:                        var left = this.AsVecto
 LiteDB\Document\BsonValue.cs:600:                        var right = other.AsVector;
 LiteDB\Document\Json\JsonWriter.cs:126:                case BsonType.Vector:
 LiteDB\Document\Json\JsonWriter.cs:127:                    var vector = value.AsVector;
-LiteDB\Plugins\EnsureIndexContext.cs:107:        public IVectorIndexStrategyRegistry VectorIndexes => PluginContext?.VectorIndexes;
-LiteDB\Plugins\EnsureIndexContext.cs:118:        public void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor)
+LiteDB\Plugins\EnsureIndexContext.cs:107:        public ICustomIndexStrategyRegistry CustomIndexes => PluginContext?.CustomIndexes;
+LiteDB\Plugins\EnsureIndexContext.cs:118:        public void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor)
 LiteDB\Plugins\EnsureIndexContext.cs:122:                throw new InvalidOperationException("Vector index strategy registration is unavailable because the plugin context has not been configured.");
-LiteDB\Plugins\EnsureIndexContext.cs:125:            PluginContext.RegisterVectorIndexStrategy(descriptor);
-LiteDB\Plugins\EnsureIndexContext.cs:134:        public bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor)
-LiteDB\Plugins\EnsureIndexContext.cs:142:            return PluginContext.TryGetVectorIndexStrategyDescriptor(strategyId, out descriptor);
-LiteDB\Plugins\EnsureIndexContext.cs:150:        public VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId)
+LiteDB\Plugins\EnsureIndexContext.cs:125:            PluginContext.RegisterCustomIndexStrategy(descriptor);
+LiteDB\Plugins\EnsureIndexContext.cs:134:        public bool TryGetCustomIndexStrategyDescriptor(string strategyId, out CustomIndexStrategyDescriptor descriptor)
+LiteDB\Plugins\EnsureIndexContext.cs:142:            return PluginContext.TryGetCustomIndexStrategyDescriptor(strategyId, out descriptor);
+LiteDB\Plugins\EnsureIndexContext.cs:150:        public CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId)
 LiteDB\Plugins\EnsureIndexContext.cs:154:                throw new InvalidOperationException("Vector index strategy descriptor lookup requires an active plugin context.");
-LiteDB\Plugins\EnsureIndexContext.cs:157:            return PluginContext.GetVectorIndexStrategyDescriptor(strategyId);
+LiteDB\Plugins\EnsureIndexContext.cs:157:            return PluginContext.GetCustomIndexStrategyDescriptor(strategyId);
 LiteDB\Document\BsonType.cs:37:        [Obsolete("Vector serialization is provided by the LiteDB.Vector plugin via the BSON type registry.")]
 LiteDB\Document\BsonType.cs:38:        Vector = 100,
 LiteDB\Engine\SystemCollections\SysIndexes.cs:22:                    .GetVectorIndexes()
 LiteDB\Engine\SystemCollections\SysIndexes.cs:38:                        document["dimensions"] = (int)VectorIndexMetadataSerializer.GetDimensions(metadata);
 LiteDB\Engine\SystemCollections\SysIndexes.cs:39:                        document["metric"] = (int)VectorIndexMetadataSerializer.GetMetric(metadata);
-LiteDB\Plugins\DefaultPluginContext.cs:21:            this.VectorIndexes = new VectorIndexStrategyRegistry();
-LiteDB\Plugins\DefaultPluginContext.cs:41:        public IVectorIndexStrategyRegistry VectorIndexes { get; }
-LiteDB\Plugins\DefaultPluginContext.cs:93:        public void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor)
-LiteDB\Plugins\DefaultPluginContext.cs:95:            this.VectorIndexes.Register(descriptor);
-LiteDB\Plugins\DefaultPluginContext.cs:98:        public bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor)
-LiteDB\Plugins\DefaultPluginContext.cs:100:            return this.VectorIndexes.TryGet(strategyId, out descriptor);
-LiteDB\Plugins\DefaultPluginContext.cs:103:        public VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId)
-LiteDB\Plugins\DefaultPluginContext.cs:105:            return this.VectorIndexes.Get(strategyId);
-LiteDB\Plugins\DefaultPluginContext.cs:149:    internal sealed class VectorIndexStrategyRegistry : IVectorIndexStrategyRegistry
-LiteDB\Plugins\DefaultPluginContext.cs:152:        private readonly Dictionary<string, VectorIndexStrategyDescriptor> _strategies = new Dictionary<string, VectorIndexStrategyDescriptor>(StringComparer.Ordinal);
-LiteDB\Plugins\DefaultPluginContext.cs:154:        public void Register(VectorIndexStrategyDescriptor descriptor)
-LiteDB\Plugins\DefaultPluginContext.cs:164:        public bool TryGet(string strategyId, out VectorIndexStrategyDescriptor descriptor)
-LiteDB\Plugins\DefaultPluginContext.cs:178:        public VectorIndexStrategyDescriptor Get(string strategyId)
-LiteDB\Plugins\DefaultPluginContext.cs:188:        public IReadOnlyCollection<VectorIndexStrategyDescriptor> Registered
+LiteDB\Plugins\DefaultPluginContext.cs:21:            this.CustomIndexes = new CustomIndexStrategyRegistry();
+LiteDB\Plugins\DefaultPluginContext.cs:41:        public ICustomIndexStrategyRegistry CustomIndexes { get; }
+LiteDB\Plugins\DefaultPluginContext.cs:93:        public void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor)
+LiteDB\Plugins\DefaultPluginContext.cs:95:            this.CustomIndexes.Register(descriptor);
+LiteDB\Plugins\DefaultPluginContext.cs:98:        public bool TryGetCustomIndexStrategyDescriptor(string strategyId, out CustomIndexStrategyDescriptor descriptor)
+LiteDB\Plugins\DefaultPluginContext.cs:100:            return this.CustomIndexes.TryGet(strategyId, out descriptor);
+LiteDB\Plugins\DefaultPluginContext.cs:103:        public CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId)
+LiteDB\Plugins\DefaultPluginContext.cs:105:            return this.CustomIndexes.Get(strategyId);
+LiteDB\Plugins\DefaultPluginContext.cs:149:    internal sealed class CustomIndexStrategyRegistry : ICustomIndexStrategyRegistry
+LiteDB\Plugins\DefaultPluginContext.cs:152:        private readonly Dictionary<string, CustomIndexStrategyDescriptor> _strategies = new Dictionary<string, CustomIndexStrategyDescriptor>(StringComparer.Ordinal);
+LiteDB\Plugins\DefaultPluginContext.cs:154:        public void Register(CustomIndexStrategyDescriptor descriptor)
+LiteDB\Plugins\DefaultPluginContext.cs:164:        public bool TryGet(string strategyId, out CustomIndexStrategyDescriptor descriptor)
+LiteDB\Plugins\DefaultPluginContext.cs:178:        public CustomIndexStrategyDescriptor Get(string strategyId)
+LiteDB\Plugins\DefaultPluginContext.cs:188:        public IReadOnlyCollection<CustomIndexStrategyDescriptor> Registered
 LiteDB\Document\Bson\BsonTypeSerializationHelper.cs:27:                case BsonType.Vector:
 LiteDB\Document\Bson\BsonTypeSerializationHelper.cs:33:                    throw new LiteException(0, "Vector values must store a float array as raw value.");
 LiteDB\Document\Bson\BsonTypeSerializationHelper.cs:53:                case BsonType.Vector:
@@ -96,13 +96,13 @@ LiteDB\Engine\Disk\Serializer\BufferReader.cs:552:                return this.Re
 LiteDB\Client\Database\VectorCompatibility.cs:10:    internal static class VectorCompatibility
 LiteDB\Client\Database\VectorCompatibility.cs:12:        internal const string DefaultStrategyId = "LiteDB.Vector";
 LiteDB\Client\Database\VectorCompatibility.cs:14:        private const string PluginRequiredMessage = "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase (e.g., new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })).";
-LiteDB\Client\Database\VectorCompatibility.cs:16:        public static VectorIndexStrategyDescriptor TryGetStrategy(IVectorIndexStrategyRegistry registry)
-LiteDB\Client\Database\VectorCompatibility.cs:37:        public static VectorIndexStrategyDescriptor RequireStrategy(IVectorIndexStrategyRegistry registry)
+LiteDB\Client\Database\VectorCompatibility.cs:16:        public static CustomIndexStrategyDescriptor TryGetStrategy(ICustomIndexStrategyRegistry registry)
+LiteDB\Client\Database\VectorCompatibility.cs:37:        public static CustomIndexStrategyDescriptor RequireStrategy(ICustomIndexStrategyRegistry registry)
 LiteDB\Document\Expression\Parser\BsonExpressionType.cs:48:        VectorSim = 50,
 LiteDB\Document\Expression\Parser\BsonExpressionType.cs:49:        VectorDist = 51
 LiteDB\Engine\FileReader\IndexInfo.cs:18:        public byte[] VectorMetadata { get; set; }
 LiteDB\Engine\FileReader\FileReaderV8.cs:393:                            VectorMetadata = index.IndexType == 1 ? collectionPage.GetVectorIndexMetadata(index.Name) : null
-LiteDB\Client\Database\LiteDatabaseServices.cs:55:        public IVectorIndexStrategyRegistry VectorIndexes => _context.VectorIndexes;
+LiteDB\Client\Database\LiteDatabaseServices.cs:55:        public ICustomIndexStrategyRegistry CustomIndexes => _context.CustomIndexes;
 LiteDB\Engine\Services\SnapShot.cs:615:            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index/vector pages can be deleted");
 LiteDB\Engine\Services\SnapShot.cs:618:            DEBUG(!_collectionPage.GetVectorIndexes().Any(x => VectorIndexMetadataSerializer.GetReserved(x.Metadata) == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
 LiteDB\Engine\Engine\Index.cs:103:        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, BsonDocument options)
@@ -112,14 +112,14 @@ LiteDB\Engine\Engine\Index.cs:116:                operation: "EnsureVectorIndex"
 LiteDB\Engine\Engine\Index.cs:162:                        throw this.CreateVectorPluginRequiredException(
 LiteDB\Engine\Engine\Index.cs:163:                            operation: "DropVectorIndex",
 LiteDB\Engine\Engine\Index.cs:183:        private LiteException CreateVectorPluginRequiredException(string operation, string collection, string indexName, string expression, BsonDocument options)
-LiteDB\Engine\Engine\Index.cs:193:                ["strategyRegistryAvailable"] = _plugins?.VectorIndexes != null,
+LiteDB\Engine\Engine\Index.cs:193:                ["strategyRegistryAvailable"] = _plugins?.CustomIndexes != null,
 LiteDB\Engine\Engine\Index.cs:194:                ["expectedStrategyId"] = LiteDB.VectorCompatibility.DefaultStrategyId,
 LiteDB\Engine\Engine\Index.cs:195:                ["registeredStrategies"] = this.GetRegisteredVectorStrategies()
 LiteDB\Engine\Engine\Index.cs:205:            var exception = LiteDB.VectorCompatibility.PluginRequired();
 LiteDB\Engine\Engine\Index.cs:209:                exception.Data["VectorDiagnostics"] = diagnostics;
 LiteDB\Engine\Engine\Index.cs:214:                exception.Data["VectorDiagnostics"] = diagnostics.ToString();
 LiteDB\Engine\Engine\Index.cs:222:        private BsonArray GetRegisteredVectorStrategies()
-LiteDB\Engine\Engine\Index.cs:225:            var registered = _plugins?.VectorIndexes?.Registered;
+LiteDB\Engine\Engine\Index.cs:225:            var registered = _plugins?.CustomIndexes?.Registered;
 LiteDB\Engine\Engine\Rebuild.cs:83:                        if (index.IndexType == 1 && index.VectorMetadata != null)
 LiteDB\Engine\Engine\Rebuild.cs:85:                            var metadata = index.VectorMetadata;
 LiteDB\Engine\Engine\Rebuild.cs:88:                                ["dimensions"] = (int)VectorIndexMetadataSerializer.GetDimensions(metadata),
@@ -224,3 +224,4 @@ LiteDB\Engine\Query\Query.cs:461:            if (bag != null && bag.TryGet<byte?
 LiteDB\Engine\Query\Query.cs:469:        private static double NormalizeVectorMaxDistance(double maxDistance, byte? metric, bool alreadyNormalized = false)
 LiteDB\Engine\Query\Query.cs:489:        private static string NormalizeVectorField(string field)
 LiteDB\Engine\Query\QueryOptimization.cs:261:                if (planningContext.VectorOrderConsumed)
+

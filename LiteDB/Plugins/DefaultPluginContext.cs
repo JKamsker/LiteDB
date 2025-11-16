@@ -18,7 +18,7 @@ namespace LiteDB.Plugins
             this.QueryMetadata = new QueryMetadataAccessor();
             this.BsonTypes = new PluginBsonTypeRegistry();
             this.PageFactories = new PluginPageFactoryRegistry();
-            this.VectorIndexes = new VectorIndexStrategyRegistry();
+            this.CustomIndexes = new CustomIndexStrategyRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
             this.IndexInterceptors = new IndexInterceptorRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
@@ -38,7 +38,7 @@ namespace LiteDB.Plugins
 
         public IPageFactoryRegistry PageFactories { get; }
 
-        public IVectorIndexStrategyRegistry VectorIndexes { get; }
+        public ICustomIndexStrategyRegistry CustomIndexes { get; }
 
         public ILinqResolverRegistry LinqResolvers { get; }
 
@@ -90,19 +90,19 @@ namespace LiteDB.Plugins
             return this.PageFactories.TryGet(pageType, out registration);
         }
 
-        public void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor)
+        public void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor)
         {
-            this.VectorIndexes.Register(descriptor);
+            this.CustomIndexes.Register(descriptor);
         }
 
-        public bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor)
+        public bool TryGetCustomIndexStrategyDescriptor(string strategyId, out CustomIndexStrategyDescriptor descriptor)
         {
-            return this.VectorIndexes.TryGet(strategyId, out descriptor);
+            return this.CustomIndexes.TryGet(strategyId, out descriptor);
         }
 
-        public VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId)
+        public CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId)
         {
-            return this.VectorIndexes.Get(strategyId);
+            return this.CustomIndexes.Get(strategyId);
         }
     }
 
@@ -146,12 +146,12 @@ namespace LiteDB.Plugins
         }
     }
 
-    internal sealed class VectorIndexStrategyRegistry : IVectorIndexStrategyRegistry
+    internal sealed class CustomIndexStrategyRegistry : ICustomIndexStrategyRegistry
     {
         private readonly object _sync = new object();
-        private readonly Dictionary<string, VectorIndexStrategyDescriptor> _strategies = new Dictionary<string, VectorIndexStrategyDescriptor>(StringComparer.Ordinal);
+        private readonly Dictionary<string, CustomIndexStrategyDescriptor> _strategies = new Dictionary<string, CustomIndexStrategyDescriptor>(StringComparer.Ordinal);
 
-        public void Register(VectorIndexStrategyDescriptor descriptor)
+        public void Register(CustomIndexStrategyDescriptor descriptor)
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
 
@@ -161,7 +161,7 @@ namespace LiteDB.Plugins
             }
         }
 
-        public bool TryGet(string strategyId, out VectorIndexStrategyDescriptor descriptor)
+        public bool TryGet(string strategyId, out CustomIndexStrategyDescriptor descriptor)
         {
             if (string.IsNullOrWhiteSpace(strategyId))
             {
@@ -175,17 +175,17 @@ namespace LiteDB.Plugins
             }
         }
 
-        public VectorIndexStrategyDescriptor Get(string strategyId)
+        public CustomIndexStrategyDescriptor Get(string strategyId)
         {
             if (!TryGet(strategyId, out var descriptor))
             {
-                throw new KeyNotFoundException($"No vector index strategy descriptor registered for '{strategyId}'.");
+                throw new KeyNotFoundException($"No custom index strategy descriptor registered for '{strategyId}'.");
             }
 
             return descriptor;
         }
 
-        public IReadOnlyCollection<VectorIndexStrategyDescriptor> Registered
+        public IReadOnlyCollection<CustomIndexStrategyDescriptor> Registered
         {
             get
             {
@@ -506,3 +506,8 @@ namespace LiteDB.Plugins
         }
     }
 }
+
+
+
+
+

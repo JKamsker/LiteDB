@@ -70,7 +70,7 @@ database.Services.Logger.Write(LogLevel.Information, "Initialized with custom co
 ### Example: Sharing a Context Across Databases
 ```csharp
 await using var sharedContext = factory.Create(connectionString, services, logger);
-sharedContext.RegisterVectorIndexStrategy(VectorPlugin.Strategy);
+sharedContext.RegisterCustomIndexStrategy(VectorPlugin.Strategy);
 
 await using var engine = new LiteEngine(settings);
 ((IPluginHost)engine).SetPluginContext(sharedContext);
@@ -108,3 +108,4 @@ public sealed class VectorPageFactoryRule
 - **Safety**: Requires clear guidance and tooling to ensure contexts are not disposed while still in use.
 
 This document captures both the current design and a possible lifecycle API if the repository chooses to drop `ConditionalWeakTable`-based caches while maintaining safety and performance guarantees.
+

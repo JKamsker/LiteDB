@@ -13,7 +13,7 @@ namespace LiteDB
 
         private const string PluginRequiredMessage = "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase (e.g., new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })).";
 
-        public static VectorIndexStrategyDescriptor TryGetStrategy(IVectorIndexStrategyRegistry registry)
+        public static CustomIndexStrategyDescriptor TryGetStrategy(ICustomIndexStrategyRegistry registry)
         {
             if (registry == null)
             {
@@ -34,7 +34,7 @@ namespace LiteDB
             return null;
         }
 
-        public static VectorIndexStrategyDescriptor RequireStrategy(IVectorIndexStrategyRegistry registry)
+        public static CustomIndexStrategyDescriptor RequireStrategy(ICustomIndexStrategyRegistry registry)
         {
             var descriptor = TryGetStrategy(registry);
 
@@ -49,3 +49,4 @@ namespace LiteDB
         public static LiteException PluginRequired() => new LiteException(0, PluginRequiredMessage);
     }
 }
+

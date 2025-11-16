@@ -102,9 +102,9 @@ namespace LiteDB.Plugins
         public IPageFactoryRegistry PageFactories => PluginContext?.PageFactories;
 
         /// <summary>
-        /// Gets the vector index strategy registry exposed by the plugin context.
+        /// Gets the custom index strategy registry exposed by the plugin context.
         /// </summary>
-        public IVectorIndexStrategyRegistry VectorIndexes => PluginContext?.VectorIndexes;
+        public ICustomIndexStrategyRegistry CustomIndexes => PluginContext?.CustomIndexes;
 
         /// <summary>
         /// Gets the shared service provider available to plugins.
@@ -112,26 +112,26 @@ namespace LiteDB.Plugins
         public IServiceProvider Services => PluginContext?.Services;
 
         /// <summary>
-        /// Registers a vector index strategy descriptor.
+        /// Registers a custom index strategy descriptor.
         /// </summary>
         /// <param name="descriptor">Descriptor describing the strategy.</param>
-        public void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor)
+        public void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor)
         {
             if (PluginContext == null)
             {
-                throw new InvalidOperationException("Vector index strategy registration is unavailable because the plugin context has not been configured.");
+                throw new InvalidOperationException("Custom index strategy registration is unavailable because the plugin context has not been configured.");
             }
 
-            PluginContext.RegisterVectorIndexStrategy(descriptor);
+            PluginContext.RegisterCustomIndexStrategy(descriptor);
         }
 
         /// <summary>
-        /// Attempts to resolve a vector index strategy descriptor by identifier.
+        /// Attempts to resolve a custom index strategy descriptor by identifier.
         /// </summary>
         /// <param name="strategyId">Identifier of the strategy.</param>
         /// <param name="descriptor">Resolved descriptor.</param>
         /// <returns>True when a matching descriptor was found.</returns>
-        public bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor)
+        public bool TryGetCustomIndexStrategyDescriptor(string strategyId, out CustomIndexStrategyDescriptor descriptor)
         {
             if (PluginContext == null)
             {
@@ -139,22 +139,22 @@ namespace LiteDB.Plugins
                 return false;
             }
 
-            return PluginContext.TryGetVectorIndexStrategyDescriptor(strategyId, out descriptor);
+            return PluginContext.TryGetCustomIndexStrategyDescriptor(strategyId, out descriptor);
         }
 
         /// <summary>
-        /// Gets the vector index strategy descriptor for the supplied identifier.
+        /// Gets the custom index strategy descriptor for the supplied identifier.
         /// </summary>
         /// <param name="strategyId">Identifier of the strategy.</param>
         /// <returns>The registered descriptor.</returns>
-        public VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId)
+        public CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId)
         {
             if (PluginContext == null)
             {
-                throw new InvalidOperationException("Vector index strategy descriptor lookup requires an active plugin context.");
+                throw new InvalidOperationException("Custom index strategy descriptor lookup requires an active plugin context.");
             }
 
-            return PluginContext.GetVectorIndexStrategyDescriptor(strategyId);
+            return PluginContext.GetCustomIndexStrategyDescriptor(strategyId);
         }
 
         /// <summary>
@@ -261,3 +261,7 @@ namespace LiteDB.Plugins
         }
     }
 }
+
+
+
+

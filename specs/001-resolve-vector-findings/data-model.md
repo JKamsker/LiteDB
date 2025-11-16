@@ -50,7 +50,7 @@
   - `compatibilityRange` must include the current engine version before activation.
   - `metadataSerializer` must be idempotent, enabling snapshot/restore flows.
 
-## VectorIndexStrategyDescriptor
+## CustomIndexStrategyDescriptor
 
 - **Description**: Aggregates plugin callbacks that implement vector indexing semantics end-to-end.
 - **Fields**:
@@ -81,3 +81,4 @@
 - **Validation Rules**:
   - `steps` must include at least one verification command per success criterion.
   - `rollbackPlan` must reference concrete scripts or documented procedures.
+

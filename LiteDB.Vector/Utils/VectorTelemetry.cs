@@ -23,7 +23,7 @@ namespace LiteDB.Vector.Utils
                 return false;
             }
 
-            if (context.VectorIndexes == null)
+            if (context.CustomIndexes == null)
             {
                 EmitCompatibilityWarning(
                     context.Logger,
@@ -73,3 +73,4 @@ namespace LiteDB.Vector.Utils
         }
     }
 }
+

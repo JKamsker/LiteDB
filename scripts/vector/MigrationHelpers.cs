@@ -162,7 +162,7 @@ namespace LiteDB.Vector.Tools
                 throw new ArgumentNullException(nameof(database));
             }
 
-            var registry = database.Services.VectorIndexes;
+            var registry = database.Services.CustomIndexes;
 
             if (registry == null)
             {
@@ -618,3 +618,4 @@ namespace LiteDB.Vector.Tools
         public IReadOnlyList<string> RegisteredStrategies { get; }
     }
 }
+

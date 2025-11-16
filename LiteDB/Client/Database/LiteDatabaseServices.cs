@@ -50,9 +50,9 @@ namespace LiteDB
         public IIndexInterceptorRegistry IndexInterceptors => _context.IndexInterceptors;
 
         /// <summary>
-        /// Gets the vector index strategy registry associated with the database.
+        /// Gets the custom index strategy registry associated with the database.
         /// </summary>
-        public IVectorIndexStrategyRegistry VectorIndexes => _context.VectorIndexes;
+        public ICustomIndexStrategyRegistry CustomIndexes => _context.CustomIndexes;
 
         /// <summary>
         /// Gets the service provider exposed to plugins.
@@ -80,3 +80,6 @@ namespace LiteDB
         }
     }
 }
+
+
+

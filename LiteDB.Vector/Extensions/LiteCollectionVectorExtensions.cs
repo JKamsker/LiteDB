@@ -156,7 +156,7 @@ namespace LiteDB.Vector
 
             var database = collection.Database;
             var services = database?.Services;
-            var descriptor = global::LiteDB.VectorCompatibility.TryGetStrategy(services?.VectorIndexes);
+            var descriptor = global::LiteDB.VectorCompatibility.TryGetStrategy(services?.CustomIndexes);
 
             if (descriptor != null && services?.Context != null)
             {
@@ -172,7 +172,7 @@ namespace LiteDB.Vector
                     services.Context,
                     (indexName, indexExpression, _) => collection.Engine.EnsureVectorIndex(collection.Name, indexName, indexExpression, options));
 
-                var vectorContext = new VectorIndexEnsureContext(ensureContext, options);
+                var vectorContext = new CustomIndexEnsureContext(ensureContext, options);
 
                 return descriptor.EnsureIndex(vectorContext);
             }
@@ -181,3 +181,5 @@ namespace LiteDB.Vector
         }
     }
 }
+
+

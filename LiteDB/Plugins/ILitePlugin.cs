@@ -38,7 +38,7 @@ namespace LiteDB.Plugins
 
         IPageFactoryRegistry PageFactories { get; }
 
-        IVectorIndexStrategyRegistry VectorIndexes { get; }
+        ICustomIndexStrategyRegistry CustomIndexes { get; }
 
         ILinqResolverRegistry LinqResolvers { get; }
 
@@ -62,11 +62,11 @@ namespace LiteDB.Plugins
 
         bool TryGetBsonType(string name, out BsonTypeRegistration registration);
 
-        void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor);
+        void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor);
 
-        bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor);
+        bool TryGetCustomIndexStrategyDescriptor(string strategyId, out CustomIndexStrategyDescriptor descriptor);
 
-        VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId);
+        CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId);
 
         void RegisterPageFactory(PageFactoryRegistration registration);
 
@@ -215,3 +215,6 @@ namespace LiteDB.Plugins
         void SetPluginContext(ILitePluginContext context);
     }
 }
+
+
+

@@ -1,4 +1,4 @@
-﻿using LiteDB.Plugins;
+using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 
 using System;
@@ -190,7 +190,7 @@ namespace LiteDB.Engine
                 ["index"] = indexName ?? string.Empty,
                 ["expression"] = expression ?? string.Empty,
                 ["pluginContextAvailable"] = _plugins != null,
-                ["strategyRegistryAvailable"] = _plugins?.VectorIndexes != null,
+                ["strategyRegistryAvailable"] = _plugins?.CustomIndexes != null,
                 ["expectedStrategyId"] = LiteDB.VectorCompatibility.DefaultStrategyId,
                 ["registeredStrategies"] = this.GetRegisteredVectorStrategies()
             };
@@ -222,7 +222,7 @@ namespace LiteDB.Engine
         private BsonArray GetRegisteredVectorStrategies()
         {
             var array = new BsonArray();
-            var registered = _plugins?.VectorIndexes?.Registered;
+            var registered = _plugins?.CustomIndexes?.Registered;
 
             if (registered != null)
             {
@@ -239,3 +239,4 @@ namespace LiteDB.Engine
         }
     }
 }
+

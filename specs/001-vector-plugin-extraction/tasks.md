@@ -22,7 +22,7 @@
 
 **Purpose**: Introduce shared abstractions enabling all user stories.
 
-- [ ] T003 Generalize LiteDB/Plugins/Indexing/VectorIndexStrategyDescriptor.cs into a plugin-agnostic CustomIndexStrategy descriptor and registry (ICustomIndexStrategyRegistry)
+- [X] T003 Generalize LiteDB/Plugins/Indexing/CustomIndexStrategyDescriptor.cs into a plugin-agnostic CustomIndexStrategy descriptor and registry (ICustomIndexStrategyRegistry)
 - [ ] T003a Create LiteDB/Plugins/Indexing/IPluginIndexMetadataRegistry.cs with PluginIndexMetadataDescriptor for metadata serialization separate from strategy operations
 - [ ] T004 Add LiteDB/Plugins/Bson/CustomBsonTypeDescriptor.cs plus registration hooks (ICustomBsonTypeRegistry) for plugin-defined BSON handlers
 - [ ] T004a Add LiteDB/Plugins/Storage/IPageTypeRegistry.cs with PageFactoryRegistration and PageConstructionContext for plugin-owned page types
@@ -128,3 +128,4 @@
 - **Incremental Delivery**: After MVP, land Phase 4 for metadata/rebuild flows, then Phase 5 for query & BSON extensibility, validating each increment independently.
 - **Testing Cadence**: Run `dotnet test LiteDB.Tests --filter "FullyQualifiedName~Vector"` and `dotnet test LiteDB.Vector.Tests` after each story phase; execute `scripts/verify-vector-clean.ps1` before final polish.
 - **Performance Validation**: Run vector benchmark suite after T009 and T020 to verify ≤2% regression ceiling; regression gates Phase 5 completion.
+

@@ -140,7 +140,7 @@ namespace LiteDB.Vector
                     }));
 
 #pragma warning disable CS0618
-                var descriptor = new VectorIndexStrategyDescriptor(
+                var descriptor = new CustomIndexStrategyDescriptor(
                     pluginId: "LiteDB.Vector",
                     strategyId: "LiteDB.Vector",
                     ensureIndex: ctx =>
@@ -160,7 +160,7 @@ namespace LiteDB.Vector
                     requiredPageTypes: new[] { "VectorIndex" });
 #pragma warning restore CS0618
 
-                context.RegisterVectorIndexStrategy(descriptor);
+                context.RegisterCustomIndexStrategy(descriptor);
             }
             catch (Exception ex)
             {
@@ -194,3 +194,5 @@ namespace LiteDB.Vector
         }
     }
 }
+
+

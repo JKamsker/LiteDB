@@ -26,8 +26,8 @@ namespace LiteDB.Vector.Tests.Integration
             pageFactory.PluginId.Should().Be("LiteDB.Vector");
             pageFactory.PageType.Should().Be("VectorIndex");
 
-            context.VectorIndexes.Registered.Should().NotBeEmpty();
-            var strategy = context.VectorIndexes.Registered.FirstOrDefault(x => x.StrategyId == "LiteDB.Vector");
+            context.CustomIndexes.Registered.Should().NotBeEmpty();
+            var strategy = context.CustomIndexes.Registered.FirstOrDefault(x => x.StrategyId == "LiteDB.Vector");
             strategy.Should().NotBeNull();
             strategy.PluginId.Should().Be("LiteDB.Vector");
             strategy.RequiredPageTypes.Should().Contain("VectorIndex");
@@ -35,3 +35,4 @@ namespace LiteDB.Vector.Tests.Integration
         }
     }
 }
+
