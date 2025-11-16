@@ -46,6 +46,8 @@ namespace LiteDB.Plugins
 
         IPageTypeRegistry PageFactories { get; }
 
+        IPluginIndexMetadataRegistry IndexMetadata { get; }
+
         ICustomIndexStrategyRegistry CustomIndexes { get; }
 
         ILinqResolverRegistry LinqResolvers { get; }
@@ -85,6 +87,12 @@ namespace LiteDB.Plugins
         void RegisterQueryOperator(QueryOperatorRegistration registration);
 
         void RegisterQueryCostModel(QueryCostModelRegistration registration);
+
+        void RegisterIndexMetadata(PluginIndexMetadataDescriptor descriptor);
+
+        bool TryGetIndexMetadataDescriptor(string indexKind, out PluginIndexMetadataDescriptor descriptor);
+
+        PluginIndexMetadataDescriptor GetIndexMetadataDescriptor(string indexKind);
     }
 
     /// <summary>

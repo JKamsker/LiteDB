@@ -75,6 +75,12 @@ namespace LiteDB.Vector
                     version: VectorQueryMetadata.Version,
                     reservedKeys: VectorQueryMetadata.ReservedKeys);
 
+                context.RegisterIndexMetadata(new PluginIndexMetadataDescriptor(
+                    pluginId: "LiteDB.Vector",
+                    indexKind: VectorCompatibility.DefaultIndexKind,
+                    serialize: VectorMetadataSerializer.Serialize,
+                    deserialize: VectorMetadataSerializer.Deserialize));
+
                 VectorIndexServiceFactory.Register((snapshot, collation) => new VectorIndexSearchAdapter(snapshot, collation));
 
                 context.Expressions.RegisterKeyword("VECTOR_DIST");

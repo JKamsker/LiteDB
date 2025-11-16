@@ -43,7 +43,7 @@ namespace LiteDB.Vector
                 Unwrap(collection),
                 name,
                 expression,
-                VectorExtensionHelpers.CreateOptionsDocument(options));
+                options);
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace LiteDB.Vector
                 Unwrap(collection),
                 generatedName,
                 expression,
-                VectorExtensionHelpers.CreateOptionsDocument(options));
+                options);
         }
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace LiteDB.Vector
                 concrete,
                 generatedName,
                 expression,
-                VectorExtensionHelpers.CreateOptionsDocument(options));
+                options);
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace LiteDB.Vector
                 concrete,
                 name,
                 expression,
-                VectorExtensionHelpers.CreateOptionsDocument(options));
+                options);
         }
 
         private static LiteCollection<T> Unwrap<T>(ILiteCollection<T> collection)
@@ -147,7 +147,7 @@ namespace LiteDB.Vector
             throw new ArgumentException("Vector index operations require LiteDB's default collection implementation.", nameof(collection));
         }
 
-        private static bool EnsureVectorIndex<T>(LiteCollection<T> collection, string name, BsonExpression expression, BsonDocument options)
+        private static bool EnsureVectorIndex<T>(LiteCollection<T> collection, string name, BsonExpression expression, VectorIndexOptions options)
         {
             if (collection == null) throw new ArgumentNullException(nameof(collection));
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
@@ -157,27 +157,46 @@ namespace LiteDB.Vector
             var database = collection.Database;
             var services = database?.Services;
             var descriptor = global::LiteDB.VectorCompatibility.TryGetStrategy(services?.CustomIndexes);
+            var pluginContext = services?.Context;
 
-            if (descriptor != null && services?.Context != null)
+            if (descriptor == null || pluginContext == null)
             {
-                var ensureContext = new EnsureIndexContext(
-                    database,
-                    collection.Engine as LiteEngine,
-                    typeof(T),
-                    collection.Name,
-                    name,
-                    expression,
-                    unique: false,
-                    collection.Mapper,
-                    services.Context,
-                    (indexName, indexExpression, _) => collection.Engine.EnsureCustomIndex(collection.Name, indexName, global::LiteDB.VectorCompatibility.DefaultStrategyKind, indexExpression, options));
-
-                var vectorContext = new CustomIndexEnsureContext(ensureContext, options);
-
-                return descriptor.EnsureIndex(vectorContext);
+                throw VectorCompatibility.PluginRequired();
             }
 
-            return collection.Engine.EnsureCustomIndex(collection.Name, name, global::LiteDB.VectorCompatibility.DefaultStrategyKind, expression, options);
+            var metadataDescriptor = RequireMetadataDescriptor(pluginContext);
+            var materializedOptions = VectorExtensionHelpers.CreateOptionsDocument(options, metadataDescriptor);
+
+            var ensureContext = new EnsureIndexContext(
+                database,
+                collection.Engine as LiteEngine,
+                typeof(T),
+                collection.Name,
+                name,
+                expression,
+                unique: false,
+                collection.Mapper,
+                pluginContext,
+                (indexName, indexExpression, _) => collection.Engine.EnsureCustomIndex(collection.Name, indexName, global::LiteDB.VectorCompatibility.DefaultStrategyKind, indexExpression, materializedOptions));
+
+            var vectorContext = new CustomIndexEnsureContext(ensureContext, materializedOptions);
+
+            return descriptor.EnsureIndex(vectorContext);
+        }
+
+        private static PluginIndexMetadataDescriptor RequireMetadataDescriptor(ILitePluginContext pluginContext)
+        {
+            if (pluginContext?.IndexMetadata == null)
+            {
+                throw VectorCompatibility.PluginRequired();
+            }
+
+            if (pluginContext.IndexMetadata.TryGet(VectorCompatibility.DefaultIndexKind, out var descriptor))
+            {
+                return descriptor;
+            }
+
+            throw VectorCompatibility.PluginRequired();
         }
     }
 }

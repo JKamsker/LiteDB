@@ -11,6 +11,7 @@ namespace LiteDB
     {
         internal const string DefaultStrategyId = "LiteDB.Vector";
         internal const string DefaultStrategyKind = "vector";
+        internal const string DefaultIndexKind = "vector.hnsw";
 
         private const string PluginRequiredMessage = "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase (e.g., new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })).";
 

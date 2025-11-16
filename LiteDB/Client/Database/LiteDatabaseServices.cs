@@ -65,6 +65,11 @@ namespace LiteDB
         public IQueryCostModelRegistry QueryCostModels => _context.QueryCostModels;
 
         /// <summary>
+        /// Gets the plugin index metadata registry associated with the database.
+        /// </summary>
+        public IPluginIndexMetadataRegistry IndexMetadata => _context.IndexMetadata;
+
+        /// <summary>
         /// Gets the plugin diagnostic policy associated with the database.
         /// </summary>
         public IPluginDiagnosticPolicy DiagnosticPolicy => _context.DiagnosticPolicy;

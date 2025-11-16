@@ -22,6 +22,7 @@ namespace LiteDB.Plugins
             this.QueryCostModels = new QueryCostModelRegistry();
             this.BsonTypes = new CustomBsonTypeRegistry();
             this.PageFactories = new PageTypeRegistry();
+            this.IndexMetadata = new PluginIndexMetadataRegistry();
             this.CustomIndexes = new CustomIndexStrategyRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
@@ -48,6 +49,8 @@ namespace LiteDB.Plugins
         public ICustomBsonTypeRegistry BsonTypes { get; }
 
         public IPageTypeRegistry PageFactories { get; }
+
+        public IPluginIndexMetadataRegistry IndexMetadata { get; }
 
         public ICustomIndexStrategyRegistry CustomIndexes { get; }
 
@@ -132,6 +135,21 @@ namespace LiteDB.Plugins
         public CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId)
         {
             return this.CustomIndexes.Get(strategyId);
+        }
+
+        public void RegisterIndexMetadata(PluginIndexMetadataDescriptor descriptor)
+        {
+            this.IndexMetadata.Register(descriptor);
+        }
+
+        public bool TryGetIndexMetadataDescriptor(string indexKind, out PluginIndexMetadataDescriptor descriptor)
+        {
+            return this.IndexMetadata.TryGet(indexKind, out descriptor);
+        }
+
+        public PluginIndexMetadataDescriptor GetIndexMetadataDescriptor(string indexKind)
+        {
+            return this.IndexMetadata.Get(indexKind);
         }
     }
 
@@ -226,6 +244,60 @@ namespace LiteDB.Plugins
                 lock (_sync)
                 {
                     return _strategies.Values.ToArray();
+                }
+            }
+        }
+    }
+
+    internal sealed class PluginIndexMetadataRegistry : IPluginIndexMetadataRegistry
+    {
+        private readonly object _sync = new object();
+        private readonly Dictionary<string, PluginIndexMetadataDescriptor> _descriptors = new Dictionary<string, PluginIndexMetadataDescriptor>(StringComparer.Ordinal);
+
+        public void Register(PluginIndexMetadataDescriptor descriptor)
+        {
+            if (descriptor == null)
+            {
+                throw new ArgumentNullException(nameof(descriptor));
+            }
+
+            lock (_sync)
+            {
+                _descriptors[descriptor.IndexKind] = descriptor;
+            }
+        }
+
+        public bool TryGet(string indexKind, out PluginIndexMetadataDescriptor descriptor)
+        {
+            if (string.IsNullOrWhiteSpace(indexKind))
+            {
+                descriptor = null;
+                return false;
+            }
+
+            lock (_sync)
+            {
+                return _descriptors.TryGetValue(indexKind, out descriptor);
+            }
+        }
+
+        public PluginIndexMetadataDescriptor Get(string indexKind)
+        {
+            if (!this.TryGet(indexKind, out var descriptor))
+            {
+                throw new KeyNotFoundException($"Index metadata descriptor '{indexKind}' was not registered.");
+            }
+
+            return descriptor;
+        }
+
+        public IReadOnlyCollection<PluginIndexMetadataDescriptor> Registered
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _descriptors.Values.ToArray();
                 }
             }
         }
