@@ -89,9 +89,10 @@ namespace LiteDB.Engine
                                 ["metric"] = (int)VectorIndexMetadataSerializer.GetMetric(metadata)
                             };
 
-                            this.EnsureVectorIndex(
+                            this.EnsureCustomIndex(
                                 collection,
                                 index.Name,
+                                LiteDB.VectorCompatibility.DefaultStrategyKind,
                                 index.BsonExpr,
                                 vectorOptions);
                         }

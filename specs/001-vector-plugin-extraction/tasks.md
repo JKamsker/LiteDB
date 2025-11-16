@@ -47,7 +47,7 @@
 ### Implementation
 
 - [X] T007 [US1] Remove EnsureVectorIndex helpers from LiteDB/Client/Database/Collections/Index.cs and route interception through plugin registries
-- [ ] T008 [US1] Delete vector-specific members from LiteDB/Engine/ILiteEngine.cs and LiteDB/Client/Shared/SharedEngine.cs, replacing them with neutral extension hooks
+- [X] T008 [US1] Delete vector-specific members from LiteDB/Engine/ILiteEngine.cs and LiteDB/Client/Shared/SharedEngine.cs, replacing them with neutral extension hooks
 - [ ] T009 [P] [US1] Rebuild LiteDB.Vector/Extensions/LiteCollectionVectorExtensions.cs: update EnsureIndex/DropIndex to call plugin-registered CustomIndexStrategy delegates; update to use IPluginIndexMetadataRegistry for metadata serialization
 - [ ] T010 [US1] Move vector compatibility helpers out of LiteDB/Client/Database/VectorCompatibility.cs into LiteDB.Vector/Utils/VectorCompatibility.cs and adjust callers
 - [ ] T011 [US1] Add LiteDB.Tests/Client/VectorOptionalityTests.cs validating API surface with and without LiteDB.Vector referenced (verify no Vector* symbols exposed in LiteDB-only builds via reflection)

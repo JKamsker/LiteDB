@@ -32,8 +32,9 @@ namespace LiteDB.Tests.Engine.Plugins
             var diagnostics = diagnosticsPayload as BsonDocument
                 ?? JsonSerializer.Deserialize(diagnosticsPayload.ToString()).AsDocument;
 
-            diagnostics["event"].AsString.Should().Be("vector.plugin_required");
-            diagnostics["operation"].AsString.Should().Be("EnsureVectorIndex");
+            diagnostics["event"].AsString.Should().Be("plugin.index_required");
+            diagnostics["operation"].AsString.Should().Be("EnsureCustomIndex");
+            diagnostics["strategyKind"].AsString.Should().Be(VectorCompatibility.DefaultStrategyKind);
             diagnostics["collection"].AsString.Should().Be("docs");
             diagnostics["pluginContextAvailable"].AsBoolean.Should().BeTrue();
             diagnostics["registeredStrategies"].AsArray.RawValue.Should().BeEmpty();

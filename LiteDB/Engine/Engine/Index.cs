@@ -98,22 +98,24 @@ namespace LiteDB.Engine
         }
 
         /// <summary>
-        /// Create a new vector index (or do nothing if already exists) for a collection/field.
+        /// Create a new plugin-provided index (or do nothing if already exists) for a collection/field.
         /// </summary>
-        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, BsonDocument options)
+        public bool EnsureCustomIndex(string collection, string name, string strategyKind, BsonExpression expression, BsonDocument options)
         {
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
+            if (strategyKind.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(strategyKind));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
             if (options == null) throw new ArgumentNullException(nameof(options));
-            if (expression.Fields.Count == 0) throw new ArgumentException("Vector index expressions must reference a document field.", nameof(expression));
+            if (expression.Fields.Count == 0) throw new ArgumentException($"Custom index '{strategyKind}' expressions must reference a document field.", nameof(expression));
 
             if (name.Length > INDEX_NAME_MAX_LENGTH) throw LiteException.InvalidIndexName(name, collection, "MaxLength = " + INDEX_NAME_MAX_LENGTH);
             if (!name.IsWord()) throw LiteException.InvalidIndexName(name, collection, "Use only [a-Z$_]");
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
 
-            var strategy = _plugins?.Indexes?.GetByKind("vector") ?? throw this.CreateVectorPluginRequiredException(
-                operation: "EnsureVectorIndex",
+            var strategy = _plugins?.Indexes?.GetByKind(strategyKind) ?? throw this.CreatePluginRequiredException(
+                strategyKind: strategyKind,
+                operation: "EnsureCustomIndex",
                 collection: collection,
                 indexName: name,
                 expression: expression.Source,
@@ -159,8 +161,10 @@ namespace LiteDB.Engine
 
                     if (strategy == null)
                     {
-                        throw this.CreateVectorPluginRequiredException(
-                            operation: "DropVectorIndex",
+                        var strategyName = $"type:{index.IndexType}";
+                        throw this.CreatePluginRequiredException(
+                            strategyKind: strategyName,
+                            operation: "DropCustomIndex",
                             collection: collection,
                             indexName: name,
                             expression: index.Expression,
@@ -180,19 +184,19 @@ namespace LiteDB.Engine
             });
         }
 
-        private LiteException CreateVectorPluginRequiredException(string operation, string collection, string indexName, string expression, BsonDocument options)
+        private LiteException CreatePluginRequiredException(string strategyKind, string operation, string collection, string indexName, string expression, BsonDocument options)
         {
             var diagnostics = new BsonDocument
             {
-                ["event"] = "vector.plugin_required",
+                ["event"] = "plugin.index_required",
                 ["operation"] = operation ?? string.Empty,
                 ["collection"] = collection ?? string.Empty,
                 ["index"] = indexName ?? string.Empty,
                 ["expression"] = expression ?? string.Empty,
+                ["strategyKind"] = strategyKind ?? string.Empty,
                 ["pluginContextAvailable"] = _plugins != null,
                 ["strategyRegistryAvailable"] = _plugins?.CustomIndexes != null,
-                ["expectedStrategyId"] = LiteDB.VectorCompatibility.DefaultStrategyId,
-                ["registeredStrategies"] = this.GetRegisteredVectorStrategies()
+                ["registeredStrategies"] = this.GetRegisteredCustomStrategies()
             };
 
             if (options != null && options.Count > 0)
@@ -214,12 +218,12 @@ namespace LiteDB.Engine
                 exception.Data["VectorDiagnostics"] = diagnostics.ToString();
             }
 
-            LOG($"vector plugin missing: {diagnostics.ToString()}", "PLUGIN");
+            LOG($"custom index plugin missing: {diagnostics.ToString()}", "PLUGIN");
 
             return exception;
         }
 
-        private BsonArray GetRegisteredVectorStrategies()
+        private BsonArray GetRegisteredCustomStrategies()
         {
             var array = new BsonArray();
             var registered = _plugins?.CustomIndexes?.Registered;

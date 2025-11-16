@@ -170,14 +170,14 @@ namespace LiteDB.Vector
                     unique: false,
                     collection.Mapper,
                     services.Context,
-                    (indexName, indexExpression, _) => collection.Engine.EnsureVectorIndex(collection.Name, indexName, indexExpression, options));
+                    (indexName, indexExpression, _) => collection.Engine.EnsureCustomIndex(collection.Name, indexName, global::LiteDB.VectorCompatibility.DefaultStrategyKind, indexExpression, options));
 
                 var vectorContext = new CustomIndexEnsureContext(ensureContext, options);
 
                 return descriptor.EnsureIndex(vectorContext);
             }
 
-            return collection.Engine.EnsureVectorIndex(collection.Name, name, expression, options);
+            return collection.Engine.EnsureCustomIndex(collection.Name, name, global::LiteDB.VectorCompatibility.DefaultStrategyKind, expression, options);
         }
     }
 }
