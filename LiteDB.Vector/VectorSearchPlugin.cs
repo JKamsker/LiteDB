@@ -80,6 +80,10 @@ namespace LiteDB.Vector
                     reservedKeys: VectorQueryMetadata.ReservedKeys);
 
                 context.RegisterBsonType(VectorBsonSerializer.CreateDescriptor(pluginId));
+                context.RegisterSqlFunction(VectorSqlFunctions.CreateVectorDistance(pluginId));
+                context.RegisterSqlFunction(VectorSqlFunctions.CreateVectorSimilarity(pluginId));
+                context.RegisterQueryOperator(VectorQueryOperators.CreateVectorKnn(pluginId));
+                context.RegisterQueryCostModel(VectorQueryCostModel.Create(pluginId));
 
                 context.RegisterIndexMetadata(new PluginIndexMetadataDescriptor(
                     pluginId: pluginId,

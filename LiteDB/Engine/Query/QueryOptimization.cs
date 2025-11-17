@@ -542,7 +542,7 @@ namespace LiteDB.Engine
 
                         var computed = registration.CalculateCost(context);
 
-                        if (double.IsFinite(computed) && computed >= 0)
+                        if (!double.IsNaN(computed) && !double.IsInfinity(computed) && computed >= 0)
                         {
                             return (uint)Math.Min(uint.MaxValue, Math.Round(computed));
                         }
