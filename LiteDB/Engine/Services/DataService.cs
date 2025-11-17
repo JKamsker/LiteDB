@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using static LiteDB.Constants;
+using LiteDB.Plugins;
 
 namespace LiteDB.Engine
 {
@@ -24,6 +25,8 @@ namespace LiteDB.Engine
             _snapshot = snapshot;
             _maxItemsCount = maxItemsCount;
         }
+
+        public ILitePluginContext Plugins => _snapshot.Plugins;
 
         /// <summary>
         /// Insert BsonDocument into new data pages
@@ -66,7 +69,7 @@ namespace LiteDB.Engine
 
             // consume all source bytes to write BsonDocument direct into PageBuffer
             // must be fastest as possible
-            using (var w = new BufferWriter(source()))
+            using (var w = new BufferWriter(source(), Plugins))
             {
                 // already bytes count calculate at method start
                 w.WriteDocument(doc, false);
@@ -148,7 +151,7 @@ namespace LiteDB.Engine
 
             // consume all source bytes to write BsonDocument direct into PageBuffer
             // must be fastest as possible
-            using (var w = new BufferWriter(source()))
+            using (var w = new BufferWriter(source(), Plugins))
             {
                 // already bytes count calculate at method start
                 w.WriteDocument(doc, false);

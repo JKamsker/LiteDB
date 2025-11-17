@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Vector.Document;
 
 namespace LiteDB.Vector.Engine
 {
@@ -950,12 +951,10 @@ namespace LiteDB.Vector.Engine
 
             float[] buffer;
 
-            #pragma warning disable CS0618
-            if (value.Type == BsonType.Vector)
+            if (value is BsonVector vectorValue)
             {
-                buffer = value.AsVector.ToArray();
+                buffer = vectorValue.Values.ToArray();
             }
-            #pragma warning restore CS0618
             else if (value.IsArray)
             {
                 buffer = new float[value.AsArray.Count];

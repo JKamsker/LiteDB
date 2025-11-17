@@ -3,6 +3,7 @@ using System.Linq;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Vector;
+using LiteDB.Vector.Document;
 using Xunit;
 
 namespace LiteDB.Vector.Tests.Integration
@@ -32,7 +33,7 @@ namespace LiteDB.Vector.Tests.Integration
             strategy.Should().NotBeNull();
             strategy.PluginId.Should().Be("LiteDB.Vector");
             strategy.RequiredPageTypes.Should().Contain("VectorIndex");
-            strategy.RequiredBsonTypes.Should().Contain((byte)BsonType.Vector);
+            strategy.RequiredBsonTypes.Should().Contain(Vector.Document.VectorBsonConstants.TypeCode);
         }
     }
 }

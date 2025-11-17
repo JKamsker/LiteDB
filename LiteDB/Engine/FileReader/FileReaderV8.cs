@@ -219,7 +219,7 @@ namespace LiteDB.Engine
                             var docBytes = mem.ToArray();
 
                             // read all data array in bson document
-                            using (var r = new BufferReader(docBytes, false))
+                            using (var r = new BufferReader(docBytes, false, _plugins))
                             {
                                 var docResult = r.ReadDocument();
                                 var id = docResult.Value["_id"];
@@ -322,7 +322,7 @@ namespace LiteDB.Engine
 
             var area = header.Buffer.Slice(HeaderPage.P_COLLECTIONS, HeaderPage.COLLECTIONS_SIZE);
 
-            using (var r = new BufferReader(new[] { area }, false))
+            using (var r = new BufferReader(new[] { area }, false, _plugins))
             {
                 var result = r.ReadDocument();
 

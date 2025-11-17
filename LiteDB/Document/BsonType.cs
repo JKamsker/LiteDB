@@ -32,10 +32,7 @@ namespace LiteDB
         Boolean = 12,
         DateTime = 13,
 
-        MaxValue = 14,
-
-        [Obsolete("Vector serialization is provided by the LiteDB.Vector plugin via the BSON type registry.")]
-        Vector = 100,
+        MaxValue = 14
     }
 
     internal static class BsonTypeResolver

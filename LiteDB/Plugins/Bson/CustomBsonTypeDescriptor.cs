@@ -1,23 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace LiteDB.Plugins.Bson
 {
-    /// <summary>
-    /// Delegate invoked when serializing a value owned by a plugin-managed BSON type.
-    /// </summary>
-    /// <param name="writer">Serialization target; treated as an opaque dependency until public abstractions are exposed.</param>
-    /// <param name="value">Value to serialize.</param>
-    public delegate Task CustomBsonSerializer(object writer, object value);
-
-    /// <summary>
-    /// Delegate invoked when deserializing data owned by a plugin-managed BSON type.
-    /// </summary>
-    /// <param name="reader">Source reader; treated as an opaque dependency until public abstractions are exposed.</param>
-    /// <returns>The reconstructed value.</returns>
-    public delegate Task<object> CustomBsonDeserializer(object reader);
-
     /// <summary>
     /// Registry contract that allows plugins to reserve BSON type codes and provide serialization handlers.
     /// Implementations must be thread-safe because a registry is shared by all collections within a single <see cref="LiteDatabase"/> instance.
@@ -61,8 +46,10 @@ namespace LiteDB.Plugins.Bson
             string pluginId,
             byte typeCode,
             string name,
-            CustomBsonSerializer serializer,
-            CustomBsonDeserializer deserializer,
+            Func<BsonValue, int> calculateSize,
+            Action<object, BsonValue> serializer,
+            Func<object, BsonValue> deserializer,
+            Func<BsonValue, string> jsonFormatter,
             IReadOnlyCollection<byte> legacyAliases = null)
         {
             if (string.IsNullOrWhiteSpace(pluginId))
@@ -78,39 +65,27 @@ namespace LiteDB.Plugins.Bson
             PluginId = pluginId;
             TypeCode = typeCode;
             Name = name ?? throw new ArgumentNullException(nameof(name));
+            CalculateSize = calculateSize ?? throw new ArgumentNullException(nameof(calculateSize));
             Serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
             Deserializer = deserializer ?? throw new ArgumentNullException(nameof(deserializer));
+            JsonFormatter = jsonFormatter ?? throw new ArgumentNullException(nameof(jsonFormatter));
             LegacyAliases = legacyAliases ?? Array.Empty<byte>();
         }
 
-        /// <summary>
-        /// Gets the plugin identifier associated with this registration.
-        /// </summary>
         public string PluginId { get; }
 
-        /// <summary>
-        /// Gets the reserved BSON type code.
-        /// </summary>
         public byte TypeCode { get; }
 
-        /// <summary>
-        /// Gets the canonical name of the BSON type.
-        /// </summary>
         public string Name { get; }
 
-        /// <summary>
-        /// Gets the serializer delegate responsible for encoding plugin values.
-        /// </summary>
-        public CustomBsonSerializer Serializer { get; }
+        public Func<BsonValue, int> CalculateSize { get; }
 
-        /// <summary>
-        /// Gets the deserializer delegate responsible for decoding plugin values.
-        /// </summary>
-        public CustomBsonDeserializer Deserializer { get; }
+        public Action<object, BsonValue> Serializer { get; }
 
-        /// <summary>
-        /// Gets optional legacy aliases that should map to this registration.
-        /// </summary>
+        public Func<object, BsonValue> Deserializer { get; }
+
+        public Func<BsonValue, string> JsonFormatter { get; }
+
         public IReadOnlyCollection<byte> LegacyAliases { get; }
     }
 }

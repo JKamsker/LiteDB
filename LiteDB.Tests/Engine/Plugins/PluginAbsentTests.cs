@@ -70,7 +70,7 @@ namespace LiteDB.Tests.Engine.Plugins
             pluginVectors.Insert(vectorDocument);
 
             var reloaded = pluginVectors.FindById(1);
-            reloaded["embedding"].AsVector.Should().Equal(vectorDocument["embedding"].AsVector);
+            Assert.IsType<BsonVector>(reloaded["embedding"]).Values.Should().Equal(((BsonVector)vectorDocument["embedding"]).Values);
 
             var vanillaCollection = databases[1].GetCollection<TestDocument>("vectors");
             vanillaCollection.Insert(new TestDocument { Id = 1, Embedding = new[] { 1f, 0f, 0f } });

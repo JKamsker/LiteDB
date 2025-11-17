@@ -6,6 +6,7 @@ using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 using LiteDB.Plugins.Query;
 using LiteDB.Plugins.Storage;
+using LiteDB.Vector.Document;
 using LiteDB.Vector.Engine;
 using LiteDB.Vector.Query;
 using LiteDB.Vector.Utils;
@@ -77,6 +78,8 @@ namespace LiteDB.Vector
                     pluginId: VectorQueryMetadata.PluginId,
                     version: VectorQueryMetadata.Version,
                     reservedKeys: VectorQueryMetadata.ReservedKeys);
+
+                context.RegisterBsonType(VectorBsonSerializer.CreateDescriptor(pluginId));
 
                 context.RegisterIndexMetadata(new PluginIndexMetadataDescriptor(
                     pluginId: pluginId,
@@ -171,7 +174,7 @@ namespace LiteDB.Vector
                     },
                     queryPlanner: _ => { },
                     rebuildStrategy: _ => { },
-                    requiredBsonTypes: new[] { (byte)BsonType.Vector },
+                    requiredBsonTypes: new[] { VectorBsonConstants.TypeCode },
                     requiredPageTypes: new[] { "VectorIndex" });
 #pragma warning restore CS0618
 

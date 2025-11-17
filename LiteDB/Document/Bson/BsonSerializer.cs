@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -15,13 +16,13 @@ namespace LiteDB
         /// <summary>
         /// Serialize BsonDocument into a binary array
         /// </summary>
-        public static byte[] Serialize(BsonDocument doc)
+        public static byte[] Serialize(BsonDocument doc, ILitePluginContext pluginContext = null)
         {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
 
             var buffer = new byte[doc.GetBytesCount(true)]; 
 
-            using (var writer = new BufferWriter(buffer))
+            using (var writer = new BufferWriter(buffer, pluginContext))
             {
                 writer.WriteDocument(doc, false);
             }
@@ -32,11 +33,11 @@ namespace LiteDB
         /// <summary>
         /// Deserialize binary data into BsonDocument
         /// </summary>
-        public static BsonDocument Deserialize(byte[] buffer, bool utcDate = false, HashSet<string> fields = null)
+        public static BsonDocument Deserialize(byte[] buffer, bool utcDate = false, HashSet<string> fields = null, ILitePluginContext pluginContext = null)
         {
             if (buffer == null || buffer.Length == 0) throw new ArgumentNullException(nameof(buffer));
 
-            using (var reader = new BufferReader(buffer, utcDate))
+            using (var reader = new BufferReader(buffer, utcDate, pluginContext))
             {
                 return reader.ReadDocument(fields).GetValue();
             }

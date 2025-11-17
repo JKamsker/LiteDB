@@ -2,6 +2,9 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using LiteDB;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Bson;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -13,6 +16,7 @@ namespace LiteDB.Engine
     {
         private readonly IEnumerator<BufferSlice> _source;
         private readonly bool _utcDate;
+        private readonly ILitePluginContext _pluginContext;
 
         private BufferSlice _current;
         private int _currentPosition = 0; // position in _current
@@ -32,23 +36,25 @@ namespace LiteDB.Engine
         /// </summary>
         public bool IsEOF => _isEOF;
 
-        public BufferReader(byte[] buffer, bool utcDate = false)
-            : this(new BufferSlice(buffer, 0, buffer.Length), utcDate)
+        public BufferReader(byte[] buffer, bool utcDate = false, ILitePluginContext pluginContext = null)
+            : this(new BufferSlice(buffer, 0, buffer.Length), utcDate, pluginContext)
         {
         }
 
-        public BufferReader(BufferSlice buffer, bool utcDate = false)
+        public BufferReader(BufferSlice buffer, bool utcDate = false, ILitePluginContext pluginContext = null)
         {
             _source = null;
             _utcDate = utcDate;
+            _pluginContext = pluginContext ?? LiteDatabaseServices.Default.Context;
 
             _current = buffer;
         }
 
-        public BufferReader(IEnumerable<BufferSlice> source, bool utcDate = false)
+        public BufferReader(IEnumerable<BufferSlice> source, bool utcDate = false, ILitePluginContext pluginContext = null)
         {
             _source = source.GetEnumerator();
             _utcDate = utcDate;
+            _pluginContext = pluginContext ?? LiteDatabaseServices.Default.Context;
 
             _source.MoveNext();
             _current = _source.Current;
@@ -289,20 +295,6 @@ namespace LiteDB.Engine
             return value;
         }
 
-        private BsonValue ReadVector()
-        {
-            var length = this.ReadUInt16();
-            var values = new float[length];
-
-            for (var i = 0; i < length; i++)
-            {
-                values[i] = this.ReadSingle();
-            }
-
-            return new BsonValue((object)values);
-        }
-
-
         /// <summary>
         /// Write single byte
         /// </summary>
@@ -364,9 +356,7 @@ namespace LiteDB.Engine
                 case BsonType.MinValue: return BsonValue.MinValue;
                 case BsonType.MaxValue: return BsonValue.MaxValue;
 
-                case BsonType.Vector: return this.ReadVector();
-
-                default: throw new NotImplementedException();
+                default: return this.ReadCustomValue((byte)type);
             }
         }
 
@@ -547,12 +537,8 @@ namespace LiteDB.Engine
             {
                 return BsonValue.MaxValue;
             }
-            else if (type == 0x64) // Vector
-            {
-                return this.ReadVector();
-            }
 
-                throw new NotSupportedException("BSON type not supported");
+            return this.ReadCustomValue(type);
         }
 
         #endregion
@@ -560,6 +546,16 @@ namespace LiteDB.Engine
         public void Dispose()
         {
             _source?.Dispose();
+        }
+
+        private BsonValue ReadCustomValue(byte typeCode)
+        {
+            if (BsonTypeResolver.TryGet(_pluginContext, typeCode, out var descriptor))
+            {
+                return descriptor.Deserializer(this);
+            }
+
+            throw new NotSupportedException($"BSON type 0x{typeCode:X2} is not supported. Ensure the appropriate plugin is installed.");
         }
     }
 }

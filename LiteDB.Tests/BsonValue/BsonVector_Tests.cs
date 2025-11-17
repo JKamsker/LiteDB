@@ -3,6 +3,7 @@ using System.Linq;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Plugins;
 using LiteDB.Vector;
 using LiteDB.Vector.Document;
 using Xunit;
@@ -23,14 +24,14 @@ public class BsonVector_Tests
             ["vec"] = new BsonVector(new float[] { 1.0f, 2.5f, -3.75f })
         };
 
-        var bytes = BsonSerializer.Serialize(original);
-        var deserialized = BsonSerializer.Deserialize(bytes);
+        using var db = CreateDatabase();
+        var context = db.Services.Context;
 
-        var vec = deserialized["vec"].AsVector;
-        Assert.Equal(3, vec.Length);
-        Assert.Equal(1.0f, vec[0]);
-        Assert.Equal(2.5f, vec[1]);
-        Assert.Equal(-3.75f, vec[2]);
+        var bytes = BsonSerializer.Serialize(original, context);
+        var deserialized = BsonSerializer.Deserialize(bytes, pluginContext: context);
+
+        var vec = Assert.IsType<BsonVector>(deserialized["vec"]).Values;
+        vec.Should().Equal(1.0f, 2.5f, -3.75f);
     }
 
     [Fact]
@@ -43,10 +44,13 @@ public class BsonVector_Tests
             ["vec"] = new BsonVector(values)
         };
 
-        var bytes = BsonSerializer.Serialize(original);
-        var deserialized = BsonSerializer.Deserialize(bytes);
+        using var db = CreateDatabase();
+        var context = db.Services.Context;
 
-        deserialized["vec"].AsVector.Should().Equal(values);
+        var bytes = BsonSerializer.Serialize(original, context);
+        var deserialized = BsonSerializer.Deserialize(bytes, pluginContext: context);
+
+        Assert.IsType<BsonVector>(deserialized["vec"]).Values.Should().Equal(values);
     }
 
     private class VectorDoc
@@ -373,5 +377,14 @@ public class BsonVector_Tests
         var ordered = col.Query().OrderBy(x => x.Embedding).ToList();
 
         ordered.Select(x => x.Id).Should().Equal(1, 2, 3, 4);
+    }
+    private static LiteDatabase CreateDatabase()
+    {
+        var options = new LiteDatabaseOptions
+        {
+            Plugins = new ILitePlugin[] { VectorSearchPlugin.Instance }
+        };
+
+        return new LiteDatabase(":memory:", options);
     }
 }

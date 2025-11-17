@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Vector.Document;
 using LiteDB.Vector.Engine;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Query;
@@ -291,9 +292,9 @@ namespace LiteDB.Vector.Query
             }
 
 #pragma warning disable CS0618
-            if (value.Type == BsonType.Vector)
+            if (value is BsonVector bsonVector)
             {
-                vector = value.AsVector.ToArray();
+                vector = bsonVector.Values.ToArray();
                 return true;
             }
             #pragma warning restore CS0618

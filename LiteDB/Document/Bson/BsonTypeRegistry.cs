@@ -1,114 +1,28 @@
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using LiteDB.Plugins.Bson;
 
 namespace LiteDB.Document.Bson
 {
     /// <summary>
-    /// Provides plugin-aware BSON type lookup with legacy fallbacks for built-in types.
+    /// Provides plugin-aware BSON type lookup.
     /// </summary>
     internal sealed class BsonTypeRegistry
     {
         private readonly ICustomBsonTypeRegistry _pluginRegistry;
-        private readonly Dictionary<byte, CustomBsonTypeDescriptor> _byCode = new Dictionary<byte, CustomBsonTypeDescriptor>();
-        private readonly Dictionary<string, CustomBsonTypeDescriptor> _byName = new Dictionary<string, CustomBsonTypeDescriptor>(StringComparer.Ordinal);
 
         public BsonTypeRegistry(ICustomBsonTypeRegistry pluginRegistry)
         {
             _pluginRegistry = pluginRegistry ?? throw new ArgumentNullException(nameof(pluginRegistry));
-            RegisterBuiltinTypes();
         }
 
-        /// <summary>
-        /// Attempts to locate a type registration for the supplied BSON type code.
-        /// </summary>
         public bool TryGet(byte typeCode, out CustomBsonTypeDescriptor registration)
         {
-            if (_pluginRegistry.TryGetByTypeCode(typeCode, out registration))
-            {
-                return true;
-            }
-
-            return _byCode.TryGetValue(typeCode, out registration);
+            return _pluginRegistry.TryGetByTypeCode(typeCode, out registration);
         }
 
-        /// <summary>
-        /// Attempts to locate a type registration by canonical name.
-        /// </summary>
         public bool TryGet(string name, out CustomBsonTypeDescriptor registration)
         {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                registration = null;
-                return false;
-            }
-
-            if (_pluginRegistry.TryGetByName(name, out registration))
-            {
-                return true;
-            }
-
-            return _byName.TryGetValue(name, out registration);
-        }
-
-        /// <summary>
-        /// Registers a legacy core BSON type for fallback handling.
-        /// </summary>
-        public void RegisterFallback(CustomBsonTypeDescriptor registration)
-        {
-            if (registration == null)
-            {
-                throw new ArgumentNullException(nameof(registration));
-            }
-
-            _byCode[registration.TypeCode] = registration;
-            _byName[registration.Name] = registration;
-
-            foreach (var alias in registration.LegacyAliases)
-            {
-                _byCode[alias] = registration;
-            }
-        }
-
-        private void RegisterBuiltinTypes()
-        {
-            RegisterFallback(new CustomBsonTypeDescriptor(
-                pluginId: "LiteDB.Core",
-                typeCode: (byte)BsonType.MinValue,
-                name: nameof(BsonType.MinValue),
-                serializer: LegacyNotSupportedSerializer,
-                deserializer: LegacyNotSupportedDeserializer));
-
-            RegisterFallback(new CustomBsonTypeDescriptor(
-                pluginId: "LiteDB.Core",
-                typeCode: (byte)BsonType.Null,
-                name: nameof(BsonType.Null),
-                serializer: LegacyNotSupportedSerializer,
-                deserializer: LegacyNotSupportedDeserializer));
-
-            RegisterFallback(new CustomBsonTypeDescriptor(
-                pluginId: "LiteDB.Core",
-                typeCode: (byte)BsonType.Vector,
-                name: "Vector",
-                serializer: LegacyNotSupportedSerializer,
-                deserializer: LegacyVectorDeserializer,
-                legacyAliases: new ReadOnlyCollection<byte>(new[] { (byte)BsonType.Vector })));
-        }
-
-        private static System.Threading.Tasks.Task LegacyNotSupportedSerializer(object writer, object value)
-        {
-            throw new NotSupportedException("Serialization is delegated to legacy BSON infrastructure.");
-        }
-
-        private static System.Threading.Tasks.Task<object> LegacyNotSupportedDeserializer(object reader)
-        {
-            throw new NotSupportedException("Deserialization is delegated to legacy BSON infrastructure.");
-        }
-
-        private static System.Threading.Tasks.Task<object> LegacyVectorDeserializer(object reader)
-        {
-            throw new NotSupportedException("Vector deserialization requires the LiteDB.Vector plugin.");
+            return _pluginRegistry.TryGetByName(name, out registration);
         }
     }
 }

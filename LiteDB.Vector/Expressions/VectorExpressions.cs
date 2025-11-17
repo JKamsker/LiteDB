@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using LiteDB;
+using LiteDB.Vector.Document;
 using LiteDB.Vector.Engine;
 
 namespace LiteDB.Vector
@@ -148,13 +149,11 @@ namespace LiteDB.Vector
                 return false;
             }
 
-            #pragma warning disable CS0618
-            if (value.Type == BsonType.Vector)
+            if (value is BsonVector vectorValue)
             {
-                vector = value.AsVector.ToArray();
+                vector = vectorValue.Values.ToArray();
                 return ValidateVector(vector);
             }
-            #pragma warning restore CS0618
 
             if (value.IsArray)
             {
