@@ -68,7 +68,10 @@ namespace LiteDB.Vector
 
             try
             {
+                var pluginId = ReservedCodeRanges.VectorPluginId;
                 var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"], context.Logger);
+
+                context.SetDiagnosticPolicy(VectorPluginDiagnosticPolicy.Instance);
 
                 context.RegisterQueryMetadata(
                     pluginId: VectorQueryMetadata.PluginId,
@@ -76,7 +79,7 @@ namespace LiteDB.Vector
                     reservedKeys: VectorQueryMetadata.ReservedKeys);
 
                 context.RegisterIndexMetadata(new PluginIndexMetadataDescriptor(
-                    pluginId: "LiteDB.Vector",
+                    pluginId: pluginId,
                     indexKind: VectorCompatibility.DefaultIndexKind,
                     serialize: VectorMetadataSerializer.Serialize,
                     deserialize: VectorMetadataSerializer.Deserialize));
@@ -130,7 +133,7 @@ namespace LiteDB.Vector
                 context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.");
 
                 context.RegisterPageFactory(new PageFactoryRegistration(
-                    pluginId: "LiteDB.Vector",
+                    pluginId: pluginId,
                     pageType: "VectorIndex",
                     numericCode: 0xE0,
                     compatibilityRange: ">=8.0",
@@ -153,8 +156,8 @@ namespace LiteDB.Vector
 
 #pragma warning disable CS0618
                 var descriptor = new CustomIndexStrategyDescriptor(
-                    pluginId: "LiteDB.Vector",
-                    strategyId: "LiteDB.Vector",
+                    pluginId: pluginId,
+                    strategyId: pluginId,
                     ensureIndex: ctx =>
                     {
                         if (ctx == null)
