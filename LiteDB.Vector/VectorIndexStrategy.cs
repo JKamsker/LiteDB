@@ -3,7 +3,9 @@ using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
 using LiteDB.Vector.Engine;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector
 {
@@ -38,7 +40,7 @@ namespace LiteDB.Vector
             var (dimensions, metric) = this.ParseOptions(options);
 
             var existing = typedCollection.GetCollectionIndex(name);
-            var existingMetadataBuffer = typedCollection.GetVectorIndexMetadata(name);
+            var existingMetadataBuffer = typedCollection.GetPluginIndexMetadata(name);
             var existingMetadata = existingMetadataBuffer != null ? VectorIndexMetadata.Wrap(existingMetadataBuffer) : null;
 
             if (existing != null && existing.IndexType != this.IndexTypeCode)
@@ -63,8 +65,19 @@ namespace LiteDB.Vector
 
             _logger?.Write(LogLevel.Information, $"Creating vector index '{typedSnapshot.CollectionName}.{name}'.");
 
-            var registry = typedSnapshot.Plugins?.Expressions;
-            var tuple = typedCollection.InsertVectorIndex(name, expression.Source, dimensions, (byte)metric, registry);
+            var pluginContext = typedSnapshot.Plugins ?? throw VectorCompatibility.PluginRequired();
+            var registry = pluginContext.Expressions;
+            var metadataEnvelope = this.ExtractMetadata(options);
+            var descriptor = this.RequireMetadataDescriptor(pluginContext, metadataEnvelope);
+
+            var tuple = typedCollection.InsertPluginIndex(
+                name,
+                expression.Source,
+                this.IndexTypeCode,
+                unique: false,
+                descriptor,
+                metadataEnvelope.Metadata,
+                registry);
             var metadata = VectorIndexMetadata.Wrap(tuple.Metadata);
 
             var indexer = new IndexService(typedSnapshot, typedSnapshot.Collation, typedSnapshot.MaxItemsCount);
@@ -92,7 +105,7 @@ namespace LiteDB.Vector
             var typedSnapshot = ExpectSnapshot(snapshot);
             var typedCollection = ExpectCollection(collection);
 
-            var metadataBuffer = typedCollection.GetVectorIndexMetadata(name);
+            var metadataBuffer = typedCollection.GetPluginIndexMetadata(name);
 
             if (metadataBuffer == null)
             {
@@ -120,7 +133,8 @@ namespace LiteDB.Vector
             var typedAddress = ExpectPageAddress(dataBlock);
 
             var vectorIndexes = typedCollection
-                .GetVectorIndexes()
+                .GetPluginIndexes()
+                .Where(x => string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
                 .Select(x => (x.Index, VectorIndexMetadata.Wrap(x.Metadata)))
                 .ToArray();
 
@@ -147,7 +161,8 @@ namespace LiteDB.Vector
             var typedAddress = ExpectPageAddress(dataBlock);
 
             var vectorIndexes = typedCollection
-                .GetVectorIndexes()
+                .GetPluginIndexes()
+                .Where(x => string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
                 .Select(x => (x.Index, VectorIndexMetadata.Wrap(x.Metadata)))
                 .ToArray();
 
@@ -192,6 +207,82 @@ namespace LiteDB.Vector
             }
 
             throw new LiteException(0, $"{PluginNotRegisteredMessage} Page address context was not recognized.");
+        }
+
+        private PluginMetadataEnvelope ExtractMetadata(BsonDocument options)
+        {
+            if (options == null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
+
+            if (!options.TryGetValue("_pluginMetadata", out var envelopeValue) || envelopeValue == null)
+            {
+                throw new LiteException(0, "Vector index metadata envelope is missing. Ensure LiteDB.Vector extensions are up to date.");
+            }
+
+            if (envelopeValue.IsDocument == false)
+            {
+                throw new LiteException(0, "Vector index metadata envelope must be a BSON document.");
+            }
+
+            var envelope = envelopeValue.AsDocument;
+
+            if (!envelope.TryGetValue("pluginId", out var pluginIdValue) || pluginIdValue.IsString == false)
+            {
+                throw new LiteException(0, "Vector index metadata envelope is missing the pluginId.");
+            }
+
+            if (!envelope.TryGetValue("indexKind", out var indexKindValue) || indexKindValue.IsString == false)
+            {
+                throw new LiteException(0, "Vector index metadata envelope is missing the indexKind.");
+            }
+
+            if (!envelope.TryGetValue("payload", out var payloadValue) || payloadValue.IsDocument == false)
+            {
+                throw new LiteException(0, "Vector index metadata envelope is missing the payload document.");
+            }
+
+            var metadata = new BsonDocument();
+            payloadValue.AsDocument.CopyTo(metadata);
+
+            return new PluginMetadataEnvelope(pluginIdValue.AsString, indexKindValue.AsString, metadata);
+        }
+
+        private PluginIndexMetadataDescriptor RequireMetadataDescriptor(ILitePluginContext pluginContext, PluginMetadataEnvelope envelope)
+        {
+            if (pluginContext?.IndexMetadata == null)
+            {
+                throw VectorCompatibility.PluginRequired();
+            }
+
+            if (!pluginContext.IndexMetadata.TryGet(envelope.IndexKind, out var descriptor))
+            {
+                throw new LiteException(0, $"Vector metadata descriptor '{envelope.IndexKind}' is not registered.");
+            }
+
+            if (!string.Equals(descriptor.PluginId, envelope.PluginId, StringComparison.Ordinal))
+            {
+                throw new LiteException(0, $"Vector metadata descriptor for plugin '{envelope.PluginId}' was not found.");
+            }
+
+            return descriptor;
+        }
+
+        private sealed class PluginMetadataEnvelope
+        {
+            public PluginMetadataEnvelope(string pluginId, string indexKind, BsonDocument metadata)
+            {
+                PluginId = pluginId ?? throw new ArgumentNullException(nameof(pluginId));
+                IndexKind = indexKind ?? throw new ArgumentNullException(nameof(indexKind));
+                Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            }
+
+            public string PluginId { get; }
+
+            public string IndexKind { get; }
+
+            public BsonDocument Metadata { get; }
         }
 
         private (ushort Dimensions, VectorDistanceMetric Metric) ParseOptions(BsonDocument options)

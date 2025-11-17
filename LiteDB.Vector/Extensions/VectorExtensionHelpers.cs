@@ -33,17 +33,9 @@ namespace LiteDB.Vector
                 var envelope = new BsonDocument
                 {
                     ["pluginId"] = metadataDescriptor.PluginId,
-                    ["indexKind"] = metadataDescriptor.IndexKind
+                    ["indexKind"] = metadataDescriptor.IndexKind,
+                    ["payload"] = metadata
                 };
-
-                try
-                {
-                    envelope["payload"] = metadataDescriptor.Serialize(metadata);
-                }
-                catch (Exception ex)
-                {
-                    throw new LiteException(0, "Vector metadata serialization failed. See inner exception for details.", ex);
-                }
 
                 document["_pluginMetadata"] = envelope;
             }

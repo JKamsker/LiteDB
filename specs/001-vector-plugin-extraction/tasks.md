@@ -64,7 +64,7 @@
 
 ### Implementation
 
-- [ ] T012 [US2] Replace baked-in vector metadata slots inside LiteDB/Engine/Pages/CollectionPage.cs with calls to IPluginIndexMetadataRegistry; update metadata storage format to {pluginIdLength:byte}{pluginId:utf8}{payloadLength:ushort}{payload:bytes}
+- [X] T012 [US2] Replace baked-in vector metadata slots inside LiteDB/Engine/Pages/CollectionPage.cs with calls to IPluginIndexMetadataRegistry; update metadata storage format to {pluginIdLength:byte}{pluginId:utf8}{payloadLength:ushort}{payload:bytes}
 - [ ] T013 [P] [US2] Update LiteDB/Engine/Engine/Rebuild.cs to reconstruct indexes through IPluginIndexMetadataRegistry for deserialization and ICustomIndexStrategyRegistry for rebuild delegates
 - [ ] T013a [P] [US2] Update LiteDB/Engine/FileReader/FileReaderV8.cs to deserialize plugin-owned metadata via IPluginIndexMetadataRegistry; emit LITE2002 when serializer is missing
 - [ ] T014 [US2] Enforce the "refuse vector operations" policy in LiteDB/Engine/Engine/Index.cs and LiteDB/Engine/Services/SnapShot.cs when plugin assets are absent; consult IPluginDiagnosticPolicy for behavior (RefuseDatabase vs RefuseOperations vs AllowIfSafe)

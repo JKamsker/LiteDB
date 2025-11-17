@@ -390,7 +390,7 @@ namespace LiteDB.Engine
                             Expression = index.Expression,
                             Unique = index.Unique,
                             IndexType = index.IndexType,
-                            VectorMetadata = index.IndexType == 1 ? collectionPage.GetVectorIndexMetadata(index.Name) : null
+                            VectorMetadata = index.IndexType == 1 ? collectionPage.GetPluginIndexMetadata(index.Name) : null
                         };
 
                         info.BindExpressionRegistry(index.Registry);

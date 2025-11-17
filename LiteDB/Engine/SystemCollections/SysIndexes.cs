@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 using static LiteDB.Constants;
 
@@ -19,7 +20,8 @@ namespace LiteDB.Engine
                 var snapshot = transaction.CreateSnapshot(LockMode.Read, collection.Key, false);
 
                 var vectorMetadata = snapshot.CollectionPage
-                    .GetVectorIndexes()
+                    .GetPluginIndexes()
+                    .Where(x => string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
                     .ToDictionary(x => x.Index.Name, x => x.Metadata, StringComparer.Ordinal);
 
                 foreach (var index in snapshot.CollectionPage.GetCollectionIndexes())

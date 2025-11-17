@@ -9,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using LiteDB.Plugins;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using Xunit;
@@ -52,7 +54,7 @@ namespace LiteDB.Vector.Tests.Querying
                 new Func<TransactionService, T>(transaction =>
                 {
                     var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                    var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata("embedding_idx");
+                    var metadataBuffer = snapshot.CollectionPage.GetPluginIndexMetadata("embedding_idx");
 
                     if (metadataBuffer == null)
                     {
@@ -383,7 +385,10 @@ namespace LiteDB.Vector.Tests.Querying
 
             var vectorIndexNames = InspectCollection(db, "vectors", snapshot =>
             {
-                return snapshot.CollectionPage.GetVectorIndexes().Select(pair => pair.Index.Name).ToArray();
+                return snapshot.CollectionPage.GetPluginIndexes()
+                    .Where(x => string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
+                    .Select(pair => pair.Index.Name)
+                    .ToArray();
             });
 
             vectorIndexNames.Should().Contain("embedding_idx");

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 using LiteDB.Vector;
 
@@ -297,7 +298,8 @@ namespace LiteDB.Vector.Tools
                 yield break;
             }
 
-            var method = CollectionPageType.GetMethod("GetVectorIndexes", BindingFlags.Instance | BindingFlags.Public);
+            var method = CollectionPageType.GetMethod("GetPluginIndexes", BindingFlags.Instance | BindingFlags.Public)
+                ?? CollectionPageType.GetMethod("GetVectorIndexes", BindingFlags.Instance | BindingFlags.Public);
             if (method == null)
             {
                 yield break;
@@ -317,7 +319,8 @@ namespace LiteDB.Vector.Tools
 
                 var tupleType = entry.GetType();
                 var indexField = tupleType.GetField("Item1");
-                var metadataField = tupleType.GetField("Item2");
+                var pluginIdField = tupleType.GetField("Item2");
+                var metadataField = tupleType.GetField("Item3") ?? tupleType.GetField("Item2");
 
                 if (indexField == null || metadataField == null)
                 {
@@ -325,9 +328,12 @@ namespace LiteDB.Vector.Tools
                 }
 
                 var index = indexField.GetValue(entry);
+                var pluginId = pluginIdField?.GetValue(entry) as string;
                 var metadataBytes = metadataField.GetValue(entry) as byte[];
 
-                if (index == null || metadataBytes == null)
+                if ((pluginId != null && !string.Equals(pluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal)) ||
+                    index == null ||
+                    metadataBytes == null)
                 {
                     continue;
                 }

@@ -615,7 +615,10 @@ namespace LiteDB.Engine
             ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index/vector pages can be deleted");
             DEBUG(!_collectionPage.FreeDataPageList.Any(x => x == page.PageID), "this page cann't be deleted because free data list page is linked o this page");
             DEBUG(!_collectionPage.GetCollectionIndexes().Any(x => x.FreeIndexPageList == page.PageID), "this page cann't be deleted because free index list page is linked o this page");
-            DEBUG(!_collectionPage.GetVectorIndexes().Any(x => VectorIndexMetadataSerializer.GetReserved(x.Metadata) == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
+            DEBUG(!_collectionPage.GetPluginIndexes()
+                .Any(x =>
+                    string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal) &&
+                    VectorIndexMetadataSerializer.GetReserved(x.Metadata) == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
             DEBUG(page.Buffer.Slice(PAGE_HEADER_SIZE, PAGE_SIZE - PAGE_HEADER_SIZE - 1).All(0), "page content shloud be empty");
 
             // mark page as empty and dirty

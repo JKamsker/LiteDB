@@ -108,7 +108,7 @@ namespace LiteDB.Tests.Engine
             return ExecuteInTransaction(db, transaction =>
             {
                 using var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, addIfNotExists: false);
-                var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata(indexName)
+                var metadataBuffer = snapshot.CollectionPage.GetPluginIndexMetadata(indexName)
                     ?? throw new InvalidOperationException($"Vector index '{indexName}' metadata not found.");
 
                 var metadata = VectorIndexMetadata.Wrap(metadataBuffer);

@@ -157,8 +157,13 @@ namespace LiteDB.Vector.Query
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
 
-            foreach (var (index, metadataBuffer) in collection.GetVectorIndexes())
+            foreach (var (index, pluginId, metadataBuffer) in collection.GetPluginIndexes())
             {
+                if (!string.Equals(pluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 var metadata = VectorIndexMetadata.Wrap(metadataBuffer);
 
                 if (!string.Equals(index.Expression, expression, StringComparison.OrdinalIgnoreCase))

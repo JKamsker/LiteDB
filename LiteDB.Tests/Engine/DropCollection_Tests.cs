@@ -242,7 +242,7 @@ namespace LiteDB.Tests.Engine
             return ExecuteInTransaction(db, transaction =>
             {
                 var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata(VectorIndexName);
+                var metadataBuffer = snapshot.CollectionPage.GetPluginIndexMetadata(VectorIndexName);
 
                 if (metadataBuffer == null)
                 {

@@ -173,7 +173,7 @@ namespace LiteDB.Vector.Tests
                 new Func<TransactionService, T>(transaction =>
                 {
                     using var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                    var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata(IndexName);
+                    var metadataBuffer = snapshot.CollectionPage.GetPluginIndexMetadata(IndexName);
                     if (metadataBuffer == null)
                     {
                         throw new InvalidOperationException($"Vector index '{IndexName}' was not found in collection '{collection}'.");
