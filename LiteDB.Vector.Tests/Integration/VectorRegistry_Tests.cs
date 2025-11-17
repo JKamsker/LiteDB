@@ -33,7 +33,7 @@ namespace LiteDB.Vector.Tests.Integration
             strategy.Should().NotBeNull();
             strategy.PluginId.Should().Be("LiteDB.Vector");
             strategy.RequiredPageTypes.Should().Contain("VectorIndex");
-            strategy.RequiredBsonTypes.Should().Contain(Vector.Document.VectorBsonConstants.TypeCode);
+            strategy.RequiredBsonTypes.Should().Contain(VectorBsonConstants.TypeCode);
         }
     }
 }

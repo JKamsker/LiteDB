@@ -71,7 +71,7 @@ Prerelase builds created vector metadata formats that GA releases refuse to load
 
 ## Quickstart verification (2025-11-17)
 
-We validated the public quickstart with a temporary console application that references the in-repo `LiteDB` and `LiteDB.Vector` projects (the upcoming `LiteDatabaseOptions` type is still in flight, so the sample registers the plugin via `new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })`). If you recreate the validation app under `artifacts_temp/vector-quickstart`, run it with:
+We validated the public quickstart with a temporary console application that references the in-repo `LiteDB` and `LiteDB.Vector` projects. The sample registers the plugin via `LiteDatabaseOptions` (`new LiteDatabase(connectionString, options: options)`), matching the public guidance. If you recreate the validation app under `artifacts_temp/vector-quickstart`, run it with:
 
 ```bash
 dotnet run --project artifacts_temp/vector-quickstart/VectorQuickstart.csproj

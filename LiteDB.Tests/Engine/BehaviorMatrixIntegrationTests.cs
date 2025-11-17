@@ -125,8 +125,7 @@ namespace LiteDB.Tests.Engine
             collection.Insert(documents);
             collection.EnsureIndex(IndexName, x => x.Embedding, new VectorIndexOptions(8, VectorDistanceMetric.Cosine)).Should().BeTrue();
 
-            var field = typeof(Snapshot).GetField("_missingPluginWarnings", BindingFlags.NonPublic | BindingFlags.Static);
-            field.SetValue(null, new ConcurrentDictionary<string, byte>());
+            ClearPluginWarningCache();
         }
 
         private static void ClearPluginWarningCache() => GetPluginWarningCache().Clear();
