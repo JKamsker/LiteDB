@@ -70,7 +70,7 @@
 - [X] T014 [US2] Enforce the "refuse vector operations" policy in LiteDB/Engine/Engine/Index.cs and LiteDB/Engine/Services/SnapShot.cs when plugin assets are absent; consult IPluginDiagnosticPolicy for behavior (RefuseDatabase vs RefuseOperations vs AllowIfSafe)
 - [X] T015 [US2] Register metadata serializers (PluginIndexMetadataDescriptor for "vector.hnsw"), page factories (PageFactoryRegistration for code 0xE0), and diagnostic policy inside LiteDB.Vector/VectorSearchPlugin.cs Initialize() method
 - [X] T016 [US2] Add LiteDB.Tests/Engine/VectorMetadataCompatibilityTests.cs covering pre-release prototype file access with and without the plugin; verify single warning logged and LITE2002 on vector operations
-- [ ] T016a [US2] Add LiteDB.Tests/Engine/BehaviorMatrixIntegrationTests.cs implementing each row of the behavior matrix from spec.md lines 113-121; include compaction/shrink scenarios
+- [X] T016a [US2] Add LiteDB.Tests/Engine/BehaviorMatrixIntegrationTests.cs implementing each row of the behavior matrix from spec.md lines 113-121; include compaction/shrink scenarios
 
 **Checkpoint**: Prototype (pre-release) vector databases behave deterministically; metadata is fully plugin-owned.
 
