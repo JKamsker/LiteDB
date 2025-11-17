@@ -69,6 +69,26 @@ Prerelase builds created vector metadata formats that GA releases refuse to load
 | **Recommended (export/import)** | 1. Export documents (JSON/BSON dump or app-level export).<br>2. Create a fresh database using GA LiteDB + `LiteDB.Vector` plugin.<br>3. Reinsert documents and recreate vector indexes through the plugin. | Gives full control over the new metadata layout and avoids touching legacy indexes. |
 | **Drop & Recreate** | 1. Install the final prerelease build that still understands old metadata.<br>2. Drop every vector index via `LiteCollectionVectorExtensions.DropIndex`.<br>3. Upgrade to GA LiteDB + plugin.<br>4. Recreate indexes using GA vector options. | GA releases emit `LITE2002` until legacy indexes are removed. |
 
+## Quickstart verification (2025-11-17)
+
+We validated the public quickstart with a temporary console application that references the in-repo `LiteDB` and `LiteDB.Vector` projects (the upcoming `LiteDatabaseOptions` type is still in flight, so the sample registers the plugin via `new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })`). If you recreate the validation app under `artifacts_temp/vector-quickstart`, run it with:
+
+```bash
+dotnet run --project artifacts_temp/vector-quickstart/VectorQuickstart.csproj
+```
+
+Command output (trimmed to the quickstart steps):
+
+| Step | Action | Observed result |
+|------|--------|-----------------|
+| 1 | Create the database with the plugin, insert three documents, and ensure a vector index | `documents=3 index_created=True` |
+| 2 | Remove the plugin and try to add another vector index | `caught: 2002 - Vector index support requires the VectorSearchPlugin...` (`LITE2002 VectorCompatibility.PluginRequired`) |
+| 3 | Re-open with the plugin and drop the existing vector index (prerelease drop path) | `drop_index=True` |
+| 4 | Open the cleaned database without the plugin and perform a normal insert | `docs_after_insert=4 (previous=3)` — non-vector operations continue to work |
+| 5 | Export the documents with the plugin, create a new database, reinsert them, and recreate the vector index | `exported=4` / `imported=4 index_recreated=True` — matches the recommended export/import migration path |
+
+Artifacts for each run land in `run-output/` under the repository root. These steps confirm the installation guidance, the missing-plugin diagnostic, and both migration paths documented above: drop & recreate (Steps 3–4) and export/import (Step 5).
+
 ### Behavior without the plugin
 - LiteDB opens the database, logs one warning about missing plugin registrations, and marks vector collections/indexes as unavailable.
 - Any attempt to access plugin-owned assets throws `LiteException (LITE2002)` with `PluginId="LiteDB.Vector"` and diagnostic context.
