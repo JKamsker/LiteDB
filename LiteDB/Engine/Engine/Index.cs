@@ -113,7 +113,9 @@ namespace LiteDB.Engine
             if (!name.IsWord()) throw LiteException.InvalidIndexName(name, collection, "Use only [a-Z$_]");
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
 
+            var requestedPluginId = TryGetPluginIdFromOptions(options);
             var strategy = _plugins?.Indexes?.GetByKind(strategyKind) ?? throw this.CreatePluginRequiredException(
+                pluginId: requestedPluginId,
                 strategyKind: strategyKind,
                 operation: "EnsureCustomIndex",
                 collection: collection,
@@ -163,6 +165,7 @@ namespace LiteDB.Engine
                     {
                         var strategyName = $"type:{index.IndexType}";
                         throw this.CreatePluginRequiredException(
+                            pluginId: this.TryGetPluginIdForIndex(col, name),
                             strategyKind: strategyName,
                             operation: "DropCustomIndex",
                             collection: collection,
@@ -184,8 +187,9 @@ namespace LiteDB.Engine
             });
         }
 
-        private LiteException CreatePluginRequiredException(string strategyKind, string operation, string collection, string indexName, string expression, BsonDocument options)
+        private LiteException CreatePluginRequiredException(string pluginId, string strategyKind, string operation, string collection, string indexName, string expression, BsonDocument options)
         {
+            pluginId ??= ReservedCodeRanges.VectorPluginId;
             var diagnostics = new BsonDocument
             {
                 ["event"] = "plugin.index_required",
@@ -206,21 +210,51 @@ namespace LiteDB.Engine
                 diagnostics["options"] = optionCopy;
             }
 
-            var exception = PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId);
-
-            try
-            {
-                exception.Data["VectorDiagnostics"] = diagnostics;
-            }
-            catch (ArgumentException)
-            {
-                // .NET Framework requires Exception.Data values to be serializable. Fall back to JSON text.
-                exception.Data["VectorDiagnostics"] = diagnostics.ToString();
-            }
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+            var exception = policy.CreateMissingPluginException(pluginId, operation ?? "PluginOperation", diagnostics);
 
             LOG($"custom index plugin missing: {diagnostics.ToString()}", "PLUGIN");
 
             return exception;
+        }
+
+        private static string TryGetPluginIdFromOptions(BsonDocument options)
+        {
+            if (options == null)
+            {
+                return null;
+            }
+
+            if (!options.TryGetValue("_pluginMetadata", out var envelope) || envelope.IsDocument == false)
+            {
+                return null;
+            }
+
+            var document = envelope.AsDocument;
+            if (!document.TryGetValue("pluginId", out var pluginIdValue) || pluginIdValue.IsString == false)
+            {
+                return null;
+            }
+
+            return pluginIdValue.AsString;
+        }
+
+        private string TryGetPluginIdForIndex(CollectionPage collectionPage, string indexName)
+        {
+            if (collectionPage == null || string.IsNullOrWhiteSpace(indexName))
+            {
+                return null;
+            }
+
+            foreach (var (index, pluginId, _) in collectionPage.GetPluginIndexes())
+            {
+                if (string.Equals(index?.Name, indexName, StringComparison.Ordinal))
+                {
+                    return pluginId;
+                }
+            }
+
+            return null;
         }
 
         private BsonArray GetRegisteredCustomStrategies()

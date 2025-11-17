@@ -125,6 +125,7 @@ namespace LiteDB.Engine
         if (metadataRegistry == null || strategyRegistry == null || string.IsNullOrWhiteSpace(pluginId))
         {
             throw this.CreatePluginRequiredException(
+                pluginId: pluginId,
                 strategyKind: pluginId ?? $"type:{index.IndexType}",
                 operation: "RebuildCustomIndex",
                 collection: collection,
@@ -138,6 +139,7 @@ namespace LiteDB.Engine
         if (metadataDescriptor == null)
         {
             throw this.CreatePluginRequiredException(
+                pluginId: pluginId,
                 strategyKind: pluginId,
                 operation: "RebuildCustomIndex",
                 collection: collection,
@@ -166,6 +168,7 @@ namespace LiteDB.Engine
         if (string.IsNullOrWhiteSpace(strategyKind))
         {
             throw this.CreatePluginRequiredException(
+                pluginId: pluginId,
                 strategyKind: pluginId,
                 operation: "RebuildCustomIndex",
                 collection: collection,

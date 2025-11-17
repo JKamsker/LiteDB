@@ -1,3 +1,4 @@
+using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 using System;
@@ -33,6 +34,7 @@ namespace LiteDB.Engine
         private readonly string _collectionName;
         private readonly CollectionPage _collectionPage;
         private readonly ILitePluginContext _plugins;
+        private static readonly ConcurrentDictionary<string, byte> _missingPluginWarnings = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
 
         // local page cache - contains only pages about this collection (but do not contains CollectionPage - use this.CollectionPage)
         private readonly Dictionary<uint, BasePage> _localPages = new Dictionary<uint, BasePage>();
@@ -91,7 +93,91 @@ namespace LiteDB.Engine
             {
                 // local pages contains only data/index pages
                 _localPages.Remove(_collectionPage.PageID);
+
+                this.EvaluatePluginAssets();
             }
+        }
+
+        private void EvaluatePluginAssets()
+        {
+            if (_collectionPage == null)
+            {
+                return;
+            }
+
+            foreach (var (index, pluginId, _) in _collectionPage.GetPluginIndexes())
+            {
+                if (string.IsNullOrWhiteSpace(pluginId))
+                {
+                    continue;
+                }
+
+                if (this.HasPluginSupport(pluginId))
+                {
+                    continue;
+                }
+
+                this.HandleMissingPluginAsset(pluginId, index?.Name);
+            }
+        }
+
+        private bool HasPluginSupport(string pluginId)
+        {
+            var registry = _plugins?.CustomIndexes?.Registered;
+
+            if (registry == null)
+            {
+                return false;
+            }
+
+            foreach (var descriptor in registry)
+            {
+                if (descriptor == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(descriptor.PluginId, pluginId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void HandleMissingPluginAsset(string pluginId, string assetName)
+        {
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = "plugin.asset_detected",
+                ["pluginId"] = pluginId,
+                ["collection"] = _collectionName ?? string.Empty,
+                ["asset"] = assetName ?? string.Empty
+            };
+
+            if (policy.MissingBehavior == PluginMissingBehavior.RefuseDatabase)
+            {
+                throw policy.CreateMissingPluginException(pluginId, "OpenSnapshot", diagnostics);
+            }
+
+            this.LogMissingPluginWarning(pluginId, policy.MissingBehavior);
+        }
+
+        private void LogMissingPluginWarning(string pluginId, PluginMissingBehavior behavior)
+        {
+            if (!_missingPluginWarnings.TryAdd(pluginId, 1))
+            {
+                return;
+            }
+
+            var logger = _plugins?.Logger ?? NullLogger.Instance;
+            var behaviorText = behavior == PluginMissingBehavior.AllowIfSafe
+                ? "continuing per policy 'AllowIfSafe'"
+                : "vector operations will be refused until the plugin is installed";
+            var message = $"Plugin '{pluginId}' is not loaded but plugin-owned assets were detected in collection '{_collectionName}'. {behaviorText}.";
+            logger.Write(LogLevel.Warning, message);
         }
 
         /// <summary>

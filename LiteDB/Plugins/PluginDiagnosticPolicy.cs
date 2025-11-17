@@ -60,11 +60,18 @@ namespace LiteDB.Plugins
             var message = $"Plugin '{pluginId}' is required to perform '{operation ?? "the requested operation"}'. " +
                           $"Install and register the plugin to continue.";
 
-            var exception = new LiteException(0, message);
+            var exception = new LiteException(LiteException.PLUGIN_REQUIRED, message);
 
             if (diagnostics != null)
             {
-                exception.Data["PluginDiagnostics"] = diagnostics;
+                try
+                {
+                    exception.Data["PluginDiagnostics"] = diagnostics;
+                }
+                catch (ArgumentException)
+                {
+                    exception.Data["PluginDiagnostics"] = diagnostics.ToString();
+                }
             }
 
             return exception;
