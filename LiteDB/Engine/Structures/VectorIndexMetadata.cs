@@ -4,8 +4,11 @@ namespace LiteDB
 {
     /// <summary>
     /// Supported metrics for vector similarity operations.
+    /// DEPRECATED: This enum is moving to LiteDB.Vector plugin.
+    /// Kept internal for backward compatibility with existing databases.
     /// </summary>
-    public enum VectorDistanceMetric : byte
+    [Obsolete("Vector support is moving to LiteDB.Vector plugin. Use LiteDB.Vector.VectorDistanceMetric instead.")]
+    internal enum VectorDistanceMetric : byte
     {
         Euclidean = 0,
         Cosine = 1,
@@ -17,7 +20,10 @@ namespace LiteDB.Engine
 {
     /// <summary>
     /// Metadata persisted for a vector-aware index.
+    /// INTERNAL: This will be replaced with plugin-based metadata serialization in Phase 3F.
+    /// Kept for backward compatibility with existing databases.
     /// </summary>
+    [Obsolete("Vector support is moving to LiteDB.Vector plugin. This will use plugin metadata registry.")]
     internal sealed class VectorIndexMetadata
     {
         /// <summary>

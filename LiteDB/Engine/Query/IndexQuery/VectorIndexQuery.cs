@@ -4,6 +4,11 @@ using System.Linq;
 
 namespace LiteDB.Engine
 {
+    /// <summary>
+    /// INTERNAL: This query implementation will be moved to LiteDB.Vector plugin in Phase 3F.
+    /// Kept for backward compatibility with existing databases.
+    /// </summary>
+    [Obsolete("Vector support is moving to LiteDB.Vector plugin. This will be replaced with plugin-based query.")]
     internal sealed class VectorIndexQuery : Index, IDocumentLookup
     {
         private readonly Snapshot _snapshot;

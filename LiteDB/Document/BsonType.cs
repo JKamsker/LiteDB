@@ -27,6 +27,13 @@ namespace LiteDB
         DateTime = 13,
 
         MaxValue = 14,
+
+        /// <summary>
+        /// DEPRECATED: Vector type support is moving to LiteDB.Vector plugin.
+        /// This value is kept for backward compatibility with existing databases.
+        /// New code should use the LiteDB.Vector plugin which registers custom BSON types.
+        /// </summary>
+        [Obsolete("Vector support is moving to LiteDB.Vector plugin. This will be removed in a future version.")]
         Vector = 100,
     }
 }

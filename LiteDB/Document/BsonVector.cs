@@ -1,8 +1,15 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 
 namespace LiteDB;
 
-public class BsonVector(float[] values) : BsonValue(values)
+/// <summary>
+/// DEPRECATED: Vector type support is moving to LiteDB.Vector plugin.
+/// This class is kept internal for backward compatibility with existing databases.
+/// New code should use the LiteDB.Vector plugin.
+/// </summary>
+[Obsolete("Vector support is moving to LiteDB.Vector plugin. This will be removed in a future version.")]
+internal class BsonVector(float[] values) : BsonValue(values)
 {
     public float[] Values => AsVector;
 

@@ -5,6 +5,11 @@ using LiteDB;
 
 namespace LiteDB.Engine
 {
+    /// <summary>
+    /// INTERNAL: This service will be moved to LiteDB.Vector plugin in Phase 3F.
+    /// Kept for backward compatibility with existing databases.
+    /// </summary>
+    [Obsolete("Vector support is moving to LiteDB.Vector plugin. This will be replaced with plugin-based service.")]
     internal sealed class VectorIndexService
     {
         private const int EfConstruction = 24;
