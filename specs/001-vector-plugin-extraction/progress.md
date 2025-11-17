@@ -30,3 +30,6 @@
 
 ## 2025-11-17
 - Completed **T017** (expression/query extensibility). Removed vector-specific entries from LiteDB/Document/Expression/Parser/BsonExpressionType.cs, taught the tokenizer/parser/BsonExpression infrastructure to source custom operators via IQueryOperatorRegistry, and added CustomExpressionName metadata so plugins can recognize their tokens. Updated LiteDB.Vector (planner + plugin) and associated tests to consume the new hooks, and aligned PageType.VectorIndex with the reserved plugin code so page factories stay plugin-driven.
+- Completed **T018** (`LiteDB/Utils/Extensions/BufferSliceExtensions.cs`). Removed the `BsonType.Vector` switch path for index keys, routed read/write helpers through the plugin BSON registry, and added fallbacks that use `LiteDatabaseServices.Default.Context` when optional plugins are absent so custom BSON encodings can be isolated to LiteDB.Vector.
+- Validation: `dotnet test LiteDB.Tests/LiteDB.Tests.csproj --filter BsonVector_Tests` *(fails to compile)* because `LiteDatabaseOptions` is undefined for the netfx targets referenced by `LiteDB.Tests/BsonValue/BsonVector_Tests.cs`; failure pre-dates this change.
+
