@@ -39,3 +39,6 @@
 - Completed **T019** (`LiteDB/Engine/Query/QueryOptimization.cs`, `LiteDB/Plugins/QueryPlanningContext.cs`, `LiteDB.Vector/Query/VectorIndexPlanningRule.cs`). Added plugin-aware order-by consumption, allowed planning rules to provide plugin metadata/kind, and taught the optimizer to look up `IQueryCostModelRegistry` entries when plugin indexes are selected so custom cost models can influence plan selection. Vector planning now feeds its metadata document plus index kind into the shared infrastructure instead of relying on vector-specific flags.
 - Validation: `dotnet test LiteDB.Tests/LiteDB.Tests.csproj --filter BsonVector_Tests` *(fails to compile)* because `LiteDatabaseOptions` remains undefined for the netfx targets referenced by `LiteDB.Tests/BsonValue/BsonVector_Tests.cs`; failure existed before this change.
 
+
+## 2025-11-17
+- Completed **T022** (README.md, docs/vector-plugin-isolation.md). Added a public-facing vector plugin quickstart to the README covering package installation, plugin registration, and the new LITE2002 behavior when the plugin is absent. Refreshed the migration guide with an installation quickstart, a compatibility matrix mapping plugin presence vs. database contents, and an explicit breaking-change section for prerelease vector databases so users know they must export/import or drop legacy indexes before upgrading.

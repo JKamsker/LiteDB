@@ -158,6 +158,39 @@ using(var db = new LiteDatabase("MyOrderDatafile.db"))
 - OneBella - cross platform (windows, macos, linux) GUI tool : https://github.com/namigop/OneBella
 - LiteDB.Migration: Framework that makes schema migrations easier: https://github.com/JKamsker/LiteDB.Migration/
 
+## Vector Search Plugin (LiteDB.Vector)
+
+LiteDB 6.0+ keeps vector search fully optional by moving every vector API, BSON type, and index implementation into the `LiteDB.Vector` plugin. The core `LiteDB` package now exposes only plugin-neutral extension points, so applications that do not install the plugin stay free of vector dependencies.
+
+### Install and register the plugin
+
+1. Add the NuGet packages to every project that needs vector search:
+
+   ```bash
+   dotnet add package LiteDB
+   dotnet add package LiteDB.Vector
+   ```
+
+2. Register the plugin when constructing `LiteDatabase` so the engine can load the BSON, index, and query hooks supplied by LiteDB.Vector:
+
+   ```csharp
+   var options = new LiteDatabaseOptions
+   {
+       Plugins = new ILitePlugin[] { VectorSearchPlugin.Instance }
+   };
+
+   using var db = new LiteDatabase(connectionString, options: options);
+   ```
+
+3. Call the vector extension helpers from `LiteDB.Vector` (`LiteCollectionVectorExtensions.EnsureIndex`, `DropIndex`, etc.). Vector APIs are not available from the base assembly anymore and will throw a `LiteException (LITE2002)` if the plugin is missing.
+
+### Compatibility notes and breaking changes
+
+- Databases created without vector data behave exactly as before; LiteDB simply omits the plugin-specific hooks.
+- If LiteDB opens a file that contains vector indexes, vector BSON payloads, or vector page codes and the plugin is **not** registered, the engine logs a single warning and throws `LITE2002 VectorCompatibility.PluginRequired` whenever those assets are accessed. All non-vector collections remain readable and writable.
+- Prerelease vector builds (before LiteDB.Vector shipped) wrote metadata formats the GA plugin does not read. Migrate those databases by exporting/importing documents or by using the final prerelease build to drop the legacy vector indexes before upgrading; otherwise GA releases will continue to emit `LITE2002`.
+- See `docs/vector-plugin-isolation.md` for the full migration checklist, compatibility matrix, and CI guidance.
+
 ## Changelog
 
 Change details for each release are documented in the [release notes](https://github.com/mbdavid/LiteDB/releases).

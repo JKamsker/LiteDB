@@ -13,6 +13,23 @@ LiteDB 6.0 separates all vector search capabilities (BSON types, index metadata,
 3. Registries (`ICustomIndexStrategyRegistry`, `IPluginIndexMetadataRegistry`, `ICustomBsonTypeRegistry`, page factories, query operator/cost registries) are the only supported integration points for plugins.
 4. Build and CI gates must fail if source projects retain direct `"Vector"` references outside extension points (see `scripts/verify-vector-clean.ps1` once added).
 
+## Installation quickstart
+1. Install the packages wherever you need vector search:
+   ```bash
+   dotnet add package LiteDB
+   dotnet add package LiteDB.Vector
+   ```
+2. Register the plugin at database construction so LiteDB can load the BSON handler, metadata serializers, and query operators contributed by LiteDB.Vector:
+   ```csharp
+   var options = new LiteDatabaseOptions
+   {
+       Plugins = new ILitePlugin[] { VectorSearchPlugin.Instance }
+   };
+   using var db = new LiteDatabase(connectionString, options: options);
+   ```
+3. Call vector helpers from the plugin (`LiteCollectionVectorExtensions.EnsureIndex`, `DropIndex`, vector query extensions, etc.). Without the plugin these methods are unavailable and vector operations throw `LiteException (LITE2002)`.
+4. Need a deeper walkthrough? Follow `specs/001-vector-plugin-extraction/quickstart.md` end-to-end; it mirrors the public guidance we ship in the docs.
+
 ## Application migration checklist
 1. **Add the plugin package**
    ```bash
@@ -35,8 +52,17 @@ LiteDB 6.0 separates all vector search capabilities (BSON types, index metadata,
    - `pwsh -File scripts/verify-vector-api.ps1 -NoBuild` (after a build) to ensure LiteDB.dll does not expose new `Vector*` APIs
    - `rg "Vector" LiteDB` (should only match extension points and tests once the repo is clean).
 
-## Handling prerelease vector databases
-Prerelase builds created vector metadata formats that GA releases refuse to load automatically. Choose one of these migration paths before upgrading:
+## Compatibility matrix
+
+| Database contents | Plugin registered? | Behavior in LiteDB 6.0+ | Required action |
+|-------------------|--------------------|--------------------------|-----------------|
+| No vector data present | Optional | Normal LiteDB behavior; plugin hooks stay idle even if loaded. | None. |
+| GA vector indexes/pages (`LiteDB.Vector` metadata) | Yes | Full vector functionality available via plugin registries. | Keep plugin registered; rerun vector tests after upgrades. |
+| GA vector indexes/pages (`LiteDB.Vector` metadata) | No | Database opens, logs one warning, and all vector operations throw `LITE2002 VectorCompatibility.PluginRequired`. Other collections remain writable. | Install `LiteDB.Vector`, register it via `LiteDatabaseOptions.Plugins`, and rerun the operation. |
+| Prerelease vector artifacts (legacy metadata/page codes) | Yes or No | GA builds cannot deserialize the prerelease payloads; LiteDB raises `LITE2002` even if the plugin is installed. | Follow the breaking-change process below (export/import or drop & rebuild). |
+
+## Breaking change: prerelease vector databases
+Prerelase builds created vector metadata formats that GA releases refuse to load automatically. This is an intentional breaking change to keep GA builds simple and deterministic. Choose one of these migration paths before upgrading:
 
 | Scenario | Steps | Notes |
 |---------|-------|-------|
