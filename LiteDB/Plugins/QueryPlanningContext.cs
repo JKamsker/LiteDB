@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins.Query;
 using EngineIndex = LiteDB.Engine.Index;
@@ -62,6 +63,12 @@ namespace LiteDB.Plugins
 
         internal bool SelectedIsIndexKeyOnly => _selectedIsIndexKeyOnly;
 
+        internal string SelectedPluginId => _selectedPluginId;
+
+        internal string SelectedPluginIndexKind => _selectedPluginIndexKind;
+
+        internal BsonDocument SelectedPluginMetadata => _selectedPluginMetadata;
+
         internal IReadOnlyList<BsonExpression> ConsumedTerms => new ReadOnlyCollection<BsonExpression>(_consumedTerms);
 
         internal IReadOnlyList<BsonExpression> AdditionalFilters => new ReadOnlyCollection<BsonExpression>(_additionalFilters);
@@ -69,9 +76,9 @@ namespace LiteDB.Plugins
         internal bool ReplaceFilters => _replaceFilters;
 
         /// <summary>
-        /// Indicates whether the plugin consumed an order-by clause while planning.
+        /// Indicates whether the plugin satisfied the order-by clause while planning.
         /// </summary>
-        public bool VectorOrderConsumed { get; set; }
+        public bool OrderByConsumed { get; set; }
 
         /// <summary>
         /// Attempts to retrieve an attached metadata bag for the supplied plugin.
@@ -121,6 +128,9 @@ namespace LiteDB.Plugins
         private uint? _selectedIndexCost;
         private bool _selectedIsIndexKeyOnly;
         private bool _replaceFilters;
+        private string _selectedPluginId;
+        private string _selectedPluginIndexKind;
+        private BsonDocument _selectedPluginMetadata;
 
         /// <summary>
         /// Records the index the rule wants to use and which terms were consumed while planning.
@@ -139,7 +149,10 @@ namespace LiteDB.Plugins
             bool isIndexKeyOnly = false,
             uint? indexCost = null,
             IEnumerable<BsonExpression> additionalFilters = null,
-            bool replaceFilters = false)
+            bool replaceFilters = false,
+            string pluginId = null,
+            string pluginIndexKind = null,
+            BsonDocument pluginMetadata = null)
         {
             if (index == null) throw new ArgumentNullException(nameof(index));
             if (string.IsNullOrWhiteSpace(indexExpression)) throw new ArgumentNullException(nameof(indexExpression));
@@ -161,6 +174,10 @@ namespace LiteDB.Plugins
             {
                 _additionalFilters.AddRange(additionalFilters);
             }
+
+            _selectedPluginId = pluginId;
+            _selectedPluginIndexKind = pluginIndexKind;
+            _selectedPluginMetadata = pluginMetadata;
         }
     }
 }

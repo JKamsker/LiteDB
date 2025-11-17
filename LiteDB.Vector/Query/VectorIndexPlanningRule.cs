@@ -182,15 +182,19 @@ namespace LiteDB.Vector.Query
 
                 var vectorIndex = new VectorIndexQuery(index.Name, snapshot, index, metadata, target, effectiveMaxDistance, limit, collation);
                 var consumed = consumedTerm != null ? new[] { consumedTerm } : Array.Empty<BsonExpression>();
+                var metadataDocument = VectorMetadataSerializer.Deserialize(metadataBuffer);
 
                 context.UseIndex(
                     vectorIndex,
                     index.Expression,
                     consumed,
                     isIndexKeyOnly: false,
-                    indexCost: vectorIndex.GetCost(index));
+                    indexCost: vectorIndex.GetCost(index),
+                    pluginId: ReservedCodeRanges.VectorPluginId,
+                    pluginIndexKind: ReservedCodeRanges.VectorIndexKind,
+                    pluginMetadata: metadataDocument);
 
-                context.VectorOrderConsumed = matchedFromOrderBy;
+                context.OrderByConsumed = matchedFromOrderBy;
                 return true;
             }
 
