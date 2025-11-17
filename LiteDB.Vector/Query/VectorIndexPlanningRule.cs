@@ -95,8 +95,8 @@ namespace LiteDB.Vector.Query
 
                         matchedFromOrderBy = matchedFromOrderBy ||
                             context.Query.OrderBy.Any(order =>
-                                order.Expression?.Type == BsonExpressionType.VectorDist ||
-                                order.Expression?.Type == BsonExpressionType.VectorSim);
+                                IsVectorDistance(order.Expression) ||
+                                IsVectorSimilarity(order.Expression));
                     }
                 }
                 else if (metadataBag.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) &&
@@ -145,8 +145,8 @@ namespace LiteDB.Vector.Query
                 maxDistanceNormalized = true;
                 matchedFromOrderBy = matchedFromOrderBy ||
                     context.Query.OrderBy.Any(order =>
-                        order.Expression?.Type == BsonExpressionType.VectorDist ||
-                        order.Expression?.Type == BsonExpressionType.VectorSim);
+                        IsVectorDistance(order.Expression) ||
+                        IsVectorSimilarity(order.Expression));
             }
 #pragma warning restore CS0618
 
@@ -232,7 +232,7 @@ namespace LiteDB.Vector.Query
             fieldExpression = null;
             target = null;
 
-            if (expression == null || expression.Type != BsonExpressionType.VectorDist)
+            if (!IsVectorDistance(expression))
             {
                 return false;
             }
@@ -259,6 +259,26 @@ namespace LiteDB.Vector.Query
             }
 
             return true;
+        }
+
+        private static bool IsVectorDistance(BsonExpression? expression)
+        {
+            if (expression == null)
+            {
+                return false;
+            }
+
+            return string.Equals(expression.CustomExpressionName, "VECTOR_DIST", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsVectorSimilarity(BsonExpression? expression)
+        {
+            if (expression == null)
+            {
+                return false;
+            }
+
+            return string.Equals(expression.CustomExpressionName, "VECTOR_SIM", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool TryConvertToVector(BsonValue? value, out float[]? vector)

@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -34,6 +35,7 @@ namespace LiteDB
                 this.Type = type;
                 this.Precedence = precedence;
                 this.RequiresCollation = method?.GetParameters().FirstOrDefault()?.ParameterType == typeof(Collation);
+                this.IsCustom = false;
             }
 
             public OperatorDefinition(BinaryOperatorRegistration registration)
@@ -46,6 +48,20 @@ namespace LiteDB
                 this.Precedence = (int)registration.Precedence;
                 this.Delegate = registration.Implementation;
                 this.RequiresCollation = false;
+                this.IsCustom = true;
+            }
+
+            public OperatorDefinition(QueryOperatorRegistration registration)
+            {
+                if (registration == null) throw new ArgumentNullException(nameof(registration));
+
+                this.Key = registration.OperatorName.ToUpperInvariant();
+                this.Source = $" {this.Key} ";
+                this.Type = registration.ExpressionType;
+                this.Precedence = (int)registration.Precedence;
+                this.QueryOperator = registration;
+                this.RequiresCollation = false;
+                this.IsCustom = true;
             }
 
             public string Key { get; }
@@ -56,11 +72,15 @@ namespace LiteDB
 
             public BsonBinaryOperator Delegate { get; }
 
+            public QueryOperatorRegistration QueryOperator { get; }
+
             public BsonExpressionType Type { get; }
 
             public int Precedence { get; }
 
             public bool RequiresCollation { get; }
+
+            public bool IsCustom { get; }
         }
 
         private static readonly List<OperatorDefinition> _builtInOperators = new List<OperatorDefinition>
@@ -111,13 +131,21 @@ namespace LiteDB
             new OperatorDefinition("OR", " OR ", null, BsonExpressionType.Or, (int)BinaryOperatorPrecedence.LogicalOr)
         };
 
-        private static List<OperatorDefinition> GetOperatorTable(IExpressionRegistry registry)
+        private static List<OperatorDefinition> GetOperatorTable(IExpressionRegistry registry, IQueryOperatorRegistry queryOperators)
         {
             var table = new List<OperatorDefinition>(_builtInOperators);
 
             if (registry != null)
             {
                 foreach (var registration in registry.Operators)
+                {
+                    table.Add(new OperatorDefinition(registration));
+                }
+            }
+
+            if (queryOperators != null)
+            {
+                foreach (var registration in queryOperators.Registered)
                 {
                     table.Add(new OperatorDefinition(registration));
                 }
@@ -186,7 +214,7 @@ namespace LiteDB
             }
 
             var order = 0;
-            var operatorTable = GetOperatorTable(context.Registry);
+            var operatorTable = GetOperatorTable(context.Registry, context.QueryOperators);
 
             // now, process operator in correct order
             while (values.Count >= 2)
@@ -220,9 +248,30 @@ namespace LiteDB
                 BsonExpression result;
 
                 // when operation is AND/OR, use AndAlso|OrElse
-                if (definition.Type == BsonExpressionType.And || definition.Type == BsonExpressionType.Or)
+                if (definition.QueryOperator != null)
+                {
+                    var custom = definition.QueryOperator.Parser(new[] { left, right });
+
+                    if (custom == null)
+                    {
+                        throw new LiteException(0, $"Operator `{definition.Key}` returned no expression.");
+                    }
+
+                    if (string.IsNullOrEmpty(custom.CustomExpressionName))
+                    {
+                        custom.CustomExpressionName = definition.Key;
+                    }
+
+                    result = custom;
+                }
+                else if (definition.Type == BsonExpressionType.And || definition.Type == BsonExpressionType.Or)
                 {
                     result = CreateLogicExpression(definition.Type, left, right);
+
+                    if (definition.IsCustom && string.IsNullOrEmpty(result.CustomExpressionName))
+                    {
+                        result.CustomExpressionName = definition.Key;
+                    }
                 }
                 else
                 {
@@ -264,7 +313,8 @@ namespace LiteDB
                         Expression = call,
                         Left = left,
                         Right = right,
-                        Source = left.Source + definition.Source + right.Source
+                        Source = left.Source + definition.Source + right.Source,
+                        CustomExpressionName = definition.IsCustom ? definition.Key : null
                     };
                 }
 
@@ -796,7 +846,7 @@ namespace LiteDB
             {
                 tokenizer.ReadToken(); // consume .
 
-                var pathExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Source, context.Registry, context);
+                var pathExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Source, context.Registry, context.QueryOperators, context);
 
                 if (pathExpr == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1129,7 +1179,7 @@ namespace LiteDB
             {
                 tokenizer.ReadToken(); // consume .
 
-                var mapExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Current, context.Registry, context);
+                var mapExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Current, context.Registry, context.QueryOperators, context);
 
                 if (mapExpr == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1205,7 +1255,7 @@ namespace LiteDB
                 else
                 {
                     // inner expression
-                    inner = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters, DocumentScope.Current, context.Registry, context);
+                    inner = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters, DocumentScope.Current, context.Registry, context.QueryOperators, context);
 
                     if (inner == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1316,7 +1366,7 @@ namespace LiteDB
                 tokenizer.ReadToken().Expect(TokenType.Greater);
 
                 var right = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters,
-                    left.Type == BsonExpressionType.Source ? DocumentScope.Source : DocumentScope.Current, context.Registry, context);
+                    left.Type == BsonExpressionType.Source ? DocumentScope.Source : DocumentScope.Current, context.Registry, context.QueryOperators, context);
 
                 src.Append("=>" + right.Source);
                 args.Add(Expression.Constant(right));
@@ -1391,7 +1441,8 @@ namespace LiteDB
                 IsScalar = isScalarResult,
                 Fields = fields,
                 Expression = call,
-                Source = src.ToString()
+                Source = src.ToString(),
+                CustomExpressionName = registration != null ? functionName : null
             };
         }
 

@@ -89,40 +89,40 @@ namespace LiteDB.Vector
                 context.Expressions.RegisterKeyword("VECTOR_DIST");
                 context.Expressions.RegisterBinaryOperator(
                     "VECTOR_DIST",
-                    BsonExpressionType.VectorDist,
+                    BsonExpressionType.Call,
                     VectorExpressions.VectorDistance,
                     BinaryOperatorPrecedence.Comparison,
                     " VECTOR_DIST "); // Comparison precedence keeps distance checks aligned with relational operators.
                 context.Expressions.RegisterFunction(
                     "VECTOR_DIST",
                     new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorDistance),
-                    BsonExpressionType.VectorDist,
+                    BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
                 context.Expressions.RegisterFunction(
                     "VECTOR_DIST",
                     new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorDistance),
-                    BsonExpressionType.VectorDist,
+                    BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
 
                 context.Expressions.RegisterKeyword("VECTOR_SIM");
                 context.Expressions.RegisterBinaryOperator(
                     "VECTOR_SIM",
-                    BsonExpressionType.VectorSim,
+                    BsonExpressionType.Call,
                     VectorExpressions.VectorSimilarity,
                     BinaryOperatorPrecedence.Comparison,
                     " VECTOR_SIM ");
                 context.Expressions.RegisterFunction(
                     "VECTOR_SIM",
                     new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorSimilarity),
-                    BsonExpressionType.VectorSim,
+                    BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
                 context.Expressions.RegisterFunction(
                     "VECTOR_SIM",
                     new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorSimilarity),
-                    BsonExpressionType.VectorSim,
+                    BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
 

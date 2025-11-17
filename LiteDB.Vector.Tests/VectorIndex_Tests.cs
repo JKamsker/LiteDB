@@ -635,7 +635,7 @@ namespace LiteDB.Vector.Tests.Querying
             var definition = (LiteDB.Query)queryField.GetValue(query);
 
             definition.OrderBy.Should().HaveCount(2);
-            definition.OrderBy[0].Expression.Type.Should().Be(BsonExpressionType.VectorDist);
+            definition.OrderBy[0].Expression.CustomExpressionName.Should().Be("VECTOR_DIST");
 
             definition.VectorField = "$.Embedding";
             definition.VectorTarget = new[] { 1f, 0f };

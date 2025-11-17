@@ -228,7 +228,7 @@ public class BsonVector_Tests
         var registry = db.Services.ExpressionRegistry;
         var expr = BsonExpression.Create("$.Embedding VECTOR_DIST [1.0, 0.0]", registry);
 
-        expr.Type.Should().Be(BsonExpressionType.VectorDist);
+        expr.CustomExpressionName.Should().Be("VECTOR_DIST");
 
         var doc = new BsonDocument
         {
@@ -248,7 +248,7 @@ public class BsonVector_Tests
         var registry = db.Services.ExpressionRegistry;
         var expr = BsonExpression.Create("VECTOR_DIST($.Embedding, [1.0, 0.0])", registry);
 
-        expr.Type.Should().Be(BsonExpressionType.VectorDist);
+        expr.CustomExpressionName.Should().Be("VECTOR_DIST");
 
         var doc = new BsonDocument
         {

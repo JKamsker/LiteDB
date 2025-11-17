@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using LiteDB;
+using LiteDB.Plugins;
 
 namespace LiteDB.Plugins.Query
 {
@@ -25,7 +26,8 @@ namespace LiteDB.Plugins.Query
             string pluginId,
             string operatorName,
             BsonExpressionType expressionType,
-            Func<BsonExpression[], BsonExpression> parser)
+            Func<BsonExpression[], BsonExpression> parser,
+            BinaryOperatorPrecedence precedence = BinaryOperatorPrecedence.Comparison)
         {
             if (string.IsNullOrWhiteSpace(pluginId))
             {
@@ -41,6 +43,7 @@ namespace LiteDB.Plugins.Query
             OperatorName = operatorName;
             ExpressionType = expressionType;
             Parser = parser ?? throw new ArgumentNullException(nameof(parser));
+            Precedence = precedence;
         }
 
         public string PluginId { get; }
@@ -50,5 +53,7 @@ namespace LiteDB.Plugins.Query
         public BsonExpressionType ExpressionType { get; }
 
         public Func<BsonExpression[], BsonExpression> Parser { get; }
+
+        public BinaryOperatorPrecedence Precedence { get; }
     }
 }

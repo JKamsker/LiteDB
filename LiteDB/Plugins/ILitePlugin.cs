@@ -133,6 +133,8 @@ namespace LiteDB.Plugins
 
         IReadOnlyCollection<string> Keywords { get; }
 
+        IQueryOperatorRegistry QueryOperators { get; }
+
         bool ContainsOperator(string token);
 
         bool ContainsKeyword(string keyword);

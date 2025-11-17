@@ -175,7 +175,8 @@ namespace LiteDB
 
         internal BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry registry, LiteDatabase database, ILinqResolverRegistry linqResolvers)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate, registry, database, linqResolvers);
+            var queryOperators = database?.Services?.QueryOperators ?? LiteDatabaseServices.Default.QueryOperators;
+            var visitor = new LinqExpressionVisitor(this, predicate, registry, database, linqResolvers, queryOperators);
 
             var expr = visitor.Resolve(typeof(K) == typeof(bool));
 
@@ -194,7 +195,8 @@ namespace LiteDB
 
         internal BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry registry, LiteDatabase database, ILinqResolverRegistry linqResolvers)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate, registry, database, linqResolvers);
+            var queryOperators = database?.Services?.QueryOperators ?? LiteDatabaseServices.Default.QueryOperators;
+            var visitor = new LinqExpressionVisitor(this, predicate, registry, database, linqResolvers, queryOperators);
 
             var expr = visitor.Resolve(false);
 

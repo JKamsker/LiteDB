@@ -301,7 +301,7 @@ namespace LiteDB
         {
             if (commandReader == null) throw new ArgumentNullException(nameof(commandReader));
 
-            var tokenizer = new Tokenizer(commandReader, _pluginContext.Expressions);
+            var tokenizer = new Tokenizer(commandReader, _pluginContext.Expressions, _pluginContext.QueryOperators);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 
@@ -315,7 +315,7 @@ namespace LiteDB
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
 
-            var tokenizer = new Tokenizer(command, _pluginContext.Expressions);
+            var tokenizer = new Tokenizer(command, _pluginContext.Expressions, _pluginContext.QueryOperators);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 

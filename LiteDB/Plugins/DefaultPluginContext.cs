@@ -12,13 +12,13 @@ namespace LiteDB.Plugins
     {
         public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
         {
-            this.Expressions = new ExpressionRegistry();
+            this.QueryOperators = new QueryOperatorRegistry();
+            this.Expressions = new ExpressionRegistry(this.QueryOperators);
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
             this.QueryMetadata = new QueryMetadataAccessor();
             this.DiagnosticPolicy = DefaultPluginDiagnosticPolicy.Instance;
             this.SqlFunctions = new SqlFunctionRegistry();
-            this.QueryOperators = new QueryOperatorRegistry();
             this.QueryCostModels = new QueryCostModelRegistry();
             this.BsonTypes = new CustomBsonTypeRegistry();
             this.PageFactories = new PageTypeRegistry();
@@ -305,10 +305,16 @@ namespace LiteDB.Plugins
 
     internal sealed class ExpressionRegistry : IExpressionRegistry
     {
+        private readonly IQueryOperatorRegistry _queryOperators;
         private readonly object _sync = new object();
         private readonly Dictionary<string, BinaryOperatorRegistration> _operators = new Dictionary<string, BinaryOperatorRegistration>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ExpressionFunctionRegistration> _functions = new Dictionary<string, ExpressionFunctionRegistration>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _keywords = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        public ExpressionRegistry(IQueryOperatorRegistry queryOperators)
+        {
+            _queryOperators = queryOperators ?? throw new ArgumentNullException(nameof(queryOperators));
+        }
 
         public IReadOnlyCollection<BinaryOperatorRegistration> Operators
         {
@@ -342,6 +348,8 @@ namespace LiteDB.Plugins
                 }
             }
         }
+
+        public IQueryOperatorRegistry QueryOperators => _queryOperators;
 
         public void RegisterBinaryOperator(string token, BsonExpressionType expressionType, BsonBinaryOperator implementation, BinaryOperatorPrecedence precedence = BinaryOperatorPrecedence.Comparison, string source = null)
         {

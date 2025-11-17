@@ -8,7 +8,7 @@ using static LiteDB.Constants;
 
 namespace LiteDB.Engine
 {
-    internal enum PageType { Empty = 0, Header = 1, Collection = 2, Index = 3, Data = 4, VectorIndex = 5 }
+    internal enum PageType { Empty = 0, Header = 1, Collection = 2, Index = 3, Data = 4, VectorIndex = 0xE0 }
 
     internal class BasePage
     {
