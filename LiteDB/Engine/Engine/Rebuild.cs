@@ -146,15 +146,18 @@ namespace LiteDB.Engine
                 options: null);
         }
 
-        BsonDocument metadataDocument;
+        var metadataDocument = index.PluginMetadataDocument;
 
-        try
+        if (metadataDocument == null)
         {
-            metadataDocument = metadataDescriptor.Deserialize(index.PluginMetadata) ?? new BsonDocument();
-        }
-        catch (Exception ex)
-        {
-            throw new LiteException(0, $"Failed to deserialize metadata for index '{collection}.{index.Name}' owned by plugin '{pluginId}'.", ex);
+            try
+            {
+                metadataDocument = metadataDescriptor.Deserialize(index.PluginMetadata) ?? new BsonDocument();
+            }
+            catch (Exception ex)
+            {
+                throw new LiteException(LiteException.PLUGIN_REQUIRED, ex, $"Failed to deserialize metadata for index '{collection}.{index.Name}' owned by plugin '{pluginId}'.");
+            }
         }
 
         var options = this.BuildPluginIndexOptions(metadataDescriptor, metadataDocument);

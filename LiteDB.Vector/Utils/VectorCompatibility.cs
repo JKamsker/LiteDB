@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 
@@ -49,6 +50,6 @@ namespace LiteDB.Vector.Utils
             return descriptor;
         }
 
-        public static LiteException PluginRequired() => new LiteException(0, PluginRequiredMessage);
+        public static LiteException PluginRequired() => new LiteException(LiteException.PLUGIN_REQUIRED, PluginRequiredMessage);
     }
 }

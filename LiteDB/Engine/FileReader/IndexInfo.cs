@@ -19,6 +19,7 @@ namespace LiteDB.Engine
         public string PluginId { get; set; }
         public string PluginIndexKind { get; set; }
         public byte[] PluginMetadata { get; set; }
+        public BsonDocument PluginMetadataDocument { get; set; }
         public BsonExpression BsonExpr { get; private set; }
         public IExpressionRegistry Registry { get; private set; }
 

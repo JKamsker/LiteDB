@@ -11,7 +11,7 @@ namespace LiteDB.Plugins
                 throw new ArgumentNullException(nameof(pluginId));
             }
 
-            return new LiteException(0, $"Plugin '{pluginId}' is required for this operation. Install the plugin package and register it via LiteDatabaseOptions.Plugins.");
+            return new LiteException(LiteException.PLUGIN_REQUIRED, $"Plugin '{pluginId}' is required for this operation. Install the plugin package and register it via LiteDatabaseOptions.Plugins.");
         }
     }
 }
