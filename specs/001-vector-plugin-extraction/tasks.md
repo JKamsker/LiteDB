@@ -100,7 +100,7 @@
 
 - [X] T022 Refresh README.md and docs/vector-plugin-isolation.md with plugin installation guidance and compatibility notes; document breaking changes for prerelease vector users
 - [X] T023 Follow specs/001-vector-plugin-extraction/quickstart.md end-to-end and capture results in docs/vector-plugin-isolation.md; verify migration paths work as documented
-- [ ] T024 Update scripts/verify-vector-clean.ps1 to: (a) exclude comments/strings/docs from grep, (b) only check compiled code paths, (c) allow extension point declarations in LiteDB/Plugins/
+- [X] T024 Update scripts/verify-vector-clean.ps1 to: (a) exclude comments/strings/docs from grep, (b) only check compiled code paths, (c) allow extension point declarations in LiteDB/Plugins/
 - [ ] T025 Add LiteDB.Tests/Plugins/ReservedIdentifierConflictTests.cs to verify reserved code range validation: test BSON code conflicts, page code conflicts, and valid plugin registrations
 
 ---
