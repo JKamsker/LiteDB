@@ -16,6 +16,9 @@ namespace LiteDB.Engine
         public bool Unique { get; set; }
         public byte IndexType { get; set; }
         public byte[] VectorMetadata { get; set; }
+        public string PluginId { get; set; }
+        public string PluginIndexKind { get; set; }
+        public byte[] PluginMetadata { get; set; }
         public BsonExpression BsonExpr { get; private set; }
         public IExpressionRegistry Registry { get; private set; }
 

@@ -379,9 +379,15 @@ namespace LiteDB.Engine
                     var page = result.Value;
                     var collectionPage = new CollectionPage(page.Buffer);
 
+                    var pluginIndexes = collectionPage
+                        .GetPluginIndexes()
+                        .ToDictionary(x => x.Index.Name, x => (x.PluginId, x.Metadata), StringComparer.Ordinal);
+
                     foreach (var index in collectionPage.GetCollectionIndexes())
                     {
                         if (index.Name == "_id") continue;
+
+                        pluginIndexes.TryGetValue(index.Name, out var pluginMetadata);
 
                         var info = new IndexInfo
                         {
@@ -390,7 +396,9 @@ namespace LiteDB.Engine
                             Expression = index.Expression,
                             Unique = index.Unique,
                             IndexType = index.IndexType,
-                            VectorMetadata = index.IndexType == 1 ? collectionPage.GetPluginIndexMetadata(index.Name) : null
+                            VectorMetadata = index.IndexType == 1 ? pluginMetadata.Metadata : null,
+                            PluginId = pluginMetadata.PluginId,
+                            PluginMetadata = pluginMetadata.Metadata
                         };
 
                         info.BindExpressionRegistry(index.Registry);
