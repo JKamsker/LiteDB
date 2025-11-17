@@ -354,6 +354,12 @@ namespace LiteDB.Engine
             return value;
         }
 
+        /// <summary>
+        /// TODO Phase 3F: This method reads deprecated Vector type for backward compatibility.
+        /// Future: Check plugin registry for type code 100 and delegate to plugin deserializer.
+        /// For now, maintains existing behavior to support reading old databases.
+        /// </summary>
+        [Obsolete("Vector support is moving to plugin. This will check PluginBsonTypeRegistry in future.")]
         private BsonValue ReadVector()
         {
             var length = this.ReadUInt16();
@@ -429,6 +435,8 @@ namespace LiteDB.Engine
                 case BsonType.MinValue: return BsonValue.MinValue;
                 case BsonType.MaxValue: return BsonValue.MaxValue;
 
+                // TODO Phase 3F: Vector type kept for backward compatibility
+                // Future: For type codes >= 100, check PluginBsonTypeRegistry
                 case BsonType.Vector: return this.ReadVector();
 
                 default: throw new NotImplementedException();

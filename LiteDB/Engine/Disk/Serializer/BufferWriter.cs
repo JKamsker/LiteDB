@@ -335,6 +335,12 @@ namespace LiteDB.Engine
             this.Write(address.Index);
         }
 
+        /// <summary>
+        /// TODO Phase 3F: This method writes deprecated Vector type for backward compatibility.
+        /// Future: Check plugin registry and delegate to plugin serializer.
+        /// For now, maintains existing behavior to support writing vectors.
+        /// </summary>
+        [Obsolete("Vector support is moving to plugin. This will check PluginBsonTypeRegistry in future.")]
         public void Write(float[] vector)
         {
             ENSURE(vector.Length <= ushort.MaxValue, "Vector length must fit into UInt16");
@@ -490,10 +496,13 @@ namespace LiteDB.Engine
                     this.Write((byte)0x7F);
                     this.WriteCString(key);
                     break;
+
+                // TODO Phase 3F: Vector type kept for backward compatibility
+                // Future: For custom types, check PluginBsonTypeRegistry and delegate
                 case BsonType.Vector:
-                    this.Write((byte)0x64); // ✅ 0x64 = 100
+                    this.Write((byte)0x64); // 0x64 = 100
                     this.WriteCString(key);
-                    this.Write(value.AsVector); // ✅ This should exist
+                    this.Write(value.AsVector);
                     break;
             }
         }
