@@ -88,7 +88,7 @@
 - [X] T018 [US3] Strip vector BSON handling from LiteDB/Document/BsonType.cs, LiteDB/Document/BsonValue.cs, and LiteDB/Document/Bson/BsonTypeRegistry.cs; update BSON reader/writer to consult ICustomBsonTypeRegistry for unknown type codes
 - [X] T019 [P] [US3] Adjust LiteDB/Engine/Query/QueryOptimization.cs and LiteDB/Plugins/QueryPlanningContext.cs to consult IQueryCostModelRegistry when evaluating custom index types; remove hardcoded vector planner logic
 - [X] T020 [US3] Extend LiteDB.Vector/VectorSearchPlugin.cs Initialize() to register: (a) CustomBsonTypeDescriptor for type code 0x90, (b) SqlFunctionRegistration for VECTOR_DIST/VECTOR_SIM, (c) QueryOperatorRegistration for VECTOR_KNN, (d) QueryCostModelRegistration for "vector.hnsw"
-- [ ] T021 [US3] Add LiteDB.Tests/Query/VectorOperatorOptionalityTests.cs to verify: (a) parsing VECTOR_DIST fails without plugin, (b) planner ignores vector indexes without plugin, (c) BSON serialization of vector types fails without plugin
+- [X] T021 [US3] Add LiteDB.Tests/Query/VectorOperatorOptionalityTests.cs to verify: (a) parsing VECTOR_DIST fails without plugin, (b) planner ignores vector indexes without plugin, (c) BSON serialization of vector types fails without plugin
 
 **Checkpoint**: Expression parser and BSON serializer are fully plugin-driven.
 
