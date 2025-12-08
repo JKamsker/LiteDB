@@ -11,7 +11,7 @@ namespace LiteDB.Vector
 {
     internal sealed class VectorIndexStrategy : IIndexStrategy
     {
-        private const string PluginNotRegisteredMessage = "Plugin 'LiteDB.Vector' is required for this operation. Install the plugin package and register it via LiteDatabaseOptions.Plugins.";
+        private const string PluginNotRegisteredMessage = "Vector index support requires the LiteDB.Vector plugin. Install the plugin package and register it via LiteDatabaseOptions.Plugins.";
 
         private readonly ILogger _logger;
         private readonly VectorDistanceMetric? _defaultMetric;
@@ -65,7 +65,14 @@ namespace LiteDB.Vector
 
             _logger?.Write(LogLevel.Information, $"Creating vector index '{typedSnapshot.CollectionName}.{name}'.");
 
-            var pluginContext = typedSnapshot.Plugins ?? throw VectorCompatibility.PluginRequired();
+            var pluginContext = typedSnapshot.Plugins ?? throw VectorCompatibility.PluginRequired(
+                operation: "EnsureCustomIndex",
+                collection: typedSnapshot.CollectionName,
+                strategyKind: this.Kind,
+                indexName: name,
+                expression: expression.Source,
+                options: options,
+                pluginContext: typedSnapshot.Plugins);
             var registry = pluginContext.Expressions;
             var metadataEnvelope = this.ExtractMetadata(options);
             var descriptor = this.RequireMetadataDescriptor(pluginContext, metadataEnvelope);
@@ -253,7 +260,14 @@ namespace LiteDB.Vector
         {
             if (pluginContext?.IndexMetadata == null)
             {
-                throw VectorCompatibility.PluginRequired();
+                throw VectorCompatibility.PluginRequired(
+                    operation: "EnsureCustomIndex",
+                    collection: null,
+                    strategyKind: this.Kind,
+                    indexName: null,
+                    expression: envelope?.IndexKind,
+                    options: envelope?.Metadata,
+                    pluginContext: pluginContext);
             }
 
             if (!pluginContext.IndexMetadata.TryGet(envelope.IndexKind, out var descriptor))

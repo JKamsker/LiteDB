@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using LiteDB.Engine;
 using LiteDB.Plugins;
@@ -62,6 +63,8 @@ namespace LiteDB
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(resolvedPlugins);
+
+            this.ValidateMissingPlugins();
         }
 
         /// <summary>
@@ -89,6 +92,8 @@ namespace LiteDB
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(resolvedPlugins);
+
+            this.ValidateMissingPlugins();
         }
 
         /// <summary>
@@ -316,6 +321,71 @@ namespace LiteDB
             if (_engine is IPluginHost host)
             {
                 host.SetPluginContext(_pluginContext);
+            }
+        }
+
+        private void ValidateMissingPlugins()
+        {
+            if (_pluginContext?.DiagnosticPolicy?.MissingBehavior != PluginMissingBehavior.RefuseDatabase)
+            {
+                return;
+            }
+
+            try
+            {
+                var settingsField = typeof(LiteEngine).GetField("_settings", BindingFlags.NonPublic | BindingFlags.Instance);
+                var settings = settingsField?.GetValue(_engine) as EngineSettings;
+
+                if (settings == null || string.IsNullOrWhiteSpace(settings.Filename))
+                {
+                    return;
+                }
+
+                using var reader = new FileReaderV8(settings, new List<FileReaderError>(), _pluginContext);
+                reader.Open();
+
+                var registry = _pluginContext.CustomIndexes;
+
+                foreach (var collection in reader.GetCollections())
+                {
+                    foreach (var index in reader.GetIndexes(collection))
+                    {
+                        var hasPluginMetadata = index.PluginMetadata != null && index.PluginMetadata.Length > 0;
+                        var hasPluginId = !string.IsNullOrWhiteSpace(index.PluginId);
+                        var isPluginIndex = hasPluginMetadata || hasPluginId || index.IndexType != 0;
+
+                        if (!isPluginIndex)
+                        {
+                            continue;
+                        }
+
+                        var resolvedPluginId = hasPluginId ? index.PluginId : ReservedCodeRanges.VectorPluginId;
+                        var hasSupport = registry?.Registered?.Any(d => d?.PluginId == resolvedPluginId) == true;
+
+                        if (hasSupport)
+                        {
+                            continue;
+                        }
+
+                        var diagnostics = new BsonDocument
+                        {
+                            ["event"] = "plugin.asset_detected",
+                            ["pluginId"] = resolvedPluginId,
+                            ["collection"] = collection ?? string.Empty,
+                            ["asset"] = index.Name ?? string.Empty
+                        };
+
+                        var policy = _pluginContext.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+                        throw policy.CreateMissingPluginException(resolvedPluginId, "OpenDatabase", diagnostics);
+                    }
+                }
+            }
+            catch (LiteException ex) when (ex.ErrorCode == LiteException.PLUGIN_REQUIRED)
+            {
+                throw;
+            }
+            catch
+            {
             }
         }
 

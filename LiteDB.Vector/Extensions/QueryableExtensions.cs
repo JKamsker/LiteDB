@@ -137,7 +137,11 @@ namespace LiteDB.Vector.Extensions
 
             if (VectorCompatibility.TryGetStrategy(services?.CustomIndexes) == null)
             {
-                throw VectorCompatibility.PluginRequired();
+                throw VectorCompatibility.PluginRequired(
+                    operation: "WhereNear",
+                    collection: source.CollectionName,
+                    strategyKind: VectorCompatibility.DefaultStrategyKind,
+                    pluginContext: services?.Context);
             }
         }
 
