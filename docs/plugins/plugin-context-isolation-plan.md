@@ -9,11 +9,11 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
 - Tests were updated to stop using the default context; missing-plugin behavior now throws deterministic `LiteException` with vector diagnostics instead of silently succeeding.
 - Full test matrix now passes (`net462` via xunit.console, `net481`, `net8.0`, `LiteDB.Vector.Tests`, `LiteDB.ReproRunner.Tests`).
 - .NET Framework diagnostic storage fixed: vector missing-plugin details are stored as JSON strings in `Exception.Data` to stay serializable (no raw `BsonDocument` payloads).
+- Added isolation regression coverage for duplicate plugin IDs: two in-memory databases register the same function/BSON/page codes and return instance-local results while the fallback context stays clean.
 
 ## Remaining Issues
 - Keep an eye on any straggling doc/spec references to `LiteDatabaseServices.Default`.
 - Ensure new plugin work continues to thread per-db contexts; avoid accidental reintroduction of globals.
-- Add a regression test proving two `LiteDatabase` instances can host plugins with overlapping IDs without cross-talk.
 - Update `specs/001-vector-plugin-extraction/progress.md` to log the removal of `LiteDatabaseServices.Default` and the `PluginContextFallbacks` replacement.
 
 ## Desired Behavior
