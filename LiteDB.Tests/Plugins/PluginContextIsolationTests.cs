@@ -36,6 +36,21 @@ namespace LiteDB.Tests.Plugins
         }
 
         [Fact]
+        public void Functions_with_same_name_should_be_scoped_per_database()
+        {
+            using var dbA = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 123) });
+            using var dbB = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 456) });
+
+            var funcA = dbA.Services.ExpressionRegistry.Functions.Should().ContainSingle(f => f.Name == "DB_TAG").Subject;
+            var funcB = dbB.Services.ExpressionRegistry.Functions.Should().ContainSingle(f => f.Name == "DB_TAG").Subject;
+
+            ((BsonValue)funcA.Implementation.DynamicInvoke(new BsonDocument(), Collation.Binary, new BsonDocument(), BsonValue.Null)).AsInt32.Should().Be(123);
+            ((BsonValue)funcB.Implementation.DynamicInvoke(new BsonDocument(), Collation.Binary, new BsonDocument(), BsonValue.Null)).AsInt32.Should().Be(456);
+
+            PluginContextFallbacks.Context.Expressions.Functions.Should().NotContain(f => f.Name == "DB_TAG", "functions must not leak into the fallback context");
+        }
+
+        [Fact]
         public void Plugin_functions_should_not_parse_without_plugin()
         {
             using var dbWith = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 7) });
