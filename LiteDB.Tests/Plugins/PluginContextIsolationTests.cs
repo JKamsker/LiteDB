@@ -4,6 +4,7 @@ using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Query;
 using LiteDB.Plugins.Storage;
 using LiteDB.Tests.Utils;
 using Xunit;
@@ -16,6 +17,7 @@ namespace LiteDB.Tests.Plugins
         private const byte CustomTypeCode = 0xA1;
         private const byte PageTypeCode = 0xF1;
         private const string PageTypeName = "FakePage";
+        private const string OperatorName = "TAG_EQ";
 
         [Fact]
         public void Registrations_with_same_code_should_be_scoped_per_database()
@@ -48,6 +50,22 @@ namespace LiteDB.Tests.Plugins
             ((BsonValue)funcB.Implementation.DynamicInvoke(new BsonDocument(), Collation.Binary, new BsonDocument(), BsonValue.Null)).AsInt32.Should().Be(456);
 
             PluginContextFallbacks.Context.Expressions.Functions.Should().NotContain(f => f.Name == "DB_TAG", "functions must not leak into the fallback context");
+        }
+
+        [Fact]
+        public void Query_operators_with_same_name_should_be_scoped_per_database()
+        {
+            using var dbA = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 1, registerQueryOperator: true) });
+            using var dbB = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 2, registerQueryOperator: true) });
+
+            dbA.Services.Context.QueryOperators.TryGet(OperatorName, out var opA).Should().BeTrue();
+            dbB.Services.Context.QueryOperators.TryGet(OperatorName, out var opB).Should().BeTrue();
+
+            opA.Should().NotBeSameAs(opB);
+            opA.PluginId.Should().Be(SharedPluginId);
+            opB.PluginId.Should().Be(SharedPluginId);
+
+            PluginContextFallbacks.Context.QueryOperators.TryGet(OperatorName, out _).Should().BeFalse();
         }
 
         [Fact]
@@ -86,11 +104,13 @@ namespace LiteDB.Tests.Plugins
         {
             private readonly int _tag;
             private readonly byte _pageCode;
+            private readonly bool _registerQueryOperator;
 
-            public IsolationPlugin(int tag, byte pageCode = 0)
+            public IsolationPlugin(int tag, byte pageCode = 0, bool registerQueryOperator = false)
             {
                 _tag = tag;
                 _pageCode = pageCode;
+                _registerQueryOperator = registerQueryOperator;
             }
 
             public void Initialize(LiteDatabase database, ILitePluginContext context)
@@ -121,6 +141,15 @@ namespace LiteDB.Tests.Plugins
                         numericCode: _pageCode,
                         compatibilityRange: ">=8.0",
                         factory: ctx => new object()));
+                }
+
+                if (_registerQueryOperator)
+                {
+                    context.QueryOperators.Register(new QueryOperatorRegistration(
+                        pluginId: SharedPluginId,
+                        operatorName: OperatorName,
+                        expressionType: BsonExpressionType.Call,
+                        parser: _ => BsonExpression.Create("1", context.Expressions)));
                 }
             }
         }
