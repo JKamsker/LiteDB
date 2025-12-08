@@ -3,49 +3,46 @@
 ## Goal
 Ensure every `LiteDatabase` instance uses its own plugin context (registries for BSON types, page factories, index metadata, query operators, etc.), so two databases can load plugins with overlapping code spaces without conflicts. Eliminate reliance on the singleton `LiteDatabaseServices.Default` except for legacy/no-plugin fallback paths.
 
-## Current Issues
-- `LiteDatabaseServices.Default.Context` is used as a fallback in many components (e.g., `BufferReader/BufferWriter`, expression creation, tests), causing shared global registries.
-- Tests register plugin BSON types against the default context to make type 0x90 known, leaking state across runs.
-- The design allows cross-instance collisions and hides missing-plugin scenarios because global registries already contain plugin types/factories.
+## Current Status
+- `LiteDatabaseServices.Default` was removed from the codebase; only a minimal fallback lives in `PluginContextFallbacks` for truly legacy/no-DB helpers.
+- All serialization/query paths (BufferReader/Writer, expression building, index metadata, mapper, LINQ visitor, query optimizations) now take the active database’s `ILitePluginContext` or the explicit fallback helper.
+- Tests were updated to stop using the default context; missing-plugin behavior now throws deterministic `LiteException` with vector diagnostics instead of silently succeeding.
+- Full test matrix now passes (`net462` via xunit.console, `net481`, `net8.0`, `LiteDB.Vector.Tests`, `LiteDB.ReproRunner.Tests`).
+
+## Remaining Issues
+- Keep an eye on any straggling doc/spec references to `LiteDatabaseServices.Default`.
+- Ensure new plugin work continues to thread per-db contexts; avoid accidental reintroduction of globals.
 
 ## Desired Behavior
 - Each `LiteDatabase` instance passes its own `ILitePluginContext` to all serialization, query, and storage operations.
 - No plugin type/page registrations bleed across instances.
 - Missing-plugin diagnostics fire when a database lacks the required plugin, not masked by global defaults.
-- `LiteDatabaseServices.Default` is removed (or scoped to a tiny legacy helper) so no code path implicitly falls back to shared registries.
+- `LiteDatabaseServices.Default` stays deleted; the only global helper is `PluginContextFallbacks.DefaultPluginContext` for rare no-DB utilities with explicit rationale.
 
 ## Changes to Implement
-1) **Remove default context fallbacks**
-   - Update `BufferReader`/`BufferWriter` constructors to require an explicit `ILitePluginContext` (or throw if null), and ensure callers pass the database’s context.
-   - Audit other helpers that do `pluginContext ?? LiteDatabaseServices.Default.Context` (e.g., expression creation, index services) and route the active database context instead.
-   - Remove `LiteDatabaseServices.Default` entirely, or confine it to a private legacy helper used only by no-DB utilities with documented rationale.
+1) **Keep globals out**
+   - Code review gate: reject any new `LiteDatabaseServices.Default` usage; favor constructor-injected `ILitePluginContext` or explicit `PluginContextFallbacks.DefaultPluginContext` when no DB exists.
 
 2) **Per-instance registrations**
-   - Ensure plugin registrations (BSON types, page factories, query operators, cost models) happen only in `VectorSearchPlugin.Initialize` (or other plugins) against the provided `ILitePluginContext`, never against a global default.
-   - Tests that need vector BSON (e.g., `BsonVector_Tests`) should register via the database instance they create, not through `LiteDatabaseServices.Default`.
+   - Ensure future plugin registrations (BSON types, page factories, query operators, cost models) stay scoped to `ILitePluginContext` passed into `Initialize`.
 
-3) **Default context scope**
-   - Keep `LiteDatabaseServices.Default` only for “no database” static helpers that must work without plugins; document that it is not a registry for plugin types.
-   - Consider internalizing or marking it obsolete to discourage use.
+3) **Diagnostics**
+   - Continue to surface deterministic missing-plugin `LiteException` with serializable diagnostics (JSON string) across all TFMs.
 
-4) **Diagnostics**
-   - Verify missing-plugin exceptions are thrown when a database lacks the required plugin (no default-context masking).
-
-5) **Tests & tooling**
-   - Update tests to pass plugin contexts explicitly and remove default-context registrations.
-   - Add regression tests ensuring two databases with different plugin sets do not share registrations (e.g., vector plugin registered in db A does not make type 0x90 available in db B).
-   - Keep optionality/behavior-matrix tests aligned with strict missing-plugin refusal now enforced at snapshot open.
+4) **Tests & tooling**
+   - Add/maintain isolation regression tests: two databases with overlapping plugin IDs must not see each other’s registrations.
+   - Keep optionality/behavior-matrix tests aligned with strict missing-plugin refusal at snapshot open.
 
 ## Implementation Order (suggested)
-1. Refactor `BufferReader/BufferWriter` to require context; fix call sites.
-2. Remove `LiteDatabaseServices.Default` fallbacks in serialization/expression paths.
-3. Update tests to use per-instance plugin registration; add isolation regression test.
-4. Re-run full test matrix; fix remaining missing-plugin message expectations.
+1. Guardrail reviews to prevent reintroduction of global defaults.
+2. Add/expand isolation regression coverage (competing plugin IDs across two `LiteDatabase` instances).
+3. Keep test expectations in sync with strict missing-plugin refusal.
+4. Periodically run full matrix (`scripts/run-tests-per-target.ps1`) to catch TFMs differences (e.g., `Exception.Data` serialization on .NET Framework).
 
 ## Risks / Mitigations
 - Risk: Null context in existing call sites → compile errors. Mitigation: plumb context from `LiteDatabase`/`Snapshot` where available; add explicit guard in rare static helpers.
 - Risk: Some legacy paths (no database) genuinely need a default: keep a minimal default but never auto-register plugins into it.
 
 ## Done When
-- No production code references `LiteDatabaseServices.Default.Context` except designated legacy/no-db helpers.
+- No production code references `LiteDatabaseServices.Default.Context`; only `PluginContextFallbacks.DefaultPluginContext` remains for legacy/no-DB helpers.
 - Tests pass with per-instance plugin contexts; cross-instance plugin code conflicts are impossible.
