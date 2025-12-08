@@ -69,7 +69,7 @@ namespace LiteDB.Vector
 
             try
             {
-                var pluginId = ReservedCodeRanges.VectorPluginId;
+                var pluginId = VectorPlugin.PluginId;
                 var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"], context.Logger);
 
                 context.SetDiagnosticPolicy(VectorPluginDiagnosticPolicy.Instance);
@@ -142,7 +142,7 @@ namespace LiteDB.Vector
                 context.RegisterPageFactory(new PageFactoryRegistration(
                     pluginId: pluginId,
                     pageType: "VectorIndex",
-                    numericCode: 0xE0,
+                    numericCode: VectorPlugin.PageTypeCode,
                     compatibilityRange: ">=8.0",
                     factory: ctx =>
                     {

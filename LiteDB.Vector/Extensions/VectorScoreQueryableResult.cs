@@ -257,8 +257,7 @@ namespace LiteDB.Vector
 
                 var metricValue = VectorDistanceMetric.Cosine;
                 byte? metricBytes = null;
-                var metadataVersion = metadata.Version;
-                var metadataNormalized = metadataVersion >= VectorQueryMetadata.Version;
+                var metadataNormalized = VectorQueryMetadata.IsMaxDistanceNormalized(metadata);
 
                 if (metadata.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var storedMetric) && storedMetric.HasValue)
                 {

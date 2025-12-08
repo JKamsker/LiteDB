@@ -1,8 +1,10 @@
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Plugins.Query;
 using LiteDB.Vector;
 using LiteDB.Vector.Engine;
+using LiteDB.Vector.Query;
 using LiteDB.Vector.Tests.Infrastructure;
 using MathNet.Numerics.LinearAlgebra;
 using System;
@@ -386,7 +388,7 @@ namespace LiteDB.Vector.Tests.Querying
             var vectorIndexNames = InspectCollection(db, "vectors", snapshot =>
             {
                 return snapshot.CollectionPage.GetPluginIndexes()
-                    .Where(x => string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
+                    .Where(x => string.Equals(x.PluginId, VectorPlugin.PluginId, StringComparison.Ordinal))
                     .Select(pair => pair.Index.Name)
                     .ToArray();
             });
@@ -637,9 +639,17 @@ namespace LiteDB.Vector.Tests.Querying
             definition.OrderBy.Should().HaveCount(2);
             definition.OrderBy[0].Expression.CustomExpressionName.Should().Be("VECTOR_DIST");
 
-            definition.VectorField = "$.Embedding";
-            definition.VectorTarget = new[] { 1f, 0f };
-            definition.VectorMaxDistance = double.MaxValue;
+            var metadata = definition.GetOrCreateMetadata(
+                VectorQueryMetadata.PluginId,
+                () => new QueryMetadataBag(
+                    VectorQueryMetadata.PluginId,
+                    version: VectorQueryMetadata.Version,
+                    VectorQueryMetadata.ReservedKeys));
+
+            metadata.Set(VectorQueryMetadata.FieldKey, "$.Embedding");
+            metadata.Set(VectorQueryMetadata.TargetKey, new[] { 1f, 0f });
+            metadata.Set(VectorQueryMetadata.MaxDistanceKey, double.MaxValue);
+            metadata.Remove(VectorQueryMetadata.MaxDistanceNormalizedKey);
 
             var plan = query.GetPlan();
 

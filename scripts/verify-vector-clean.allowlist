@@ -1,0 +1,3 @@
+# Allow friend assembly attributes required for plugin access.
+LiteDB/Utils/Constants.cs::LiteDB\.Vector
+LiteDB/Utils/Constants.cs::LiteDB\.Vector\.Tests

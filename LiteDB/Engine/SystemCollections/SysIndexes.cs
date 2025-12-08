@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using LiteDB.Plugins;
-using LiteDB.Plugins.Indexing;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -19,26 +17,34 @@ namespace LiteDB.Engine
             {
                 var snapshot = transaction.CreateSnapshot(LockMode.Read, collection.Key, false);
 
-                var vectorMetadata = snapshot.CollectionPage
+                var pluginMetadata = snapshot.CollectionPage
                     .GetPluginIndexes()
-                    .Where(x => string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
-                    .ToDictionary(x => x.Index.Name, x => x.Metadata, StringComparer.Ordinal);
+                    .ToDictionary(x => x.Index.Name, x => (x.PluginId, x.Metadata), StringComparer.Ordinal);
 
                 foreach (var index in snapshot.CollectionPage.GetCollectionIndexes())
                 {
+                    var isCustom = pluginMetadata.TryGetValue(index.Name, out var metadataEntry);
+
                     var document = new BsonDocument
                     {
                         ["collection"] = collection.Key,
                         ["name"] = index.Name,
                         ["expression"] = index.Expression,
                         ["unique"] = index.Unique,
-                        ["type"] = index.IndexType == 1 ? "vector" : "btree"
+                        ["type"] = isCustom ? "custom" : "btree"
                     };
 
-                    if (index.IndexType == 1 && vectorMetadata.TryGetValue(index.Name, out var metadata))
+                    if (isCustom)
                     {
-                        document["dimensions"] = (int)VectorIndexMetadataSerializer.GetDimensions(metadata);
-                        document["metric"] = (int)VectorIndexMetadataSerializer.GetMetric(metadata);
+                        if (!string.IsNullOrWhiteSpace(metadataEntry.PluginId))
+                        {
+                            document["pluginId"] = metadataEntry.PluginId;
+                        }
+
+                        if (metadataEntry.Metadata != null)
+                        {
+                            document["pluginMetadataLength"] = metadataEntry.Metadata.Length;
+                        }
                     }
 
                     yield return document;

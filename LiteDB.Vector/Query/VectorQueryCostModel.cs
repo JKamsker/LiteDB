@@ -19,7 +19,7 @@ namespace LiteDB.Vector.Query
 
             return new QueryCostModelRegistration(
                 pluginId,
-                ReservedCodeRanges.VectorIndexKind,
+                VectorPlugin.IndexKind,
                 CalculateCost);
         }
 

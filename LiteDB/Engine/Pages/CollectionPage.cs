@@ -108,16 +108,9 @@ namespace LiteDB.Engine
 
                     if ((marker & 0x80) == 0)
                     {
-                        var legacy = new byte[VectorIndexMetadataSerializer.MetadataLength];
-                        legacy[0] = marker;
-                        r.Read(legacy, 1, VectorIndexMetadataSerializer.MetadataLength - 1);
-
-                        _pluginIndexes[name] = new PluginIndexMetadataEntry(
-                            ReservedCodeRanges.VectorPluginId,
-                            ReservedCodeRanges.VectorIndexKind,
-                            legacy);
-
-                        continue;
+                        throw new LiteException(
+                            LiteException.PLUGIN_REQUIRED,
+                            $"Plugin metadata entry '{name}' was stored using a legacy format. Install the owning plugin and rerun the operation.");
                     }
 
                     var pluginIdLength = marker & 0x7F;

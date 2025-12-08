@@ -15,6 +15,7 @@ namespace LiteDB.Engine
         private readonly IPageTypeRegistry _pluginRegistry;
         private readonly Dictionary<PageType, FallbackFactory> _fallbackFactories;
         private readonly Dictionary<byte, PageFactoryRegistration> _pluginFactories;
+        private readonly Dictionary<string, PageFactoryRegistration> _pluginFactoriesByName;
 
         public PageFactoryRegistry(ILitePluginContext pluginContext)
         {
@@ -26,7 +27,8 @@ namespace LiteDB.Engine
             _pluginRegistry = pluginContext.PageFactories ?? throw new ArgumentException("Plugin context does not expose a page factory registry.", nameof(pluginContext));
 
             _fallbackFactories = CreateFallbackFactories();
-            _pluginFactories = LoadPluginFactories(_pluginRegistry);
+            _pluginFactoriesByName = new Dictionary<string, PageFactoryRegistration>(StringComparer.OrdinalIgnoreCase);
+            _pluginFactories = LoadPluginFactories(_pluginRegistry, _pluginFactoriesByName);
         }
 
         public BasePage Read(PageBuffer buffer)
@@ -50,12 +52,9 @@ namespace LiteDB.Engine
                 return fallback.CreateExisting(buffer);
             }
 
-            if (pageType == PageType.VectorIndex)
-            {
-                throw PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId);
-            }
-
-            return new BasePage(buffer);
+            throw PluginExceptionHelper.PluginRequired(
+                pluginId: null,
+                message: $"Page type 0x{pageTypeCode:X2} requires a registered plugin. Install the appropriate plugin and retry.");
         }
 
         public BasePage Create(PageType pageType, PageBuffer buffer, uint pageId)
@@ -77,12 +76,9 @@ namespace LiteDB.Engine
                 return fallback.CreateNew(buffer, pageId);
             }
 
-            if (pageType == PageType.VectorIndex)
-            {
-                throw PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId);
-            }
-
-            return new BasePage(buffer, pageId, pageType);
+            throw PluginExceptionHelper.PluginRequired(
+                pluginId: null,
+                message: $"Page type 0x{pageTypeCode:X2} requires a registered plugin. Install the appropriate plugin and retry.");
         }
 
         public bool TryGetRegistration(PageType pageType, out PageFactoryRegistration registration)
@@ -116,6 +112,41 @@ namespace LiteDB.Engine
             throw new InvalidOperationException($"Page factory for '{pageTypeCode}' must return a {nameof(BasePage)} instance.");
         }
 
+        public bool TryCreatePluginPage(Type requestedType, PageBuffer buffer, uint pageId, bool isNew, out BasePage page)
+        {
+            page = null;
+
+            if (requestedType == null)
+            {
+                return false;
+            }
+
+            var typeName = requestedType.Name;
+
+            if (string.IsNullOrWhiteSpace(typeName) || !typeName.EndsWith("Page", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var logicalName = typeName.Substring(0, typeName.Length - 4);
+
+            if (!_pluginFactoriesByName.TryGetValue(logicalName, out var registration) || registration?.Factory == null)
+            {
+                return false;
+            }
+
+            var context = new PageConstructionContext(buffer, pageId, isNew);
+            var result = registration.Factory(context);
+
+            if (result is BasePage typedPage)
+            {
+                page = typedPage;
+                return true;
+            }
+
+            throw new InvalidOperationException($"Page factory for '{logicalName}' must return a {nameof(BasePage)} instance.");
+        }
+
         private static Dictionary<PageType, FallbackFactory> CreateFallbackFactories()
         {
             return new Dictionary<PageType, FallbackFactory>
@@ -138,7 +169,7 @@ namespace LiteDB.Engine
             };
         }
 
-        private static Dictionary<byte, PageFactoryRegistration> LoadPluginFactories(IPageTypeRegistry registry)
+        private static Dictionary<byte, PageFactoryRegistration> LoadPluginFactories(IPageTypeRegistry registry, Dictionary<string, PageFactoryRegistration> factoriesByName)
         {
             var result = new Dictionary<byte, PageFactoryRegistration>();
 
@@ -155,6 +186,10 @@ namespace LiteDB.Engine
                 }
 
                 result[registration.NumericCode] = registration;
+                if (!string.IsNullOrWhiteSpace(registration.PageType))
+                {
+                    factoriesByName[registration.PageType] = registration;
+                }
             }
 
             return result;

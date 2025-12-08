@@ -3,6 +3,7 @@ using System.Linq;
 using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
+using LiteDB.Vector;
 
 namespace LiteDB.Vector.Utils
 {
@@ -11,9 +12,9 @@ namespace LiteDB.Vector.Utils
     /// </summary>
     internal static class VectorCompatibility
     {
-        internal const string DefaultStrategyId = ReservedCodeRanges.VectorPluginId;
-        internal const string DefaultStrategyKind = ReservedCodeRanges.VectorStrategyKind;
-        internal const string DefaultIndexKind = ReservedCodeRanges.VectorIndexKind;
+        internal const string DefaultStrategyId = VectorPlugin.PluginId;
+        internal const string DefaultStrategyKind = VectorPlugin.StrategyKind;
+        internal const string DefaultIndexKind = VectorPlugin.IndexKind;
 
         private const string PluginRequiredMessage = "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase (e.g., new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })).";
 

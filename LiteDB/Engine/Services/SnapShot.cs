@@ -698,13 +698,9 @@ namespace LiteDB.Engine
         {
             ENSURE(page.PrevPageID == uint.MaxValue && page.NextPageID == uint.MaxValue, "before delete a page, no linked list with any another page");
             ENSURE(page.ItemsCount == 0 && page.UsedBytes == 0 && page.HighestIndex == byte.MaxValue && page.FragmentedBytes == 0, "no items on page when delete this page");
-            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index/vector pages can be deleted");
+            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || this.IsPluginPageType(page.PageType), "only data/index/plugin pages can be deleted");
             DEBUG(!_collectionPage.FreeDataPageList.Any(x => x == page.PageID), "this page cann't be deleted because free data list page is linked o this page");
             DEBUG(!_collectionPage.GetCollectionIndexes().Any(x => x.FreeIndexPageList == page.PageID), "this page cann't be deleted because free index list page is linked o this page");
-            DEBUG(!_collectionPage.GetPluginIndexes()
-                .Any(x =>
-                    string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal) &&
-                    VectorIndexMetadataSerializer.GetReserved(x.Metadata) == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
             DEBUG(page.Buffer.Slice(PAGE_HEADER_SIZE, PAGE_SIZE - PAGE_HEADER_SIZE - 1).All(0), "page content shloud be empty");
 
             // mark page as empty and dirty
@@ -827,6 +823,18 @@ namespace LiteDB.Engine
 
             // remove collection name (in header) at commit time
             _transPages.Commit += (h) => h.DeleteCollection(_collectionName);
+        }
+
+        private bool IsPluginPageType(PageType pageType)
+        {
+            var registry = _plugins?.PageFactories;
+
+            if (registry == null)
+            {
+                return false;
+            }
+
+            return registry.TryGet((byte)pageType, out _);
         }
 
         #endregion

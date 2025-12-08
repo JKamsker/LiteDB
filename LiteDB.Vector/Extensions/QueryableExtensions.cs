@@ -197,12 +197,22 @@ namespace LiteDB.Vector.Extensions
 
             if (maxDistance < double.MaxValue)
             {
-                var normalized = VectorEnsure.NormalizeMaxDistance(maxDistance, metric);
-                metadata.Set(VectorQueryMetadata.MaxDistanceKey, normalized);
+                var normalizedDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metric);
+                metadata.Set(VectorQueryMetadata.MaxDistanceKey, normalizedDistance);
+
+                if (IsDotProductMetric(metric))
+                {
+                    metadata.Set(VectorQueryMetadata.MaxDistanceNormalizedKey, true);
+                }
+                else
+                {
+                    metadata.Remove(VectorQueryMetadata.MaxDistanceNormalizedKey);
+                }
             }
             else
             {
                 metadata.Remove(VectorQueryMetadata.MaxDistanceKey);
+                metadata.Remove(VectorQueryMetadata.MaxDistanceNormalizedKey);
             }
         }
 
@@ -289,6 +299,11 @@ namespace LiteDB.Vector.Extensions
             }
 
             return null;
+        }
+
+        private static bool IsDotProductMetric(byte? metric)
+        {
+            return metric.HasValue && (VectorDistanceMetric)metric.Value == VectorDistanceMetric.DotProduct;
         }
 
     }

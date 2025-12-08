@@ -52,13 +52,10 @@ namespace LiteDB.Plugins
 
         public override LiteException CreateMissingPluginException(string pluginId, string operation, BsonDocument diagnostics)
         {
-            if (string.IsNullOrWhiteSpace(pluginId))
-            {
-                throw new ArgumentException("Plugin identifier must be provided.", nameof(pluginId));
-            }
-
-            var message = $"Plugin '{pluginId}' is required to perform '{operation ?? "the requested operation"}'. " +
-                          $"Install and register the plugin to continue.";
+            var hasPluginId = !string.IsNullOrWhiteSpace(pluginId);
+            var subject = hasPluginId ? $"Plugin '{pluginId}'" : "A plugin";
+            var message = $"{subject} is required to perform '{operation ?? "the requested operation"}'. " +
+                          "Install and register the plugin to continue.";
 
             var exception = new LiteException(LiteException.PLUGIN_REQUIRED, message);
 

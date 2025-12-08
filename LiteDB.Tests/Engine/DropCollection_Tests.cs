@@ -23,6 +23,7 @@ namespace LiteDB.Tests.Engine
         }
 
         private const string VectorIndexName = "embedding_idx";
+        private static readonly PageType VectorPageType = (PageType)VectorPlugin.PageTypeCode;
 
         private static readonly FieldInfo EngineField = typeof(LiteDatabase).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly MethodInfo AutoTransactionMethod = typeof(LiteEngine).GetMethod("AutoTransaction", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -99,7 +100,7 @@ namespace LiteDB.Tests.Engine
             }
 
             var beforeCounts = CountPagesByType(file.Filename);
-            beforeCounts.TryGetValue(PageType.VectorIndex, out var vectorPagesBefore);
+            beforeCounts.TryGetValue(VectorPageType, out var vectorPagesBefore);
             vectorPagesBefore.Should().BeGreaterThan(0, "creating a vector index should allocate vector pages");
 
             var drop = () =>
@@ -112,7 +113,7 @@ namespace LiteDB.Tests.Engine
             drop.Should().NotThrow();
 
             var afterCounts = CountPagesByType(file.Filename);
-            afterCounts.TryGetValue(PageType.VectorIndex, out var vectorPagesAfter);
+            afterCounts.TryGetValue(VectorPageType, out var vectorPagesAfter);
             vectorPagesAfter.Should().BeLessThan(vectorPagesBefore, "dropping the collection should reclaim vector pages");
         }
 

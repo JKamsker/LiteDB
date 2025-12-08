@@ -4,6 +4,7 @@ using FluentAssertions;
 using LiteDB;
 using LiteDB.Vector;
 using LiteDB.Vector.Document;
+using LiteDB.Vector.Query;
 using Xunit;
 
 namespace LiteDB.Vector.Tests.Integration
@@ -19,8 +20,8 @@ namespace LiteDB.Vector.Tests.Integration
 
             context.QueryMetadata.TryGetDescriptor("LiteDB.Vector", out var metadataDescriptor).Should().BeTrue();
             metadataDescriptor.Should().NotBeNull();
-            metadataDescriptor.Version.Should().Be(2);
-            metadataDescriptor.ReservedKeys.Should().BeEquivalentTo(new[] { "VectorField", "TargetEmbedding", "VectorMaxDistance", "VectorMetric" });
+            metadataDescriptor.Version.Should().Be(VectorQueryMetadata.Version);
+            metadataDescriptor.ReservedKeys.Should().BeEquivalentTo(VectorQueryMetadata.ReservedKeys);
 
             context.PageFactories.TryGet("VectorIndex", out var pageFactory).Should().BeTrue();
             pageFactory.Should().NotBeNull();

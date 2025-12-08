@@ -280,15 +280,17 @@ namespace LiteDB.Engine
             this.Write(address.Index);
         }
 
-        public void Write(float[] vector)
+        public void Write(float[] values)
         {
-            ENSURE(vector.Length <= ushort.MaxValue, "Vector length must fit into UInt16");
+            if (values == null) throw new ArgumentNullException(nameof(values));
 
-            this.Write((ushort)vector.Length);
+            ENSURE(values.Length <= ushort.MaxValue, "Float array length must fit into UInt16");
 
-            for (var i = 0; i < vector.Length; i++)
+            this.Write((ushort)values.Length);
+
+            for (var i = 0; i < values.Length; i++)
             {
-                this.Write(vector[i]);
+                this.Write(values[i]);
             }
         }
 

@@ -134,7 +134,7 @@ namespace LiteDB.Vector
 
             var vectorIndexes = typedCollection
                 .GetPluginIndexes()
-                .Where(x => string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
+                .Where(x => string.Equals(x.PluginId, VectorPlugin.PluginId, StringComparison.Ordinal))
                 .Select(x => (x.Index, VectorIndexMetadata.Wrap(x.Metadata)))
                 .ToArray();
 
@@ -162,7 +162,7 @@ namespace LiteDB.Vector
 
             var vectorIndexes = typedCollection
                 .GetPluginIndexes()
-                .Where(x => string.Equals(x.PluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
+                .Where(x => string.Equals(x.PluginId, VectorPlugin.PluginId, StringComparison.Ordinal))
                 .Select(x => (x.Index, VectorIndexMetadata.Wrap(x.Metadata)))
                 .ToArray();
 

@@ -4,14 +4,16 @@ namespace LiteDB.Plugins
 {
     internal static class PluginExceptionHelper
     {
-        public static LiteException PluginRequired(string pluginId)
+        public static LiteException PluginRequired(string pluginId, string message = null)
         {
-            if (string.IsNullOrWhiteSpace(pluginId))
-            {
-                throw new ArgumentNullException(nameof(pluginId));
-            }
+            var resolvedId = string.IsNullOrWhiteSpace(pluginId) ? null : pluginId;
+            var text = string.IsNullOrWhiteSpace(message)
+                ? (resolvedId == null
+                    ? "A plugin is required for this operation. Install the appropriate package and register it via LiteDatabaseOptions.Plugins."
+                    : $"Plugin '{resolvedId}' is required for this operation. Install the plugin package and register it via LiteDatabaseOptions.Plugins.")
+                : message;
 
-            return new LiteException(LiteException.PLUGIN_REQUIRED, $"Plugin '{pluginId}' is required for this operation. Install the plugin package and register it via LiteDatabaseOptions.Plugins.");
+            return new LiteException(LiteException.PLUGIN_REQUIRED, text);
         }
     }
 }

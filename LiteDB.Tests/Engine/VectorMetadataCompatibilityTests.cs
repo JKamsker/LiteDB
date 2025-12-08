@@ -33,18 +33,18 @@ namespace LiteDB.Tests.Engine
                     collection.EnsureIndex("missing_plugin_idx", x => x.Embedding, new VectorIndexOptions(8, VectorDistanceMetric.Cosine)));
 
                 ex.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
-                ex.Message.Should().Contain(ReservedCodeRanges.VectorPluginId);
+                ex.Message.Should().Contain(VectorPlugin.PluginId);
             }
 
             var cache = GetPluginWarningCache();
-            cache.Keys.Should().ContainSingle(key => key == ReservedCodeRanges.VectorPluginId);
+            cache.Keys.Should().ContainSingle(key => key == VectorPlugin.PluginId);
 
             using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
             {
                 db.GetCollection<VectorDocument>(CollectionName).Count().Should().Be(3);
             }
 
-            cache.Keys.Should().ContainSingle(key => key == ReservedCodeRanges.VectorPluginId);
+            cache.Keys.Should().ContainSingle(key => key == VectorPlugin.PluginId);
         }
 
         [Fact]

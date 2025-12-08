@@ -105,7 +105,7 @@ namespace LiteDB.Tests.Engine
                 }
                 else if (safeToIgnore == true || safeToIgnore is null)
                 {
-                    cache.Keys.Should().ContainSingle(key => key == ReservedCodeRanges.VectorPluginId);
+                    cache.Keys.Should().ContainSingle(key => key == VectorPlugin.PluginId);
                 }
             }
         }

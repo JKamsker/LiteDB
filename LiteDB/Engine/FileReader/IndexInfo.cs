@@ -15,7 +15,6 @@ namespace LiteDB.Engine
         public string Expression { get; set; }
         public bool Unique { get; set; }
         public byte IndexType { get; set; }
-        public byte[] VectorMetadata { get; set; }
         public string PluginId { get; set; }
         public string PluginIndexKind { get; set; }
         public byte[] PluginMetadata { get; set; }

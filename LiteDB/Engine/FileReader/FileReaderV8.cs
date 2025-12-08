@@ -448,7 +448,6 @@ namespace LiteDB.Engine
                             Expression = index.Expression,
                             Unique = index.Unique,
                             IndexType = index.IndexType,
-                            VectorMetadata = index.IndexType == 1 && pluginMetadata == null ? collectionPage.GetPluginIndexMetadata(index.Name) : null,
                             PluginId = pluginId,
                             PluginIndexKind = pluginIndexKind,
                             PluginMetadata = pluginMetadata,

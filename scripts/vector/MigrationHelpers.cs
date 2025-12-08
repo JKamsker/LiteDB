@@ -7,9 +7,8 @@ using System.Linq;
 using System.Reflection;
 using LiteDB;
 using LiteDB.Engine;
-using LiteDB.Plugins;
-using LiteDB.Plugins.Indexing;
 using LiteDB.Vector;
+using LiteDB.Vector.Engine;
 
 namespace LiteDB.Vector.Tools
 {
@@ -331,7 +330,7 @@ namespace LiteDB.Vector.Tools
                 var pluginId = pluginIdField?.GetValue(entry) as string;
                 var metadataBytes = metadataField.GetValue(entry) as byte[];
 
-                if ((pluginId != null && !string.Equals(pluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal)) ||
+                if ((pluginId != null && !string.Equals(pluginId, VectorPlugin.PluginId, StringComparison.Ordinal)) ||
                     index == null ||
                     metadataBytes == null)
                 {

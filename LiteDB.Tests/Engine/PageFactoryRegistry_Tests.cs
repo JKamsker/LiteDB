@@ -27,7 +27,7 @@ namespace LiteDB.Tests.Engine
         private static readonly Type PageFactoryRegistryType = typeof(LiteDatabase).Assembly.GetType("LiteDB.Engine.PageFactoryRegistry")!;
         private static readonly MethodInfo TryGetPageFactoryRegistrationMethod = PageFactoryRegistryType.GetMethod("TryGetRegistration", BindingFlags.Instance | BindingFlags.Public)!;
         private static readonly Type PageTypeEnum = typeof(LiteDatabase).Assembly.GetType("LiteDB.Engine.PageType")!;
-        private static readonly object VectorIndexPageType = Enum.Parse(PageTypeEnum, "VectorIndex");
+        private static readonly object VectorIndexPageType = Enum.ToObject(PageTypeEnum, VectorPlugin.PageTypeCode);
 
         private sealed class VectorDocument
         {
@@ -54,11 +54,9 @@ namespace LiteDB.Tests.Engine
                 });
             };
 
-            var expectedMessage = PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId).Message;
-
             act.Should()
                 .Throw<LiteException>()
-                .Which.Message.Should().Be(expectedMessage);
+                .Which.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
         }
 
         [Fact]

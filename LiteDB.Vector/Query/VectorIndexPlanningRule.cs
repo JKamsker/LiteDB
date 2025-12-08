@@ -47,6 +47,7 @@ namespace LiteDB.Vector.Query
             {
                 metadataBag = bag;
             }
+            var metadataIndicatesNormalized = metadataBag != null && VectorQueryMetadata.IsMaxDistanceNormalized(metadataBag);
 
             foreach (var term in context.Terms)
             {
@@ -86,7 +87,7 @@ namespace LiteDB.Vector.Query
                         if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
                         {
                             maxDistance = bagDistance;
-                            maxDistanceNormalized = metadataBag.Version >= VectorQueryMetadata.Version;
+                            maxDistanceNormalized = metadataIndicatesNormalized;
                         }
 
                         if (metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
@@ -117,7 +118,7 @@ namespace LiteDB.Vector.Query
                         if (metadataBag.TryGet<double>(VectorQueryMetadata.MaxDistanceKey, out var bagDistance))
                         {
                             maxDistance = bagDistance;
-                            maxDistanceNormalized = metadataBag.Version >= VectorQueryMetadata.Version;
+                            maxDistanceNormalized = metadataIndicatesNormalized;
                         }
 
                         if (!metric.HasValue &&
@@ -130,27 +131,6 @@ namespace LiteDB.Vector.Query
             }
 
 
-#pragma warning disable CS0618
-            if (!metric.HasValue && context.Query.VectorMetric.HasValue)
-            {
-                metric = context.Query.VectorMetric;
-            }
-#pragma warning restore CS0618
-
-#pragma warning disable CS0618
-            if (expression == null && context.Query.VectorTarget != null && context.Query.VectorField != null)
-            {
-                expression = NormalizeVectorField(context.Query.VectorField);
-                target = context.Query.VectorTarget?.ToArray();
-                maxDistance = context.Query.VectorMaxDistance;
-                maxDistanceNormalized = true;
-                matchedFromOrderBy = matchedFromOrderBy ||
-                    context.Query.OrderBy.Any(order =>
-                        IsVectorDistance(order.Expression) ||
-                        IsVectorSimilarity(order.Expression));
-            }
-#pragma warning restore CS0618
-
             if (expression == null || target == null)
             {
                 return false;
@@ -160,7 +140,7 @@ namespace LiteDB.Vector.Query
 
             foreach (var (index, pluginId, metadataBuffer) in collection.GetPluginIndexes())
             {
-                if (!string.Equals(pluginId, ReservedCodeRanges.VectorPluginId, StringComparison.Ordinal))
+                if (!string.Equals(pluginId, VectorPlugin.PluginId, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -190,8 +170,8 @@ namespace LiteDB.Vector.Query
                     consumed,
                     isIndexKeyOnly: false,
                     indexCost: vectorIndex.GetCost(index),
-                    pluginId: ReservedCodeRanges.VectorPluginId,
-                    pluginIndexKind: ReservedCodeRanges.VectorIndexKind,
+                    pluginId: VectorPlugin.PluginId,
+                    pluginIndexKind: VectorPlugin.IndexKind,
                     pluginMetadata: metadataDocument);
 
                 context.OrderByConsumed = matchedFromOrderBy;

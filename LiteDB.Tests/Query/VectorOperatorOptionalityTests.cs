@@ -60,7 +60,7 @@ namespace LiteDB.Tests.QueryTest
             Action act = () => vectors.Insert(document);
 
             var exception = act.Should().Throw<NotSupportedException>().Which;
-            exception.Message.Should().Contain("Vector");
+            exception.Message.Should().Contain("plugin", "error should guide callers to install the plugin");
         }
 
         private sealed class TestDocument

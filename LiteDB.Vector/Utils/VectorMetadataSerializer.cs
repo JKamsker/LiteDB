@@ -1,6 +1,6 @@
 using System;
 using LiteDB;
-using LiteDB.Plugins.Indexing;
+using LiteDB.Vector.Engine;
 
 namespace LiteDB.Vector.Utils
 {

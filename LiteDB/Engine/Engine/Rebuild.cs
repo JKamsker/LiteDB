@@ -112,9 +112,9 @@ namespace LiteDB.Engine
             return false;
         }
 
-        if (index.PluginMetadata == null)
+        if (index.PluginMetadata == null || string.IsNullOrWhiteSpace(index.PluginId))
         {
-            return this.TryRebuildLegacyVectorIndex(collection, index);
+            return false;
         }
 
         var pluginId = index.PluginId;
@@ -186,30 +186,6 @@ namespace LiteDB.Engine
 
         var strategyDescriptor = this.ResolveCustomIndexDescriptor(strategyRegistry, pluginId);
         strategyDescriptor?.RebuildStrategy?.Invoke(new CustomIndexRebuildContext(this, _plugins));
-
-        return true;
-    }
-
-    private bool TryRebuildLegacyVectorIndex(string collection, IndexInfo index)
-    {
-        if (index.IndexType != 1 || index.VectorMetadata == null)
-        {
-            return false;
-        }
-
-        var metadata = index.VectorMetadata;
-        var vectorOptions = new BsonDocument
-        {
-            ["dimensions"] = (int)VectorIndexMetadataSerializer.GetDimensions(metadata),
-            ["metric"] = (int)VectorIndexMetadataSerializer.GetMetric(metadata)
-        };
-
-        this.EnsureCustomIndex(
-            collection,
-            index.Name,
-            ReservedCodeRanges.VectorStrategyKind,
-            index.BsonExpr,
-            vectorOptions);
 
         return true;
     }

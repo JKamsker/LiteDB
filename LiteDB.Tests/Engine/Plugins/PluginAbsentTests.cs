@@ -11,7 +11,7 @@ namespace LiteDB.Tests.Engine.Plugins
 {
     public class PluginAbsentTests
     {
-        private static readonly string MissingPluginMessage = PluginExceptionHelper.PluginRequired(ReservedCodeRanges.VectorPluginId).Message;
+        private static readonly string MissingPluginMessage = PluginExceptionHelper.PluginRequired(VectorPlugin.PluginId).Message;
 
         [Fact]
         public void EnsureVectorIndex_WithoutPlugin_ThrowsDeterministicError()
@@ -35,7 +35,7 @@ namespace LiteDB.Tests.Engine.Plugins
 
             diagnostics["event"].AsString.Should().Be("plugin.index_required");
             diagnostics["operation"].AsString.Should().Be("EnsureCustomIndex");
-            diagnostics["strategyKind"].AsString.Should().Be(ReservedCodeRanges.VectorStrategyKind);
+            diagnostics["strategyKind"].AsString.Should().Be(VectorPlugin.StrategyKind);
             diagnostics["collection"].AsString.Should().Be("docs");
             diagnostics["pluginContextAvailable"].AsBoolean.Should().BeTrue();
             diagnostics["registeredStrategies"].AsArray.RawValue.Should().BeEmpty();

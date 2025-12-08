@@ -20,14 +20,6 @@ namespace LiteDB.Plugins.Bson
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
 
-            ReservedCodeRanges.EnsurePluginOwnsReservedRange(
-                descriptor.PluginId,
-                descriptor.TypeCode,
-                ReservedCodeRanges.VectorBsonStart,
-                ReservedCodeRanges.VectorBsonEnd,
-                ReservedCodeRanges.VectorPluginId,
-                "BSON type code");
-
             lock (_sync)
             {
                 if (_typesByCode.TryGetValue(descriptor.TypeCode, out var existingByCode))

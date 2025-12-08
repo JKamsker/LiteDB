@@ -39,45 +39,5 @@ namespace LiteDB.Tests.Plugins
             fallback.Get<string>("dynamic").Should().Be("value");
         }
 
-        [Fact]
-        public void EnsureVectorMetadataBag_ShouldPopulateMetadata_WhenPluginAbsent()
-        {
-            var _ = LiteDatabaseServices.Default;
-            var query = new Query();
-
-            query.VectorField = "$.embedding";
-            query.VectorTarget = new float[] { 1f, 2f, 3f };
-            query.VectorMaxDistance = 0.15;
-            query.VectorMetric = 1;
-
-            query.TryGetMetadata("LiteDB.Vector", out var bag).Should().BeTrue();
-            bag.Should().NotBeNull();
-            bag.ReservedKeys.Should().Contain(new[] { "VectorField", "TargetEmbedding", "VectorMaxDistance", "VectorMetric" });
-            bag.Get<string>("VectorField").Should().Be("$.embedding");
-            bag.Get<float[]>("TargetEmbedding").Should().BeEquivalentTo(new[] { 1f, 2f, 3f });
-            bag.Get<double>("VectorMaxDistance").Should().Be(0.15);
-            bag.Get<byte?>("VectorMetric").Should().Be(1);
-        }
-
-        [Fact]
-        public void VectorMetadataBag_ShouldUpgradeVersion_AndNormalizeDotProductDistance()
-        {
-            var _ = LiteDatabaseServices.Default;
-            var query = new Query();
-
-            var bag = new QueryMetadataBag("LiteDB.Vector", version: 1, reservedKeys: new[] { "VectorField", "TargetEmbedding", "VectorMaxDistance", "VectorMetric" });
-            bag.Set("VectorField", "$.embedding");
-            bag.Set("TargetEmbedding", new float[] { 1f, 0f });
-            bag.Set("VectorMaxDistance", 0.6);
-            bag.Set("VectorMetric", (byte)2); // DotProduct
-
-            query.AttachMetadata(bag);
-
-            query.VectorMaxDistance.Should().Be(-0.6);
-
-            query.TryGetMetadata("LiteDB.Vector", out var upgraded).Should().BeTrue();
-            upgraded!.Version.Should().Be(2);
-            upgraded.Get<double>("VectorMaxDistance").Should().Be(-0.6);
-        }
     }
 }

@@ -189,7 +189,6 @@ namespace LiteDB.Engine
 
         private LiteException CreatePluginRequiredException(string pluginId, string strategyKind, string operation, string collection, string indexName, string expression, BsonDocument options)
         {
-            pluginId ??= ReservedCodeRanges.VectorPluginId;
             var diagnostics = new BsonDocument
             {
                 ["event"] = "plugin.index_required",
@@ -200,6 +199,7 @@ namespace LiteDB.Engine
                 ["strategyKind"] = strategyKind ?? string.Empty,
                 ["pluginContextAvailable"] = _plugins != null,
                 ["strategyRegistryAvailable"] = _plugins?.CustomIndexes != null,
+                ["pluginId"] = pluginId ?? string.Empty,
                 ["registeredStrategies"] = this.GetRegisteredCustomStrategies()
             };
 
