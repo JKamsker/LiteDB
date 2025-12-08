@@ -4,6 +4,7 @@ using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Storage;
 using LiteDB.Tests.Utils;
 using Xunit;
 
@@ -13,6 +14,8 @@ namespace LiteDB.Tests.Plugins
     {
         private const string SharedPluginId = "Plugin.Shared";
         private const byte CustomTypeCode = 0xA1;
+        private const byte PageTypeCode = 0xF1;
+        private const string PageTypeName = "FakePage";
 
         [Fact]
         public void Registrations_with_same_code_should_be_scoped_per_database()
@@ -48,13 +51,31 @@ namespace LiteDB.Tests.Plugins
             dbWithout.Services.ExpressionRegistry.Functions.Should().NotContain(f => f.Name == "DB_TAG");
         }
 
+        [Fact]
+        public void Page_factories_with_same_code_should_be_scoped_per_database()
+        {
+            using var dbA = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 1, pageCode: PageTypeCode) });
+            using var dbB = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 2, pageCode: PageTypeCode) });
+
+            dbA.Services.Context.PageFactories.TryGet(PageTypeCode, out var pageA).Should().BeTrue();
+            dbB.Services.Context.PageFactories.TryGet(PageTypeCode, out var pageB).Should().BeTrue();
+
+            pageA.PluginId.Should().Be(SharedPluginId);
+            pageB.PluginId.Should().Be(SharedPluginId);
+            pageA.Should().NotBeSameAs(pageB);
+
+            LiteDatabaseServices.Default.Context.PageFactories.TryGet(PageTypeCode, out _).Should().BeFalse();
+        }
+
         private sealed class IsolationPlugin : ILitePlugin
         {
             private readonly int _tag;
+            private readonly byte _pageCode;
 
-            public IsolationPlugin(int tag)
+            public IsolationPlugin(int tag, byte pageCode = 0)
             {
                 _tag = tag;
+                _pageCode = pageCode;
             }
 
             public void Initialize(LiteDatabase database, ILitePluginContext context)
@@ -76,6 +97,16 @@ namespace LiteDB.Tests.Plugins
                     BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
+
+                if (_pageCode != 0)
+                {
+                    context.RegisterPageFactory(new PageFactoryRegistration(
+                        pluginId: SharedPluginId,
+                        pageType: PageTypeName,
+                        numericCode: _pageCode,
+                        compatibilityRange: ">=8.0",
+                        factory: ctx => new object()));
+                }
             }
         }
 
