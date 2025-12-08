@@ -11,7 +11,7 @@ namespace LiteDB.Vector
 {
     internal sealed class VectorIndexStrategy : IIndexStrategy
     {
-        private const string PluginNotRegisteredMessage = "Plugin 'LiteDB.Vector' is required for this operation. Install the plugin package and register it via LiteDatabaseOptions.Plugins.";
+        private const string PluginNotRegisteredMessage = "Vector index support requires the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance via LiteDatabaseOptions.Plugins.";
 
         private readonly ILogger _logger;
         private readonly VectorDistanceMetric? _defaultMetric;
