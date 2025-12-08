@@ -94,7 +94,15 @@ namespace LiteDB.Engine
                 // local pages contains only data/index pages
                 _localPages.Remove(_collectionPage.PageID);
 
-                this.EvaluatePluginAssets();
+                try
+                {
+                    this.EvaluatePluginAssets();
+                }
+                catch
+                {
+                    this.Dispose();
+                    throw;
+                }
             }
         }
 
@@ -107,11 +115,6 @@ namespace LiteDB.Engine
 
             foreach (var (index, pluginId, _) in _collectionPage.GetPluginIndexes())
             {
-                if (string.IsNullOrWhiteSpace(pluginId))
-                {
-                    continue;
-                }
-
                 if (this.HasPluginSupport(pluginId))
                 {
                     continue;

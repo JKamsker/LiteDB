@@ -11,7 +11,7 @@ namespace LiteDB.Vector
 {
     internal sealed class VectorIndexStrategy : IIndexStrategy
     {
-        private const string PluginNotRegisteredMessage = "Plugin 'LiteDB.Vector' is required for this operation. Install the plugin package and register it via LiteDatabaseOptions.Plugins.";
+        private static readonly string PluginNotRegisteredMessage = VectorCompatibility.BuildMissingPluginMessage("vector index operations");
 
         private readonly ILogger _logger;
         private readonly VectorDistanceMetric? _defaultMetric;
@@ -86,7 +86,7 @@ namespace LiteDB.Vector
 
             foreach (var pkNode in new IndexAll("_id", global::LiteDB.Query.Ascending).Run(typedCollection, indexer))
             {
-                using (var reader = new BufferReader(data.Read(pkNode.DataBlock)))
+                using (var reader = new BufferReader(data.Read(pkNode.DataBlock), utcDate: false, pluginContext: typedSnapshot.Plugins))
                 {
                     var doc = reader.ReadDocument(expression.Fields).GetValue();
                     vectorService.Upsert(tuple.Index, metadata, doc, pkNode.DataBlock);

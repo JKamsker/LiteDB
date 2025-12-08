@@ -16,7 +16,7 @@ namespace LiteDB.Vector.Utils
         public override LiteException CreateMissingPluginException(string pluginId, string operation, BsonDocument diagnostics)
         {
             var resolvedPluginId = string.IsNullOrWhiteSpace(pluginId) ? VectorPlugin.PluginId : pluginId;
-            var message = $"Vector search requires the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance (for example, new LiteDatabase(connectionString, plugins: new[] {{ VectorSearchPlugin.Instance }})) before performing '{operation ?? "the requested operation"}'.";
+            var message = VectorCompatibility.BuildMissingPluginMessage(operation);
 
             var exception = new LiteException(LiteException.PLUGIN_REQUIRED, message);
 

@@ -162,7 +162,7 @@ namespace LiteDB.Vector
 
             if (descriptor == null || pluginContext == null)
             {
-                throw VectorCompatibility.PluginRequired();
+                throw CreateMissingPluginException(collection, pluginContext);
             }
 
             var metadataDescriptor = RequireMetadataDescriptor(pluginContext);
@@ -198,6 +198,43 @@ namespace LiteDB.Vector
             }
 
             throw VectorCompatibility.PluginRequired();
+        }
+
+        private static LiteException CreateMissingPluginException<T>(LiteCollection<T> collection, ILitePluginContext pluginContext)
+        {
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = "plugin.index_required",
+                ["operation"] = "EnsureCustomIndex",
+                ["strategyKind"] = VectorPlugin.StrategyKind,
+                ["collection"] = collection?.Name ?? string.Empty,
+                ["pluginContextAvailable"] = pluginContext != null,
+                ["registeredStrategies"] = new BsonArray()
+            };
+
+            var registry = pluginContext?.CustomIndexes?.Registered;
+
+            if (registry != null && registry.Count > 0)
+            {
+                var registered = new BsonArray();
+
+                foreach (var strategy in registry)
+                {
+                    if (strategy == null)
+                    {
+                        continue;
+                    }
+
+                    registered.Add(strategy.StrategyId ?? string.Empty);
+                }
+
+                diagnostics["registeredStrategies"] = registered;
+            }
+
+            var exception = VectorCompatibility.PluginRequired();
+            exception.Data["VectorDiagnostics"] = diagnostics;
+
+            return exception;
         }
     }
 }

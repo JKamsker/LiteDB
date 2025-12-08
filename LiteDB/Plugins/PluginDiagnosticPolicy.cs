@@ -52,10 +52,9 @@ namespace LiteDB.Plugins
 
         public override LiteException CreateMissingPluginException(string pluginId, string operation, BsonDocument diagnostics)
         {
-            var hasPluginId = !string.IsNullOrWhiteSpace(pluginId);
-            var subject = hasPluginId ? $"Plugin '{pluginId}'" : "A plugin";
-            var message = $"{subject} is required to perform '{operation ?? "the requested operation"}'. " +
-                          "Install and register the plugin to continue.";
+            var resolvedPluginId = ResolvePluginId(pluginId, diagnostics);
+            var resolvedOperation = operation ?? "the requested operation";
+            var message = BuildMessage(resolvedPluginId, resolvedOperation);
 
             var exception = new LiteException(LiteException.PLUGIN_REQUIRED, message);
 
@@ -72,6 +71,36 @@ namespace LiteDB.Plugins
             }
 
             return exception;
+        }
+
+        private static string ResolvePluginId(string pluginId, BsonDocument diagnostics)
+        {
+            if (!string.IsNullOrWhiteSpace(pluginId))
+            {
+                return pluginId;
+            }
+
+            if (diagnostics != null &&
+                diagnostics.TryGetValue("pluginId", out var value) &&
+                value.IsString &&
+                !string.IsNullOrWhiteSpace(value.AsString))
+            {
+                return value.AsString;
+            }
+
+            return null;
+        }
+
+        private static string BuildMessage(string pluginId, string operation)
+        {
+            if (string.Equals(pluginId, "LiteDB.Vector", StringComparison.Ordinal))
+            {
+                return $"Vector index support requires the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance (for example, new LiteDatabase(connectionString, plugins: new[] {{ VectorSearchPlugin.Instance }})) before performing '{operation}'.";
+            }
+
+            var hasPluginId = !string.IsNullOrWhiteSpace(pluginId);
+            var subject = hasPluginId ? $"Plugin '{pluginId}'" : "A plugin";
+            return $"{subject} is required to perform '{operation}'. Install and register the plugin to continue.";
         }
     }
 }

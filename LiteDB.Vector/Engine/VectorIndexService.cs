@@ -134,7 +134,7 @@ namespace LiteDB.Vector.Engine
                 }
 
                 var node = this.GetNode(candidate.Address);
-                using var reader = new BufferReader(data.Read(node.DataBlock));
+                using var reader = new BufferReader(data.Read(node.DataBlock), utcDate: false, pluginContext: _snapshot.Plugins);
                 var document = reader.ReadDocument().GetValue();
                 document.RawId = node.DataBlock;
                 results.Add((document, candidate.Distance, candidate.Similarity));
