@@ -56,5 +56,36 @@ namespace LiteDB.Vector.Document
         {
             return $"[{string.Join(", ", Values.Select(v => v.ToString("0.###", CultureInfo.InvariantCulture)))}]";
         }
+
+        public override int CompareTo(LiteDB.BsonValue other)
+        {
+            return this.CompareTo(other, Collation.Binary);
+        }
+
+        public override int CompareTo(BsonValue other, Collation collation)
+        {
+            if (other is BsonVector rhs)
+            {
+                return CompareFloatArray(this.Values, rhs.Values);
+            }
+
+            return base.CompareTo(other, collation);
+        }
+
+        private static int CompareFloatArray(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
+        {
+            var length = Math.Min(left.Length, right.Length);
+
+            for (var i = 0; i < length; i++)
+            {
+                var delta = left[i].CompareTo(right[i]);
+                if (delta != 0)
+                {
+                    return delta;
+                }
+            }
+
+            return left.Length.CompareTo(right.Length);
+        }
     }
 }

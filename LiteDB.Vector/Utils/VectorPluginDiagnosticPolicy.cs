@@ -9,7 +9,7 @@ namespace LiteDB.Vector.Utils
         public static VectorPluginDiagnosticPolicy Instance { get; } = new VectorPluginDiagnosticPolicy();
 
         private VectorPluginDiagnosticPolicy()
-            : base(PluginMissingBehavior.RefuseOperations)
+            : base(PluginMissingBehavior.RefuseDatabase)
         {
         }
 

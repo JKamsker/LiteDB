@@ -19,7 +19,7 @@ namespace LiteDB.Tests.Engine
         private const string IndexName = "embedding_idx";
 
         [Fact]
-        public void PrereleaseArtifactsSafe_WithoutPlugin_WarnsOnceAndBlocksVectorOps()
+        public void PrereleaseArtifactsSafe_WithoutPlugin_RefusesDatabase()
         {
             RunScenario(pluginPresent: false, safeToIgnore: true);
         }
@@ -32,7 +32,7 @@ namespace LiteDB.Tests.Engine
         }
 
         [Fact]
-        public void GaMetadataWithoutPlugin_WarnsOnceAndBlocksVectorOps()
+        public void GaMetadataWithoutPlugin_RefusesDatabase()
         {
             RunScenario(pluginPresent: false, safeToIgnore: null);
         }
@@ -91,7 +91,7 @@ namespace LiteDB.Tests.Engine
                 }
             };
 
-            if (safeToIgnore == false && !pluginPresent)
+            if (!pluginPresent)
             {
                 scenario.Should().Throw<LiteException>().Which.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
             }
@@ -99,14 +99,7 @@ namespace LiteDB.Tests.Engine
             {
                 scenario();
                 var cache = GetPluginWarningCache();
-                if (pluginPresent)
-                {
-                    cache.Keys.Should().BeEmpty();
-                }
-                else if (safeToIgnore == true || safeToIgnore is null)
-                {
-                    cache.Keys.Should().ContainSingle(key => key == VectorPlugin.PluginId);
-                }
+                cache.Keys.Should().BeEmpty();
             }
         }
 

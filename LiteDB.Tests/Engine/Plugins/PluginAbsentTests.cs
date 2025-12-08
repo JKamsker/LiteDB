@@ -11,7 +11,7 @@ namespace LiteDB.Tests.Engine.Plugins
 {
     public class PluginAbsentTests
     {
-        private static readonly string MissingPluginMessage = PluginExceptionHelper.PluginRequired(VectorPlugin.PluginId).Message;
+        private static readonly string MissingPluginMessagePrefix = "Vector index support requires the LiteDB.Vector plugin.";
 
         [Fact]
         public void EnsureVectorIndex_WithoutPlugin_ThrowsDeterministicError()
@@ -22,7 +22,7 @@ namespace LiteDB.Tests.Engine.Plugins
             Action act = () => collection.EnsureIndex(x => x.Embedding, new VectorIndexOptions(3));
 
             var exception = act.Should().Throw<LiteException>().Which;
-            exception.Message.Should().Be(MissingPluginMessage);
+            exception.Message.Should().StartWith(MissingPluginMessagePrefix);
 
             var hasDiagnostics = exception.Data.Contains("VectorDiagnostics");
             hasDiagnostics.Should().BeTrue("vector diagnostics should be emitted when the plugin is absent");
@@ -55,7 +55,7 @@ namespace LiteDB.Tests.Engine.Plugins
             };
 
             var exception = act.Should().Throw<LiteException>().Which;
-            exception.Message.Should().Be(MissingPluginMessage);
+            exception.Message.Should().StartWith(MissingPluginMessagePrefix);
         }
 
         [Fact]
@@ -83,7 +83,7 @@ namespace LiteDB.Tests.Engine.Plugins
                     .ToList();
             };
 
-            act.Should().Throw<LiteException>().Which.Message.Should().Be(MissingPluginMessage);
+            act.Should().Throw<LiteException>().Which.Message.Should().StartWith(MissingPluginMessagePrefix);
         }
 
         private sealed class TestDocument

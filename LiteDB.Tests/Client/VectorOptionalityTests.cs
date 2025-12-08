@@ -16,10 +16,8 @@ namespace LiteDB.Tests.Client
         {
             var liteDbAssembly = typeof(LiteDatabase).Assembly;
             var exposures = VectorApiInspector.GetVectorSymbols(liteDbAssembly);
-            var allowList = VectorApiAllowList.Load();
 
-            exposures.Should()
-                .BeEquivalentTo(allowList, "core LiteDB must not expose unexpected Vector* APIs");
+            exposures.Should().BeEmpty("vector APIs are isolated to the LiteDB.Vector plugin");
         }
 
         [Fact]
@@ -32,45 +30,6 @@ namespace LiteDB.Tests.Client
             exposures.Should().Contain("type::LiteDB.Vector.LiteRepositoryVectorExtensions");
             exposures.Should().Contain("type::LiteDB.Vector.VectorSearchPlugin");
             exposures.Should().Contain("type::LiteDB.Vector.Document.BsonVector");
-        }
-
-        private static class VectorApiAllowList
-        {
-            private const string AllowListRelativePath = @"scripts\verify-vector-api.allowlist";
-
-            public static IReadOnlyCollection<string> Load()
-            {
-                var path = LocateAllowList();
-                var entries = File.ReadAllLines(path)
-                    .Select(line => line.Trim())
-                    .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("#", StringComparison.Ordinal))
-                    .ToArray();
-
-                if (entries.Length == 0)
-                {
-                    throw new InvalidOperationException($"Allow list {path} did not contain any entries.");
-                }
-
-                return entries;
-            }
-
-            private static string LocateAllowList()
-            {
-                var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-                while (directory != null)
-                {
-                    var candidate = Path.Combine(directory.FullName, AllowListRelativePath);
-                    if (File.Exists(candidate))
-                    {
-                        return candidate;
-                    }
-
-                    directory = directory.Parent;
-                }
-
-                throw new InvalidOperationException($"Unable to locate '{AllowListRelativePath}' relative to '{AppContext.BaseDirectory}'.");
-            }
         }
 
         private static class VectorApiInspector

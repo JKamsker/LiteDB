@@ -46,7 +46,7 @@ namespace LiteDB.Plugins
         public static IPluginDiagnosticPolicy Instance { get; } = new DefaultPluginDiagnosticPolicy();
 
         private DefaultPluginDiagnosticPolicy()
-            : base(PluginMissingBehavior.RefuseOperations)
+            : base(PluginMissingBehavior.RefuseDatabase)
         {
         }
 

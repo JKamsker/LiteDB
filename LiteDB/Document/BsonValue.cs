@@ -577,7 +577,7 @@ namespace LiteDB
                     if (d1.Kind != DateTimeKind.Utc) d1 = d1.ToUniversalTime();
                     return d0.CompareTo(d1);
 
-                default: throw new NotImplementedException();
+                default: throw new NotSupportedException($"BSON type 0x{((byte)this.Type):X2} does not define comparison semantics.");
             }
         }
 
