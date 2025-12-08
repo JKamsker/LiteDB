@@ -27,24 +27,11 @@ namespace LiteDB.Tests.Engine
             using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
             {
                 var collection = db.GetCollection<VectorDocument>(CollectionName);
-                collection.Count().Should().Be(3);
 
-                var ex = Assert.Throws<LiteException>(() =>
-                    collection.EnsureIndex("missing_plugin_idx", x => x.Embedding, new VectorIndexOptions(8, VectorDistanceMetric.Cosine)));
-
+                var ex = Assert.Throws<LiteException>(() => collection.Count());
                 ex.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
                 ex.Message.Should().Contain(VectorPlugin.PluginId);
             }
-
-            var cache = GetPluginWarningCache();
-            cache.Keys.Should().ContainSingle(key => key == VectorPlugin.PluginId);
-
-            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
-            {
-                db.GetCollection<VectorDocument>(CollectionName).Count().Should().Be(3);
-            }
-
-            cache.Keys.Should().ContainSingle(key => key == VectorPlugin.PluginId);
         }
 
         [Fact]

@@ -39,10 +39,11 @@ namespace LiteDB.Tests.QueryTest
             {
                 var collection = vanillaDatabase.GetCollection<TestDocument>("docs");
 
-                var plan = collection.Query().Where(x => x.Id == 1).GetPlan();
-                plan["index"]["name"].AsString.Should().Be("_id", "planner must fall back to PK when vector index metadata is present without plugin");
+                Action act = () => collection.Query().Where(x => x.Id == 1).GetPlan();
 
-                collection.Query().Where(x => x.Id == 1).ToList().Should().ContainSingle();
+                var ex = act.Should().Throw<LiteException>().Which;
+                ex.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
+                ex.Message.Should().Contain(VectorPlugin.PluginId);
             }
         }
 
