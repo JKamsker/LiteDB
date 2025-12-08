@@ -12,13 +12,6 @@ namespace LiteDB.Tests.BsonValue_Types;
 
 public class BsonVector_Tests
 {
-    static BsonVector_Tests()
-    {
-        // Ensure vector BSON type is known even if a test path uses default services.
-        LiteDatabaseServices.Default.Context.RegisterBsonType(
-            LiteDB.Vector.Document.VectorBsonSerializer.CreateDescriptor(LiteDB.Vector.VectorPlugin.PluginId));
-    }
-
     private static readonly Collation _collation = Collation.Binary;
     private static readonly BsonDocument _root = new BsonDocument();
 

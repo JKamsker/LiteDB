@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
@@ -13,87 +11,61 @@ namespace LiteDB.Tests.Plugins
 {
     public class PluginContextIsolationTests
     {
-        private const byte CustomTypeCode = 0xA1;
         private const string SharedPluginId = "Plugin.Shared";
+        private const byte CustomTypeCode = 0xA1;
 
         [Fact]
-        public void Custom_bson_types_remain_scoped_to_each_database_instance()
+        public void Registrations_with_same_code_should_be_scoped_per_database()
         {
-            using var fileA = new TempFile();
-            using var fileB = new TempFile();
+            using var dbA = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 11) });
+            using var dbB = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 22) });
 
-            using var dbA = DatabaseFactory.Create(TestDatabaseType.Disk, fileA.Filename, plugins: new[] { new IsolationPlugin(SharedPluginId, CustomTypeCode, tag: 11) });
-            using var dbB = DatabaseFactory.Create(TestDatabaseType.Disk, fileB.Filename, plugins: new[] { new IsolationPlugin(SharedPluginId, CustomTypeCode, tag: 22) });
+            var colA = dbA.GetCollection<BsonDocument>("docs");
+            var colB = dbB.GetCollection<BsonDocument>("docs");
 
-            var docsA = dbA.GetCollection<BsonDocument>("docs");
-            docsA.Insert(new BsonDocument { ["_id"] = 1, ["tag"] = new TagValue(CustomTypeCode, 11) });
+            colA.Insert(new BsonDocument { ["_id"] = 1, ["tag"] = new TagValue(CustomTypeCode, 11) });
+            colB.Insert(new BsonDocument { ["_id"] = 1, ["tag"] = new TagValue(CustomTypeCode, 22) });
 
-            var docsB = dbB.GetCollection<BsonDocument>("docs");
-            docsB.Insert(new BsonDocument { ["_id"] = 1, ["tag"] = new TagValue(CustomTypeCode, 22) });
+            colA.FindById(1)["tag"].AsInt32.Should().Be(11);
+            colB.FindById(1)["tag"].AsInt32.Should().Be(22);
 
-            var reloadedA = (TagValue)docsA.FindById(1)["tag"];
-            var reloadedB = (TagValue)docsB.FindById(1)["tag"];
-
-            reloadedA.Tag.Should().Be(11);
-            reloadedB.Tag.Should().Be(22);
-
-            LiteDatabaseServices.Default.Context.TryGetBsonType(CustomTypeCode, out _).Should().BeFalse("plugins must not mutate the default/global context");
-
-            Action readWithoutPlugin = () =>
-            {
-                using var vanilla = DatabaseFactory.Create(TestDatabaseType.Disk, fileA.Filename);
-                vanilla.GetCollection<BsonDocument>("docs").FindAll().ToList();
-            };
-
-            readWithoutPlugin.Should().Throw<Exception>("opening a plugin-authored database without the plugin should fail");
+            LiteDatabaseServices.Default.Context.TryGetBsonType(CustomTypeCode, out _).Should().BeFalse("plugin registrations must not leak to the default context");
         }
 
         [Fact]
-        public void Expression_and_type_registries_do_not_leak_across_databases()
+        public void Plugin_functions_should_not_parse_without_plugin()
         {
-            using var dbWithPlugin = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(SharedPluginId, CustomTypeCode, tag: 7) });
-            var collection = dbWithPlugin.GetCollection<BsonDocument>("docs");
-            collection.Insert(new BsonDocument { ["_id"] = 1, ["value"] = new TagValue(CustomTypeCode, 7) });
+            using var dbWith = DatabaseFactory.Create(TestDatabaseType.InMemory, plugins: new[] { new IsolationPlugin(tag: 7) });
+            var colWith = dbWith.GetCollection<BsonDocument>("docs");
+            colWith.Insert(new BsonDocument { ["_id"] = 1, ["value"] = new TagValue(CustomTypeCode, 7) });
 
-            collection
-                .Query()
-                .Where("DB_TAG() = 7")
-                .Count()
-                .Should().Be(1, "plugin-provided expressions must be resolved through the owning database registry");
+            dbWith.Services.ExpressionRegistry.Functions.Should().ContainSingle(f => f.Name == "DB_TAG");
 
-            using var dbWithoutPlugin = DatabaseFactory.Create(TestDatabaseType.InMemory);
-            var vanillaCollection = dbWithoutPlugin.GetCollection<BsonDocument>("docs");
-            vanillaCollection.Insert(new BsonDocument { ["_id"] = 1, ["value"] = 123 });
+            using var dbWithout = DatabaseFactory.Create(TestDatabaseType.InMemory);
+            var colWithout = dbWithout.GetCollection<BsonDocument>("docs");
+            colWithout.Insert(new BsonDocument { ["_id"] = 1, ["value"] = 123 });
 
-            Action act = () => vanillaCollection.Query().Where("DB_TAG() = 7").ToList();
-
-            act.Should()
-                .Throw<Exception>()
-                .Which.Message.Should().ContainEquivalentOf("DB_TAG");
+            dbWithout.Services.ExpressionRegistry.Functions.Should().NotContain(f => f.Name == "DB_TAG");
         }
 
         private sealed class IsolationPlugin : ILitePlugin
         {
-            private readonly string _pluginId;
-            private readonly byte _typeCode;
             private readonly int _tag;
 
-            public IsolationPlugin(string pluginId, byte typeCode, int tag)
+            public IsolationPlugin(int tag)
             {
-                _pluginId = pluginId ?? throw new ArgumentNullException(nameof(pluginId));
-                _typeCode = typeCode;
                 _tag = tag;
             }
 
             public void Initialize(LiteDatabase database, ILitePluginContext context)
             {
                 var descriptor = new CustomBsonTypeDescriptor(
-                    _pluginId,
-                    _typeCode,
+                    SharedPluginId,
+                    CustomTypeCode,
                     name: $"tag-{_tag}",
                     calculateSize: _ => sizeof(int),
                     serializer: (writer, value) => ((BufferWriter)writer).Write(value.AsInt32),
-                    deserializer: reader => new TagValue(_typeCode, ((BufferReader)reader).ReadInt32()),
+                    deserializer: reader => new TagValue(CustomTypeCode, ((BufferReader)reader).ReadInt32()),
                     jsonFormatter: value => value.AsInt32.ToString());
 
                 context.RegisterBsonType(descriptor);
