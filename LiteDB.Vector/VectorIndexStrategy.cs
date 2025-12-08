@@ -11,7 +11,7 @@ namespace LiteDB.Vector
 {
     internal sealed class VectorIndexStrategy : IIndexStrategy
     {
-        private const string PluginNotRegisteredMessage = "Plugin 'LiteDB.Vector' is required for this operation. Install the plugin package and register it via LiteDatabaseOptions.Plugins.";
+        private const string PluginNotRegisteredMessage = VectorCompatibility.MissingPluginMessagePrefix + " Register VectorSearchPlugin.Instance via LiteDatabaseOptions.Plugins.";
 
         private readonly ILogger _logger;
         private readonly VectorDistanceMetric? _defaultMetric;
@@ -65,10 +65,16 @@ namespace LiteDB.Vector
 
             _logger?.Write(LogLevel.Information, $"Creating vector index '{typedSnapshot.CollectionName}.{name}'.");
 
-            var pluginContext = typedSnapshot.Plugins ?? throw VectorCompatibility.PluginRequired();
+            var pluginContext = typedSnapshot.Plugins ?? throw VectorCompatibility.PluginRequired(
+                operation: "EnsureCustomIndex",
+                pluginContext: typedSnapshot.Plugins,
+                strategyRegistry: typedSnapshot.Plugins?.CustomIndexes,
+                collection: typedSnapshot.CollectionName,
+                index: name,
+                strategyKind: this.Kind);
             var registry = pluginContext.Expressions;
             var metadataEnvelope = this.ExtractMetadata(options);
-            var descriptor = this.RequireMetadataDescriptor(pluginContext, metadataEnvelope);
+            var descriptor = this.RequireMetadataDescriptor(pluginContext, metadataEnvelope, typedSnapshot.CollectionName);
 
             var tuple = typedCollection.InsertPluginIndex(
                 name,
@@ -249,11 +255,17 @@ namespace LiteDB.Vector
             return new PluginMetadataEnvelope(pluginIdValue.AsString, indexKindValue.AsString, metadata);
         }
 
-        private PluginIndexMetadataDescriptor RequireMetadataDescriptor(ILitePluginContext pluginContext, PluginMetadataEnvelope envelope)
+        private PluginIndexMetadataDescriptor RequireMetadataDescriptor(ILitePluginContext pluginContext, PluginMetadataEnvelope envelope, string collectionName)
         {
             if (pluginContext?.IndexMetadata == null)
             {
-                throw VectorCompatibility.PluginRequired();
+                throw VectorCompatibility.PluginRequired(
+                    operation: "EnsureCustomIndex",
+                    pluginContext: pluginContext,
+                    strategyRegistry: pluginContext?.CustomIndexes,
+                    collection: collectionName,
+                    index: null,
+                    strategyKind: VectorCompatibility.DefaultStrategyKind);
             }
 
             if (!pluginContext.IndexMetadata.TryGet(envelope.IndexKind, out var descriptor))

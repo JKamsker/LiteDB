@@ -35,6 +35,7 @@ namespace LiteDB.Engine
         private readonly CollectionPage _collectionPage;
         private readonly ILitePluginContext _plugins;
         private static readonly ConcurrentDictionary<string, byte> _missingPluginWarnings = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+        private bool _constructionSucceeded;
 
         // local page cache - contains only pages about this collection (but do not contains CollectionPage - use this.CollectionPage)
         private readonly Dictionary<uint, BasePage> _localPages = new Dictionary<uint, BasePage>();
@@ -85,16 +86,26 @@ namespace LiteDB.Engine
 
             var srv = new CollectionService(_header, _disk, this, _transPages);
 
-            // read collection (create if new - load virtual too)
-            srv.Get(_collectionName, addIfNotExists, ref _collectionPage);
-
-            // clear local pages (will clear _collectionPage link reference)
-            if (_collectionPage != null)
+            try
             {
-                // local pages contains only data/index pages
-                _localPages.Remove(_collectionPage.PageID);
+                // read collection (create if new - load virtual too)
+                srv.Get(_collectionName, addIfNotExists, ref _collectionPage);
 
-                this.EvaluatePluginAssets();
+                // clear local pages (will clear _collectionPage link reference)
+                if (_collectionPage != null)
+                {
+                    // local pages contains only data/index pages
+                    _localPages.Remove(_collectionPage.PageID);
+
+                    this.EvaluatePluginAssets();
+                }
+
+                _constructionSucceeded = true;
+            }
+            catch
+            {
+                this.Dispose();
+                throw;
             }
         }
 
@@ -238,8 +249,8 @@ namespace LiteDB.Engine
 
             _disposed = true;
 
-            // release collection page (in read mode)
-            if (_mode == LockMode.Read && _collectionPage != null)
+            // release collection page (in read mode or when construction failed)
+            if ((_mode == LockMode.Read || !_constructionSucceeded) && _collectionPage != null)
             {
                 _collectionPage.Buffer.Release();
             }
