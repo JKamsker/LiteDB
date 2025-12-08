@@ -94,7 +94,15 @@ namespace LiteDB.Engine
                 // local pages contains only data/index pages
                 _localPages.Remove(_collectionPage.PageID);
 
-                this.EvaluatePluginAssets();
+                try
+                {
+                    this.EvaluatePluginAssets();
+                }
+                catch
+                {
+                    this.Dispose();
+                    throw;
+                }
             }
         }
 
@@ -105,7 +113,9 @@ namespace LiteDB.Engine
                 return;
             }
 
-            foreach (var (index, pluginId, _) in _collectionPage.GetPluginIndexes())
+            var pluginIndexes = _collectionPage.GetPluginIndexes().ToArray();
+
+            foreach (var (index, pluginId, _) in pluginIndexes)
             {
                 if (string.IsNullOrWhiteSpace(pluginId))
                 {
@@ -118,6 +128,19 @@ namespace LiteDB.Engine
                 }
 
                 this.HandleMissingPluginAsset(pluginId, index?.Name);
+            }
+
+            if (pluginIndexes.Length == 0)
+            {
+                foreach (var index in _collectionPage.GetCollectionIndexes())
+                {
+                    if (index.IndexType == 0)
+                    {
+                        continue;
+                    }
+
+                    this.HandleMissingPluginAsset(ReservedCodeRanges.VectorPluginId, index.Name);
+                }
             }
         }
 

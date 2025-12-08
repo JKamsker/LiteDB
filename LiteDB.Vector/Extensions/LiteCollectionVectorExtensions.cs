@@ -159,13 +159,25 @@ namespace LiteDB.Vector
             var services = database?.Services;
             var descriptor = VectorCompatibility.TryGetStrategy(services?.CustomIndexes);
             var pluginContext = services?.Context;
+            var diagnosticOptions = new BsonDocument
+            {
+                ["dimensions"] = (int)options.Dimensions,
+                ["metric"] = (int)options.Metric
+            };
 
             if (descriptor == null || pluginContext == null)
             {
-                throw VectorCompatibility.PluginRequired();
+                throw VectorCompatibility.PluginRequired(
+                    operation: "EnsureCustomIndex",
+                    collection: collection.Name,
+                    strategyKind: VectorCompatibility.DefaultStrategyKind,
+                    indexName: name,
+                    expression: expression.Source,
+                    options: diagnosticOptions,
+                    pluginContext: pluginContext);
             }
 
-            var metadataDescriptor = RequireMetadataDescriptor(pluginContext);
+            var metadataDescriptor = RequireMetadataDescriptor(pluginContext, collection.Name, name, expression.Source, diagnosticOptions);
             var materializedOptions = VectorExtensionHelpers.CreateOptionsDocument(options, metadataDescriptor);
 
             var ensureContext = new EnsureIndexContext(
@@ -185,11 +197,23 @@ namespace LiteDB.Vector
             return descriptor.EnsureIndex(vectorContext);
         }
 
-        private static PluginIndexMetadataDescriptor RequireMetadataDescriptor(ILitePluginContext pluginContext)
+        private static PluginIndexMetadataDescriptor RequireMetadataDescriptor(
+            ILitePluginContext pluginContext,
+            string collectionName,
+            string indexName,
+            string expression,
+            BsonDocument options)
         {
             if (pluginContext?.IndexMetadata == null)
             {
-                throw VectorCompatibility.PluginRequired();
+                throw VectorCompatibility.PluginRequired(
+                    operation: "EnsureCustomIndex",
+                    collection: collectionName,
+                    strategyKind: VectorCompatibility.DefaultStrategyKind,
+                    indexName: indexName,
+                    expression: expression,
+                    options: options,
+                    pluginContext: pluginContext);
             }
 
             if (pluginContext.IndexMetadata.TryGet(VectorCompatibility.DefaultIndexKind, out var descriptor))
@@ -197,7 +221,14 @@ namespace LiteDB.Vector
                 return descriptor;
             }
 
-            throw VectorCompatibility.PluginRequired();
+            throw VectorCompatibility.PluginRequired(
+                operation: "EnsureCustomIndex",
+                collection: collectionName,
+                strategyKind: VectorCompatibility.DefaultStrategyKind,
+                indexName: indexName,
+                expression: expression,
+                options: options,
+                pluginContext: pluginContext);
         }
     }
 }
