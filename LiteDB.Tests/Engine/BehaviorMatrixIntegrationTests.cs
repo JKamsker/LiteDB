@@ -88,12 +88,20 @@ namespace LiteDB.Tests.Engine
                     var ex = Assert.Throws<LiteException>(() =>
                         collection.EnsureIndex(IndexName + "_missing", x => x.Embedding, new VectorIndexOptions(8, VectorDistanceMetric.Cosine)));
                     ex.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
+
+                    throw ex;
                 }
             };
 
             if (!pluginPresent)
             {
-                scenario.Should().Throw<LiteException>().Which.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
+                var ex = Assert.Throws<LiteException>(scenario);
+                ex.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
+
+                if (safeToIgnore == false)
+                {
+                    throw ex;
+                }
             }
             else
             {

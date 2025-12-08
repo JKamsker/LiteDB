@@ -21,6 +21,8 @@ namespace LiteDB.Engine
         {
             if (string.IsNullOrEmpty(_settings.Filename)) return 0; // works only with os file
 
+            this.EnsurePluginAssetsAllowed();
+
             this.Close();
 
             // run build service
@@ -35,6 +37,26 @@ namespace LiteDB.Engine
             _state.Disposed = false;
 
             return diff;
+        }
+
+        private void EnsurePluginAssetsAllowed()
+        {
+            var behavior = _plugins?.DiagnosticPolicy?.MissingBehavior ?? PluginMissingBehavior.RefuseDatabase;
+
+            if (behavior != PluginMissingBehavior.RefuseDatabase)
+            {
+                return;
+            }
+
+            this.AutoTransaction(transaction =>
+            {
+                foreach (var collection in _header.GetCollections())
+                {
+                    using var snapshot = transaction.CreateSnapshot(LockMode.Read, collection.Key, false);
+                }
+
+                return true;
+            });
         }
 
         /// <summary>

@@ -16,7 +16,7 @@ namespace LiteDB.Vector.Utils
         internal const string DefaultStrategyKind = VectorPlugin.StrategyKind;
         internal const string DefaultIndexKind = VectorPlugin.IndexKind;
 
-        private const string PluginRequiredMessage = "Vector index support requires the VectorSearchPlugin. Add the LiteDB.Vector package and enable the plugin when constructing LiteDatabase (e.g., new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })).";
+        private const string PluginRequiredMessage = "Vector index support requires the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance (for example, new LiteDatabase(connectionString, plugins: new[] { VectorSearchPlugin.Instance })) before performing vector operations.";
 
         public static CustomIndexStrategyDescriptor TryGetStrategy(ICustomIndexStrategyRegistry registry)
         {
@@ -49,6 +49,13 @@ namespace LiteDB.Vector.Utils
             }
 
             return descriptor;
+        }
+
+        public static string BuildMissingPluginMessage(string operation)
+        {
+            var targetOperation = string.IsNullOrWhiteSpace(operation) ? "the requested operation" : operation;
+
+            return $"Vector index support requires the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance (for example, new LiteDatabase(connectionString, plugins: new[] {{ VectorSearchPlugin.Instance }})) before performing '{targetOperation}'.";
         }
 
         public static LiteException PluginRequired() => new LiteException(LiteException.PLUGIN_REQUIRED, PluginRequiredMessage);
