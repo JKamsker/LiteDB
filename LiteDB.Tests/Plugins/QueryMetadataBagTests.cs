@@ -1,5 +1,6 @@
 using System;
 using FluentAssertions;
+using LiteDB.Plugins;
 using LiteDB.Plugins.Query;
 using Xunit;
 
@@ -12,7 +13,7 @@ namespace LiteDB.Tests.Plugins
         [Fact]
         public void GetOrCreateMetadata_ShouldReturnDescriptorBackedBag_WhenDescriptorExists()
         {
-            var _ = LiteDatabaseServices.Default;
+            var _ = PluginContextFallbacks.Context;
             var descriptor = new QueryMetadataDescriptor(PluginId, version: 2, reservedKeys: new[] { "AllowedKey" });
             var query = new Query();
 
@@ -28,7 +29,7 @@ namespace LiteDB.Tests.Plugins
         [Fact]
         public void GetOrCreateMetadata_ShouldFallback_WhenDescriptorMissing()
         {
-            var _ = LiteDatabaseServices.Default;
+            var _ = PluginContextFallbacks.Context;
             var query = new Query();
 
             var fallback = query.GetOrCreateMetadata(PluginId, () => new QueryMetadataBag(PluginId, version: 5, reservedKeys: Array.Empty<string>()));

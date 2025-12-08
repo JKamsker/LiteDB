@@ -43,7 +43,7 @@ namespace LiteDB.Engine
         public BufferWriter(BufferSlice buffer, ILitePluginContext pluginContext = null)
         {
             _source = null;
-            _pluginContext = pluginContext ?? LiteDatabaseServices.Default.Context;
+            _pluginContext = pluginContext ?? PluginContextFallbacks.Context;
 
             _current = buffer;
         }
@@ -51,7 +51,7 @@ namespace LiteDB.Engine
         public BufferWriter(IEnumerable<BufferSlice> source, ILitePluginContext pluginContext = null)
         {
             _source = source.GetEnumerator();
-            _pluginContext = pluginContext ?? LiteDatabaseServices.Default.Context;
+            _pluginContext = pluginContext ?? PluginContextFallbacks.Context;
 
             _source.MoveNext();
             _current = _source.Current;

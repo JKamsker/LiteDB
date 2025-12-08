@@ -12,7 +12,6 @@ namespace LiteDB
     public sealed class LiteDatabaseServices
     {
         private readonly ILitePluginContext _context;
-        private static readonly Lazy<LiteDatabaseServices> _default = new Lazy<LiteDatabaseServices>(CreateDefault, true);
 
         internal LiteDatabaseServices(ILitePluginContext context)
         {
@@ -90,16 +89,7 @@ namespace LiteDB
         public ConnectionString ConnectionString => _context.ConnectionString;
 
         internal ILitePluginContext Context => _context;
-
-        internal static LiteDatabaseServices Default => _default.Value;
-
-        private static LiteDatabaseServices CreateDefault()
-        {
-            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
-            return new LiteDatabaseServices(context);
-        }
     }
 }
-
 
 

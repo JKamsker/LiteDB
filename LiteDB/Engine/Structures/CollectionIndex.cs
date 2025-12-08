@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text;
 using System.Text.RegularExpressions;
 using LiteDB;
@@ -123,7 +123,7 @@ namespace LiteDB.Engine
 
         internal void BindExpressionRegistry(IExpressionRegistry registry)
         {
-            var effective = registry ?? LiteDatabaseServices.Default.ExpressionRegistry;
+            var effective = registry ?? PluginContextFallbacks.Expressions;
             this.Registry = effective;
             this.BsonExpr = BsonExpression.Create(this.Expression, effective);
         }

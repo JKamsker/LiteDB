@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using FluentAssertions;
 using LiteDB;
+using LiteDB.Plugins;
 using LiteDB.Tests.Utils;
 using LiteDB.Vector;
 using LiteDB.Vector.Document;
@@ -14,7 +15,7 @@ namespace LiteDB.Tests.QueryTest
         [Fact]
         public void Parsing_vector_functions_requires_plugin_registration()
         {
-            var registry = LiteDatabaseServices.Default.ExpressionRegistry;
+            var registry = PluginContextFallbacks.Expressions;
 
             Action act = () => BsonExpression.Create("VECTOR_DIST($.embedding, $.embedding)", registry);
 

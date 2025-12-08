@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -164,7 +164,7 @@ namespace LiteDB
         /// </summary>
         public static implicit operator BsonExpression(String expr)
         {
-            return BsonExpression.Create(expr, LiteDatabaseServices.Default.ExpressionRegistry);
+            return BsonExpression.Create(expr, PluginContextFallbacks.Expressions);
         }
 
         #region Execute Enumerable
@@ -291,7 +291,7 @@ namespace LiteDB
 
         private static IExpressionRegistry EnsureRegistry(IExpressionRegistry registry)
         {
-            return registry ?? LiteDatabaseServices.Default.ExpressionRegistry;
+            return registry ?? PluginContextFallbacks.Expressions;
         }
 
         private static IQueryOperatorRegistry EnsureQueryOperators(IQueryOperatorRegistry queryOperators, IExpressionRegistry registry)
@@ -306,7 +306,7 @@ namespace LiteDB
                 return registry.QueryOperators;
             }
 
-            return LiteDatabaseServices.Default.QueryOperators;
+            return PluginContextFallbacks.QueryOperators;
         }
 
         private readonly struct ExpressionCacheKey : IEquatable<ExpressionCacheKey>
@@ -420,7 +420,7 @@ namespace LiteDB
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression Compile(string expression)
         {
-            return Compile(expression, LiteDatabaseServices.Default.ExpressionRegistry);
+            return Compile(expression, PluginContextFallbacks.Expressions);
         }
 
         /// <summary>
@@ -438,19 +438,19 @@ namespace LiteDB
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression Create(string expression)
         {
-            return Create(expression, LiteDatabaseServices.Default.ExpressionRegistry);
+            return Create(expression, PluginContextFallbacks.Expressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression Create(string expression, params BsonValue[] args)
         {
-            return Create(expression, LiteDatabaseServices.Default.ExpressionRegistry, args ?? Array.Empty<BsonValue>());
+            return Create(expression, PluginContextFallbacks.Expressions, args ?? Array.Empty<BsonValue>());
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression Create(string expression, BsonDocument parameters)
         {
-            return Create(expression, parameters, LiteDatabaseServices.Default.ExpressionRegistry);
+            return Create(expression, parameters, PluginContextFallbacks.Expressions);
         }
 
         /// <summary>
@@ -539,7 +539,7 @@ namespace LiteDB
         /// <summary>
         /// Get root document $ expression
         /// </summary>
-        public static BsonExpression Root = Create("$", LiteDatabaseServices.Default.ExpressionRegistry);
+        public static BsonExpression Root = Create("$", PluginContextFallbacks.Expressions);
 
         #endregion
 

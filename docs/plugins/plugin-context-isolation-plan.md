@@ -12,11 +12,13 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
 - Each `LiteDatabase` instance passes its own `ILitePluginContext` to all serialization, query, and storage operations.
 - No plugin type/page registrations bleed across instances.
 - Missing-plugin diagnostics fire when a database lacks the required plugin, not masked by global defaults.
+- `LiteDatabaseServices.Default` is removed (or scoped to a tiny legacy helper) so no code path implicitly falls back to shared registries.
 
 ## Changes to Implement
 1) **Remove default context fallbacks**
    - Update `BufferReader`/`BufferWriter` constructors to require an explicit `ILitePluginContext` (or throw if null), and ensure callers pass the database’s context.
    - Audit other helpers that do `pluginContext ?? LiteDatabaseServices.Default.Context` (e.g., expression creation, index services) and route the active database context instead.
+   - Remove `LiteDatabaseServices.Default` entirely, or confine it to a private legacy helper used only by no-DB utilities with documented rationale.
 
 2) **Per-instance registrations**
    - Ensure plugin registrations (BSON types, page factories, query operators, cost models) happen only in `VectorSearchPlugin.Initialize` (or other plugins) against the provided `ILitePluginContext`, never against a global default.
@@ -32,10 +34,11 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
 5) **Tests & tooling**
    - Update tests to pass plugin contexts explicitly and remove default-context registrations.
    - Add regression tests ensuring two databases with different plugin sets do not share registrations (e.g., vector plugin registered in db A does not make type 0x90 available in db B).
+   - Keep optionality/behavior-matrix tests aligned with strict missing-plugin refusal now enforced at snapshot open.
 
 ## Implementation Order (suggested)
 1. Refactor `BufferReader/BufferWriter` to require context; fix call sites.
-2. Remove `LiteDatabaseServices.Default.Context` fallbacks in serialization/expression paths.
+2. Remove `LiteDatabaseServices.Default` fallbacks in serialization/expression paths.
 3. Update tests to use per-instance plugin registration; add isolation regression test.
 4. Re-run full test matrix; fix remaining missing-plugin message expectations.
 

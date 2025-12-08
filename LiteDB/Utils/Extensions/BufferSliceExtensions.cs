@@ -341,7 +341,7 @@ namespace LiteDB
 
         private static ILitePluginContext ResolveContext(ILitePluginContext pluginContext)
         {
-            return pluginContext ?? LiteDatabaseServices.Default.Context;
+            return pluginContext ?? PluginContextFallbacks.Context;
         }
 
         private static BsonValue ReadCustomIndexKey(BufferSlice buffer, int offset, byte typeCode, ILitePluginContext context)

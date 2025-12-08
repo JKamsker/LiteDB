@@ -32,7 +32,7 @@ namespace LiteDB.Tests.Plugins
             colA.FindById(1)["tag"].AsInt32.Should().Be(11);
             colB.FindById(1)["tag"].AsInt32.Should().Be(22);
 
-            LiteDatabaseServices.Default.Context.TryGetBsonType(CustomTypeCode, out _).Should().BeFalse("plugin registrations must not leak to the default context");
+            PluginContextFallbacks.Context.TryGetBsonType(CustomTypeCode, out _).Should().BeFalse("plugin registrations must not leak to the default context");
         }
 
         [Fact]
@@ -64,7 +64,7 @@ namespace LiteDB.Tests.Plugins
             pageB.PluginId.Should().Be(SharedPluginId);
             pageA.Should().NotBeSameAs(pageB);
 
-            LiteDatabaseServices.Default.Context.PageFactories.TryGet(PageTypeCode, out _).Should().BeFalse();
+            PluginContextFallbacks.Context.PageFactories.TryGet(PageTypeCode, out _).Should().BeFalse();
         }
 
         private sealed class IsolationPlugin : ILitePlugin

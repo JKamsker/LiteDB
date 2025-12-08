@@ -15,7 +15,7 @@ namespace LiteDB.Vector.Tests.Integration
         [Fact]
         public void VectorPlugin_Registers_Only_Against_Provided_Context()
         {
-            var defaultContext = LiteDatabaseServices.Default.Context;
+            var defaultContext = PluginContextFallbacks.Context;
 
             var defaultBsonTypes = defaultContext.BsonTypes.Registered.Count;
             var defaultPageTypes = defaultContext.PageFactories.Registered.Count;

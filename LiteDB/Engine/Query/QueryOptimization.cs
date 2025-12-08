@@ -531,7 +531,7 @@ namespace LiteDB.Engine
                         var expression = selectedTerm ??
                             BsonExpression.Create(
                                 planningContext.SelectedIndexExpression,
-                                _snapshot?.Plugins?.Expressions ?? LiteDatabaseServices.Default.ExpressionRegistry);
+                                _snapshot?.Plugins?.Expressions ?? PluginContextFallbacks.Expressions);
 
                         var context = new QueryCostContext(
                             _snapshot.CollectionName ?? string.Empty,

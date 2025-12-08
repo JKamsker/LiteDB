@@ -45,7 +45,7 @@ namespace LiteDB.Engine
         {
             _source = null;
             _utcDate = utcDate;
-            _pluginContext = pluginContext ?? LiteDatabaseServices.Default.Context;
+            _pluginContext = pluginContext ?? PluginContextFallbacks.Context;
 
             _current = buffer;
         }
@@ -54,7 +54,7 @@ namespace LiteDB.Engine
         {
             _source = source.GetEnumerator();
             _utcDate = utcDate;
-            _pluginContext = pluginContext ?? LiteDatabaseServices.Default.Context;
+            _pluginContext = pluginContext ?? PluginContextFallbacks.Context;
 
             _source.MoveNext();
             _current = _source.Current;

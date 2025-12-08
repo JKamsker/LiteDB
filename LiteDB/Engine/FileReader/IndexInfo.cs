@@ -24,7 +24,7 @@ namespace LiteDB.Engine
 
         public void BindExpressionRegistry(IExpressionRegistry registry)
         {
-            var effective = registry ?? LiteDatabaseServices.Default.ExpressionRegistry;
+            var effective = registry ?? PluginContextFallbacks.Expressions;
 
             this.Registry = effective;
             this.BsonExpr = BsonExpression.Create(this.Expression, effective);

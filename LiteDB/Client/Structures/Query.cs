@@ -1,4 +1,4 @@
-﻿using LiteDB.Engine;
+using LiteDB.Engine;
 using LiteDB.Plugins;
 
 using System;
@@ -10,6 +10,8 @@ namespace LiteDB
     /// </summary>
     public partial class Query
     {
+        private static IExpressionRegistry DefaultExpressions => PluginContextFallbacks.Expressions;
+
         /// <summary>
         /// Indicate when a query must execute in ascending order
         /// </summary>
@@ -226,85 +228,85 @@ namespace LiteDB
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static Query All(int order = Ascending)
         {
-            return All(order, LiteDatabaseServices.Default.ExpressionRegistry);
+            return All(order, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static Query All(string field, int order = Ascending)
         {
-            return All(field, order, LiteDatabaseServices.Default.ExpressionRegistry);
+            return All(field, order, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression EQ(string field, BsonValue value)
         {
-            return EQ(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return EQ(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression LT(string field, BsonValue value)
         {
-            return LT(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return LT(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression LTE(string field, BsonValue value)
         {
-            return LTE(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return LTE(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression GT(string field, BsonValue value)
         {
-            return GT(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return GT(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression GTE(string field, BsonValue value)
         {
-            return GTE(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return GTE(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression Between(string field, BsonValue start, BsonValue end)
         {
-            return Between(field, start, end, LiteDatabaseServices.Default.ExpressionRegistry);
+            return Between(field, start, end, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression StartsWith(string field, string value)
         {
-            return StartsWith(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return StartsWith(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression Contains(string field, string value)
         {
-            return Contains(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return Contains(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression Not(string field, BsonValue value)
         {
-            return Not(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return Not(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression In(string field, BsonArray value)
         {
-            return In(field, value, LiteDatabaseServices.Default.ExpressionRegistry);
+            return In(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression In(string field, params BsonValue[] values)
         {
-            return In(field, LiteDatabaseServices.Default.ExpressionRegistry, values ?? Array.Empty<BsonValue>());
+            return In(field, DefaultExpressions, values ?? Array.Empty<BsonValue>());
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
         public static BsonExpression In(string field, IEnumerable<BsonValue> values)
         {
-            return In(field, values, LiteDatabaseServices.Default.ExpressionRegistry);
+            return In(field, values, DefaultExpressions);
         }
 
         /// <summary>
@@ -419,7 +421,7 @@ namespace LiteDB
         {
             if (expressions == null)
             {
-                return LiteDatabaseServices.Default.ExpressionRegistry;
+                return DefaultExpressions;
             }
 
             foreach (var expression in expressions)
@@ -430,7 +432,7 @@ namespace LiteDB
                 }
             }
 
-            return LiteDatabaseServices.Default.ExpressionRegistry;
+            return DefaultExpressions;
         }
 
         private static IExpressionRegistry RequireRegistry(IExpressionRegistry registry)

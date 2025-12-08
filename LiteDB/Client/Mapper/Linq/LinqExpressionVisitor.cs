@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -59,10 +59,10 @@ namespace LiteDB
         {
             _mapper = mapper;
             _expr = expr;
-            _registry = registry ?? LiteDatabaseServices.Default.ExpressionRegistry;
-            _queryOperators = queryOperators ?? LiteDatabaseServices.Default.QueryOperators;
+            _registry = registry ?? PluginContextFallbacks.Expressions;
+            _queryOperators = queryOperators ?? PluginContextFallbacks.QueryOperators;
             _database = database;
-            _linqResolvers = linqResolvers ?? LiteDatabaseServices.Default.LinqResolvers;
+            _linqResolvers = linqResolvers ?? PluginContextFallbacks.LinqResolvers;
 
             if (expr is LambdaExpression lambda)
             {
