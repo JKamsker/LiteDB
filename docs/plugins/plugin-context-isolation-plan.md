@@ -8,10 +8,13 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
 - All serialization/query paths (BufferReader/Writer, expression building, index metadata, mapper, LINQ visitor, query optimizations) now take the active database’s `ILitePluginContext` or the explicit fallback helper.
 - Tests were updated to stop using the default context; missing-plugin behavior now throws deterministic `LiteException` with vector diagnostics instead of silently succeeding.
 - Full test matrix now passes (`net462` via xunit.console, `net481`, `net8.0`, `LiteDB.Vector.Tests`, `LiteDB.ReproRunner.Tests`).
+- .NET Framework diagnostic storage fixed: vector missing-plugin details are stored as JSON strings in `Exception.Data` to stay serializable (no raw `BsonDocument` payloads).
 
 ## Remaining Issues
 - Keep an eye on any straggling doc/spec references to `LiteDatabaseServices.Default`.
 - Ensure new plugin work continues to thread per-db contexts; avoid accidental reintroduction of globals.
+- Add a regression test proving two `LiteDatabase` instances can host plugins with overlapping IDs without cross-talk.
+- Update `specs/001-vector-plugin-extraction/progress.md` to log the removal of `LiteDatabaseServices.Default` and the `PluginContextFallbacks` replacement.
 
 ## Desired Behavior
 - Each `LiteDatabase` instance passes its own `ILitePluginContext` to all serialization, query, and storage operations.
@@ -32,12 +35,14 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
 4) **Tests & tooling**
    - Add/maintain isolation regression tests: two databases with overlapping plugin IDs must not see each other’s registrations.
    - Keep optionality/behavior-matrix tests aligned with strict missing-plugin refusal at snapshot open.
+   - Re-run `scripts/run-tests-per-target.ps1` after isolation coverage to ensure the net462 xunit fallback path stays green.
 
 ## Implementation Order (suggested)
 1. Guardrail reviews to prevent reintroduction of global defaults.
 2. Add/expand isolation regression coverage (competing plugin IDs across two `LiteDatabase` instances).
-3. Keep test expectations in sync with strict missing-plugin refusal.
-4. Periodically run full matrix (`scripts/run-tests-per-target.ps1`) to catch TFMs differences (e.g., `Exception.Data` serialization on .NET Framework).
+3. Update `specs/001-vector-plugin-extraction/progress.md` with the Default removal and fallback note.
+4. Keep test expectations in sync with strict missing-plugin refusal.
+5. Periodically run full matrix (`scripts/run-tests-per-target.ps1`) to catch TFM differences (e.g., `Exception.Data` serialization on .NET Framework).
 
 ## Risks / Mitigations
 - Risk: Null context in existing call sites → compile errors. Mitigation: plumb context from `LiteDatabase`/`Snapshot` where available; add explicit guard in rare static helpers.
