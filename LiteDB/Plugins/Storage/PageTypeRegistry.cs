@@ -21,6 +21,14 @@ namespace LiteDB.Plugins.Storage
                 throw new ArgumentNullException(nameof(registration));
             }
 
+            ReservedCodeRanges.EnsurePluginOwnsReservedRange(
+                registration.PluginId,
+                registration.NumericCode,
+                ReservedCodeRanges.VectorPageStart,
+                ReservedCodeRanges.VectorPageEnd,
+                ReservedCodeRanges.VectorPluginId,
+                "Page type code");
+
             lock (_sync)
             {
                 if (_byCode.TryGetValue(registration.NumericCode, out var existingByCode))
