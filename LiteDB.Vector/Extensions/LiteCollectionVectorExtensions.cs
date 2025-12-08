@@ -162,7 +162,13 @@ namespace LiteDB.Vector
 
             if (descriptor == null || pluginContext == null)
             {
-                throw VectorCompatibility.PluginRequired();
+                var diagnostics = VectorCompatibility.CreateMissingPluginDiagnostics(
+                    operation: "EnsureCustomIndex",
+                    collection: collection.Name,
+                    strategyKind: VectorCompatibility.DefaultStrategyKind,
+                    pluginContext: pluginContext);
+
+                throw VectorCompatibility.PluginRequired(diagnostics);
             }
 
             var metadataDescriptor = RequireMetadataDescriptor(pluginContext);

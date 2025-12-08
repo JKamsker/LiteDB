@@ -213,9 +213,31 @@ namespace LiteDB.Engine
             var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
             var exception = policy.CreateMissingPluginException(pluginId, operation ?? "PluginOperation", diagnostics);
 
+            if (exception != null && this.IsVectorStrategy(strategyKind, pluginId))
+            {
+                try
+                {
+                    exception.Data["VectorDiagnostics"] = diagnostics;
+                }
+                catch (ArgumentException)
+                {
+                    exception.Data["VectorDiagnostics"] = diagnostics.ToString();
+                }
+            }
+
             LOG($"custom index plugin missing: {diagnostics.ToString()}", "PLUGIN");
 
             return exception;
+        }
+
+        private bool IsVectorStrategy(string strategyKind, string pluginId)
+        {
+            if (!string.IsNullOrWhiteSpace(pluginId) && string.Equals(pluginId, "LiteDB.Vector", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return string.Equals(strategyKind, "vector", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string TryGetPluginIdFromOptions(BsonDocument options)

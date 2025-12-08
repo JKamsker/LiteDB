@@ -54,8 +54,9 @@ namespace LiteDB.Plugins
         {
             var hasPluginId = !string.IsNullOrWhiteSpace(pluginId);
             var subject = hasPluginId ? $"Plugin '{pluginId}'" : "A plugin";
-            var message = $"{subject} is required to perform '{operation ?? "the requested operation"}'. " +
-                          "Install and register the plugin to continue.";
+            var message = hasPluginId && string.Equals(pluginId, "LiteDB.Vector", StringComparison.Ordinal)
+                ? $"Vector index support requires the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance (for example, new LiteDatabase(connectionString, plugins: new[] {{ VectorSearchPlugin.Instance }})) before performing '{operation ?? "the requested operation"}'."
+                : $"{subject} is required to perform '{operation ?? "the requested operation"}'. Install and register the plugin to continue.";
 
             var exception = new LiteException(LiteException.PLUGIN_REQUIRED, message);
 
@@ -64,10 +65,20 @@ namespace LiteDB.Plugins
                 try
                 {
                     exception.Data["PluginDiagnostics"] = diagnostics;
+
+                    if (hasPluginId && string.Equals(pluginId, "LiteDB.Vector", StringComparison.Ordinal))
+                    {
+                        exception.Data["VectorDiagnostics"] = diagnostics;
+                    }
                 }
                 catch (ArgumentException)
                 {
                     exception.Data["PluginDiagnostics"] = diagnostics.ToString();
+
+                    if (hasPluginId && string.Equals(pluginId, "LiteDB.Vector", StringComparison.Ordinal))
+                    {
+                        exception.Data["VectorDiagnostics"] = diagnostics.ToString();
+                    }
                 }
             }
 
