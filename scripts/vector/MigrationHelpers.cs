@@ -7,8 +7,8 @@ using System.Linq;
 using System.Reflection;
 using LiteDB;
 using LiteDB.Engine;
-using LiteDB.Plugins.Indexing;
 using LiteDB.Vector;
+using LiteDB.Vector.Engine;
 
 namespace LiteDB.Vector.Tools
 {
@@ -162,7 +162,7 @@ namespace LiteDB.Vector.Tools
                 throw new ArgumentNullException(nameof(database));
             }
 
-            var registry = database.Services.VectorIndexes;
+            var registry = database.Services.CustomIndexes;
 
             if (registry == null)
             {
@@ -297,7 +297,8 @@ namespace LiteDB.Vector.Tools
                 yield break;
             }
 
-            var method = CollectionPageType.GetMethod("GetVectorIndexes", BindingFlags.Instance | BindingFlags.Public);
+            var method = CollectionPageType.GetMethod("GetPluginIndexes", BindingFlags.Instance | BindingFlags.Public)
+                ?? CollectionPageType.GetMethod("GetVectorIndexes", BindingFlags.Instance | BindingFlags.Public);
             if (method == null)
             {
                 yield break;
@@ -317,7 +318,8 @@ namespace LiteDB.Vector.Tools
 
                 var tupleType = entry.GetType();
                 var indexField = tupleType.GetField("Item1");
-                var metadataField = tupleType.GetField("Item2");
+                var pluginIdField = tupleType.GetField("Item2");
+                var metadataField = tupleType.GetField("Item3") ?? tupleType.GetField("Item2");
 
                 if (indexField == null || metadataField == null)
                 {
@@ -325,9 +327,12 @@ namespace LiteDB.Vector.Tools
                 }
 
                 var index = indexField.GetValue(entry);
+                var pluginId = pluginIdField?.GetValue(entry) as string;
                 var metadataBytes = metadataField.GetValue(entry) as byte[];
 
-                if (index == null || metadataBytes == null)
+                if ((pluginId != null && !string.Equals(pluginId, VectorPlugin.PluginId, StringComparison.Ordinal)) ||
+                    index == null ||
+                    metadataBytes == null)
                 {
                     continue;
                 }
@@ -618,3 +623,4 @@ namespace LiteDB.Vector.Tools
         public IReadOnlyList<string> RegisteredStrategies { get; }
     }
 }
+

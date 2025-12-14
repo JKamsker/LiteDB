@@ -25,7 +25,7 @@ namespace LiteDB
         /// </summary>
         [Obsolete("Use the constructor that accepts IExpressionRegistry explicitly.")]
         public QueryAny()
-            : this(LiteDatabaseServices.Default.ExpressionRegistry)
+            : this(PluginContextFallbacks.Expressions)
         {
         }
 

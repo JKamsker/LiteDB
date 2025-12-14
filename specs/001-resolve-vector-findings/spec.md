@@ -80,8 +80,8 @@ As operations supporting existing LiteDB workloads, I need automated upgrade gui
 ### Key Entities *(include if feature involves data)*
 
 - **QueryMetadataBag**: Plugin-registered structure that stores planner hints (target collection, distance metric, max distance) with serialization contracts for legacy property migration.
-- **PluginBsonTypeRegistration**: Describes a reserved type code, serializer, deserializer, and compatibility shim that routes BSON vector payloads through the plugin pipeline.
-- **VectorIndexStrategyDescriptor**: Aggregates page factory handles, rebuild hooks, and command interceptors that LiteDB.Vector registers to fulfil index operations without core dependencies.
+- **PluginCustomBsonTypeDescriptor**: Describes a reserved type code, serializer, deserializer, and compatibility shim that routes BSON vector payloads through the plugin pipeline.
+- **CustomIndexStrategyDescriptor**: Aggregates page factory handles, rebuild hooks, and command interceptors that LiteDB.Vector registers to fulfil index operations without core dependencies.
 
 ## Success Criteria *(mandatory)*
 
@@ -91,3 +91,5 @@ As operations supporting existing LiteDB workloads, I need automated upgrade gui
 - **SC-002**: The verification suite plus plugin integration tests pass on both `netstandard2.0` and `net8.0` targets with vector workloads exercising the new extension points.
 - **SC-003**: 100% of gap records (`gap-query-state`, `gap-bson-serialization`, `gap-storage-pipeline`, `gap-indexing-extensibility`) transition to a “Resolved” status with linked work items and approved owners.
 - **SC-004**: Upgrade telemetry and documentation demonstrate that deployments without LiteDB.Vector detect the missing dependency and surface remediation steps within one operational cycle (24 hours).
+
+

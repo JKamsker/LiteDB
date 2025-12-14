@@ -21,6 +21,8 @@ namespace LiteDB.Engine
         {
             if (string.IsNullOrEmpty(_settings.Filename)) return 0; // works only with os file
 
+            this.EnsurePluginAssetsAllowed();
+
             this.Close();
 
             // run build service
@@ -35,6 +37,26 @@ namespace LiteDB.Engine
             _state.Disposed = false;
 
             return diff;
+        }
+
+        private void EnsurePluginAssetsAllowed()
+        {
+            var behavior = _plugins?.DiagnosticPolicy?.MissingBehavior ?? PluginMissingBehavior.RefuseDatabase;
+
+            if (behavior != PluginMissingBehavior.RefuseDatabase)
+            {
+                return;
+            }
+
+            this.AutoTransaction(transaction =>
+            {
+                foreach (var collection in _header.GetCollections())
+                {
+                    using var snapshot = transaction.CreateSnapshot(LockMode.Read, collection.Key, false);
+                }
+
+                return true;
+            });
         }
 
         /// <summary>
@@ -80,29 +102,16 @@ namespace LiteDB.Engine
                     // first create all user indexes (exclude _id index)
                     foreach (var index in reader.GetIndexes(collection))
                     {
-                        if (index.IndexType == 1 && index.VectorMetadata != null)
+                        if (this.TryRebuildPluginIndex(collection, index))
                         {
-                            var metadata = index.VectorMetadata;
-                            var vectorOptions = new BsonDocument
-                            {
-                                ["dimensions"] = (int)VectorIndexMetadataSerializer.GetDimensions(metadata),
-                                ["metric"] = (int)VectorIndexMetadataSerializer.GetMetric(metadata)
-                            };
+                            continue;
+                        }
 
-                            this.EnsureVectorIndex(
-                                collection,
-                                index.Name,
-                                index.BsonExpr,
-                                vectorOptions);
-                        }
-                        else
-                        {
-                            this.EnsureIndex(
-                                collection,
-                                index.Name,
-                                index.BsonExpr,
-                                index.Unique);
-                        }
+                        this.EnsureIndex(
+                            collection,
+                            index.Name,
+                            index.BsonExpr,
+                            index.Unique);
                     }
                 }
 
@@ -117,5 +126,196 @@ namespace LiteDB.Engine
                 throw;
             }
         }
+
+    private bool TryRebuildPluginIndex(string collection, IndexInfo index)
+    {
+        if (index == null)
+        {
+            return false;
+        }
+
+        if (index.PluginMetadata == null || string.IsNullOrWhiteSpace(index.PluginId))
+        {
+            return false;
+        }
+
+        var pluginId = index.PluginId;
+        var pluginContext = _plugins;
+        var metadataRegistry = pluginContext?.IndexMetadata;
+        var strategyRegistry = pluginContext?.CustomIndexes;
+
+        if (metadataRegistry == null || strategyRegistry == null || string.IsNullOrWhiteSpace(pluginId))
+        {
+            throw this.CreatePluginRequiredException(
+                pluginId: pluginId,
+                strategyKind: pluginId ?? $"type:{index.IndexType}",
+                operation: "RebuildCustomIndex",
+                collection: collection,
+                indexName: index.Name,
+                expression: index.Expression,
+                options: null);
+        }
+
+        var metadataDescriptor = this.ResolvePluginMetadataDescriptor(metadataRegistry, pluginId, index.PluginIndexKind);
+
+        if (metadataDescriptor == null)
+        {
+            throw this.CreatePluginRequiredException(
+                pluginId: pluginId,
+                strategyKind: pluginId,
+                operation: "RebuildCustomIndex",
+                collection: collection,
+                indexName: index.Name,
+                expression: index.Expression,
+                options: null);
+        }
+
+        var metadataDocument = index.PluginMetadataDocument;
+
+        if (metadataDocument == null)
+        {
+            try
+            {
+                metadataDocument = metadataDescriptor.Deserialize(index.PluginMetadata) ?? new BsonDocument();
+            }
+            catch (Exception ex)
+            {
+                throw new LiteException(LiteException.PLUGIN_REQUIRED, ex, $"Failed to deserialize metadata for index '{collection}.{index.Name}' owned by plugin '{pluginId}'.");
+            }
+        }
+
+        var options = this.BuildPluginIndexOptions(metadataDescriptor, metadataDocument);
+        var strategyKind = this.ResolveStrategyKind(index.IndexType);
+
+        if (string.IsNullOrWhiteSpace(strategyKind))
+        {
+            throw this.CreatePluginRequiredException(
+                pluginId: pluginId,
+                strategyKind: pluginId,
+                operation: "RebuildCustomIndex",
+                collection: collection,
+                indexName: index.Name,
+                expression: index.Expression,
+                options: options);
+        }
+
+        this.EnsureCustomIndex(
+            collection,
+            index.Name,
+            strategyKind,
+            index.BsonExpr,
+            options);
+
+        var strategyDescriptor = this.ResolveCustomIndexDescriptor(strategyRegistry, pluginId);
+        strategyDescriptor?.RebuildStrategy?.Invoke(new CustomIndexRebuildContext(this, _plugins));
+
+        return true;
+    }
+
+    private PluginIndexMetadataDescriptor ResolvePluginMetadataDescriptor(IPluginIndexMetadataRegistry registry, string pluginId, string indexKind)
+    {
+        if (registry == null || string.IsNullOrWhiteSpace(pluginId))
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(indexKind) &&
+            registry.TryGet(indexKind, out var descriptor) &&
+            string.Equals(descriptor.PluginId, pluginId, StringComparison.Ordinal))
+        {
+            return descriptor;
+        }
+
+        PluginIndexMetadataDescriptor match = null;
+        var registered = registry.Registered;
+
+        if (registered == null)
+        {
+            return null;
+        }
+
+        foreach (var candidate in registered)
+        {
+            if (candidate == null || !string.Equals(candidate.PluginId, pluginId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (match != null)
+            {
+                throw new LiteException(0, $"Multiple metadata descriptors registered for plugin '{pluginId}'. Unable to resolve rebuild metadata.");
+            }
+
+            match = candidate;
+        }
+
+        return match;
+    }
+
+    private CustomIndexStrategyDescriptor ResolveCustomIndexDescriptor(ICustomIndexStrategyRegistry registry, string pluginId)
+    {
+        if (registry == null || string.IsNullOrWhiteSpace(pluginId))
+        {
+            return null;
+        }
+
+        CustomIndexStrategyDescriptor match = null;
+        var registered = registry.Registered;
+
+        if (registered == null)
+        {
+            return null;
+        }
+
+        foreach (var candidate in registered)
+        {
+            if (candidate == null || !string.Equals(candidate.PluginId, pluginId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (match != null)
+            {
+                throw new LiteException(0, $"Multiple custom index strategies registered for plugin '{pluginId}'. Unable to determine rebuild delegate.");
+            }
+
+            match = candidate;
+        }
+
+        return match;
+    }
+
+    private BsonDocument BuildPluginIndexOptions(PluginIndexMetadataDescriptor descriptor, BsonDocument metadata)
+    {
+        var options = new BsonDocument();
+        var payload = new BsonDocument();
+
+        if (metadata != null)
+        {
+            metadata.CopyTo(options);
+            metadata.CopyTo(payload);
+        }
+
+        var envelope = new BsonDocument
+        {
+            ["pluginId"] = descriptor.PluginId
+        };
+
+        if (!string.IsNullOrWhiteSpace(descriptor.IndexKind))
+        {
+            envelope["indexKind"] = descriptor.IndexKind;
+        }
+
+        envelope["payload"] = payload;
+        options["_pluginMetadata"] = envelope;
+
+        return options;
+    }
+
+    private string ResolveStrategyKind(byte indexType)
+    {
+        var strategy = _plugins?.Indexes?.GetByType(indexType);
+        return strategy?.Kind;
+    }
     }
 }

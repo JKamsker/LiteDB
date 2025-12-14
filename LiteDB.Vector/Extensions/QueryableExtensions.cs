@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using LiteDB;
+using LiteDB.Vector.Utils;
 using LiteDB.Plugins.Query;
 using LiteDB.Vector.Query;
-using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector.Extensions
 {
@@ -135,7 +135,7 @@ namespace LiteDB.Vector.Extensions
         {
             var services = source.Database?.Services;
 
-            if (VectorCompatibility.TryGetStrategy(services?.VectorIndexes) == null)
+            if (VectorCompatibility.TryGetStrategy(services?.CustomIndexes) == null)
             {
                 throw VectorCompatibility.PluginRequired();
             }
@@ -197,12 +197,22 @@ namespace LiteDB.Vector.Extensions
 
             if (maxDistance < double.MaxValue)
             {
-                var normalized = VectorEnsure.NormalizeMaxDistance(maxDistance, metric);
-                metadata.Set(VectorQueryMetadata.MaxDistanceKey, normalized);
+                var normalizedDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metric);
+                metadata.Set(VectorQueryMetadata.MaxDistanceKey, normalizedDistance);
+
+                if (IsDotProductMetric(metric))
+                {
+                    metadata.Set(VectorQueryMetadata.MaxDistanceNormalizedKey, true);
+                }
+                else
+                {
+                    metadata.Remove(VectorQueryMetadata.MaxDistanceNormalizedKey);
+                }
             }
             else
             {
                 metadata.Remove(VectorQueryMetadata.MaxDistanceKey);
+                metadata.Remove(VectorQueryMetadata.MaxDistanceNormalizedKey);
             }
         }
 
@@ -291,8 +301,14 @@ namespace LiteDB.Vector.Extensions
             return null;
         }
 
+        private static bool IsDotProductMetric(byte? metric)
+        {
+            return metric.HasValue && (VectorDistanceMetric)metric.Value == VectorDistanceMetric.DotProduct;
+        }
+
     }
 }
+
 
 
 

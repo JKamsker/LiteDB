@@ -270,15 +270,24 @@ namespace LiteDB.Vector.Tests.Infrastructure
             bag.Set(VectorQueryMetadata.TargetKey, target);
             bag.Set(VectorQueryMetadata.MetricKey, (byte)metric);
 
-            var normalized = VectorEnsure.NormalizeMaxDistance(maxDistance, (byte)metric);
-
             if (maxDistance < double.MaxValue)
             {
+                var normalized = VectorEnsure.NormalizeMaxDistance(maxDistance, (byte)metric);
                 bag.Set(VectorQueryMetadata.MaxDistanceKey, normalized);
+
+                if (metric == VectorDistanceMetric.DotProduct)
+                {
+                    bag.Set(VectorQueryMetadata.MaxDistanceNormalizedKey, true);
+                }
+                else
+                {
+                    bag.Remove(VectorQueryMetadata.MaxDistanceNormalizedKey);
+                }
             }
             else
             {
                 bag.Remove(VectorQueryMetadata.MaxDistanceKey);
+                bag.Remove(VectorQueryMetadata.MaxDistanceNormalizedKey);
             }
 
             return bag;

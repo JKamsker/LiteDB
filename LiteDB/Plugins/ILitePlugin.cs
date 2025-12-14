@@ -34,15 +34,23 @@ namespace LiteDB.Plugins
 
         IQueryMetadataAccessor QueryMetadata { get; }
 
-        IBsonTypeRegistry BsonTypes { get; }
+        IPluginDiagnosticPolicy DiagnosticPolicy { get; }
 
-        IPageFactoryRegistry PageFactories { get; }
+        ISqlFunctionRegistry SqlFunctions { get; }
 
-        IVectorIndexStrategyRegistry VectorIndexes { get; }
+        IQueryOperatorRegistry QueryOperators { get; }
+
+        IQueryCostModelRegistry QueryCostModels { get; }
+
+        ICustomBsonTypeRegistry BsonTypes { get; }
+
+        IPageTypeRegistry PageFactories { get; }
+
+        IPluginIndexMetadataRegistry IndexMetadata { get; }
+
+        ICustomIndexStrategyRegistry CustomIndexes { get; }
 
         ILinqResolverRegistry LinqResolvers { get; }
-
-        IIndexInterceptorRegistry IndexInterceptors { get; }
 
         IServiceProvider Services { get; }
 
@@ -56,21 +64,35 @@ namespace LiteDB.Plugins
 
         QueryMetadataDescriptor GetQueryMetadataDescriptor(string pluginId);
 
-        void RegisterBsonType(BsonTypeRegistration registration);
+        void SetDiagnosticPolicy(IPluginDiagnosticPolicy policy);
 
-        bool TryGetBsonType(byte typeCode, out BsonTypeRegistration registration);
+        void RegisterBsonType(CustomBsonTypeDescriptor registration);
 
-        bool TryGetBsonType(string name, out BsonTypeRegistration registration);
+        bool TryGetBsonType(byte typeCode, out CustomBsonTypeDescriptor registration);
 
-        void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor);
+        bool TryGetBsonType(string name, out CustomBsonTypeDescriptor registration);
 
-        bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor);
+        void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor);
 
-        VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId);
+        bool TryGetCustomIndexStrategyDescriptor(string strategyId, out CustomIndexStrategyDescriptor descriptor);
+
+        CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId);
 
         void RegisterPageFactory(PageFactoryRegistration registration);
 
         bool TryGetPageFactory(string pageType, out PageFactoryRegistration registration);
+
+        void RegisterSqlFunction(SqlFunctionRegistration registration);
+
+        void RegisterQueryOperator(QueryOperatorRegistration registration);
+
+        void RegisterQueryCostModel(QueryCostModelRegistration registration);
+
+        void RegisterIndexMetadata(PluginIndexMetadataDescriptor descriptor);
+
+        bool TryGetIndexMetadataDescriptor(string indexKind, out PluginIndexMetadataDescriptor descriptor);
+
+        PluginIndexMetadataDescriptor GetIndexMetadataDescriptor(string indexKind);
     }
 
     /// <summary>
@@ -110,6 +132,8 @@ namespace LiteDB.Plugins
         IReadOnlyCollection<ExpressionFunctionRegistration> Functions { get; }
 
         IReadOnlyCollection<string> Keywords { get; }
+
+        IQueryOperatorRegistry QueryOperators { get; }
 
         bool ContainsOperator(string token);
 
@@ -183,23 +207,6 @@ namespace LiteDB.Plugins
         bool TryGetFactory(Type targetType, out LinqResolverFactory factory);
 
         IReadOnlyCollection<Type> RegisteredTypes { get; }
-    }
-
-    /// <summary>
-    /// Delegate invoked for index interception during <c>ILiteCollection.EnsureIndex</c> execution.
-    /// </summary>
-    /// <param name="context">The interception context.</param>
-    /// <returns>True when the interceptor handled the request and default processing should stop.</returns>
-    public delegate bool IndexInterceptor(EnsureIndexContext context);
-
-    /// <summary>
-    /// Registry responsible for orchestrating index interceptors.
-    /// </summary>
-    public interface IIndexInterceptorRegistry
-    {
-        void Register(IndexInterceptor interceptor, int order = 0);
-
-        IEnumerable<IndexInterceptor> Interceptors { get; }
     }
 
     /// <summary>

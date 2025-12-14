@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -103,13 +104,15 @@ namespace LiteDB
         };
 
         private readonly IExpressionRegistry _registry;
+        private readonly IQueryOperatorRegistry _queryOperators;
 
-        public Token(TokenType tokenType, string value, long position, IExpressionRegistry registry)
+        public Token(TokenType tokenType, string value, long position, IExpressionRegistry registry, IQueryOperatorRegistry queryOperators)
         {
             this.Position = position;
             this.Value = value;
             this.Type = tokenType;
             _registry = registry;
+            _queryOperators = queryOperators;
         }
 
         public TokenType Type { get; private set; }
@@ -201,6 +204,11 @@ namespace LiteDB
                             return true;
                         }
 
+                        if (_queryOperators != null && _queryOperators.TryGet(Value, out _))
+                        {
+                            return true;
+                        }
+
                         return false;
                     default:
                         return false;
@@ -224,6 +232,7 @@ namespace LiteDB
     {
         private readonly TextReader _reader;
         private readonly IExpressionRegistry _registry;
+        private readonly IQueryOperatorRegistry _queryOperators;
         private char _char = '\0';
         private Token _ahead = null;
         private bool _eof = false;
@@ -232,6 +241,7 @@ namespace LiteDB
         public long Position { get; private set; }
         public Token Current { get; private set; }
         internal IExpressionRegistry Registry => _registry;
+        internal IQueryOperatorRegistry QueryOperators => _queryOperators;
 
         /// <summary>
         /// If EOF throw an invalid token exception (used in while()) otherwise return "false" (not EOF)
@@ -243,15 +253,16 @@ namespace LiteDB
             return false;
         }
 
-        public Tokenizer(string source, IExpressionRegistry registry = null)
-            : this(new StringReader(source), registry)
+        public Tokenizer(string source, IExpressionRegistry registry = null, IQueryOperatorRegistry queryOperators = null)
+            : this(new StringReader(source ?? throw new ArgumentNullException(nameof(source))), registry, queryOperators)
         {
         }
 
-        public Tokenizer(TextReader reader, IExpressionRegistry registry = null)
+        public Tokenizer(TextReader reader, IExpressionRegistry registry = null, IQueryOperatorRegistry queryOperators = null)
         {
-            _reader = reader;
+            _reader = reader ?? throw new ArgumentNullException(nameof(reader));
             _registry = registry;
+            _queryOperators = queryOperators;
 
             this.Position = 0;
             this.ReadChar();
@@ -342,7 +353,7 @@ namespace LiteDB
 
             if (_eof)
             {
-                return new Token(TokenType.EOF, null, this.Position, _registry);
+                return new Token(TokenType.EOF, null, this.Position, _registry, _queryOperators);
             }
 
             Token token = null;
@@ -350,72 +361,72 @@ namespace LiteDB
             switch (_char)
             {
                 case '{':
-                    token = new Token(TokenType.OpenBrace, "{", this.Position, _registry);
+                    token = new Token(TokenType.OpenBrace, "{", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '}':
-                    token = new Token(TokenType.CloseBrace, "}", this.Position, _registry);
+                    token = new Token(TokenType.CloseBrace, "}", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '[':
-                    token = new Token(TokenType.OpenBracket, "[", this.Position, _registry);
+                    token = new Token(TokenType.OpenBracket, "[", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case ']':
-                    token = new Token(TokenType.CloseBracket, "]", this.Position, _registry);
+                    token = new Token(TokenType.CloseBracket, "]", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '(':
-                    token = new Token(TokenType.OpenParenthesis, "(", this.Position, _registry);
+                    token = new Token(TokenType.OpenParenthesis, "(", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case ')':
-                    token = new Token(TokenType.CloseParenthesis, ")", this.Position, _registry);
+                    token = new Token(TokenType.CloseParenthesis, ")", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case ',':
-                    token = new Token(TokenType.Comma, ",", this.Position, _registry);
+                    token = new Token(TokenType.Comma, ",", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case ':':
-                    token = new Token(TokenType.Colon, ":", this.Position, _registry);
+                    token = new Token(TokenType.Colon, ":", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case ';':
-                    token = new Token(TokenType.SemiColon, ";", this.Position, _registry);
+                    token = new Token(TokenType.SemiColon, ";", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '@':
-                    token = new Token(TokenType.At, "@", this.Position, _registry);
+                    token = new Token(TokenType.At, "@", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '#':
-                    token = new Token(TokenType.Hashtag, "#", this.Position, _registry);
+                    token = new Token(TokenType.Hashtag, "#", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '~':
-                    token = new Token(TokenType.Til, "~", this.Position, _registry);
+                    token = new Token(TokenType.Til, "~", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '.':
-                    token = new Token(TokenType.Period, ".", this.Position, _registry);
+                    token = new Token(TokenType.Period, ".", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '&':
-                    token = new Token(TokenType.Ampersand, "&", this.Position, _registry);
+                    token = new Token(TokenType.Ampersand, "&", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
@@ -423,11 +434,11 @@ namespace LiteDB
                     this.ReadChar();
                     if (IsWordChar(_char, true))
                     {
-                        token = new Token(TokenType.Word, "$" + this.ReadWord(), this.Position, _registry);
+                        token = new Token(TokenType.Word, "$" + this.ReadWord(), this.Position, _registry, _queryOperators);
                     }
                     else
                     {
-                        token = new Token(TokenType.Dollar, "$", this.Position, _registry);
+                        token = new Token(TokenType.Dollar, "$", this.Position, _registry, _queryOperators);
                     }
                     break;
 
@@ -435,17 +446,17 @@ namespace LiteDB
                     this.ReadChar();
                     if (_char == '=')
                     {
-                        token = new Token(TokenType.NotEquals, "!=", this.Position, _registry);
+                        token = new Token(TokenType.NotEquals, "!=", this.Position, _registry, _queryOperators);
                         this.ReadChar();
                     }
                     else
                     {
-                        token = new Token(TokenType.Exclamation, "!", this.Position, _registry);
+                        token = new Token(TokenType.Exclamation, "!", this.Position, _registry, _queryOperators);
                     }
                     break;
 
                 case '=':
-                    token = new Token(TokenType.Equals, "=", this.Position, _registry);
+                    token = new Token(TokenType.Equals, "=", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
@@ -453,12 +464,12 @@ namespace LiteDB
                     this.ReadChar();
                     if (_char == '=')
                     {
-                        token = new Token(TokenType.GreaterOrEquals, ">=", this.Position, _registry);
+                        token = new Token(TokenType.GreaterOrEquals, ">=", this.Position, _registry, _queryOperators);
                         this.ReadChar();
                     }
                     else
                     {
-                        token = new Token(TokenType.Greater, ">", this.Position, _registry);
+                        token = new Token(TokenType.Greater, ">", this.Position, _registry, _queryOperators);
                     }
                     break;
 
@@ -466,12 +477,12 @@ namespace LiteDB
                     this.ReadChar();
                     if (_char == '=')
                     {
-                        token = new Token(TokenType.LessOrEquals, "<=", this.Position, _registry);
+                        token = new Token(TokenType.LessOrEquals, "<=", this.Position, _registry, _queryOperators);
                         this.ReadChar();
                     }
                     else
                     {
-                        token = new Token(TokenType.Less, "<", this.Position, _registry);
+                        token = new Token(TokenType.Less, "<", this.Position, _registry, _queryOperators);
                     }
                     break;
 
@@ -484,37 +495,37 @@ namespace LiteDB
                     }
                     else
                     {
-                        token = new Token(TokenType.Minus, "-", this.Position, _registry);
+                        token = new Token(TokenType.Minus, "-", this.Position, _registry, _queryOperators);
                     }
                     break;
 
                 case '+':
-                    token = new Token(TokenType.Plus, "+", this.Position, _registry);
+                    token = new Token(TokenType.Plus, "+", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '*':
-                    token = new Token(TokenType.Asterisk, "*", this.Position, _registry);
+                    token = new Token(TokenType.Asterisk, "*", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '/':
-                    token = new Token(TokenType.Slash, "/", this.Position, _registry);
+                    token = new Token(TokenType.Slash, "/", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
                 case '\\':
-                    token = new Token(TokenType.Backslash, @"\", this.Position, _registry);
+                    token = new Token(TokenType.Backslash, @"\", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '%':
-                    token = new Token(TokenType.Percent, "%", this.Position, _registry);
+                    token = new Token(TokenType.Percent, "%", this.Position, _registry, _queryOperators);
                     this.ReadChar();
                     break;
 
                 case '\"':
                 case '\'':
-                    token = new Token(TokenType.String, this.ReadString(_char), this.Position, _registry);
+                    token = new Token(TokenType.String, this.ReadString(_char), this.Position, _registry, _queryOperators);
                     break;
 
                 case '0':
@@ -529,7 +540,7 @@ namespace LiteDB
                 case '9':
                     var dbl = false;
                     var number = this.ReadNumber(ref dbl);
-                    token = new Token(dbl ? TokenType.Double : TokenType.Int, number, this.Position, _registry);
+                    token = new Token(dbl ? TokenType.Double : TokenType.Int, number, this.Position, _registry, _queryOperators);
                     break;
 
                 case ' ':
@@ -542,14 +553,14 @@ namespace LiteDB
                         sb.Append(_char);
                         this.ReadChar();
                     }
-                    token = new Token(TokenType.Whitespace, sb.ToString(), this.Position, _registry);
+                    token = new Token(TokenType.Whitespace, sb.ToString(), this.Position, _registry, _queryOperators);
                     break;
 
                 default:
                     // test if first char is an word 
                     if (IsWordChar(_char, true))
                     {
-                        token = new Token(TokenType.Word, this.ReadWord(), this.Position, _registry);
+                        token = new Token(TokenType.Word, this.ReadWord(), this.Position, _registry, _queryOperators);
                     }
                     else
                     {
@@ -558,7 +569,7 @@ namespace LiteDB
                     break;
             }
 
-            return token ?? new Token(TokenType.Unknown, _char.ToString(), this.Position, _registry);
+            return token ?? new Token(TokenType.Unknown, _char.ToString(), this.Position, _registry, _queryOperators);
         }
 
         /// <summary>

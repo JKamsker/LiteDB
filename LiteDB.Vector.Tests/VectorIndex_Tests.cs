@@ -1,13 +1,17 @@
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Plugins.Query;
 using LiteDB.Vector;
 using LiteDB.Vector.Engine;
+using LiteDB.Vector.Query;
 using LiteDB.Vector.Tests.Infrastructure;
 using MathNet.Numerics.LinearAlgebra;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using LiteDB.Plugins;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -52,7 +56,7 @@ namespace LiteDB.Vector.Tests.Querying
                 new Func<TransactionService, T>(transaction =>
                 {
                     var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                    var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata("embedding_idx");
+                    var metadataBuffer = snapshot.CollectionPage.GetPluginIndexMetadata("embedding_idx");
 
                     if (metadataBuffer == null)
                     {
@@ -383,7 +387,10 @@ namespace LiteDB.Vector.Tests.Querying
 
             var vectorIndexNames = InspectCollection(db, "vectors", snapshot =>
             {
-                return snapshot.CollectionPage.GetVectorIndexes().Select(pair => pair.Index.Name).ToArray();
+                return snapshot.CollectionPage.GetPluginIndexes()
+                    .Where(x => string.Equals(x.PluginId, VectorPlugin.PluginId, StringComparison.Ordinal))
+                    .Select(pair => pair.Index.Name)
+                    .ToArray();
             });
 
             vectorIndexNames.Should().Contain("embedding_idx");
@@ -630,11 +637,19 @@ namespace LiteDB.Vector.Tests.Querying
             var definition = (LiteDB.Query)queryField.GetValue(query);
 
             definition.OrderBy.Should().HaveCount(2);
-            definition.OrderBy[0].Expression.Type.Should().Be(BsonExpressionType.VectorDist);
+            definition.OrderBy[0].Expression.CustomExpressionName.Should().Be("VECTOR_DIST");
 
-            definition.VectorField = "$.Embedding";
-            definition.VectorTarget = new[] { 1f, 0f };
-            definition.VectorMaxDistance = double.MaxValue;
+            var metadata = definition.GetOrCreateMetadata(
+                VectorQueryMetadata.PluginId,
+                () => new QueryMetadataBag(
+                    VectorQueryMetadata.PluginId,
+                    version: VectorQueryMetadata.Version,
+                    VectorQueryMetadata.ReservedKeys));
+
+            metadata.Set(VectorQueryMetadata.FieldKey, "$.Embedding");
+            metadata.Set(VectorQueryMetadata.TargetKey, new[] { 1f, 0f });
+            metadata.Set(VectorQueryMetadata.MaxDistanceKey, double.MaxValue);
+            metadata.Remove(VectorQueryMetadata.MaxDistanceNormalizedKey);
 
             var plan = query.GetPlan();
 

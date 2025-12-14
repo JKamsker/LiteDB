@@ -16,7 +16,7 @@
   - `state` keys must exist in `keys`; unknown entries are rejected to keep contracts predictable.
   - `version` increments require migration logic supplied by the plugin.
 
-## PluginBsonTypeRegistration
+## PluginCustomBsonTypeDescriptor
 
 - **Description**: Declares a BSON type reserved for plugin-owned serialization along with delegate callbacks for encode/decode.
 - **Fields**:
@@ -26,7 +26,7 @@
   - `deserializer` (Func<BsonReader, ValueTask<object>>): Deserializer callback.
   - `legacyAliases` (array<byte>): Optional list of legacy codes for backward compatibility.
 - **Relationships**:
-  - Registered through `IBsonTypeRegistry`.
+  - Registered through `ICustomBsonTypeRegistry`.
   - Referenced by upgrade scripts to migrate legacy data.
 - **Validation Rules**:
   - `typeCode` must be unique across all registrations.
@@ -43,14 +43,14 @@
   - `rebuildHook` (Func<RebuildContext, ValueTask>): Optional callback to participate in engine rebuilds.
   - `compatibilityRange` (string): Supported format versions (e.g., `>=8.0`).
 - **Relationships**:
-  - Registered with the core `IPageFactoryRegistry`.
+  - Registered with the core `IPageTypeRegistry`.
   - Consumed by vector index strategies during index maintenance.
 - **Validation Rules**:
   - `factory` must only produce pages deriving from `BasePage`.
   - `compatibilityRange` must include the current engine version before activation.
   - `metadataSerializer` must be idempotent, enabling snapshot/restore flows.
 
-## VectorIndexStrategyDescriptor
+## CustomIndexStrategyDescriptor
 
 - **Description**: Aggregates plugin callbacks that implement vector indexing semantics end-to-end.
 - **Fields**:
@@ -61,7 +61,7 @@
   - `requiredBsonTypes` (array<byte>): Type codes this strategy depends on.
 - **Relationships**:
   - Registered through the expanded `IIndexStrategyRegistry`.
-  - Consumes `QueryMetadataBag`, `PageFactoryRegistration`, and `PluginBsonTypeRegistration`.
+  - Consumes `QueryMetadataBag`, `PageFactoryRegistration`, and `PluginCustomBsonTypeDescriptor`.
 - **Validation Rules**:
   - `ensureIndex` must validate plugin availability and throw deterministic errors if missing prerequisites.
   - `queryPlanner` must not mutate core state outside metadata bag contracts.
@@ -81,3 +81,6 @@
 - **Validation Rules**:
   - `steps` must include at least one verification command per success criterion.
   - `rollbackPlan` must reference concrete scripts or documented procedures.
+
+
+

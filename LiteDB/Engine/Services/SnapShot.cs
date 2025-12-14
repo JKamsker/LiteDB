@@ -1,3 +1,4 @@
+using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 using System;
@@ -33,6 +34,7 @@ namespace LiteDB.Engine
         private readonly string _collectionName;
         private readonly CollectionPage _collectionPage;
         private readonly ILitePluginContext _plugins;
+        private static readonly ConcurrentDictionary<string, byte> _missingPluginWarnings = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
 
         // local page cache - contains only pages about this collection (but do not contains CollectionPage - use this.CollectionPage)
         private readonly Dictionary<uint, BasePage> _localPages = new Dictionary<uint, BasePage>();
@@ -91,7 +93,94 @@ namespace LiteDB.Engine
             {
                 // local pages contains only data/index pages
                 _localPages.Remove(_collectionPage.PageID);
+
+                try
+                {
+                    this.EvaluatePluginAssets();
+                }
+                catch
+                {
+                    this.Dispose();
+                    throw;
+                }
             }
+        }
+
+        private void EvaluatePluginAssets()
+        {
+            if (_collectionPage == null)
+            {
+                return;
+            }
+
+            foreach (var (index, pluginId, _) in _collectionPage.GetPluginIndexes())
+            {
+                if (this.HasPluginSupport(pluginId))
+                {
+                    continue;
+                }
+
+                this.HandleMissingPluginAsset(pluginId, index?.Name);
+            }
+        }
+
+        private bool HasPluginSupport(string pluginId)
+        {
+            var registry = _plugins?.CustomIndexes?.Registered;
+
+            if (registry == null)
+            {
+                return false;
+            }
+
+            foreach (var descriptor in registry)
+            {
+                if (descriptor == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(descriptor.PluginId, pluginId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void HandleMissingPluginAsset(string pluginId, string assetName)
+        {
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = "plugin.asset_detected",
+                ["pluginId"] = pluginId,
+                ["collection"] = _collectionName ?? string.Empty,
+                ["asset"] = assetName ?? string.Empty
+            };
+
+            if (policy.MissingBehavior == PluginMissingBehavior.RefuseDatabase)
+            {
+                throw policy.CreateMissingPluginException(pluginId, "OpenSnapshot", diagnostics);
+            }
+
+            this.LogMissingPluginWarning(pluginId, policy.MissingBehavior);
+        }
+
+        private void LogMissingPluginWarning(string pluginId, PluginMissingBehavior behavior)
+        {
+            if (!_missingPluginWarnings.TryAdd(pluginId, 1))
+            {
+                return;
+            }
+
+            var logger = _plugins?.Logger ?? NullLogger.Instance;
+            var behaviorText = behavior == PluginMissingBehavior.AllowIfSafe
+                ? "continuing per policy 'AllowIfSafe'"
+                : "vector operations will be refused until the plugin is installed";
+            var message = $"Plugin '{pluginId}' is not loaded but plugin-owned assets were detected in collection '{_collectionName}'. {behaviorText}.";
+            logger.Write(LogLevel.Warning, message);
         }
 
         /// <summary>
@@ -612,10 +701,9 @@ namespace LiteDB.Engine
         {
             ENSURE(page.PrevPageID == uint.MaxValue && page.NextPageID == uint.MaxValue, "before delete a page, no linked list with any another page");
             ENSURE(page.ItemsCount == 0 && page.UsedBytes == 0 && page.HighestIndex == byte.MaxValue && page.FragmentedBytes == 0, "no items on page when delete this page");
-            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index/vector pages can be deleted");
+            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || this.IsPluginPageType(page.PageType), "only data/index/plugin pages can be deleted");
             DEBUG(!_collectionPage.FreeDataPageList.Any(x => x == page.PageID), "this page cann't be deleted because free data list page is linked o this page");
             DEBUG(!_collectionPage.GetCollectionIndexes().Any(x => x.FreeIndexPageList == page.PageID), "this page cann't be deleted because free index list page is linked o this page");
-            DEBUG(!_collectionPage.GetVectorIndexes().Any(x => VectorIndexMetadataSerializer.GetReserved(x.Metadata) == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
             DEBUG(page.Buffer.Slice(PAGE_HEADER_SIZE, PAGE_SIZE - PAGE_HEADER_SIZE - 1).All(0), "page content shloud be empty");
 
             // mark page as empty and dirty
@@ -738,6 +826,18 @@ namespace LiteDB.Engine
 
             // remove collection name (in header) at commit time
             _transPages.Commit += (h) => h.DeleteCollection(_collectionName);
+        }
+
+        private bool IsPluginPageType(PageType pageType)
+        {
+            var registry = _plugins?.PageFactories;
+
+            if (registry == null)
+            {
+                return false;
+            }
+
+            return registry.TryGet((byte)pageType, out _);
         }
 
         #endregion

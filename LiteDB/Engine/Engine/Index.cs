@@ -1,4 +1,4 @@
-﻿using LiteDB.Plugins;
+using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 
 using System;
@@ -56,7 +56,7 @@ namespace LiteDB.Engine
                 // read all objects (read from PK index)
                 foreach (var pkNode in new IndexAll("_id", LiteDB.Query.Ascending).Run(collectionPage, indexer))
                 {
-                    using (var reader = new BufferReader(data.Read(pkNode.DataBlock)))
+                    using (var reader = new BufferReader(data.Read(pkNode.DataBlock), utcDate: false, pluginContext: snapshot.Plugins))
                     {
                         var doc = reader.ReadDocument(expression.Fields).GetValue();
 
@@ -98,22 +98,26 @@ namespace LiteDB.Engine
         }
 
         /// <summary>
-        /// Create a new vector index (or do nothing if already exists) for a collection/field.
+        /// Create a new plugin-provided index (or do nothing if already exists) for a collection/field.
         /// </summary>
-        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, BsonDocument options)
+        public bool EnsureCustomIndex(string collection, string name, string strategyKind, BsonExpression expression, BsonDocument options)
         {
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
+            if (strategyKind.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(strategyKind));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
             if (options == null) throw new ArgumentNullException(nameof(options));
-            if (expression.Fields.Count == 0) throw new ArgumentException("Vector index expressions must reference a document field.", nameof(expression));
+            if (expression.Fields.Count == 0) throw new ArgumentException($"Custom index '{strategyKind}' expressions must reference a document field.", nameof(expression));
 
             if (name.Length > INDEX_NAME_MAX_LENGTH) throw LiteException.InvalidIndexName(name, collection, "MaxLength = " + INDEX_NAME_MAX_LENGTH);
             if (!name.IsWord()) throw LiteException.InvalidIndexName(name, collection, "Use only [a-Z$_]");
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
 
-            var strategy = _plugins?.Indexes?.GetByKind("vector") ?? throw this.CreateVectorPluginRequiredException(
-                operation: "EnsureVectorIndex",
+            var requestedPluginId = TryGetPluginIdFromOptions(options);
+            var strategy = _plugins?.Indexes?.GetByKind(strategyKind) ?? throw this.CreatePluginRequiredException(
+                pluginId: requestedPluginId,
+                strategyKind: strategyKind,
+                operation: "EnsureCustomIndex",
                 collection: collection,
                 indexName: name,
                 expression: expression.Source,
@@ -159,8 +163,11 @@ namespace LiteDB.Engine
 
                     if (strategy == null)
                     {
-                        throw this.CreateVectorPluginRequiredException(
-                            operation: "DropVectorIndex",
+                        var strategyName = $"type:{index.IndexType}";
+                        throw this.CreatePluginRequiredException(
+                            pluginId: this.TryGetPluginIdForIndex(col, name),
+                            strategyKind: strategyName,
+                            operation: "DropCustomIndex",
                             collection: collection,
                             indexName: name,
                             expression: index.Expression,
@@ -180,19 +187,20 @@ namespace LiteDB.Engine
             });
         }
 
-        private LiteException CreateVectorPluginRequiredException(string operation, string collection, string indexName, string expression, BsonDocument options)
+        private LiteException CreatePluginRequiredException(string pluginId, string strategyKind, string operation, string collection, string indexName, string expression, BsonDocument options)
         {
             var diagnostics = new BsonDocument
             {
-                ["event"] = "vector.plugin_required",
+                ["event"] = "plugin.index_required",
                 ["operation"] = operation ?? string.Empty,
                 ["collection"] = collection ?? string.Empty,
                 ["index"] = indexName ?? string.Empty,
                 ["expression"] = expression ?? string.Empty,
+                ["strategyKind"] = strategyKind ?? string.Empty,
                 ["pluginContextAvailable"] = _plugins != null,
-                ["strategyRegistryAvailable"] = _plugins?.VectorIndexes != null,
-                ["expectedStrategyId"] = LiteDB.VectorCompatibility.DefaultStrategyId,
-                ["registeredStrategies"] = this.GetRegisteredVectorStrategies()
+                ["strategyRegistryAvailable"] = _plugins?.CustomIndexes != null,
+                ["pluginId"] = pluginId ?? string.Empty,
+                ["registeredStrategies"] = this.GetRegisteredCustomStrategies()
             };
 
             if (options != null && options.Count > 0)
@@ -202,27 +210,57 @@ namespace LiteDB.Engine
                 diagnostics["options"] = optionCopy;
             }
 
-            var exception = LiteDB.VectorCompatibility.PluginRequired();
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+            var exception = policy.CreateMissingPluginException(pluginId, operation ?? "PluginOperation", diagnostics);
 
-            try
-            {
-                exception.Data["VectorDiagnostics"] = diagnostics;
-            }
-            catch (ArgumentException)
-            {
-                // .NET Framework requires Exception.Data values to be serializable. Fall back to JSON text.
-                exception.Data["VectorDiagnostics"] = diagnostics.ToString();
-            }
-
-            LOG($"vector plugin missing: {diagnostics.ToString()}", "PLUGIN");
+            LOG($"custom index plugin missing: {diagnostics.ToString()}", "PLUGIN");
 
             return exception;
         }
 
-        private BsonArray GetRegisteredVectorStrategies()
+        private static string TryGetPluginIdFromOptions(BsonDocument options)
+        {
+            if (options == null)
+            {
+                return null;
+            }
+
+            if (!options.TryGetValue("_pluginMetadata", out var envelope) || envelope.IsDocument == false)
+            {
+                return null;
+            }
+
+            var document = envelope.AsDocument;
+            if (!document.TryGetValue("pluginId", out var pluginIdValue) || pluginIdValue.IsString == false)
+            {
+                return null;
+            }
+
+            return pluginIdValue.AsString;
+        }
+
+        private string TryGetPluginIdForIndex(CollectionPage collectionPage, string indexName)
+        {
+            if (collectionPage == null || string.IsNullOrWhiteSpace(indexName))
+            {
+                return null;
+            }
+
+            foreach (var (index, pluginId, _) in collectionPage.GetPluginIndexes())
+            {
+                if (string.Equals(index?.Name, indexName, StringComparison.Ordinal))
+                {
+                    return pluginId;
+                }
+            }
+
+            return null;
+        }
+
+        private BsonArray GetRegisteredCustomStrategies()
         {
             var array = new BsonArray();
-            var registered = _plugins?.VectorIndexes?.Registered;
+            var registered = _plugins?.CustomIndexes?.Registered;
 
             if (registered != null)
             {
@@ -239,3 +277,4 @@ namespace LiteDB.Engine
         }
     }
 }
+

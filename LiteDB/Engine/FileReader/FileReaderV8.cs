@@ -7,7 +7,9 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LiteDB;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -217,7 +219,7 @@ namespace LiteDB.Engine
                             var docBytes = mem.ToArray();
 
                             // read all data array in bson document
-                            using (var r = new BufferReader(docBytes, false))
+                            using (var r = new BufferReader(docBytes, false, _plugins))
                             {
                                 var docResult = r.ReadDocument();
                                 var id = docResult.Value["_id"];
@@ -320,7 +322,7 @@ namespace LiteDB.Engine
 
             var area = header.Buffer.Slice(HeaderPage.P_COLLECTIONS, HeaderPage.COLLECTIONS_SIZE);
 
-            using (var r = new BufferReader(new[] { area }, false))
+            using (var r = new BufferReader(new[] { area }, false, _plugins))
             {
                 var result = r.ReadDocument();
 
@@ -379,9 +381,65 @@ namespace LiteDB.Engine
                     var page = result.Value;
                     var collectionPage = new CollectionPage(page.Buffer);
 
+                    var rawPluginIndexes = collectionPage
+                        .GetPluginIndexes()
+                        .ToDictionary(x => x.Index.Name, x => (x.PluginId, x.Metadata), StringComparer.Ordinal);
+
+                    var metadataRegistry = _plugins?.IndexMetadata;
+                    Dictionary<string, PluginIndexMetadata> resolvedPluginIndexes = null;
+
+                    if (metadataRegistry != null && rawPluginIndexes.Count > 0)
+                    {
+                        resolvedPluginIndexes = collectionPage
+                            .GetPluginIndexes(metadataRegistry)
+                            .ToDictionary(x => x.Index.Name, x => x.Metadata, StringComparer.Ordinal);
+
+                        foreach (var raw in rawPluginIndexes)
+                        {
+                            if (!resolvedPluginIndexes.ContainsKey(raw.Key))
+                            {
+                                throw this.CreateMetadataSerializerException(raw.Value.PluginId, collection.Key, raw.Key);
+                            }
+                        }
+                    }
+                    else if (metadataRegistry == null && rawPluginIndexes.Count > 0)
+                    {
+                        var blocking = rawPluginIndexes.First();
+                        throw this.CreateMetadataSerializerException(blocking.Value.PluginId, collection.Key, blocking.Key);
+                    }
+
                     foreach (var index in collectionPage.GetCollectionIndexes())
                     {
                         if (index.Name == "_id") continue;
+
+                        PluginIndexMetadata resolvedMetadata = null;
+
+                        if (resolvedPluginIndexes != null)
+                        {
+                            resolvedPluginIndexes.TryGetValue(index.Name, out resolvedMetadata);
+                        }
+
+                        BsonDocument pluginMetadataDocument = null;
+                        string pluginId = null;
+                        string pluginIndexKind = null;
+                        byte[] pluginMetadata = null;
+
+                        if (resolvedMetadata != null)
+                        {
+                            pluginId = resolvedMetadata.PluginId;
+                            pluginIndexKind = resolvedMetadata.IndexKind;
+                            pluginMetadata = resolvedMetadata.Payload;
+
+                            try
+                            {
+                                var descriptor = metadataRegistry.Get(pluginIndexKind);
+                                pluginMetadataDocument = descriptor.Deserialize(pluginMetadata) ?? new BsonDocument();
+                            }
+                            catch (Exception ex)
+                            {
+                                throw this.CreateMetadataDeserializationException(pluginId, collection.Key, index.Name, ex);
+                            }
+                        }
 
                         var info = new IndexInfo
                         {
@@ -390,7 +448,10 @@ namespace LiteDB.Engine
                             Expression = index.Expression,
                             Unique = index.Unique,
                             IndexType = index.IndexType,
-                            VectorMetadata = index.IndexType == 1 ? collectionPage.GetVectorIndexMetadata(index.Name) : null
+                            PluginId = pluginId,
+                            PluginIndexKind = pluginIndexKind,
+                            PluginMetadata = pluginMetadata,
+                            PluginMetadataDocument = pluginMetadataDocument
                         };
 
                         info.BindExpressionRegistry(index.Registry);
@@ -405,11 +466,33 @@ namespace LiteDB.Engine
                         }
                     }
                 }
+                catch (LiteException ex) when (ex.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                {
+                    this.HandleError(ex, pageInfo);
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     this.HandleError(ex, pageInfo);
                 }
             }
+        }
+
+        private LiteException CreateMetadataSerializerException(string pluginId, string collection, string indexName)
+        {
+            var owner = string.IsNullOrWhiteSpace(pluginId) ? "the owning plugin" : $"plugin '{pluginId}'";
+            return new LiteException(
+                LiteException.PLUGIN_REQUIRED,
+                $"Metadata serializer from {owner} is required to read index '{collection}.{indexName}'. Install and register the plugin before running rebuild.");
+        }
+
+        private LiteException CreateMetadataDeserializationException(string pluginId, string collection, string indexName, Exception inner)
+        {
+            var owner = string.IsNullOrWhiteSpace(pluginId) ? "the owning plugin" : $"plugin '{pluginId}'";
+            return new LiteException(
+                LiteException.PLUGIN_REQUIRED,
+                inner,
+                $"Metadata supplied by {owner} for index '{collection}.{indexName}' could not be deserialized. Install the correct plugin version and retry.");
         }
 
         /// <summary>

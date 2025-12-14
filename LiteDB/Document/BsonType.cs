@@ -32,10 +32,7 @@ namespace LiteDB
         Boolean = 12,
         DateTime = 13,
 
-        MaxValue = 14,
-
-        [Obsolete("Vector serialization is provided by the LiteDB.Vector plugin via the BSON type registry.")]
-        Vector = 100,
+        MaxValue = 14
     }
 
     internal static class BsonTypeResolver
@@ -49,13 +46,13 @@ namespace LiteDB
             return _registries.GetValue(target, static ctx => new BsonTypeRegistry(ctx.BsonTypes));
         }
 
-        internal static bool TryGet(ILitePluginContext context, byte typeCode, out BsonTypeRegistration registration)
+        internal static bool TryGet(ILitePluginContext context, byte typeCode, out CustomBsonTypeDescriptor registration)
         {
             var registry = GetRegistry(context);
             return registry.TryGet(typeCode, out registration);
         }
 
-        internal static bool TryGet(ILitePluginContext context, BsonType type, out BsonTypeRegistration registration)
+        internal static bool TryGet(ILitePluginContext context, BsonType type, out CustomBsonTypeDescriptor registration)
         {
             return TryGet(context, (byte)type, out registration);
         }
@@ -78,3 +75,4 @@ namespace LiteDB
         }
     }
 }
+

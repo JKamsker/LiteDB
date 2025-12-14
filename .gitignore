@@ -234,3 +234,4 @@ artifacts_temp/**/*.db-shm
 artifacts_temp/**/*.db-wal
 artifacts_temp/**/*vector-backup*
 artifacts_temp/**/*-backup*.db
+obj/

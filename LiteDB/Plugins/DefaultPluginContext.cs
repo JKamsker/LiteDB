@@ -12,15 +12,19 @@ namespace LiteDB.Plugins
     {
         public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
         {
-            this.Expressions = new ExpressionRegistry();
+            this.QueryOperators = new QueryOperatorRegistry();
+            this.Expressions = new ExpressionRegistry(this.QueryOperators);
             this.Indexes = new IndexRegistry();
             this.QueryPlanner = new QueryPlannerRegistry();
             this.QueryMetadata = new QueryMetadataAccessor();
-            this.BsonTypes = new PluginBsonTypeRegistry();
-            this.PageFactories = new PluginPageFactoryRegistry();
-            this.VectorIndexes = new VectorIndexStrategyRegistry();
+            this.DiagnosticPolicy = DefaultPluginDiagnosticPolicy.Instance;
+            this.SqlFunctions = new SqlFunctionRegistry();
+            this.QueryCostModels = new QueryCostModelRegistry();
+            this.BsonTypes = new CustomBsonTypeRegistry();
+            this.PageFactories = new PageTypeRegistry();
+            this.IndexMetadata = new PluginIndexMetadataRegistry();
+            this.CustomIndexes = new CustomIndexStrategyRegistry();
             this.LinqResolvers = new LinqResolverRegistry();
-            this.IndexInterceptors = new IndexInterceptorRegistry();
             this.Services = services ?? NullServiceProvider.Instance;
             this.Logger = logger ?? NullLogger.Instance;
             this.ConnectionString = connectionString ?? new ConnectionString();
@@ -34,15 +38,23 @@ namespace LiteDB.Plugins
 
         public IQueryMetadataAccessor QueryMetadata { get; }
 
-        public IBsonTypeRegistry BsonTypes { get; }
+        public IPluginDiagnosticPolicy DiagnosticPolicy { get; private set; }
 
-        public IPageFactoryRegistry PageFactories { get; }
+        public ISqlFunctionRegistry SqlFunctions { get; }
 
-        public IVectorIndexStrategyRegistry VectorIndexes { get; }
+        public IQueryOperatorRegistry QueryOperators { get; }
+
+        public IQueryCostModelRegistry QueryCostModels { get; }
+
+        public ICustomBsonTypeRegistry BsonTypes { get; }
+
+        public IPageTypeRegistry PageFactories { get; }
+
+        public IPluginIndexMetadataRegistry IndexMetadata { get; }
+
+        public ICustomIndexStrategyRegistry CustomIndexes { get; }
 
         public ILinqResolverRegistry LinqResolvers { get; }
-
-        public IIndexInterceptorRegistry IndexInterceptors { get; }
 
         public IServiceProvider Services { get; }
 
@@ -65,17 +77,22 @@ namespace LiteDB.Plugins
             return this.QueryMetadata.GetDescriptor(pluginId);
         }
 
-        public void RegisterBsonType(BsonTypeRegistration registration)
+        public void SetDiagnosticPolicy(IPluginDiagnosticPolicy policy)
+        {
+            DiagnosticPolicy = policy ?? throw new ArgumentNullException(nameof(policy));
+        }
+
+        public void RegisterBsonType(CustomBsonTypeDescriptor registration)
         {
             this.BsonTypes.Register(registration);
         }
 
-        public bool TryGetBsonType(byte typeCode, out BsonTypeRegistration registration)
+        public bool TryGetBsonType(byte typeCode, out CustomBsonTypeDescriptor registration)
         {
             return this.BsonTypes.TryGetByTypeCode(typeCode, out registration);
         }
 
-        public bool TryGetBsonType(string name, out BsonTypeRegistration registration)
+        public bool TryGetBsonType(string name, out CustomBsonTypeDescriptor registration)
         {
             return this.BsonTypes.TryGetByName(name, out registration);
         }
@@ -90,19 +107,49 @@ namespace LiteDB.Plugins
             return this.PageFactories.TryGet(pageType, out registration);
         }
 
-        public void RegisterVectorIndexStrategy(VectorIndexStrategyDescriptor descriptor)
+        public void RegisterSqlFunction(SqlFunctionRegistration registration)
         {
-            this.VectorIndexes.Register(descriptor);
+            this.SqlFunctions.Register(registration);
         }
 
-        public bool TryGetVectorIndexStrategyDescriptor(string strategyId, out VectorIndexStrategyDescriptor descriptor)
+        public void RegisterQueryOperator(QueryOperatorRegistration registration)
         {
-            return this.VectorIndexes.TryGet(strategyId, out descriptor);
+            this.QueryOperators.Register(registration);
         }
 
-        public VectorIndexStrategyDescriptor GetVectorIndexStrategyDescriptor(string strategyId)
+        public void RegisterQueryCostModel(QueryCostModelRegistration registration)
         {
-            return this.VectorIndexes.Get(strategyId);
+            this.QueryCostModels.Register(registration);
+        }
+
+        public void RegisterCustomIndexStrategy(CustomIndexStrategyDescriptor descriptor)
+        {
+            this.CustomIndexes.Register(descriptor);
+        }
+
+        public bool TryGetCustomIndexStrategyDescriptor(string strategyId, out CustomIndexStrategyDescriptor descriptor)
+        {
+            return this.CustomIndexes.TryGet(strategyId, out descriptor);
+        }
+
+        public CustomIndexStrategyDescriptor GetCustomIndexStrategyDescriptor(string strategyId)
+        {
+            return this.CustomIndexes.Get(strategyId);
+        }
+
+        public void RegisterIndexMetadata(PluginIndexMetadataDescriptor descriptor)
+        {
+            this.IndexMetadata.Register(descriptor);
+        }
+
+        public bool TryGetIndexMetadataDescriptor(string indexKind, out PluginIndexMetadataDescriptor descriptor)
+        {
+            return this.IndexMetadata.TryGet(indexKind, out descriptor);
+        }
+
+        public PluginIndexMetadataDescriptor GetIndexMetadataDescriptor(string indexKind)
+        {
+            return this.IndexMetadata.Get(indexKind);
         }
     }
 
@@ -146,22 +193,27 @@ namespace LiteDB.Plugins
         }
     }
 
-    internal sealed class VectorIndexStrategyRegistry : IVectorIndexStrategyRegistry
+    internal sealed class CustomIndexStrategyRegistry : ICustomIndexStrategyRegistry
     {
         private readonly object _sync = new object();
-        private readonly Dictionary<string, VectorIndexStrategyDescriptor> _strategies = new Dictionary<string, VectorIndexStrategyDescriptor>(StringComparer.Ordinal);
+        private readonly Dictionary<string, CustomIndexStrategyDescriptor> _strategies = new Dictionary<string, CustomIndexStrategyDescriptor>(StringComparer.Ordinal);
 
-        public void Register(VectorIndexStrategyDescriptor descriptor)
+        public void Register(CustomIndexStrategyDescriptor descriptor)
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
 
             lock (_sync)
             {
+                if (_strategies.TryGetValue(descriptor.StrategyId, out var existing))
+                {
+                    throw new InvalidOperationException($"Index strategy '{descriptor.StrategyId}' is already registered by plugin '{existing.PluginId}'.");
+                }
+
                 _strategies[descriptor.StrategyId] = descriptor;
             }
         }
 
-        public bool TryGet(string strategyId, out VectorIndexStrategyDescriptor descriptor)
+        public bool TryGet(string strategyId, out CustomIndexStrategyDescriptor descriptor)
         {
             if (string.IsNullOrWhiteSpace(strategyId))
             {
@@ -175,17 +227,17 @@ namespace LiteDB.Plugins
             }
         }
 
-        public VectorIndexStrategyDescriptor Get(string strategyId)
+        public CustomIndexStrategyDescriptor Get(string strategyId)
         {
             if (!TryGet(strategyId, out var descriptor))
             {
-                throw new KeyNotFoundException($"No vector index strategy descriptor registered for '{strategyId}'.");
+                throw new KeyNotFoundException($"No custom index strategy descriptor registered for '{strategyId}'.");
             }
 
             return descriptor;
         }
 
-        public IReadOnlyCollection<VectorIndexStrategyDescriptor> Registered
+        public IReadOnlyCollection<CustomIndexStrategyDescriptor> Registered
         {
             get
             {
@@ -197,12 +249,72 @@ namespace LiteDB.Plugins
         }
     }
 
+    internal sealed class PluginIndexMetadataRegistry : IPluginIndexMetadataRegistry
+    {
+        private readonly object _sync = new object();
+        private readonly Dictionary<string, PluginIndexMetadataDescriptor> _descriptors = new Dictionary<string, PluginIndexMetadataDescriptor>(StringComparer.Ordinal);
+
+        public void Register(PluginIndexMetadataDescriptor descriptor)
+        {
+            if (descriptor == null)
+            {
+                throw new ArgumentNullException(nameof(descriptor));
+            }
+
+            lock (_sync)
+            {
+                _descriptors[descriptor.IndexKind] = descriptor;
+            }
+        }
+
+        public bool TryGet(string indexKind, out PluginIndexMetadataDescriptor descriptor)
+        {
+            if (string.IsNullOrWhiteSpace(indexKind))
+            {
+                descriptor = null;
+                return false;
+            }
+
+            lock (_sync)
+            {
+                return _descriptors.TryGetValue(indexKind, out descriptor);
+            }
+        }
+
+        public PluginIndexMetadataDescriptor Get(string indexKind)
+        {
+            if (!this.TryGet(indexKind, out var descriptor))
+            {
+                throw new KeyNotFoundException($"Index metadata descriptor '{indexKind}' was not registered.");
+            }
+
+            return descriptor;
+        }
+
+        public IReadOnlyCollection<PluginIndexMetadataDescriptor> Registered
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _descriptors.Values.ToArray();
+                }
+            }
+        }
+    }
+
     internal sealed class ExpressionRegistry : IExpressionRegistry
     {
+        private readonly IQueryOperatorRegistry _queryOperators;
         private readonly object _sync = new object();
         private readonly Dictionary<string, BinaryOperatorRegistration> _operators = new Dictionary<string, BinaryOperatorRegistration>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ExpressionFunctionRegistration> _functions = new Dictionary<string, ExpressionFunctionRegistration>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _keywords = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        public ExpressionRegistry(IQueryOperatorRegistry queryOperators)
+        {
+            _queryOperators = queryOperators ?? throw new ArgumentNullException(nameof(queryOperators));
+        }
 
         public IReadOnlyCollection<BinaryOperatorRegistration> Operators
         {
@@ -236,6 +348,8 @@ namespace LiteDB.Plugins
                 }
             }
         }
+
+        public IQueryOperatorRegistry QueryOperators => _queryOperators;
 
         public void RegisterBinaryOperator(string token, BsonExpressionType expressionType, BsonBinaryOperator implementation, BinaryOperatorPrecedence precedence = BinaryOperatorPrecedence.Comparison, string source = null)
         {
@@ -446,39 +560,6 @@ namespace LiteDB.Plugins
         }
     }
 
-    internal sealed class IndexInterceptorRegistry : IIndexInterceptorRegistry
-    {
-        private readonly object _sync = new object();
-        private readonly SortedList<int, List<IndexInterceptor>> _interceptors = new SortedList<int, List<IndexInterceptor>>();
-
-        public void Register(IndexInterceptor interceptor, int order = 0)
-        {
-            if (interceptor == null) throw new ArgumentNullException(nameof(interceptor));
-
-            lock (_sync)
-            {
-                if (!_interceptors.TryGetValue(order, out var bucket))
-                {
-                    bucket = new List<IndexInterceptor>();
-                    _interceptors.Add(order, bucket);
-                }
-
-                bucket.Add(interceptor);
-            }
-        }
-
-        public IEnumerable<IndexInterceptor> Interceptors
-        {
-            get
-            {
-                lock (_sync)
-                {
-                    return _interceptors.Values.SelectMany(x => x).ToArray();
-                }
-            }
-        }
-    }
-
     internal sealed class NullServiceProvider : IServiceProvider
     {
         public static readonly NullServiceProvider Instance = new NullServiceProvider();
@@ -506,3 +587,11 @@ namespace LiteDB.Plugins
         }
     }
 }
+
+
+
+
+
+
+
+

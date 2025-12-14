@@ -12,7 +12,6 @@ namespace LiteDB
     public sealed class LiteDatabaseServices
     {
         private readonly ILitePluginContext _context;
-        private static readonly Lazy<LiteDatabaseServices> _default = new Lazy<LiteDatabaseServices>(CreateDefault, true);
 
         internal LiteDatabaseServices(ILitePluginContext context)
         {
@@ -45,14 +44,34 @@ namespace LiteDB
         public ILinqResolverRegistry LinqResolvers => _context.LinqResolvers;
 
         /// <summary>
-        /// Gets the index interceptor registry associated with the database.
+        /// Gets the custom index strategy registry associated with the database.
         /// </summary>
-        public IIndexInterceptorRegistry IndexInterceptors => _context.IndexInterceptors;
+        public ICustomIndexStrategyRegistry CustomIndexes => _context.CustomIndexes;
 
         /// <summary>
-        /// Gets the vector index strategy registry associated with the database.
+        /// Gets the SQL function registry associated with the database.
         /// </summary>
-        public IVectorIndexStrategyRegistry VectorIndexes => _context.VectorIndexes;
+        public ISqlFunctionRegistry SqlFunctions => _context.SqlFunctions;
+
+        /// <summary>
+        /// Gets the query operator registry associated with the database.
+        /// </summary>
+        public IQueryOperatorRegistry QueryOperators => _context.QueryOperators;
+
+        /// <summary>
+        /// Gets the query cost model registry associated with the database.
+        /// </summary>
+        public IQueryCostModelRegistry QueryCostModels => _context.QueryCostModels;
+
+        /// <summary>
+        /// Gets the plugin index metadata registry associated with the database.
+        /// </summary>
+        public IPluginIndexMetadataRegistry IndexMetadata => _context.IndexMetadata;
+
+        /// <summary>
+        /// Gets the plugin diagnostic policy associated with the database.
+        /// </summary>
+        public IPluginDiagnosticPolicy DiagnosticPolicy => _context.DiagnosticPolicy;
 
         /// <summary>
         /// Gets the service provider exposed to plugins.
@@ -70,13 +89,7 @@ namespace LiteDB
         public ConnectionString ConnectionString => _context.ConnectionString;
 
         internal ILitePluginContext Context => _context;
-
-        internal static LiteDatabaseServices Default => _default.Value;
-
-        private static LiteDatabaseServices CreateDefault()
-        {
-            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
-            return new LiteDatabaseServices(context);
-        }
     }
 }
+
+

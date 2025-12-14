@@ -6,6 +6,7 @@ using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 using LiteDB.Plugins.Query;
 using LiteDB.Plugins.Storage;
+using LiteDB.Vector.Document;
 using LiteDB.Vector.Engine;
 using LiteDB.Vector.Query;
 using LiteDB.Vector.Utils;
@@ -68,52 +69,67 @@ namespace LiteDB.Vector
 
             try
             {
+                var pluginId = VectorPlugin.PluginId;
                 var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"], context.Logger);
+
+                context.SetDiagnosticPolicy(VectorPluginDiagnosticPolicy.Instance);
 
                 context.RegisterQueryMetadata(
                     pluginId: VectorQueryMetadata.PluginId,
                     version: VectorQueryMetadata.Version,
                     reservedKeys: VectorQueryMetadata.ReservedKeys);
 
+                context.RegisterBsonType(VectorBsonSerializer.CreateDescriptor(pluginId));
+                context.RegisterSqlFunction(VectorSqlFunctions.CreateVectorDistance(pluginId));
+                context.RegisterSqlFunction(VectorSqlFunctions.CreateVectorSimilarity(pluginId));
+                context.RegisterQueryOperator(VectorQueryOperators.CreateVectorKnn(pluginId));
+                context.RegisterQueryCostModel(VectorQueryCostModel.Create(pluginId));
+
+                context.RegisterIndexMetadata(new PluginIndexMetadataDescriptor(
+                    pluginId: pluginId,
+                    indexKind: VectorCompatibility.DefaultIndexKind,
+                    serialize: VectorMetadataSerializer.Serialize,
+                    deserialize: VectorMetadataSerializer.Deserialize));
+
                 VectorIndexServiceFactory.Register((snapshot, collation) => new VectorIndexSearchAdapter(snapshot, collation));
 
                 context.Expressions.RegisterKeyword("VECTOR_DIST");
                 context.Expressions.RegisterBinaryOperator(
                     "VECTOR_DIST",
-                    BsonExpressionType.VectorDist,
+                    BsonExpressionType.Call,
                     VectorExpressions.VectorDistance,
                     BinaryOperatorPrecedence.Comparison,
                     " VECTOR_DIST "); // Comparison precedence keeps distance checks aligned with relational operators.
                 context.Expressions.RegisterFunction(
                     "VECTOR_DIST",
                     new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorDistance),
-                    BsonExpressionType.VectorDist,
+                    BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
                 context.Expressions.RegisterFunction(
                     "VECTOR_DIST",
                     new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorDistance),
-                    BsonExpressionType.VectorDist,
+                    BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
 
                 context.Expressions.RegisterKeyword("VECTOR_SIM");
                 context.Expressions.RegisterBinaryOperator(
                     "VECTOR_SIM",
-                    BsonExpressionType.VectorSim,
+                    BsonExpressionType.Call,
                     VectorExpressions.VectorSimilarity,
                     BinaryOperatorPrecedence.Comparison,
                     " VECTOR_SIM ");
                 context.Expressions.RegisterFunction(
                     "VECTOR_SIM",
                     new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorSimilarity),
-                    BsonExpressionType.VectorSim,
+                    BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
                 context.Expressions.RegisterFunction(
                     "VECTOR_SIM",
                     new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorSimilarity),
-                    BsonExpressionType.VectorSim,
+                    BsonExpressionType.Call,
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true);
 
@@ -124,25 +140,31 @@ namespace LiteDB.Vector
                 context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.");
 
                 context.RegisterPageFactory(new PageFactoryRegistration(
-                    pluginId: "LiteDB.Vector",
+                    pluginId: pluginId,
                     pageType: "VectorIndex",
+                    numericCode: VectorPlugin.PageTypeCode,
                     compatibilityRange: ">=8.0",
                     factory: ctx =>
                     {
-                        if (ctx is PageConstructionContext construction)
+                        if (ctx == null)
                         {
-                            return construction.IsNewPage
-                                ? new VectorIndexPage(construction.Buffer, construction.PageId)
-                                : new VectorIndexPage(construction.Buffer);
+                            throw new ArgumentNullException(nameof(ctx));
                         }
 
-                        throw new ArgumentException("Vector index page factory received an unexpected context instance.", nameof(ctx));
+                        if (ctx.Buffer is not PageBuffer buffer)
+                        {
+                            throw new InvalidOperationException("Vector page factory requires a PageBuffer instance.");
+                        }
+
+                        return ctx.IsNewPage
+                            ? new VectorIndexPage(buffer, ctx.PageId)
+                            : new VectorIndexPage(buffer);
                     }));
 
 #pragma warning disable CS0618
-                var descriptor = new VectorIndexStrategyDescriptor(
-                    pluginId: "LiteDB.Vector",
-                    strategyId: "LiteDB.Vector",
+                var descriptor = new CustomIndexStrategyDescriptor(
+                    pluginId: pluginId,
+                    strategyId: pluginId,
                     ensureIndex: ctx =>
                     {
                         if (ctx == null)
@@ -156,11 +178,11 @@ namespace LiteDB.Vector
                     },
                     queryPlanner: _ => { },
                     rebuildStrategy: _ => { },
-                    requiredBsonTypes: new[] { (byte)BsonType.Vector },
+                    requiredBsonTypes: new[] { VectorBsonConstants.TypeCode },
                     requiredPageTypes: new[] { "VectorIndex" });
 #pragma warning restore CS0618
 
-                context.RegisterVectorIndexStrategy(descriptor);
+                context.RegisterCustomIndexStrategy(descriptor);
             }
             catch (Exception ex)
             {
@@ -194,3 +216,5 @@ namespace LiteDB.Vector
         }
     }
 }
+
+

@@ -1,4 +1,5 @@
 using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +17,7 @@ namespace LiteDB.Engine
         private readonly Collation _collation;
         private readonly QueryPlan _queryPlan;
         private readonly List<BsonExpression> _terms = new List<BsonExpression>();
-        private bool _vectorOrderConsumed;
+        private bool _orderByConsumed;
 
         public QueryOptimization(Snapshot snapshot, Query query, IEnumerable<BsonDocument> source, Collation collation)
         {
@@ -246,8 +247,7 @@ namespace LiteDB.Engine
                 _queryPlan.IndexExpression = planningContext.SelectedIndexExpression;
                 _queryPlan.IsIndexKeyOnly = planningContext.SelectedIsIndexKeyOnly;
 
-                var pk = _snapshot.CollectionPage?.PK;
-                var computedCost = planningContext.SelectedIndexCost ?? _queryPlan.Index.GetCost(pk);
+                var computedCost = this.CalculateIndexCost(planningContext, selected);
                 _queryPlan.IndexCost = computedCost;
 
                 foreach (var term in planningContext.ConsumedTerms)
@@ -258,9 +258,9 @@ namespace LiteDB.Engine
                     }
                 }
 
-                if (planningContext.VectorOrderConsumed)
+                if (planningContext.OrderByConsumed)
                 {
-                    _vectorOrderConsumed = true;
+                    _orderByConsumed = true;
                 }
 
                 pluginFilters = planningContext.AdditionalFilters;
@@ -426,7 +426,7 @@ namespace LiteDB.Engine
             // if has no order by, returns null
             if (_query.OrderBy.Count == 0) return;
 
-            if (_vectorOrderConsumed)
+            if (_orderByConsumed)
             {
                 _queryPlan.OrderBy = null;
                 return;
@@ -504,6 +504,63 @@ namespace LiteDB.Engine
                     _queryPlan.IncludeAfter.Add(include);
                 }
             }
+        }
+
+        private uint CalculateIndexCost(QueryPlanningContext planningContext, BsonExpression selectedTerm)
+        {
+            if (planningContext.SelectedIndexCost.HasValue)
+            {
+                return planningContext.SelectedIndexCost.Value;
+            }
+
+            var pluginContext = _snapshot?.Plugins;
+            var costModels = pluginContext?.QueryCostModels?.Registered;
+            var metadataDocument = planningContext.SelectedPluginMetadata;
+            var indexKind = planningContext.SelectedPluginIndexKind;
+
+            if (costModels != null &&
+                metadataDocument != null &&
+                !string.IsNullOrWhiteSpace(indexKind))
+            {
+                var registration = costModels.FirstOrDefault(r => string.Equals(r.IndexKind, indexKind, StringComparison.Ordinal));
+
+                if (registration != null)
+                {
+                    try
+                    {
+                        var expression = selectedTerm ??
+                            BsonExpression.Create(
+                                planningContext.SelectedIndexExpression,
+                                _snapshot?.Plugins?.Expressions ?? PluginContextFallbacks.Expressions);
+
+                        var context = new QueryCostContext(
+                            _snapshot.CollectionName ?? string.Empty,
+                            planningContext.SelectedIndex?.Name ?? planningContext.SelectedIndexExpression ?? string.Empty,
+                            expression,
+                            metadataDocument,
+                            GetEstimatedDocumentCount());
+
+                        var computed = registration.CalculateCost(context);
+
+                        if (!double.IsNaN(computed) && !double.IsInfinity(computed) && computed >= 0)
+                        {
+                            return (uint)Math.Min(uint.MaxValue, Math.Round(computed));
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore cost model failures and fall back to the default calculation.
+                    }
+                }
+            }
+
+            var pk = _snapshot.CollectionPage?.PK;
+            return _queryPlan.Index.GetCost(pk);
+        }
+
+        private long GetEstimatedDocumentCount()
+        {
+            return 0;
         }
     }
 }

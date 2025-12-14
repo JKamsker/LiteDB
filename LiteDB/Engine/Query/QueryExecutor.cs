@@ -185,7 +185,7 @@ namespace LiteDB.Engine
             // if collection starts with $ it's system collection
             if (into.StartsWith("$"))
             {
-                SqlParser.ParseCollection(new Tokenizer(into, _engine.PluginContext?.Expressions), out var name, out var options);
+                SqlParser.ParseCollection(new Tokenizer(into, _engine.PluginContext?.Expressions, _engine.PluginContext?.QueryOperators), out var name, out var options);
 
                 var sys = _engine.GetSystemCollection(name);
 

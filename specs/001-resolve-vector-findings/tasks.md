@@ -32,8 +32,8 @@
 - [X] T004 Verify `LiteDB/Plugins/` directory structure exists; create subdirectories `Query/`, `Bson/`, `Storage/`, `Indexing/` if missing.
 - [X] T005 Add query metadata accessor contract in `LiteDB/Plugins/Query/IQueryMetadataAccessor.cs`.
 - [X] T006 Extend `LiteDB/Plugins/DefaultPluginContext.cs` to expose registration and retrieval APIs for the metadata accessor.
-- [X] T007 Introduce plugin BSON type registry interface in `LiteDB/Plugins/Bson/IBsonTypeRegistry.cs` and register it with the plugin context.
-- [X] T008 Create page factory registry interface in `LiteDB/Plugins/Storage/IPageFactoryRegistry.cs` with placeholders for factory/metadata hooks.
+- [X] T007 Introduce plugin BSON type registry interface in `LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs` and register it with the plugin context.
+- [X] T008 Create page factory registry interface in `LiteDB/Plugins/Storage/IPageTypeRegistry.cs` with placeholders for factory/metadata hooks.
 - [X] T009 Update `LiteDB/Plugins/ILitePlugin.cs` and `LiteDB/Plugins/EnsureIndexContext.cs` to surface the new registry contracts for downstream use.
 
 **Checkpoint**: Foundational registries and context plumbing ready—user story implementation can now proceed.
@@ -57,7 +57,7 @@
 - [X] T016 [P] [US1] Update `LiteDB/Document/BsonValue.cs` and `LiteDB/Document/Json/JsonWriter.cs` to route serialization through the registry.
 - [X] T017 [US1] Introduce page factory support in `LiteDB/Engine/Pages/PageFactoryRegistry.cs` and integrate with `LiteDB/Engine/Pages/BasePage.cs`.
 - [X] T018 [US1] Integrate page factory usage across `LiteDB/Engine/FileReader/FileReaderV8.cs`, `LiteDB/Engine/Engine/Rebuild.cs`, and `LiteDB/Engine/Services/SnapShot.cs`.
-- [X] T019 [US1] Create `LiteDB/Plugins/Indexing/VectorIndexStrategyDescriptor.cs` describing plugin-managed index strategies.
+- [X] T019 [US1] Create `LiteDB/Plugins/Indexing/CustomIndexStrategyDescriptor.cs` describing plugin-managed index strategies.
 - [X] T020 [US1] Extend `LiteDB/Plugins/EnsureIndexContext.cs` to register and resolve vector index strategies through the new descriptor.
 - [X] T021 [US1] Refactor `LiteDB/Client/Database/Collections/Index.cs` and `LiteDB/Client/Database/LiteQueryable.cs` to rely on plugin strategies and emit compatibility shims.
 - [X] T022 [US1] Create and implement regression tests in `LiteDB.Tests/Engine/Plugins/QueryMetadataBagTests.cs` validating metadata bag fallback when the plugin is absent.
@@ -144,3 +144,5 @@
 - **MVP Focus**: Finish US1 (extensibility) before touching runtime migrations; this unlocks plugin registration without destabilizing the core.
 - **Incremental Delivery**: Merge US1 changes, then US2 migrations, validating each with regression tests before proceeding.
 - **Operational Readiness**: Use US3 tasks to finalize upgrade tooling and diagnostics prior to release tagging, reducing production risk.
+
+

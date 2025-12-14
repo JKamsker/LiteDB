@@ -23,7 +23,7 @@ namespace LiteDB.Vector.Tests
                     var exception = Assert.Throws<LiteException>(() =>
                         collection.EnsureIndex(x => x.Embedding, new VectorIndexOptions(3)));
 
-                    exception.Message.Should().Contain("Vector index support requires the VectorSearchPlugin");
+                    exception.Message.Should().Contain("Vector index support requires the LiteDB.Vector plugin");
                 }
 
                 using (var db = new LiteDatabase(file, plugins: new[] { VectorSearchPlugin.Instance }))

@@ -8,16 +8,18 @@ namespace LiteDB.Vector.Engine
 {
     internal sealed class VectorIndexPage : BasePage
     {
+        private static readonly PageType PluginPageType = (PageType)VectorPlugin.PageTypeCode;
+
         public VectorIndexPage(PageBuffer buffer)
             : base(buffer)
         {
-            ENSURE(this.PageType == PageType.VectorIndex, "page type must be vector index page");
+            ENSURE(this.PageType == PluginPageType, "page type must be vector index page");
 
-            if (this.PageType != PageType.VectorIndex) throw LiteException.InvalidPageType(PageType.VectorIndex, this);
+            if (this.PageType != PluginPageType) throw LiteException.InvalidPageType(PluginPageType, this);
         }
 
         public VectorIndexPage(PageBuffer buffer, uint pageID)
-            : base(buffer, pageID, PageType.VectorIndex)
+            : base(buffer, pageID, PluginPageType)
         {
         }
 

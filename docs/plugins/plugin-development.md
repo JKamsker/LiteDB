@@ -52,12 +52,12 @@ Use `LiteDatabase.Services.QueryMetadata` when application code needs to inspect
 
 ### BSON Type Registry
 
-- Plugins reserve type codes and serializers by calling `context.RegisterBsonType(new BsonTypeRegistration(...))` during initialization (`LiteDB/Plugins/Bson/IBsonTypeRegistry.cs`).
+- Plugins reserve type codes and serializers by calling `context.RegisterBsonType(new CustomBsonTypeDescriptor(...))` during initialization (`LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs`).
 - Type codes ≥128 keep core enums stable while allowing plugins to round-trip `ValueTask`-based serialization handlers (`LiteDB/Document/Bson/BsonTypeRegistry.cs:14`).
 - The registry feeds every BSON serialization path (`LiteDB/Document/BsonValue.cs`, `LiteDB/Document/Json/JsonWriter.cs`), so once a plugin registers a type, all writers/readers automatically delegate to the supplied delegates.
 
 ```csharp
-context.RegisterBsonType(new BsonTypeRegistration(
+context.RegisterBsonType(new CustomBsonTypeDescriptor(
     pluginId: "LiteDB.Vector",
     typeCode: 200,
     name: "Vector128",
@@ -70,7 +70,7 @@ Fallback registrations keep legacy documents readable, but new writes should use
 
 ### Page Factory Registry
 
-- Storage extensions register page constructors via `context.RegisterPageFactory(new PageFactoryRegistration(...))` (`LiteDB/Plugins/Storage/IPageFactoryRegistry.cs`).
+- Storage extensions register page constructors via `context.RegisterPageFactory(new PageFactoryRegistration(...))` (`LiteDB/Plugins/Storage/IPageTypeRegistry.cs`).
 - Each registration declares a logical `pageType` and compatibility range so the engine can validate formats before `FileReaderV8` and `SnapShot` materialize pages (`LiteDB/Engine/Pages/PageFactoryRegistry.cs`, `LiteDB/Engine/FileReader/FileReaderV8.cs:52`).
 - Optional metadata serializers and rebuild hooks participate in checkpoints and `LiteDB/Engine/Engine/Rebuild.cs`, allowing plugins to persist auxiliary page headers and coordinate recovery.
 
@@ -128,9 +128,9 @@ The spatial revamp demonstrates how a complex feature composes the registries:
 1. **Define the Plugin Class.** Implement `ILitePlugin` and prepare any services you need (cache, metadata store, DI populator).
 2. **Register Expression Surface.** Add keywords/operators/functions required for SQL and LINQ usage.
 3. **Bridge LINQ.** Register resolvers for any extension methods or helper types you expect consumers to call.
-4. **Install Index Strategies or Interceptors.**
+4. **Install Index Strategies.**
    - Use `IndexRegistry.Register` plus an `IIndexStrategy` implementation if you need a new on-disk index type.
-   - Use `IndexInterceptors.Register` when you want to hijack or extend the default `EnsureIndex` workflow.
+   - Use `RegisterCustomIndexStrategy` when you want higher-level helpers (e.g., vector extensions) to coordinate metadata, ensure/drop flows, and planner hooks through the plugin context.
 5. **Hook Query Planning.** Optionally add `IQueryPlanningRule` implementations to control index choice, returning residual filters when necessary.
 6. **Leverage Services.** Read the connection string for configuration, resolve DI services, and log status or warnings.
 7. **Persist State Carefully.** Prefer per-database caches (e.g., `ConditionalWeakTable`) so multiple `LiteDatabase` instances do not bleed state across each other.
@@ -154,18 +154,22 @@ public sealed class SamplePlugin : ILitePlugin
 
         context.QueryPlanner.AddRule(new SamplePlanningRule(context), order: 200);
 
-        context.IndexInterceptors.Register(ctx =>
-        {
-            if (!IsSampleIndex(ctx.Expression))
+        context.RegisterCustomIndexStrategy(new CustomIndexStrategyDescriptor(
+            pluginId: "SamplePlugin",
+            strategyId: "sample.index",
+            ensureIndex: ctx =>
             {
-                return false;
-            }
+                if (!IsSampleIndex(ctx.EnsureContext.Expression))
+                {
+                    return false;
+                }
 
-            // Optional: run the default handler with adjusted parameters.
-            ctx.ExecuteDefault(name: ctx.Name + "_sample");
-            ctx.SetResult(true);
-            return true;
-        });
+                // Optional: run the default handler with adjusted parameters.
+                ctx.EnsureContext.ExecuteDefault(name: ctx.EnsureContext.Name + "_sample");
+                ctx.EnsureContext.SetResult(true);
+                return true;
+            },
+            queryPlanner: _ => { }));
     }
 }
 ```

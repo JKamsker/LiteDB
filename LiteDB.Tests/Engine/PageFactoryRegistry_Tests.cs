@@ -6,6 +6,7 @@ using System.Runtime.ExceptionServices;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Engine;
+using LiteDB.Plugins;
 using LiteDB.Tests.Utils;
 using LiteDB.Vector;
 using LiteDB.Vector.Engine;
@@ -26,7 +27,7 @@ namespace LiteDB.Tests.Engine
         private static readonly Type PageFactoryRegistryType = typeof(LiteDatabase).Assembly.GetType("LiteDB.Engine.PageFactoryRegistry")!;
         private static readonly MethodInfo TryGetPageFactoryRegistrationMethod = PageFactoryRegistryType.GetMethod("TryGetRegistration", BindingFlags.Instance | BindingFlags.Public)!;
         private static readonly Type PageTypeEnum = typeof(LiteDatabase).Assembly.GetType("LiteDB.Engine.PageType")!;
-        private static readonly object VectorIndexPageType = Enum.Parse(PageTypeEnum, "VectorIndex");
+        private static readonly object VectorIndexPageType = Enum.ToObject(PageTypeEnum, VectorPlugin.PageTypeCode);
 
         private sealed class VectorDocument
         {
@@ -53,11 +54,9 @@ namespace LiteDB.Tests.Engine
                 });
             };
 
-            var expectedMessage = VectorCompatibility.PluginRequired().Message;
-
             act.Should()
                 .Throw<LiteException>()
-                .Which.Message.Should().Be(expectedMessage);
+                .Which.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
         }
 
         [Fact]
@@ -107,7 +106,7 @@ namespace LiteDB.Tests.Engine
             return ExecuteInTransaction(db, transaction =>
             {
                 using var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, addIfNotExists: false);
-                var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata(indexName)
+                var metadataBuffer = snapshot.CollectionPage.GetPluginIndexMetadata(indexName)
                     ?? throw new InvalidOperationException($"Vector index '{indexName}' metadata not found.");
 
                 var metadata = VectorIndexMetadata.Wrap(metadataBuffer);

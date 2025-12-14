@@ -194,7 +194,7 @@ namespace LiteDB.Vector.Tests
                 new Func<TransactionService, VectorIndexMetadata>(transaction =>
                 {
                     var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                    var metadataBuffer = snapshot.CollectionPage.GetVectorIndexMetadata(indexName);
+                    var metadataBuffer = snapshot.CollectionPage.GetPluginIndexMetadata(indexName);
                     return metadataBuffer != null ? VectorIndexMetadata.Wrap(metadataBuffer) : null;
                 })
             });

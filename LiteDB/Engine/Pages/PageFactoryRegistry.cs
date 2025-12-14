@@ -12,18 +12,23 @@ namespace LiteDB.Engine
     /// </summary>
     internal sealed class PageFactoryRegistry
     {
-        private readonly ILitePluginContext _pluginContext;
-        private readonly IPageFactoryRegistry _pluginRegistry;
+        private readonly IPageTypeRegistry _pluginRegistry;
         private readonly Dictionary<PageType, FallbackFactory> _fallbackFactories;
-        private readonly Dictionary<PageType, PageFactoryRegistration> _pluginFactories;
+        private readonly Dictionary<byte, PageFactoryRegistration> _pluginFactories;
+        private readonly Dictionary<string, PageFactoryRegistration> _pluginFactoriesByName;
 
         public PageFactoryRegistry(ILitePluginContext pluginContext)
         {
-            _pluginContext = pluginContext ?? throw new ArgumentNullException(nameof(pluginContext));
+            if (pluginContext == null)
+            {
+                throw new ArgumentNullException(nameof(pluginContext));
+            }
+
             _pluginRegistry = pluginContext.PageFactories ?? throw new ArgumentException("Plugin context does not expose a page factory registry.", nameof(pluginContext));
 
             _fallbackFactories = CreateFallbackFactories();
-            _pluginFactories = LoadPluginFactories(_pluginRegistry);
+            _pluginFactoriesByName = new Dictionary<string, PageFactoryRegistration>(StringComparer.OrdinalIgnoreCase);
+            _pluginFactories = LoadPluginFactories(_pluginRegistry, _pluginFactoriesByName);
         }
 
         public BasePage Read(PageBuffer buffer)
@@ -33,10 +38,11 @@ namespace LiteDB.Engine
                 throw new ArgumentNullException(nameof(buffer));
             }
 
-            var pageType = (PageType)buffer.ReadByte(BasePage.P_PAGE_TYPE);
+            var pageTypeCode = buffer.ReadByte(BasePage.P_PAGE_TYPE);
+            var pageType = (PageType)pageTypeCode;
             var pageId = buffer.ReadUInt32(BasePage.P_PAGE_ID);
 
-            if (TryCreatePluginPage(pageType, buffer, pageId, isNew: false, out var page))
+            if (TryCreatePluginPage(pageTypeCode, buffer, pageId, isNew: false, out var page))
             {
                 return page;
             }
@@ -46,12 +52,9 @@ namespace LiteDB.Engine
                 return fallback.CreateExisting(buffer);
             }
 
-            if (pageType == PageType.VectorIndex)
-            {
-                throw VectorCompatibility.PluginRequired();
-            }
-
-            return new BasePage(buffer);
+            throw PluginExceptionHelper.PluginRequired(
+                pluginId: null,
+                message: $"Page type 0x{pageTypeCode:X2} requires a registered plugin. Install the appropriate plugin and retry.");
         }
 
         public BasePage Create(PageType pageType, PageBuffer buffer, uint pageId)
@@ -61,7 +64,9 @@ namespace LiteDB.Engine
                 throw new ArgumentNullException(nameof(buffer));
             }
 
-            if (TryCreatePluginPage(pageType, buffer, pageId, isNew: true, out var page))
+            var pageTypeCode = (byte)pageType;
+
+            if (TryCreatePluginPage(pageTypeCode, buffer, pageId, isNew: true, out var page))
             {
                 return page;
             }
@@ -71,24 +76,21 @@ namespace LiteDB.Engine
                 return fallback.CreateNew(buffer, pageId);
             }
 
-            if (pageType == PageType.VectorIndex)
-            {
-                throw VectorCompatibility.PluginRequired();
-            }
-
-            return new BasePage(buffer, pageId, pageType);
+            throw PluginExceptionHelper.PluginRequired(
+                pluginId: null,
+                message: $"Page type 0x{pageTypeCode:X2} requires a registered plugin. Install the appropriate plugin and retry.");
         }
 
         public bool TryGetRegistration(PageType pageType, out PageFactoryRegistration registration)
         {
-            return _pluginFactories.TryGetValue(pageType, out registration);
+            return _pluginFactories.TryGetValue((byte)pageType, out registration);
         }
 
-        private bool TryCreatePluginPage(PageType pageType, PageBuffer buffer, uint pageId, bool isNew, out BasePage page)
+        private bool TryCreatePluginPage(byte pageTypeCode, PageBuffer buffer, uint pageId, bool isNew, out BasePage page)
         {
             page = null;
 
-            if (!_pluginFactories.TryGetValue(pageType, out var registration))
+            if (!_pluginFactories.TryGetValue(pageTypeCode, out var registration))
             {
                 return false;
             }
@@ -98,7 +100,7 @@ namespace LiteDB.Engine
                 return false;
             }
 
-            var context = new PageConstructionContext(_pluginContext, buffer, pageType, pageId, isNew);
+            var context = new PageConstructionContext(buffer, pageId, isNew);
             var result = registration.Factory(context);
 
             if (result is BasePage typedPage)
@@ -107,7 +109,42 @@ namespace LiteDB.Engine
                 return true;
             }
 
-            throw new InvalidOperationException($"Page factory for '{pageType}' must return a {nameof(BasePage)} instance.");
+            throw new InvalidOperationException($"Page factory for '{pageTypeCode}' must return a {nameof(BasePage)} instance.");
+        }
+
+        public bool TryCreatePluginPage(Type requestedType, PageBuffer buffer, uint pageId, bool isNew, out BasePage page)
+        {
+            page = null;
+
+            if (requestedType == null)
+            {
+                return false;
+            }
+
+            var typeName = requestedType.Name;
+
+            if (string.IsNullOrWhiteSpace(typeName) || !typeName.EndsWith("Page", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var logicalName = typeName.Substring(0, typeName.Length - 4);
+
+            if (!_pluginFactoriesByName.TryGetValue(logicalName, out var registration) || registration?.Factory == null)
+            {
+                return false;
+            }
+
+            var context = new PageConstructionContext(buffer, pageId, isNew);
+            var result = registration.Factory(context);
+
+            if (result is BasePage typedPage)
+            {
+                page = typedPage;
+                return true;
+            }
+
+            throw new InvalidOperationException($"Page factory for '{logicalName}' must return a {nameof(BasePage)} instance.");
         }
 
         private static Dictionary<PageType, FallbackFactory> CreateFallbackFactories()
@@ -132,9 +169,9 @@ namespace LiteDB.Engine
             };
         }
 
-        private static Dictionary<PageType, PageFactoryRegistration> LoadPluginFactories(IPageFactoryRegistry registry)
+        private static Dictionary<byte, PageFactoryRegistration> LoadPluginFactories(IPageTypeRegistry registry, Dictionary<string, PageFactoryRegistration> factoriesByName)
         {
-            var result = new Dictionary<PageType, PageFactoryRegistration>();
+            var result = new Dictionary<byte, PageFactoryRegistration>();
 
             if (registry == null)
             {
@@ -143,14 +180,15 @@ namespace LiteDB.Engine
 
             foreach (var registration in registry.Registered)
             {
-                if (registration == null || string.IsNullOrWhiteSpace(registration.PageType))
+                if (registration == null)
                 {
                     continue;
                 }
 
-                if (Enum.TryParse(registration.PageType, ignoreCase: true, out PageType pageType))
+                result[registration.NumericCode] = registration;
+                if (!string.IsNullOrWhiteSpace(registration.PageType))
                 {
-                    result[pageType] = registration;
+                    factoriesByName[registration.PageType] = registration;
                 }
             }
 
@@ -178,31 +216,6 @@ namespace LiteDB.Engine
                 return _newFactory(buffer, pageId);
             }
         }
-    }
-
-    /// <summary>
-    /// Context passed to plugin page factories describing the requested construction.
-    /// </summary>
-    internal sealed class PageConstructionContext
-    {
-        public PageConstructionContext(ILitePluginContext pluginContext, PageBuffer buffer, PageType pageType, uint pageId, bool isNewPage)
-        {
-            PluginContext = pluginContext ?? throw new ArgumentNullException(nameof(pluginContext));
-            Buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
-            PageType = pageType;
-            PageId = pageId;
-            IsNewPage = isNewPage;
-        }
-
-        public ILitePluginContext PluginContext { get; }
-
-        public PageBuffer Buffer { get; }
-
-        public PageType PageType { get; }
-
-        public uint PageId { get; }
-
-        public bool IsNewPage { get; }
     }
 
     /// <summary>

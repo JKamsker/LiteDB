@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -50,16 +51,18 @@ namespace LiteDB
         private readonly StringBuilder _builder = new StringBuilder();
         private readonly Stack<Expression> _nodes = new Stack<Expression>();
         private readonly IExpressionRegistry _registry;
+        private readonly IQueryOperatorRegistry _queryOperators;
         private readonly LiteDatabase _database;
         private readonly ILinqResolverRegistry _linqResolvers;
 
-        public LinqExpressionVisitor(BsonMapper mapper, Expression expr, IExpressionRegistry registry = null, LiteDatabase database = null, ILinqResolverRegistry linqResolvers = null)
+        public LinqExpressionVisitor(BsonMapper mapper, Expression expr, IExpressionRegistry registry = null, LiteDatabase database = null, ILinqResolverRegistry linqResolvers = null, IQueryOperatorRegistry queryOperators = null)
         {
             _mapper = mapper;
             _expr = expr;
-            _registry = registry ?? LiteDatabaseServices.Default.ExpressionRegistry;
+            _registry = registry ?? PluginContextFallbacks.Expressions;
+            _queryOperators = queryOperators ?? PluginContextFallbacks.QueryOperators;
             _database = database;
-            _linqResolvers = linqResolvers ?? LiteDatabaseServices.Default.LinqResolvers;
+            _linqResolvers = linqResolvers ?? PluginContextFallbacks.LinqResolvers;
 
             if (expr is LambdaExpression lambda)
             {
@@ -81,14 +84,14 @@ namespace LiteDB
 
             try
             {
-                var e = BsonExpression.Create(expression, _parameters, _registry);
+                var e = BsonExpression.Create(expression, _parameters, _registry, _queryOperators);
 
                 // if expression must return an predicate but expression result is Path/Parameter/Call add `= true`
                 if (predicate && (e.Type == BsonExpressionType.Path || e.Type == BsonExpressionType.Call || e.Type == BsonExpressionType.Parameter))
                 {
                     expression = "(" + expression + " = true)";
 
-                    e = BsonExpression.Create(expression, _parameters, _registry);
+                    e = BsonExpression.Create(expression, _parameters, _registry, _queryOperators);
                 }
 
                 return e;
@@ -538,7 +541,7 @@ namespace LiteDB
         /// </summary>
         private void ResolvePattern(string pattern, Expression obj, IList<Expression> args)
         {
-            var tokenizer = new Tokenizer(pattern, _registry);
+            var tokenizer = new Tokenizer(pattern, _registry, _queryOperators);
 
             // lets use tokenizer to parse this method pattern
             while (!tokenizer.EOF)

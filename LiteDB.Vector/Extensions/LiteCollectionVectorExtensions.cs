@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector
 {
@@ -43,7 +44,7 @@ namespace LiteDB.Vector
                 Unwrap(collection),
                 name,
                 expression,
-                VectorExtensionHelpers.CreateOptionsDocument(options));
+                options);
         }
 
         /// <summary>
@@ -70,7 +71,7 @@ namespace LiteDB.Vector
                 Unwrap(collection),
                 generatedName,
                 expression,
-                VectorExtensionHelpers.CreateOptionsDocument(options));
+                options);
         }
 
         /// <summary>
@@ -99,7 +100,7 @@ namespace LiteDB.Vector
                 concrete,
                 generatedName,
                 expression,
-                VectorExtensionHelpers.CreateOptionsDocument(options));
+                options);
         }
 
         /// <summary>
@@ -129,7 +130,7 @@ namespace LiteDB.Vector
                 concrete,
                 name,
                 expression,
-                VectorExtensionHelpers.CreateOptionsDocument(options));
+                options);
         }
 
         private static LiteCollection<T> Unwrap<T>(ILiteCollection<T> collection)
@@ -147,7 +148,7 @@ namespace LiteDB.Vector
             throw new ArgumentException("Vector index operations require LiteDB's default collection implementation.", nameof(collection));
         }
 
-        private static bool EnsureVectorIndex<T>(LiteCollection<T> collection, string name, BsonExpression expression, BsonDocument options)
+        private static bool EnsureVectorIndex<T>(LiteCollection<T> collection, string name, BsonExpression expression, VectorIndexOptions options)
         {
             if (collection == null) throw new ArgumentNullException(nameof(collection));
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
@@ -156,28 +157,92 @@ namespace LiteDB.Vector
 
             var database = collection.Database;
             var services = database?.Services;
-            var descriptor = global::LiteDB.VectorCompatibility.TryGetStrategy(services?.VectorIndexes);
+            var descriptor = VectorCompatibility.TryGetStrategy(services?.CustomIndexes);
+            var pluginContext = services?.Context;
 
-            if (descriptor != null && services?.Context != null)
+            if (descriptor == null || pluginContext == null)
             {
-                var ensureContext = new EnsureIndexContext(
-                    database,
-                    collection.Engine as LiteEngine,
-                    typeof(T),
-                    collection.Name,
-                    name,
-                    expression,
-                    unique: false,
-                    collection.Mapper,
-                    services.Context,
-                    (indexName, indexExpression, _) => collection.Engine.EnsureVectorIndex(collection.Name, indexName, indexExpression, options));
-
-                var vectorContext = new VectorIndexEnsureContext(ensureContext, options);
-
-                return descriptor.EnsureIndex(vectorContext);
+                throw CreateMissingPluginException(collection, pluginContext);
             }
 
-            return collection.Engine.EnsureVectorIndex(collection.Name, name, expression, options);
+            var metadataDescriptor = RequireMetadataDescriptor(pluginContext);
+            var materializedOptions = VectorExtensionHelpers.CreateOptionsDocument(options, metadataDescriptor);
+
+            var ensureContext = new EnsureIndexContext(
+                database,
+                collection.Engine as LiteEngine,
+                typeof(T),
+                collection.Name,
+                name,
+                expression,
+                unique: false,
+                collection.Mapper,
+                pluginContext,
+                (indexName, indexExpression, _) => collection.Engine.EnsureCustomIndex(collection.Name, indexName, VectorCompatibility.DefaultStrategyKind, indexExpression, materializedOptions));
+
+            var vectorContext = new CustomIndexEnsureContext(ensureContext, materializedOptions);
+
+            return descriptor.EnsureIndex(vectorContext);
+        }
+
+        private static PluginIndexMetadataDescriptor RequireMetadataDescriptor(ILitePluginContext pluginContext)
+        {
+            if (pluginContext?.IndexMetadata == null)
+            {
+                throw VectorCompatibility.PluginRequired();
+            }
+
+            if (pluginContext.IndexMetadata.TryGet(VectorCompatibility.DefaultIndexKind, out var descriptor))
+            {
+                return descriptor;
+            }
+
+            throw VectorCompatibility.PluginRequired();
+        }
+
+        private static LiteException CreateMissingPluginException<T>(LiteCollection<T> collection, ILitePluginContext pluginContext)
+        {
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = "plugin.index_required",
+                ["operation"] = "EnsureCustomIndex",
+                ["strategyKind"] = VectorPlugin.StrategyKind,
+                ["collection"] = collection?.Name ?? string.Empty,
+                ["pluginContextAvailable"] = pluginContext != null,
+                ["registeredStrategies"] = new BsonArray()
+            };
+
+            var registry = pluginContext?.CustomIndexes?.Registered;
+
+            if (registry != null && registry.Count > 0)
+            {
+                var registered = new BsonArray();
+
+                foreach (var strategy in registry)
+                {
+                    if (strategy == null)
+                    {
+                        continue;
+                    }
+
+                    registered.Add(strategy.StrategyId ?? string.Empty);
+                }
+
+                diagnostics["registeredStrategies"] = registered;
+            }
+
+            var exception = VectorCompatibility.PluginRequired();
+
+            // On .NET Framework, items stored in Exception.Data must be serializable.
+            // Persist diagnostics as JSON text instead of the raw BsonDocument to avoid ArgumentException.
+            #if NET6_0_OR_GREATER
+            exception.Data["VectorDiagnostics"] = diagnostics;
+            #else
+            exception.Data["VectorDiagnostics"] = diagnostics.ToString();
+            #endif
+            return exception;
         }
     }
 }
+
+

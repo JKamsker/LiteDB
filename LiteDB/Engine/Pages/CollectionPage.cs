@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 using static LiteDB.Constants;
@@ -28,7 +29,36 @@ namespace LiteDB.Engine
         /// All indexes references for this collection
         /// </summary>
         private readonly Dictionary<string, CollectionIndex> _indexes = new Dictionary<string, CollectionIndex>();
-        private readonly Dictionary<string, byte[]> _vectorIndexes = new Dictionary<string, byte[]>();
+        private readonly Dictionary<string, PluginIndexMetadataEntry> _pluginIndexes = new Dictionary<string, PluginIndexMetadataEntry>();
+
+        private sealed class PluginIndexMetadataEntry
+        {
+            public PluginIndexMetadataEntry(string pluginId, string indexKind, byte[] payload)
+            {
+                if (string.IsNullOrWhiteSpace(pluginId))
+                {
+                    throw new ArgumentException("Plugin identifier must be provided.", nameof(pluginId));
+                }
+
+                PluginId = pluginId;
+                IndexKind = indexKind;
+                Payload = payload ?? throw new ArgumentNullException(nameof(payload));
+            }
+
+            public string PluginId { get; }
+
+            public string IndexKind { get; private set; }
+
+            public byte[] Payload { get; }
+
+            public void EnsureIndexKind(string value)
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    IndexKind ??= value;
+                }
+            }
+        }
 
         public CollectionPage(PageBuffer buffer, uint pageID)
             : base(buffer, pageID, PageType.Collection)
@@ -69,14 +99,32 @@ namespace LiteDB.Engine
                     _indexes[index.Name] = index;
                 }
 
-                var vectorCount = r.ReadByte();
+                var metadataCount = r.ReadByte();
 
-                for (var i = 0; i < vectorCount; i++)
+                for (var i = 0; i < metadataCount; i++)
                 {
                     var name = r.ReadCString();
-                    var metadata = VectorIndexMetadataSerializer.Read(r);
+                    var marker = r.ReadByte();
 
-                    _vectorIndexes[name] = metadata;
+                    if ((marker & 0x80) == 0)
+                    {
+                        throw new LiteException(
+                            LiteException.PLUGIN_REQUIRED,
+                            $"Plugin metadata entry '{name}' was stored using a legacy format. Install the owning plugin and rerun the operation.");
+                    }
+
+                    var pluginIdLength = marker & 0x7F;
+
+                    if (pluginIdLength == 0)
+                    {
+                        throw new LiteException(0, "Plugin metadata entries must include a plugin identifier.");
+                    }
+
+                    var pluginId = r.ReadString(pluginIdLength);
+                    var payloadLength = r.ReadUInt16();
+                    var payload = r.ReadBytes(payloadLength);
+
+                    _pluginIndexes[name] = new PluginIndexMetadataEntry(pluginId, null, payload);
                 }
             }
         }
@@ -106,12 +154,32 @@ namespace LiteDB.Engine
                     index.UpdateBuffer(w);
                 }
 
-                w.Write((byte)_vectorIndexes.Count);
+                w.Write((byte)_pluginIndexes.Count);
 
-                foreach (var pair in _vectorIndexes)
+                foreach (var pair in _pluginIndexes)
                 {
                     w.WriteCString(pair.Key);
-                    VectorIndexMetadataSerializer.Write(w, pair.Value);
+
+                    var pluginIdBytes = StringEncoding.UTF8.GetBytes(pair.Value.PluginId);
+
+                    if (pluginIdBytes.Length >= 0x80)
+                    {
+                        throw new LiteException(0, $"Plugin identifier '{pair.Value.PluginId}' exceeds the supported length (127 bytes).");
+                    }
+
+                    var payload = pair.Value.Payload ?? Array.Empty<byte>();
+
+                    if (payload.Length > ushort.MaxValue)
+                    {
+                        throw new LiteException(0, $"Plugin metadata payload for index '{pair.Key}' exceeds the supported length ({ushort.MaxValue} bytes).");
+                    }
+
+                    var marker = (byte)(pluginIdBytes.Length | 0x80);
+
+                    w.Write(marker);
+                    w.Write(pluginIdBytes);
+                    w.Write((ushort)payload.Length);
+                    w.Write(payload);
                 }
             }
 
@@ -159,34 +227,109 @@ namespace LiteDB.Engine
             return indexes;
         }
 
-        private int GetSerializedLength(int additionalIndexLength, int additionalVectorLength)
+        private int GetSerializedLength(int additionalIndexLength, int additionalMetadataLength)
         {
             var length = 1 + _indexes.Sum(x => CollectionIndex.GetLength(x.Value)) + additionalIndexLength;
 
-            length += 1 + _vectorIndexes.Sum(x => GetVectorMetadataLength(x.Key)) + additionalVectorLength;
+            length += 1 + _pluginIndexes.Sum(x => GetPluginMetadataLength(x.Key, x.Value)) + additionalMetadataLength;
 
             return length;
         }
 
-        private static int GetVectorMetadataLength(string name)
+        private static int GetPluginMetadataLength(string name, PluginIndexMetadataEntry entry)
         {
-            return VectorIndexMetadataSerializer.CalculateSerializedLength(name);
+            return GetPluginMetadataLength(name, entry.PluginId, entry.Payload?.Length ?? 0);
         }
 
-        public IEnumerable<(CollectionIndex Index, byte[] Metadata)> GetVectorIndexes()
+        private static int GetPluginMetadataLength(string name, string pluginId, int payloadLength)
         {
-            foreach (var pair in _vectorIndexes)
+            return
+                StringEncoding.UTF8.GetByteCount(name) + 1 + // name + \0
+                1 + // pluginId length marker
+                StringEncoding.UTF8.GetByteCount(pluginId) +
+                2 + // payload length
+                payloadLength;
+        }
+
+        public IEnumerable<(CollectionIndex Index, string PluginId, byte[] Metadata)> GetPluginIndexes()
+        {
+            foreach (var pair in _pluginIndexes)
             {
                 if (_indexes.TryGetValue(pair.Key, out var index))
                 {
-                    yield return (index, pair.Value);
+                    yield return (index, pair.Value.PluginId, pair.Value.Payload);
                 }
             }
         }
 
-        public byte[] GetVectorIndexMetadata(string name)
+        public IEnumerable<(CollectionIndex Index, PluginIndexMetadata Metadata)> GetPluginIndexes(IPluginIndexMetadataRegistry registry)
         {
-            return _vectorIndexes.TryGetValue(name, out var metadata) ? metadata : null;
+            if (registry == null)
+            {
+                throw new ArgumentNullException(nameof(registry));
+            }
+
+            foreach (var pair in _pluginIndexes)
+            {
+                if (!_indexes.TryGetValue(pair.Key, out var index))
+                {
+                    continue;
+                }
+
+                var descriptor = this.ResolveDescriptor(pair.Value, registry);
+
+                if (descriptor == null)
+                {
+                    continue;
+                }
+
+                pair.Value.EnsureIndexKind(descriptor.IndexKind);
+
+                yield return (index, new PluginIndexMetadata(pair.Value.PluginId, descriptor.IndexKind, pair.Value.Payload));
+            }
+        }
+
+        private PluginIndexMetadataDescriptor ResolveDescriptor(PluginIndexMetadataEntry entry, IPluginIndexMetadataRegistry registry)
+        {
+            if (!string.IsNullOrEmpty(entry.IndexKind) &&
+                registry.TryGet(entry.IndexKind, out var descriptor) &&
+                string.Equals(descriptor.PluginId, entry.PluginId, StringComparison.Ordinal))
+            {
+                return descriptor;
+            }
+
+            PluginIndexMetadataDescriptor match = null;
+            var registered = registry.Registered;
+
+            if (registered != null)
+            {
+                foreach (var candidate in registered)
+                {
+                    if (candidate == null || !string.Equals(candidate.PluginId, entry.PluginId, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (match != null)
+                    {
+                        throw new LiteException(0, $"Multiple metadata descriptors registered for plugin '{entry.PluginId}'. Unable to disambiguate index metadata.");
+                    }
+
+                    match = candidate;
+                }
+            }
+
+            if (match == null && entry.IndexKind != null && registry.TryGet(entry.IndexKind, out var fallback))
+            {
+                match = fallback;
+            }
+
+            return match;
+        }
+
+        public byte[] GetPluginIndexMetadata(string name)
+        {
+            return _pluginIndexes.TryGetValue(name, out var metadata) ? metadata.Payload : null;
         }
 
         /// <summary>
@@ -194,7 +337,7 @@ namespace LiteDB.Engine
         /// </summary>
         public CollectionIndex InsertCollectionIndex(string name, string expr, bool unique, IExpressionRegistry registry = null)
         {
-            if (_indexes.ContainsKey(name) || _vectorIndexes.ContainsKey(name))
+            if (_indexes.ContainsKey(name) || _pluginIndexes.ContainsKey(name))
             {
                 throw LiteException.IndexAlreadyExist(name);
             }
@@ -215,29 +358,76 @@ namespace LiteDB.Engine
             return index;
         }
 
-        public (CollectionIndex Index, byte[] Metadata) InsertVectorIndex(string name, string expr, ushort dimensions, byte metric, IExpressionRegistry registry = null)
+        public (CollectionIndex Index, byte[] Metadata) InsertPluginIndex(
+            string name,
+            string expr,
+            byte indexType,
+            bool unique,
+            PluginIndexMetadataDescriptor descriptor,
+            BsonDocument metadataDocument,
+            IExpressionRegistry registry = null)
         {
-            if (_indexes.ContainsKey(name) || _vectorIndexes.ContainsKey(name))
+            if (descriptor == null)
+            {
+                throw new ArgumentNullException(nameof(descriptor));
+            }
+
+            if (metadataDocument == null)
+            {
+                throw new ArgumentNullException(nameof(metadataDocument));
+            }
+
+            if (_indexes.ContainsKey(name) || _pluginIndexes.ContainsKey(name))
             {
                 throw LiteException.IndexAlreadyExist(name);
             }
 
-            var totalLength = this.GetSerializedLength(CollectionIndex.GetLength(name, expr), GetVectorMetadataLength(name));
-
-            if (_indexes.Count == 255 || totalLength >= P_INDEXES_COUNT) throw new LiteException(0, $"This collection has no more space for new indexes");
-
             var slot = (byte)(_indexes.Count == 0 ? 0 : (_indexes.Max(x => x.Value.Slot) + 1));
 
-            var index = new CollectionIndex(slot, 1, name, expr, false);
+            var hydratedMetadata = new BsonDocument();
+            metadataDocument.CopyTo(hydratedMetadata);
+            hydratedMetadata["slot"] = (int)slot;
+
+            byte[] payload;
+
+            try
+            {
+                payload = descriptor.Serialize(hydratedMetadata) ?? throw new LiteException(0, $"Plugin '{descriptor.PluginId}' did not return metadata for index '{name}'.");
+            }
+            catch (Exception ex)
+            {
+                throw new LiteException(0, $"Plugin '{descriptor.PluginId}' failed to serialize metadata for index '{name}'.", ex);
+            }
+
+            var pluginIdLength = StringEncoding.UTF8.GetByteCount(descriptor.PluginId);
+
+            if (pluginIdLength >= 0x80)
+            {
+                throw new LiteException(0, $"Plugin identifier '{descriptor.PluginId}' exceeds the supported length (127 bytes).");
+            }
+
+            if (payload.Length > ushort.MaxValue)
+            {
+                throw new LiteException(0, $"Plugin metadata payload for index '{name}' exceeds the supported length ({ushort.MaxValue} bytes).");
+            }
+
+            var additionalMetadataLength = GetPluginMetadataLength(name, descriptor.PluginId, payload.Length);
+            var totalLength = this.GetSerializedLength(CollectionIndex.GetLength(name, expr), additionalMetadataLength);
+
+            if (_indexes.Count == 255 || totalLength >= P_INDEXES_COUNT)
+            {
+                throw new LiteException(0, $"This collection has no more space for new indexes");
+            }
+
+            var index = new CollectionIndex(slot, indexType, name, expr, unique);
             index.BindExpressionRegistry(registry);
-            var metadata = VectorIndexMetadataSerializer.Create(slot, dimensions, metric);
 
             _indexes[name] = index;
-            _vectorIndexes[name] = metadata;
+            _pluginIndexes[name] = new PluginIndexMetadataEntry(descriptor.PluginId, descriptor.IndexKind, payload);
 
             this.IsDirty = true;
 
-            return (index, metadata);
+            return (index, payload);
         }
 
         /// <summary>
@@ -256,7 +446,7 @@ namespace LiteDB.Engine
         public void DeleteCollectionIndex(string name)
         {
             _indexes.Remove(name);
-            _vectorIndexes.Remove(name);
+            _pluginIndexes.Remove(name);
 
             this.IsDirty = true;
         }

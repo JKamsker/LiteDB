@@ -170,12 +170,13 @@ namespace LiteDB
         /// </summary>
         public BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            return this.GetExpression(predicate, LiteDatabaseServices.Default.ExpressionRegistry, null, null);
+            return this.GetExpression(predicate, PluginContextFallbacks.Expressions, null, null);
         }
 
         internal BsonExpression GetExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry registry, LiteDatabase database, ILinqResolverRegistry linqResolvers)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate, registry, database, linqResolvers);
+            var queryOperators = database?.Services?.QueryOperators ?? PluginContextFallbacks.QueryOperators;
+            var visitor = new LinqExpressionVisitor(this, predicate, registry, database, linqResolvers, queryOperators);
 
             var expr = visitor.Resolve(typeof(K) == typeof(bool));
 
@@ -189,12 +190,13 @@ namespace LiteDB
         /// </summary>
         public BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate)
         {
-            return this.GetIndexExpression(predicate, LiteDatabaseServices.Default.ExpressionRegistry, null, null);
+            return this.GetIndexExpression(predicate, PluginContextFallbacks.Expressions, null, null);
         }
 
         internal BsonExpression GetIndexExpression<T, K>(Expression<Func<T, K>> predicate, IExpressionRegistry registry, LiteDatabase database, ILinqResolverRegistry linqResolvers)
         {
-            var visitor = new LinqExpressionVisitor(this, predicate, registry, database, linqResolvers);
+            var queryOperators = database?.Services?.QueryOperators ?? PluginContextFallbacks.QueryOperators;
+            var visitor = new LinqExpressionVisitor(this, predicate, registry, database, linqResolvers, queryOperators);
 
             var expr = visitor.Resolve(false);
 

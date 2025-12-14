@@ -53,13 +53,42 @@ namespace LiteDB
             if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
 
             _engine = connectionString.CreateEngine();
-            _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
 
-            _pluginContext = new DefaultPluginContext(connectionString, NullServiceProvider.Instance, NullLogger.Instance);
+            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(mapper, null, plugins);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(connectionString, services, logger);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(plugins);
+            this.InitializePlugins(resolvedPlugins);
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using a connection string and explicit options.
+        /// </summary>
+        public LiteDatabase(string connectionString, LiteDatabaseOptions options)
+            : this(new ConnectionString(connectionString), options)
+        {
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using a connection string and explicit options.
+        /// </summary>
+        public LiteDatabase(ConnectionString connectionString, LiteDatabaseOptions options)
+        {
+            if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
+
+            _engine = connectionString.CreateEngine();
+            _disposeOnClose = true;
+
+            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(null, options, null);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(connectionString, services, logger);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePlugins(resolvedPlugins);
         }
 
         /// <summary>
@@ -78,13 +107,67 @@ namespace LiteDB
             };
 
             _engine = new LiteEngine(settings);
-            _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
 
-            _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(mapper, null, plugins);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(plugins);
+            this.InitializePlugins(resolvedPlugins);
+
+            if (logStream == null && stream is not MemoryStream)
+            {
+                if (!stream.CanWrite)
+                {
+                    // Read-only streams cannot participate in eager checkpointing because the process
+                    // writes pages back to the underlying data stream immediately.
+                }
+                else
+                {
+                    // Without a dedicated log stream the WAL lives purely in memory; force
+                    // checkpointing to ensure commits reach the underlying data stream.
+                    var originalCheckpointSize = _engine.Pragma(Pragmas.CHECKPOINT);
+
+                    if (originalCheckpointSize != 1)
+                    {
+                        _engine.Pragma(Pragmas.CHECKPOINT, 1);
+                        _checkpointOverride = originalCheckpointSize;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using a stream and explicit options.
+        /// </summary>
+        public LiteDatabase(Stream stream, LiteDatabaseOptions options)
+            : this(stream, options, null)
+        {
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using a stream, log stream, and explicit options.
+        /// </summary>
+        public LiteDatabase(Stream stream, LiteDatabaseOptions options, Stream logStream)
+        {
+            var settings = new EngineSettings
+            {
+                DataStream = stream ?? throw new ArgumentNullException(nameof(stream)),
+                LogStream = logStream
+            };
+
+            _engine = new LiteEngine(settings);
+            _disposeOnClose = true;
+
+            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(null, options, null);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePlugins(resolvedPlugins);
 
             if (logStream == null && stream is not MemoryStream)
             {
@@ -118,13 +201,40 @@ namespace LiteDB
         public LiteDatabase(ILiteEngine engine, BsonMapper mapper = null, bool disposeOnClose = true, IEnumerable<ILitePlugin> plugins = null)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
-            _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = disposeOnClose;
 
-            _pluginContext = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(mapper, null, plugins);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(plugins);
+            this.InitializePlugins(resolvedPlugins);
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using an existing engine and explicit options.
+        /// </summary>
+        public LiteDatabase(ILiteEngine engine, LiteDatabaseOptions options)
+            : this(engine, options, true)
+        {
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using an existing engine, options, and custom disposal semantics.
+        /// </summary>
+        public LiteDatabase(ILiteEngine engine, LiteDatabaseOptions options, bool disposeOnClose)
+        {
+            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            _disposeOnClose = disposeOnClose;
+
+            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(null, options, null);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePlugins(resolvedPlugins);
         }
 
         #endregion
@@ -138,7 +248,7 @@ namespace LiteDB
         /// <param name="autoId">Define autoId data type (when object contains no id field)</param>
         public ILiteCollection<T> GetCollection<T>(string name, BsonAutoId autoId = BsonAutoId.ObjectId)
         {
-            return new LiteCollection<T>(name, autoId, _engine, _mapper, _pluginContext.Expressions, this, _pluginContext.LinqResolvers, _pluginContext.IndexInterceptors);
+            return new LiteCollection<T>(name, autoId, _engine, _mapper, _pluginContext.Expressions, this, _pluginContext.LinqResolvers);
         }
 
         /// <summary>
@@ -166,10 +276,20 @@ namespace LiteDB
         {
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 
-            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions, this, _pluginContext.LinqResolvers, _pluginContext.IndexInterceptors);
+            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions, this, _pluginContext.LinqResolvers);
         }
 
         #endregion
+
+        private static (BsonMapper Mapper, IEnumerable<ILitePlugin> Plugins, IServiceProvider Services, ILogger Logger) ResolveConfiguration(BsonMapper mapperOverride, LiteDatabaseOptions options, IEnumerable<ILitePlugin> legacyPlugins)
+        {
+            var mapper = mapperOverride ?? options?.Mapper ?? BsonMapper.Global;
+            var plugins = options?.Plugins ?? legacyPlugins ?? Array.Empty<ILitePlugin>();
+            var services = options?.Services ?? NullServiceProvider.Instance;
+            var logger = options?.Logger ?? NullLogger.Instance;
+
+            return (mapper, plugins, services, logger);
+        }
 
         private void InitializePlugins(IEnumerable<ILitePlugin> plugins)
         {
@@ -301,7 +421,7 @@ namespace LiteDB
         {
             if (commandReader == null) throw new ArgumentNullException(nameof(commandReader));
 
-            var tokenizer = new Tokenizer(commandReader, _pluginContext.Expressions);
+            var tokenizer = new Tokenizer(commandReader, _pluginContext.Expressions, _pluginContext.QueryOperators);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 
@@ -315,7 +435,7 @@ namespace LiteDB
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
 
-            var tokenizer = new Tokenizer(command, _pluginContext.Expressions);
+            var tokenizer = new Tokenizer(command, _pluginContext.Expressions, _pluginContext.QueryOperators);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 

@@ -22,7 +22,7 @@ namespace LiteDB.Tests.Plugins
             db.Services.IndexRegistry.Should().NotBeNull();
             db.Services.QueryPlanner.Should().NotBeNull();
             db.Services.LinqResolvers.Should().NotBeNull();
-            db.Services.IndexInterceptors.Should().NotBeNull();
+            db.Services.CustomIndexes.Should().NotBeNull();
         }
 
         [Fact]
