@@ -235,8 +235,11 @@ namespace LiteDB.Vector
 
             // On .NET Framework, items stored in Exception.Data must be serializable.
             // Persist diagnostics as JSON text instead of the raw BsonDocument to avoid ArgumentException.
+            #if NET6_0_OR_GREATER
+            exception.Data["VectorDiagnostics"] = diagnostics;
+            #else
             exception.Data["VectorDiagnostics"] = diagnostics.ToString();
-
+            #endif
             return exception;
         }
     }
