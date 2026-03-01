@@ -15,16 +15,15 @@ namespace LiteDB.Spatial.Core.Tests.Plugin;
 public sealed class SpatialPluginIntegrationTests
 {
     [Fact]
-    public void EnsureIndex_OnGeoPoint_RegistersSpatialDescriptor()
+    public void UseGeographic_OnGeoPoint_RegistersSpatialDescriptor()
     {
         using var database = CreateDatabase();
 
         var collection = database.GetCollection<GeoDocument>("points");
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(10.0, 20.0) });
 
-        var created = collection.EnsureIndex(x => x.Location);
+        Spatial.UseGeographic(collection, x => x.Location);
 
-        created.Should().BeTrue();
         var metadata = database.GetCollection(SpatialMetadataStore.MetadataCollectionName);
         var descriptors = metadata.FindAll().ToList();
         descriptors.Should().ContainSingle(doc => doc["collection"].AsString.Equals("points", StringComparison.OrdinalIgnoreCase));
@@ -35,14 +34,14 @@ public sealed class SpatialPluginIntegrationTests
     }
 
     [Fact]
-    public void EnsureIndex_WithExistingMetadata_DoesNotRecreateBackingIndexes()
+    public void UseGeographic_RecreatesBackingIndexes_WhenDropped()
     {
         using var database = CreateDatabase();
 
         var collection = database.GetCollection<GeoDocument>("points");
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(42.0, 20.0) });
 
-        collection.EnsureIndex(x => x.Location);
+        Spatial.UseGeographic(collection, x => x.Location);
 
         const string mortonIndexName = "idx";
         const string boundingIndexName = "mbb";
@@ -52,15 +51,12 @@ public sealed class SpatialPluginIntegrationTests
         collection.DropIndex(boundingIndexName)
             .Should().BeTrue("dropping the bounding-box index should succeed after spatial provisioning");
 
-        var ensured = collection.EnsureIndex(x => x.Location);
+        Spatial.UseGeographic(collection, x => x.Location);
 
-        ensured.Should().BeTrue("the plugin short-circuits when metadata is present but reports success");
-
-        var recreatedPrimary = collection.EnsureIndex(SpatialIndexOptions.DefaultIndexFieldName);
-        var recreatedBounding = collection.EnsureIndex(SpatialIndexOptions.DefaultBoundingBoxFieldName);
-
-        recreatedPrimary.Should().BeFalse("the plugin rebuilds the Morton index when metadata already exists");
-        recreatedBounding.Should().BeFalse("the plugin rebuilds the bounding-box index when metadata already exists");
+        collection.DropIndex(mortonIndexName)
+            .Should().BeTrue("spatial provisioning should recreate the numeric Morton index when missing");
+        collection.DropIndex(boundingIndexName)
+            .Should().BeTrue("spatial provisioning should recreate the bounding-box index when missing");
     }
 
     [Fact]
@@ -71,7 +67,7 @@ public sealed class SpatialPluginIntegrationTests
 
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
         collection.Insert(new GeoDocument { Id = 2, Location = new GeoPoint(1, 1) });
-        collection.EnsureIndex(x => x.Location);
+        Spatial.UseGeographic(collection, x => x.Location);
 
         var results = collection.Query()
             .WhereNear(x => x.Location, new GeoPoint(0, 0), 1_000) // meters
@@ -108,7 +104,7 @@ public sealed class SpatialPluginIntegrationTests
         using var database = CreateDatabase();
         var collection = database.GetCollection<GeoDocument>("points");
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(10, 10) });
-        collection.EnsureIndex(x => x.Location);
+        Spatial.UseGeographic(collection, x => x.Location);
 
         Action act = () => SpatialPlugin.LogDiagnostics(database, throwOnFailure: true);
 

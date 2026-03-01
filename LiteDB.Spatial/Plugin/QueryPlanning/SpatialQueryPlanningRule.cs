@@ -128,7 +128,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             var filters = new List<BaseLiteDB.BsonExpression>();
             if (plan.CoveringBounds.HasValue)
             {
-                var bounding = BuildBoundingExpression(descriptor, plan.CoveringBounds.Value);
+                var bounding = this.BuildBoundingExpression(descriptor, plan.CoveringBounds.Value);
                 if (bounding != null)
                 {
                     filters.Add(bounding);
@@ -190,8 +190,14 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             };
         }
 
-        private static BaseLiteDB.BsonExpression? BuildBoundingExpression(SpatialCollectionDescriptor descriptor, BoundingBox bounds)
+        private BaseLiteDB.BsonExpression? BuildBoundingExpression(SpatialCollectionDescriptor descriptor, BoundingBox bounds)
         {
+            var registry = _services.Context?.Expressions;
+            if (registry == null)
+            {
+                return null;
+            }
+
             var boundingField = descriptor.Options?.BoundingBoxFieldName;
             if (string.IsNullOrWhiteSpace(boundingField))
             {
@@ -212,7 +218,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                     ["minY"] = values[1]
                 };
 
-                return BaseLiteDB.BsonExpression.Create(expression, parameters, BaseLiteDB.LiteDatabaseServices.Default.ExpressionRegistry);
+                return BaseLiteDB.BsonExpression.Create(expression, parameters, registry);
             }
 
             if (values.Length == 6)
@@ -228,7 +234,7 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                     ["minZ"] = values[2]
                 };
 
-                return BaseLiteDB.BsonExpression.Create(expression, parameters, BaseLiteDB.LiteDatabaseServices.Default.ExpressionRegistry);
+                return BaseLiteDB.BsonExpression.Create(expression, parameters, registry);
             }
 
             return null;

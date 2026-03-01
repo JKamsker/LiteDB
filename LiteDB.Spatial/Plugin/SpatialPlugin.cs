@@ -29,8 +29,6 @@ namespace LiteDB.Spatial.Plugin
             context.LinqResolvers.Register(typeof(Spatial), _ => services.GetOrCreateResolver(typeof(Spatial)));
 
             context.QueryPlanner.AddRule(services.CreatePlanningRule(), order: 100);
-
-            context.IndexInterceptors.Register(ctx => services.TryHandleEnsureIndex(ctx), order: 0);
         }
 
         /// <summary>
@@ -84,8 +82,6 @@ namespace LiteDB.Spatial.Plugin
 
         private static void RegisterExpressionFunctions(LiteDbPlugins.IExpressionRegistry registry)
         {
-            var globalRegistry = BaseLiteDB.LiteDatabaseServices.Default.ExpressionRegistry;
-
             Register("SPATIAL_NEAR", SpatialExpressionFunctions.InvokeNear);
             Register("SPATIAL_WITHIN", SpatialExpressionFunctions.InvokeWithin);
             Register("SPATIAL_INTERSECTS", SpatialExpressionFunctions.InvokeIntersects);
@@ -103,18 +99,6 @@ namespace LiteDB.Spatial.Plugin
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true
                 );
-
-                if (!ReferenceEquals(registry, globalRegistry))
-                {
-                    globalRegistry.RegisterFunction
-                    (
-                        name,
-                        implementation,
-                        BaseLiteDB.BsonExpressionType.Call,
-                        convertScalarLeftToEnumerable: false,
-                        isScalarResult: true
-                    );
-                }
             }
         }
     }

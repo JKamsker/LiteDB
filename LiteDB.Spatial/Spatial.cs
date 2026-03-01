@@ -12,6 +12,7 @@ using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using BaseLiteDB = LiteDbBase::LiteDB;
 using BaseLiteEngine = LiteDbBase::LiteDB.Engine;
+using LiteDbPlugins = LiteDbBase::LiteDB.Plugins;
 
 namespace LiteDB.Spatial;
 
@@ -887,7 +888,31 @@ public static class Spatial
 
     private static void EnsureIndexPresence<T>(BaseLiteDB.LiteCollection<T> collection, SpatialCollectionDescriptor descriptor)
     {
-        var indexExpression = BaseLiteDB.BsonExpression.Create($"$.{descriptor.Options.IndexFieldName}");
+        var options = descriptor.Options;
+        if (options == null)
+        {
+            return;
+        }
+
+        var registry = collection.Database?.Services?.ExpressionRegistry;
+        if (registry == null)
+        {
+            return;
+        }
+
+        EnsureIndexPresence(collection, options.IndexFieldName, registry);
+        EnsureIndexPresence(collection, options.BoundingBoxFieldName, registry);
+    }
+
+    private static void EnsureIndexPresence<T>(BaseLiteDB.LiteCollection<T> collection, string fieldName, LiteDbPlugins.IExpressionRegistry registry)
+    {
+        if (collection == null) throw new ArgumentNullException(nameof(collection));
+        if (string.IsNullOrWhiteSpace(fieldName))
+        {
+            return;
+        }
+
+        var indexExpression = BaseLiteDB.BsonExpression.Create($"$.{fieldName}", registry);
         collection.EnsureIndex(indexExpression);
     }
 
