@@ -107,6 +107,28 @@ namespace LiteDB
         }
 
         /// <summary>
+        /// Returns all documents for which at least one value in arrayFields ends with value (LIKE)
+        /// </summary>
+        public BsonExpression EndsWith(string arrayField, string value)
+        {
+            if (arrayField.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(arrayField));
+            if (value.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(value));
+
+            return this.CreateExpression($"{arrayField} ANY LIKE {(new BsonValue("%" + value))}");
+        }
+
+        /// <summary>
+        /// Returns all documents for which at least one value in arrayFields contains the value (CONTAINS)
+        /// </summary>
+        public BsonExpression Contains(string arrayField, string value)
+        {
+            if (arrayField.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(arrayField));
+            if (value.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(value));
+
+            return this.CreateExpression($"{arrayField} ANY LIKE {(new BsonValue("%" + value + "%"))}");
+        }
+
+        /// <summary>
         /// Returns all documents for which at least one value in arrayFields are not equals to value (not equals)
         /// </summary>
         public BsonExpression Not(string arrayField, BsonValue value)
