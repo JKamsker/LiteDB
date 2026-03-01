@@ -171,28 +171,27 @@ components:
           description: Historic codes that forward to the plugin registration.
     PageFactoryRegistration:
       type: object
-      required: [pluginId, pageType, factoryContract, compatibilityRange]
+      required: [pluginId, pageType, numericCode, factoryContract, compatibilityRange]
       properties:
         pluginId:
           type: string
         pageType:
           type: string
           enum: [VectorIndex, VectorMetadata, Custom]
+        numericCode:
+          type: integer
+          minimum: 0
+          maximum: 255
+          description: Persisted page type code reserved by the plugin.
         factoryContract:
           type: string
           description: Delegate signature exported by the plugin assembly.
-        metadataSerializerContract:
-          type: string
-          description: Optional serializer delegate for page metadata.
-        rebuildHookContract:
-          type: string
-          description: Optional rebuild participant for engine pipelines.
         compatibilityRange:
           type: string
           description: Semantic version range (e.g., ">=8.0").
     IndexStrategyRegistration:
       type: object
-      required: [pluginId, strategyId, ensureContract, plannerContract]
+      required: [pluginId, strategyId, ensureContract, queryPlannerContract]
       properties:
         pluginId:
           type: string
@@ -202,12 +201,22 @@ components:
         ensureContract:
           type: string
           description: Delegate implementing index creation and upgrades.
-        plannerContract:
+        queryPlannerContract:
           type: string
           description: Delegate injecting vector planning behavior.
         rebuildContract:
           type: string
           description: Optional rebuild implementation contract.
+        requiredBsonTypes:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 255
+        requiredPageTypes:
+          type: array
+          items:
+            type: string
         requiredBsonTypes:
           type: array
           items:

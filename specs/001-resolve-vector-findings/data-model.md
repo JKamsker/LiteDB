@@ -16,14 +16,17 @@
   - `state` keys must exist in `keys`; unknown entries are rejected to keep contracts predictable.
   - `version` increments require migration logic supplied by the plugin.
 
-## PluginCustomBsonTypeDescriptor
+## CustomBsonTypeDescriptor
 
-- **Description**: Declares a BSON type reserved for plugin-owned serialization along with delegate callbacks for encode/decode.
+- **Description**: Declares a BSON type reserved for plugin-owned serialization along with synchronous delegates for size calculation, encode/decode, and JSON formatting.
 - **Fields**:
-  - `typeCode` (byte): Unique code reserved from the plugin registry.
+  - `pluginId` (string): Identifier for the owning plugin (e.g., `LiteDB.Vector`).
+  - `typeCode` (byte): Unique code reserved from the plugin registry (plugin codes must be `>= 128`).
   - `name` (string): Human-readable identifier (`Vector`).
-  - `serializer` (Func<BsonWriter, object, ValueTask>): Asynchronous serializer callback provided by the plugin.
-  - `deserializer` (Func<BsonReader, ValueTask<object>>): Deserializer callback.
+  - `calculateSize` (`Func<BsonValue, int>`): Computes serialized size.
+  - `serializer` (`Action<object, BsonValue>`): Writes a value into a `BsonValue` buffer.
+  - `deserializer` (`Func<object, BsonValue>`): Reads a value from a `BsonValue` buffer.
+  - `jsonFormatter` (`Func<BsonValue, string>`): Converts serialized values to a JSON string for diagnostics/export.
   - `legacyAliases` (array<byte>): Optional list of legacy codes for backward compatibility.
 - **Relationships**:
   - Registered through `ICustomBsonTypeRegistry`.
@@ -35,33 +38,35 @@
 
 ## PageFactoryRegistration
 
-- **Description**: Represents plugin-provided constructors for custom pages, metadata serializers, and rebuild hooks.
+- **Description**: Represents plugin-provided constructors for custom pages backed by deterministic numeric codes.
 - **Fields**:
+  - `pluginId` (string): Identifier for the owning plugin (e.g., `LiteDB.Vector`).
   - `pageType` (string): Logical classification (e.g., `VectorIndex`).
-  - `factory` (Func<PageConstructionContext, BasePage>): Page creator delegate.
-  - `metadataSerializer` (Func<PageMetadataContext, ValueTask>): Persists plugin metadata.
-  - `rebuildHook` (Func<RebuildContext, ValueTask>): Optional callback to participate in engine rebuilds.
+  - `numericCode` (byte): Persisted page type code reserved by the plugin.
   - `compatibilityRange` (string): Supported format versions (e.g., `>=8.0`).
+  - `factory` (Func<PageConstructionContext, object>): Page creator delegate (typically returns a `BasePage`).
 - **Relationships**:
-  - Registered with the core `IPageTypeRegistry`.
+  - Registered with the core `IPageTypeRegistry`/page factory registry.
   - Consumed by vector index strategies during index maintenance.
 - **Validation Rules**:
   - `factory` must only produce pages deriving from `BasePage`.
   - `compatibilityRange` must include the current engine version before activation.
-  - `metadataSerializer` must be idempotent, enabling snapshot/restore flows.
+  - Registrations must not collide on numeric code or logical name.
 
 ## CustomIndexStrategyDescriptor
 
 - **Description**: Aggregates plugin callbacks that implement vector indexing semantics end-to-end.
 - **Fields**:
+  - `pluginId` (string): Identifier for the owning plugin.
   - `strategyId` (string): Unique identifier referenced by public APIs.
-  - `ensureIndex` (Func<IndexRequestContext, ValueTask>): Handles index creation/upgrades.
-  - `queryPlanner` (Func<QueryPlanContext, ValueTask>): Injects vector operations into query planning.
-  - `rebuildStrategy` (Func<RebuildContext, ValueTask>): Coordinates rebuild of vector structures.
+  - `ensureIndex` (Func<CustomIndexEnsureContext, bool>): Handles index creation/upgrades.
+  - `queryPlanner` (Action<CustomIndexQueryPlannerContext>): Injects vector operations into query planning.
+  - `rebuildStrategy` (Action<CustomIndexRebuildContext>): Optional hook to participate in rebuild.
   - `requiredBsonTypes` (array<byte>): Type codes this strategy depends on.
+  - `requiredPageTypes` (array<string>): Logical plugin page types this strategy depends on.
 - **Relationships**:
-  - Registered through the expanded `IIndexStrategyRegistry`.
-  - Consumes `QueryMetadataBag`, `PageFactoryRegistration`, and `PluginCustomBsonTypeDescriptor`.
+  - Registered through `ICustomIndexStrategyRegistry`.
+  - Consumes `QueryMetadataBag`, `PageFactoryRegistration`, and `CustomBsonTypeDescriptor`.
 - **Validation Rules**:
   - `ensureIndex` must validate plugin availability and throw deterministic errors if missing prerequisites.
   - `queryPlanner` must not mutate core state outside metadata bag contracts.

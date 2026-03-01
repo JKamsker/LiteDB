@@ -24,39 +24,38 @@
    ```csharp
    public void Initialize(LiteDatabase database, ILitePluginContext context)
    {
-       context.RegisterBsonType(new CustomBsonTypeDescriptor(
-           pluginId: "LiteDB.Vector",
-           typeCode: 0x90,
-           name: "Vector",
-           serializer: VectorBsonSerializer.Write,
-           deserializer: VectorBsonSerializer.Read));
+       var pluginId = VectorPlugin.PluginId;
 
-       context.IndexMetadata.Register(new PluginIndexMetadataDescriptor(
-           pluginId: "LiteDB.Vector",
-           indexKind: "vector.hnsw",
-           serialize: VectorIndexMetadataSerializer.Serialize,
-           deserialize: VectorIndexMetadataSerializer.Deserialize));
+       context.SetDiagnosticPolicy(VectorPluginDiagnosticPolicy.Instance);
+
+       context.RegisterBsonType(VectorBsonSerializer.CreateDescriptor(pluginId));
+       context.RegisterSqlFunction(VectorSqlFunctions.CreateVectorDistance(pluginId));
+       context.RegisterSqlFunction(VectorSqlFunctions.CreateVectorSimilarity(pluginId));
+       context.RegisterQueryOperator(VectorQueryOperators.CreateVectorKnn(pluginId));
+       context.RegisterQueryCostModel(VectorQueryCostModel.Create(pluginId));
+
+       context.RegisterIndexMetadata(new PluginIndexMetadataDescriptor(
+           pluginId: pluginId,
+           indexKind: VectorCompatibility.DefaultIndexKind,
+           serialize: VectorMetadataSerializer.Serialize,
+           deserialize: VectorMetadataSerializer.Deserialize));
+
+       context.Indexes.Register(new VectorIndexStrategy(context.Logger, defaultMetric: null));
+       context.QueryPlanner.AddRule(new VectorIndexPlanningRule());
 
        context.RegisterPageFactory(new PageFactoryRegistration(
-           pluginId: "LiteDB.Vector",
+           pluginId: pluginId,
            pageType: "VectorIndex",
-           numericCode: 0xE0,
+           numericCode: VectorPlugin.PageTypeCode,
            compatibilityRange: ">=8.0",
-           factory: c => c switch
+           factory: ctx =>
            {
-               PageConstructionContext p when p.IsNewPage => new VectorIndexPage(p.Buffer, p.PageId),
-               PageConstructionContext p => new VectorIndexPage(p.Buffer),
-               _ => throw new ArgumentException("Unexpected context", nameof(c))
+               var buffer = (PageBuffer)ctx.Buffer;
+               return ctx.IsNewPage ? new VectorIndexPage(buffer, ctx.PageId) : new VectorIndexPage(buffer);
            }));
-
-       // finally register strategies/operators as usual
-       context.Indexes.Register(VectorIndexStrategy.Create(context));
-        context.QueryPlanner.AddRule(new VectorIndexPlanningRule());
-        context.QueryOperators.Register(FunctionRegistration.VectorDist());
-        context.QueryCostModel.Register(VectorCostModel.Instance);
    }
    ```
-   These registrations ensure collection pages, BSON serialization, and page factories all route through the plugin; without them, LiteDB will warn once on open and throw a `VectorCompatibility.PluginRequired` (`LITE2002`) exception only when vector assets are accessed.
+   These registrations ensure collection pages, BSON serialization, and page factories all route through the plugin; without them, behavior follows `PluginMissingBehavior` (default strict): warnings are emitted only in non-strict modes and `VectorCompatibility.PluginRequired` (`LITE2002`) is thrown when vector-owned assets are accessed.
 4. **Demonstrate missing-plugin behavior**—if you forget to register the plugin, vector operations fail deterministically while other data stays accessible:
    ```csharp
    using var db = new LiteDatabase(connectionString); // no plugins
@@ -75,24 +74,15 @@
        }
    }
    ```
-   You will see a single warning in the logs about plugin-owned metadata being detected; all non-vector collections remain fully writable.
+   Depending on `PluginMissingBehavior` (default strict), LiteDB may log a warning (non-strict modes) and will throw `LITE2002` when vector-owned assets are accessed; non-vector collections remain usable.
 5. **Create vector indexes via extensions** (no core APIs expose vector methods):
    ```csharp
    var options = new VectorIndexOptions(dimensions: 384);
    db.GetCollection<MyDoc>("docs").EnsureIndex(x => x.Embedding, options);
    ```
-6. **Optional: inspect raw metadata from inside the plugin**-for example, `VectorIndexStrategy` can deserialize payloads using the registered descriptor:
+6. **Optional: inspect raw metadata from inside the plugin**—deserialize the payload using your registered descriptor:
    ```csharp
-   public sealed class VectorIndexStrategy : CustomIndexStrategy
-   {
-       public override PluginIndexMetadata DeserializeMetadata(byte[] payload)
-       {
-           var slot = payload[0];
-           var dimensions = BitConverter.ToUInt16(payload, 1);
-           var metric = payload[3];
-            return new PluginIndexMetadata("vector.hnsw", new VectorMetadata(slot, dimensions, metric));
-       }
-   }
+   var metadata = VectorMetadataSerializer.Deserialize(payloadBytes); // returns a BsonDocument
    ```
 7. **Testing**: execute both `dotnet test LiteDB.Tests --filter Vector` and `dotnet test LiteDB.Vector.Tests` to validate optional-plugin behavior.
 8. **Migration helper**: LiteDB.Vector can provide a convenience API so applications can rebuild prerelease indexes after installing the plugin:

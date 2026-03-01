@@ -29,7 +29,7 @@ The **persisted configuration** for a custom index stored in collection pages. I
 **Key Point**: Metadata defines *what is stored* on disk; it's the data, not the behavior.
 
 ### Index Kind
-A string identifier distinguishing different plugin-owned index types (e.g., `"vector.hnsw"`, `"vector.ivf"`). Used as the key in metadata registries and persisted alongside metadata payloads to identify which plugin owns each index.
+A string identifier distinguishing different index kinds *within a plugin* (e.g., `"vector.hnsw"`, `"vector.ivf"`). Used as the key in metadata registries. On disk, plugin ownership is identified by `pluginId`; supporting multiple kinds per plugin requires an explicit discriminator (payload convention or a future record-format change).
 
 **Example**: LiteDB.Vector might register two kinds:
 - `"vector.hnsw"` for HNSW indexes
@@ -87,9 +87,9 @@ Immutable context passed to cost calculation delegates containing collection nam
 
 ### Plugin Missing Behavior
 Enum controlling how LiteDB responds when plugin-owned assets (metadata, pages, BSON types) are detected without the owning plugin loaded:
-- **RefuseDatabase**: Refuse to open the database entirely (for unsafe scenarios)
-- **RefuseOperations**: Open database but throw on plugin-dependent operations (default)
-- **AllowIfSafe**: Open database with warning; defer errors to runtime checks (for safe prerelease artifacts)
+- **RefuseDatabase** (**default strict**): fail on first access to an affected collection (or at open when validation-on-open is enabled)
+- **RefuseOperations**: open database; unaffected collections usable; any access (read/write/DDL) to affected collections throws `PLUGIN_REQUIRED`/`LITE2002`
+- **AllowIfSafe**: open database; unaffected collections usable; affected collections are read-only (only `LockMode.Read`); writes/DDL are refused; warnings are emitted only in non-strict modes
 
 ### LITE2002 Diagnostic Code
 Standardized error code emitted when plugin-owned functionality is accessed without the plugin installed. Message format includes:
@@ -99,7 +99,7 @@ Standardized error code emitted when plugin-owned functionality is accessed with
 - Remediation steps (install plugin, drop indexes, migrate data)
 
 ### Safe To Ignore
-Boolean property in the behavior matrix indicating whether plugin-owned artifacts can be safely present without breaking non-plugin functionality. When `true`, database opens with warning; when `false`, database refuses to open.
+Boolean property in the behavior matrix indicating whether plugin-owned artifacts can be present without breaking unaffected functionality. When `true`, hosts may choose a non-strict `PluginMissingBehavior` to keep the database usable; when `false`, hosts should default to strict refusal (and may refuse open when validation-on-open is enabled).
 
 ---
 
@@ -171,37 +171,39 @@ public void Initialize(LiteDatabase database, ILitePluginContext context)
 When LiteDB.Vector initializes:
 
 ```csharp
-// Register metadata serializer (persistence)
-context.IndexMetadata.Register(new PluginIndexMetadataDescriptor(
+// Register index metadata serializer (persistence)
+context.RegisterIndexMetadata(new PluginIndexMetadataDescriptor(
     pluginId: "LiteDB.Vector",
     indexKind: "vector.hnsw",
     serialize: metadata => /* convert BsonDocument to byte[] */,
     deserialize: bytes => /* convert byte[] to BsonDocument */
 ));
 
-// Register index strategy (operations)
-context.Indexes.Register(new CustomIndexStrategyDescriptor(
+// Register index strategy implementation (operations)
+context.Indexes.Register(/* IIndexStrategy implementation (Ensure/Drop + maintenance hooks) */);
+
+// Optional: register a CustomIndexStrategyDescriptor for planning/introspection
+context.RegisterCustomIndexStrategy(new CustomIndexStrategyDescriptor(
     pluginId: "LiteDB.Vector",
-    strategyId: "vector.hnsw",
-    ensure: ctx => /* create HNSW index */,
-    drop: ctx => /* delete HNSW index */,
-    rebuild: ctx => /* rebuild from scratch */,
-    metadataSerializerId: "vector.hnsw"  // links to metadata serializer
+    strategyId: "LiteDB.Vector",
+    ensureIndex: ctx => /* ensure index via ctx.EnsureContext + options */,
+    queryPlanner: ctx => { /* contribute planning rules */ },
+    rebuildStrategy: ctx => { /* participate in rebuild */ },
+    requiredBsonTypes: new[] { (byte)0x90 },
+    requiredPageTypes: new[] { "VectorIndex" }
 ));
 ```
 
-When user calls `EnsureIndex`:
-1. Core looks up strategy by `strategyId`
-2. Core invokes `ensure` delegate
-3. On success, core persists metadata using linked serializer
-4. Metadata written to collection page as `{pluginId}{indexKind}{payload}`
+When user calls `EnsureCustomIndex` (or plugin-provided `EnsureIndex` extensions):
+1. Core resolves the plugin `IIndexStrategy` by kind/type.
+2. Core invokes the strategy’s ensure path under a write snapshot.
+3. On success, core persists plugin index metadata to the collection page as `{pluginId}{payload}` and marks the index as plugin-owned (`IndexType != 0`).
 
 When database opens with vector indexes:
 1. Core reads metadata from collection page
-2. Core extracts `pluginId` and `indexKind`
-3. Core looks up metadata serializer by `indexKind`
-4. If missing: emit `LITE2002`, mark index unavailable
-5. If present: deserialize metadata and pass to strategy for rebuild/validation
+2. Core extracts `pluginId` and attempts to resolve a metadata descriptor for that plugin.
+3. If missing: emit `LITE2002`/`PLUGIN_REQUIRED` per host policy and refuse affected operations.
+4. If present: deserialize metadata and allow the plugin to participate in planning/rebuild.
 
 This separation means:
 - Metadata format can evolve (v1 → v2 serializers) without changing strategy logic

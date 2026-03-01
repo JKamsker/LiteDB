@@ -35,15 +35,17 @@ Recommended lease/refcount model (deterministic):
 - Each `CreateDatabase()` returns a handle with its own `engineLease` reference.
 - Disposing the factory prevents new handles and releases the owning reference.
 - Disposing the factory must not invalidate existing handles; they remain usable until disposed.
-- The shared engine is disposed when the last reference is released (factory disposed + all handles disposed).
+- The reused engine is disposed when the last reference is released (factory disposed + all handles disposed).
 - The internal “plugin host” used for initialization must not release a lease (it should not own a reference).
+- `CreateDatabase()` must be thread-safe: refcounts use `Interlocked`, and plugin initialization is guarded to run exactly once even under concurrent calls.
 
 Notes:
 
 - Because `ILitePlugin.Initialize` receives a `LiteDatabase` instance, factory reuse relies on a documented constraint that plugin initialization is registration-only and must not capture the passed database instance.
-- Engine/plugin context must be treated as a fixed pair in reuse mode (do not swap contexts on a shared engine instance).
+- Engine/plugin context must be treated as a fixed pair in reuse mode (do not swap contexts on a reused engine instance).
 - If the reused engine is `SharedEngine`, ensure mutex acquisition/release is reentrancy-safe for nested operations (existing recursion tests cover this usage pattern).
 - Ensure handle disposal is idempotent so a double-dispose cannot underflow a factory refcount/lease.
+- Ensure the factory/lease is released only from explicit disposal (`Dispose(true)`), never from a finalizer path (`Dispose(false)`).
 
 Also ensure the existing stream constructor’s checkpoint override behavior remains identical:
 
@@ -77,8 +79,9 @@ Implementation approach:
 - In `EvaluatePluginAssets()`, surface both plugin metadata entries and `IndexType != 0` indexes; metadata is used to improve diagnostics, not to decide safety.
 - In `HandleMissingPluginAsset(...)`, branch on `MissingBehavior` and `_mode`:
   - `AllowIfSafe` only permits `LockMode.Read` snapshots.
-- Keep warning cache behavior as-is (once per `pluginId`).
-- When `pluginId` is unknown (for example, `IndexType != 0` but metadata is missing/corrupt), include `indexType` in diagnostics and use a stable warning-cache key (e.g., `"<unknown>:type:{indexType}"`) to avoid null/ambiguous cache entries.
+- Warning/warn-once caching must not suppress diagnostics across databases: cache by a database identity + pluginId (or `<unknown>:type:{indexType}` when pluginId is unknown). `$plugins` and validation-on-open must not populate this cache.
+- When `pluginId` is unknown (for example, `IndexType != 0` but metadata is missing/corrupt), include `indexType` in diagnostics and use a stable cache-key segment (e.g., `"<unknown>:type:{indexType}"`) as part of the db-scoped key.
+- Core warning text must be plugin-agnostic (no hard-coded plugin-specific messages); plugin packages/hosts can provide plugin-specific guidance via diagnostic policies.
 - This keeps safety guarantees: you never mutate a collection that has plugin-owned index assets when the owning plugin isn’t loaded, unless you explicitly drop those indexes (see rebuild option).
 
 ---
@@ -111,17 +114,28 @@ Where validation executes:
 - File: `LiteDB/Engine/LiteEngine.cs` (modify `IPluginHost.SetPluginContext`)
   - After setting `_plugins`, if:
     - context implements `IPluginValidationState` and `ValidatePluginAssetsOnOpen == true` and `PluginAssetsValidated == false`
-  - then run a scan similar to current rebuild pre-scan:
+  - then run a *non-enforcing metadata scan* (do not open per-collection snapshots by name):
     - iterate `_header.GetCollections()` in an `AutoTransaction(...)`
-    - open read snapshots (`addIfNotExists: false`) for each collection
-    - rely on Snapshot’s missing-plugin behavior to throw/warn
+    - read each collection page by `pageId` from a neutral snapshot (`"$"`) / direct page access
+    - detect affected collections using:
+      - `CollectionIndex.IndexType != 0` (authoritative), and/or
+      - plugin index metadata entries when readable (diagnostics only)
+    - record required pluginIds + affected collections + parse errors into the context for later diagnostics (and `$plugins`)
+  - apply host policy to the scan result:
+    - `RefuseDatabase`: throw (fail fast) if any affected collection is found where the required plugin is not loaded (or pluginId is unknown / metadata is unparsable)
+    - `RefuseOperations`: do not throw; validation only precomputes/report requirements
+    - `AllowIfSafe`: do not throw; log/warn (scoped to db identity) but do not populate the enforcement warn-once cache
   - set `PluginAssetsValidated = true` on the context.
 
 Notes:
 
+- Validation-on-open validates plugin-owned index requirements only; it does not attempt to prove that all documents/pages are readable without plugin-defined BSON/page support.
+- `PluginAssetsValidated` caching is valid because plugin contexts are scoped to a single engine/database identity; if a future API ever reuses one context across multiple database identities, the cache must be keyed by identity (or reset).
+- Treat collection-page parse failures as “affected”: under `RefuseDatabase`, fail fast with aggregated diagnostics; under other modes, record the error and continue scanning.
+- Any validation warnings must use the same “database identity” scoping defined in `Intention.md` (file-backed canonical absolute path; otherwise per-engine instance identity).
 - This keeps validation opt-in and ensures `SharedEngine` doesn’t rescan on every underlying engine open (because the context survives and remembers it validated).
 - Do not rely on a newly introduced persisted header marker being present: legacy databases may already contain plugin-owned assets.
-- Under `SharedEngine`, validation runs when the underlying `LiteEngine` is (re)created and `SetPluginContext` executes (it is not guaranteed to run at factory build time).
+- Under `SharedEngine`, validation runs when the underlying `LiteEngine` is (re)created and `SetPluginContext` executes (it is not guaranteed to run at factory build time, so “fail fast” may occur on first operation).
 - `PluginAssetsValidated` is a performance cache only and is not cross-process authoritative under `ConnectionType.Shared`.
 
 ---
@@ -133,14 +147,17 @@ Files:
 - `LiteDB/Engine/SystemCollections/SysPlugins.cs` (new) OR add `SysPlugins()` method in `LiteEngine` partial
 - `LiteDB/Engine/SystemCollections/Register.cs` (modify)
 
-Output per `pluginId`, aggregated across user collections:
+Output: one row per `pluginId` (summary), aggregated across user collections (stable schema).
 
 {
   "pluginId": "LiteDB.Vector",
   "collections": ["vectors", "docs"],
   "indexCount": 2,
-  "loaded": true
+  "loaded": true,
+  "errors": []
 }
+
+For `pluginId = "<unknown>"` rows, include `indexTypeCounts` (e.g., `[{ "indexType": 7, "count": 2 }]`) so callers can see which non-btree index types were detected when a pluginId is not recoverable. `indexCount` is the total count for that row (sum of counts when `indexTypeCounts` is present).
 
 Key requirements:
 
@@ -149,19 +166,15 @@ Key requirements:
 
 Implementation approach:
 
-- In `SysPlugins`, open a single read snapshot against `"$"` (so `CollectionPage` is null and no plugin-asset evaluation runs).
-- For each user collection returned by `_header.GetCollections()`:
-  - Attempt to read the `CollectionPage` via `Snapshot.GetPage<CollectionPage>(pageId)`.
-  - Catch `InvalidCastException` / `LiteException` / unexpected exceptions and emit a best-effort row instead of throwing. Suggested error row fields:
-    - `collection`, `pageId`, `errorType`, `errorMessage` (and optionally `exceptionCode` when available).
-  - Detect plugin-owned assets from:
-    - plugin metadata entries (`collectionPage.GetPluginIndexes()`), and
-    - any `CollectionIndex` with `IndexType != 0` (even if metadata is missing/corrupt).
-    - Note: `IndexType` detection requires the `CollectionPage` to be parsable; if parsing fails (legacy/corrupt metadata throws during `CollectionPage` construction), `$plugins` can only emit an error row for that collection unless we add a dedicated “indexes-only” parser.
-  - For `IndexType != 0` without metadata, report `pluginId = "<unknown>"` and include the `indexType`.
-  - Copy any required data out of the `CollectionPage` before calling `snapshot.Clear()` (because `Clear()` releases page buffers).
-  - Call `snapshot.Clear()` after each collection to release page buffers.
-- Compute loaded by checking `_plugins?.CustomIndexes?.Registered` contains a descriptor with matching `PluginId`.
+- Open a single read snapshot against `"$"` (so `CollectionPage` is null and no plugin-asset evaluation runs). Do not open per-collection snapshots by collection name.
+- Scan collections from `_header.GetCollections()` and read each collection page by `pageId` via the neutral snapshot.
+- Detect plugin-owned indexes from:
+  - any `CollectionIndex` with `IndexType != 0` (authoritative), and
+  - plugin metadata entries (`collectionPage.GetPluginIndexes()`) when readable (diagnostics only).
+- Buffer/memory hygiene: copy any required data out of page buffers before clearing, and call `snapshot.Clear()` (or equivalent safepoint) per collection to avoid unbounded page-buffer growth while scanning many collections.
+- Aggregate rows by `pluginId` (and use `pluginId = "<unknown>"` when pluginId is not recoverable). Keep schema stable: do not emit ad-hoc “error rows” with a different shape.
+- For collection-page parse failures (legacy/corrupt metadata), record errors as data (e.g., `{ collection, pageId, errorType, errorMessage, exceptionCode? }`) and continue scanning. Ensure the `<unknown>` row still includes the affected collection name even if `indexCount` is partial/incomplete.
+- Compute `loaded` by checking `_plugins?.CustomIndexes?.Registered` contains a descriptor with matching `PluginId`.
 
 Registration:
 
@@ -184,12 +197,14 @@ Files:
 - If `DropOrphanedPluginIndexes == true`:
   - Rebuild proceeds even if plugin-owned indexes cannot be recreated.
   - Those indexes are omitted from the rebuilt database.
-  - Emit warnings to `ILogger` when available and record dropped indexes into the existing rebuild report (`_rebuild_errors`) so there is a durable audit trail even when no plugin context/logger is present.
+  - Emit warnings to `ILogger` when available and record dropped indexes into the rebuild report (`_rebuild_errors`) so there is a durable audit trail even when no plugin context/logger is present (include a structured reason code, not only exception text).
+  - This is **index salvage only**: rebuild may drop plugin-owned index storage (including plugin page types used only for those indexes), but must still fail by default if any **user documents** or **required core pages** cannot be decoded due to missing plugin-defined BSON types/page factories (no implicit “best-effort” document skipping). A separate explicit “allow data loss / skip unreadable documents” option would be required for that (out of scope here).
+  - Require an audit trail: when `DropOrphanedPluginIndexes == true`, ensure the rebuild report is enabled/persisted (do not allow a salvage rebuild without durable reporting).
 
 ### Required plumbing
 
 1. `LiteEngine.Rebuild(RebuildOptions options)` passes options through to `RebuildService.Rebuild(...)`.
-   - When `DropOrphanedPluginIndexes == true`, skip the strict pre-scan (`EnsurePluginAssetsAllowed`) that would otherwise throw when the plugin is missing.
+   - Because rebuild is DDL, perform a rebuild-specific affected-collection preflight *before* any `Close()`/file-replace work that fails fast when plugin support is missing, independent of `PluginMissingBehavior`. Only bypass this preflight when `DropOrphanedPluginIndexes == true`.
 2. `RebuildService` passes `options.DropOrphanedPluginIndexes` into `FileReaderV8` (new ctor param, e.g. `allowOrphanedPluginIndexes`).
 3. `FileReaderV8.LoadIndexes()`:
    - Must always capture `pluginId` + raw metadata bytes from `collectionPage.GetPluginIndexes()` even when metadata registry is missing.
@@ -203,7 +218,9 @@ Files:
    - If plugin-owned index detected and it cannot be rebuilt:
      - if `DropOrphanedPluginIndexes == true`: record a warning/report entry (for example, into `_rebuild_errors`) and return true (meaning “handled; skip”).
      - else: throw as today.
+6. `FileReaderV8.GetDocuments()` (or its caller) must treat missing-plugin decode (unknown BSON type / missing page factory while reading documents) as **fatal by default** and abort rebuild. Do not silently skip documents unless a future explicit “allow data loss” option is introduced.
 
 ### Safety defaults
 
-- `Recovery()` (auto rebuild on invalid state) does not enable dropping indexes; remains strict.
+- `Recovery()` (auto rebuild on invalid state) does not enable dropping indexes and does not allow document skipping; remains strict.
+- Ensure rebuild failure does not leave the `LiteEngine` instance permanently closed/disposed (use `try/finally` around close/reopen/rename operations).

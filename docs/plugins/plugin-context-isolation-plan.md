@@ -6,7 +6,7 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
 ## Current Status
 - `LiteDatabaseServices.Default` was removed from the codebase; only a minimal fallback lives in `PluginContextFallbacks` for truly legacy/no-DB helpers.
 - All serialization/query paths (BufferReader/Writer, expression building, index metadata, mapper, LINQ visitor, query optimizations) now take the active database’s `ILitePluginContext` or the explicit fallback helper.
-- Tests were updated to stop using the default context; missing-plugin behavior now throws deterministic `LiteException` with vector diagnostics instead of silently succeeding.
+- Tests were updated to stop using the default context; default strict missing-plugin behavior now throws deterministic `LiteException` with plugin diagnostics instead of silently succeeding (behavior is host-controlled via `PluginMissingBehavior`).
 - Full test matrix now passes (`net462` via xunit.console, `net481`, `net8.0`, `LiteDB.Vector.Tests`, `LiteDB.ReproRunner.Tests`).
 - .NET Framework diagnostic storage fixed: vector missing-plugin details are stored as JSON strings in `Exception.Data` to stay serializable (no raw `BsonDocument` payloads).
 - Added isolation regression coverage for duplicate plugin IDs: two in-memory databases register the same function/BSON/page codes and return instance-local results while the fallback context stays clean.
@@ -34,7 +34,7 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
 
 4) **Tests & tooling**
    - Add/maintain isolation regression tests: two databases with overlapping plugin IDs must not see each other’s registrations.
-   - Keep optionality/behavior-matrix tests aligned with strict missing-plugin refusal at snapshot open.
+   - Keep optionality/behavior-matrix tests aligned with host-controlled missing-plugin policy (default strict refusal at affected collection access; optional non-strict modes).
    - Re-run `scripts/run-tests-per-target.ps1` after isolation coverage to ensure the net462 xunit fallback path stays green.
 
 ## Implementation Order (suggested)

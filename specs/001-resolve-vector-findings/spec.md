@@ -80,7 +80,7 @@ As operations supporting existing LiteDB workloads, I need automated upgrade gui
 ### Key Entities *(include if feature involves data)*
 
 - **QueryMetadataBag**: Plugin-registered structure that stores planner hints (target collection, distance metric, max distance) with serialization contracts for legacy property migration.
-- **PluginCustomBsonTypeDescriptor**: Describes a reserved type code, serializer, deserializer, and compatibility shim that routes BSON vector payloads through the plugin pipeline.
+- **CustomBsonTypeDescriptor**: Describes a reserved type code, serializer/deserializer delegates, and compatibility shims that route BSON vector payloads through the plugin pipeline.
 - **CustomIndexStrategyDescriptor**: Aggregates page factory handles, rebuild hooks, and command interceptors that LiteDB.Vector registers to fulfil index operations without core dependencies.
 
 ## Success Criteria *(mandatory)*

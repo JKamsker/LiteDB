@@ -12,15 +12,19 @@ Plugin registration (store factories internally):
 - `UsePlugin(ILitePlugin plugin)`
 - `UsePlugin<TPlugin>() where TPlugin : ILitePlugin, new()` (no DI; convenience only)
 - `UsePlugin(Func<ILitePlugin> pluginFactory)` (no DI; convenience only)
-- `UsePlugin(Func<IServiceProvider, ILitePlugin> pluginFactory)` (DI-friendly)
+- `UsePlugin(Func<IServiceProvider, ILitePlugin> pluginFactory)` (DI-friendly; receives the provider set via `WithServices(...)`, otherwise an empty provider)
 - `UsePlugins(IEnumerable<ILitePlugin> plugins)`
 
 Plugin lifetime notes:
 
 - `UsePlugin(ILitePlugin plugin)` reuses the same instance for every database/handle; prefer factories for stateful plugins.
+- In `FactoryReuse.None`, `UsePlugin(ILitePlugin plugin)` can initialize the same instance multiple times (once per `CreateDatabase()`); plugin `Initialize(...)` should be idempotent or prefer plugin factories.
 - Plugin factories are invoked:
   - `FactoryReuse.None`: once per `CreateDatabase()`
-  - `FactoryReuse.ReuseEngine`: once per factory (when the shared engine/context is created)
+  - `FactoryReuse.ReuseEngine`: once per factory (when the reused engine/context is created)
+- Plugin instances are not disposed by the database/factory in this iteration; if a plugin needs disposal, the host must model/manage that explicitly.
+- In `FactoryReuse.ReuseEngine`, plugin factories run once per factory; avoid scoped-service assumptions unless the host builds factories per scope.
+- In `FactoryReuse.ReuseEngine`, the plugin instance produced by a factory is effectively a singleton for the lifetime of the factory/engine pair; plugin state must be thread-safe.
 
 Data source (mutually exclusive, last call wins):
 
@@ -30,7 +34,9 @@ Data source (mutually exclusive, last call wins):
 - `UseInMemory()` (shorthand for `UseConnectionString(":memory:")`)
 - `UseStream(Stream dataStream, Stream logStream = null)` (mirrors existing ctor semantics)
 - `UseEngine(ILiteEngine engine, bool disposeOnFactoryDispose = true)`
+  - Ownership: when `disposeOnFactoryDispose=true`, the created database/factory owns the engine and disposes it (for `Build()`: when the returned `LiteDatabase` is disposed; for `BuildFactory()`: when the last lease is released). When false, the host owns engine disposal.
   - Note: when `UseEngine(...)` is chosen, `BuildFactory(reuse: ...)` must use `FactoryReuse.ReuseEngine` (see below).
+  - Note: plugin registrations only affect storage/query behavior when the supplied engine honors `IPluginHost.SetPluginContext` (as `LiteEngine`/`SharedEngine` do).
 
 Configuration:
 

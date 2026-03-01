@@ -5,7 +5,7 @@
 - Each plugin in `IEnumerable<ILitePlugin>` receives `Initialize(LiteDatabase db, ILitePluginContext context)` so it can touch both the database surface and the registries exposed by the context.  
 - After initialization, the database passes the context to whatever engine it hosts via `IPluginHost.SetPluginContext`. Engines only ever see the context; they never hold a reference back to `LiteDatabase`.  
 - Engine helpers that need expensive derived data (page factory lookup tables, BSON type registries, etc.) keep static `ConditionalWeakTable<ILitePluginContext, …>` caches. Those tables lazily build the derived objects once per context and automatically drop entries when the context is garbage collected.  
-- A `SharedEngine` (or any custom `ILiteEngine`) can be wrapped by multiple `LiteDatabase` instances; each wrapper can choose its own plugin set while sharing the same engine because the context travels through `SetPluginContext`.
+- A `SharedEngine` (or any custom `ILiteEngine`) can be wrapped by multiple `LiteDatabase` instances, but the engine/context pair must be treated as fixed: do not swap plugin contexts on a shared engine instance. If multiple wrappers share an engine, they must share the same plugin context.
 
 ## Pain Points With the Current Approach
 - Static caches make ownership implicit. It is hard to reason about when entries disappear because eviction depends entirely on GC.  
@@ -81,20 +81,21 @@ await using var dbReader = new LiteDatabase(engine, sharedContext);
 
 ### Example: Engine Requesting Registries
 ```csharp
-public sealed class VectorPageFactoryRule
+// Pseudo-code: API names illustrate the intended shape.
+public sealed class PluginPageFactoryRule
 {
     public BasePage Create(PageBuffer buffer, ILitePluginContext context)
     {
         var registry = context.GetOrCreatePageFactoryRegistry();
-        if (!registry.TryGetRegistration(PageType.VectorIndex, out var registration))
+        if (!registry.TryGetRegistration(PageType.CustomPluginPage, out var registration))
         {
-            throw VectorCompatibility.PluginRequired();
+            throw new LiteException(LiteException.PLUGIN_REQUIRED, "A plugin is required to decode this page type.");
         }
 
         return (BasePage)registration.Factory(new PageConstructionContext(
             context,
             buffer,
-            PageType.VectorIndex,
+            PageType.CustomPluginPage,
             buffer.ReadUInt32(BasePage.P_PAGE_ID),
             isNewPage: false));
     }

@@ -9,7 +9,7 @@ LiteDB 6.0 separates all vector search capabilities (BSON types, index metadata,
 
 ## Key changes
 1. `LiteDB` no longer exposes `Vector*` types, helpers, or diagnostics. Vector indexing lives entirely in `LiteDB.Vector`.
-2. Core detects plugin-owned assets (vector indexes, vector BSON payloads, reserved page codes) and surfaces a single warning plus `LITE2002 VectorCompatibility.PluginRequired` when the plugin is missing.
+2. Core detects plugin-owned **indexes** via persisted collection metadata (`IndexType != 0` and/or plugin index metadata entries) and enforces missing-plugin behavior via host-controlled policy (`PluginMissingBehavior`, default strict). When the plugin is required but missing, vector operations throw `LITE2002 VectorCompatibility.PluginRequired`.
 3. Registries (`ICustomIndexStrategyRegistry`, `IPluginIndexMetadataRegistry`, `ICustomBsonTypeRegistry`, page factories, query operator/cost registries) are the only supported integration points for plugins.
 4. Build and CI gates must fail if source projects retain direct `"Vector"` references outside extension points (see `scripts/verify-vector-clean.ps1` once added).
 
@@ -58,11 +58,11 @@ LiteDB 6.0 separates all vector search capabilities (BSON types, index metadata,
 |-------------------|--------------------|--------------------------|-----------------|
 | No vector data present | Optional | Normal LiteDB behavior; plugin hooks stay idle even if loaded. | None. |
 | GA vector indexes/pages (`LiteDB.Vector` metadata) | Yes | Full vector functionality available via plugin registries. | Keep plugin registered; rerun vector tests after upgrades. |
-| GA vector indexes/pages (`LiteDB.Vector` metadata) | No | Database opens, logs one warning, and all vector operations throw `LITE2002 VectorCompatibility.PluginRequired`. Other collections remain writable. | Install `LiteDB.Vector`, register it via `LiteDatabaseOptions.Plugins`, and rerun the operation. |
+| GA vector indexes/pages (`LiteDB.Vector` metadata) | No | Behavior depends on `PluginMissingBehavior` (default strict): affected collections/indexes require the plugin and throw `LITE2002 VectorCompatibility.PluginRequired` when accessed; unaffected collections remain usable. | Install `LiteDB.Vector`, register it via `LiteDatabaseOptions.Plugins`, and rerun the operation. |
 | Prerelease vector artifacts (legacy metadata/page codes) | Yes or No | GA builds cannot deserialize the prerelease payloads; LiteDB raises `LITE2002` even if the plugin is installed. | Follow the breaking-change process below (export/import or drop & rebuild). |
 
 ## Breaking change: prerelease vector databases
-Prerelase builds created vector metadata formats that GA releases refuse to load automatically. This is an intentional breaking change to keep GA builds simple and deterministic. Choose one of these migration paths before upgrading:
+Prerelease builds created vector metadata formats that GA releases refuse to load automatically. This is an intentional breaking change to keep GA builds simple and deterministic. Choose one of these migration paths before upgrading:
 
 | Scenario | Steps | Notes |
 |---------|-------|-------|
@@ -90,13 +90,13 @@ Command output (trimmed to the quickstart steps):
 Artifacts for each run land in `run-output/` under the repository root. These steps confirm the installation guidance, the missing-plugin diagnostic, and both migration paths documented above: drop & recreate (Steps 3–4) and export/import (Step 5).
 
 ### Behavior without the plugin
-- LiteDB opens the database, logs one warning about missing plugin registrations, and marks vector collections/indexes as unavailable.
-- Any attempt to access plugin-owned assets throws `LiteException (LITE2002)` with `PluginId="LiteDB.Vector"` and diagnostic context.
-- Non-vector collections remain fully readable and writable.
+- LiteDB opens the database; access to vector collections/indexes is controlled by host policy (`PluginMissingBehavior`, default strict).
+- Any attempt to access vector-owned indexes without the plugin throws `LiteException (LITE2002)` with `PluginId="LiteDB.Vector"` and diagnostic context.
+- Non-vector collections remain readable and writable.
 
 ### Diagnostics expectations
-- **Warning**: `Vector plugin missing; plugin-owned metadata detected (LiteDB.Vector).` (logged once per database session)
-- **Exception**: `VectorCompatibility.PluginRequired` (`LITE2002`) when vector indexes/BSON types/pages are touched without the plugin.
+- **Warning** (non-strict policies only): logged once per database identity when plugin-owned indexes are detected but the host allows the database to open.
+- **Exception**: `VectorCompatibility.PluginRequired` (`LITE2002`) when vector-owned indexes are touched without the plugin.
 - **Conflict detection**: During plugin initialization, duplicate BSON type codes (`0x90-0x9F`) or page codes (`0xE0-0xEF`) produce `InvalidOperationException` referencing both plugin IDs.
 
 ## CI & release validation

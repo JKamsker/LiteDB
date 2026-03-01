@@ -53,16 +53,27 @@ Use `LiteDatabase.Services.QueryMetadata` when application code needs to inspect
 ### BSON Type Registry
 
 - Plugins reserve type codes and serializers by calling `context.RegisterBsonType(new CustomBsonTypeDescriptor(...))` during initialization (`LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs`).
-- Type codes ≥128 keep core enums stable while allowing plugins to round-trip `ValueTask`-based serialization handlers (`LiteDB/Document/Bson/BsonTypeRegistry.cs:14`).
+- Type codes ≥128 keep core enums stable while allowing plugins to round-trip values via `BufferWriter`/`BufferReader` handlers (passed as `object` to keep the core/engine boundary decoupled) (`LiteDB/Document/Bson/BsonTypeRegistry.cs:14`).
 - The registry feeds every BSON serialization path (`LiteDB/Document/BsonValue.cs`, `LiteDB/Document/Json/JsonWriter.cs`), so once a plugin registers a type, all writers/readers automatically delegate to the supplied delegates.
 
 ```csharp
 context.RegisterBsonType(new CustomBsonTypeDescriptor(
     pluginId: "LiteDB.Vector",
-    typeCode: 200,
+    typeCode: 200, // plugin-owned codes must be >= 128
     name: "Vector128",
-    serializer: VectorBsonSerializer.SerializeAsync,
-    deserializer: VectorBsonSerializer.DeserializeAsync,
+    calculateSize: value => /* compute byte size */,
+    serializer: (writer, value) =>
+    {
+        var bufferWriter = (BufferWriter)writer;
+        // write payload into bufferWriter
+    },
+    deserializer: reader =>
+    {
+        var bufferReader = (BufferReader)reader;
+        // read payload from bufferReader and return a BsonValue
+        return BsonValue.Null;
+    },
+    jsonFormatter: value => /* format JSON */,
     legacyAliases: new byte[] { (byte)BsonType.Vector }));
 ```
 
@@ -72,16 +83,19 @@ Fallback registrations keep legacy documents readable, but new writes should use
 
 - Storage extensions register page constructors via `context.RegisterPageFactory(new PageFactoryRegistration(...))` (`LiteDB/Plugins/Storage/IPageTypeRegistry.cs`).
 - Each registration declares a logical `pageType` and compatibility range so the engine can validate formats before `FileReaderV8` and `SnapShot` materialize pages (`LiteDB/Engine/Pages/PageFactoryRegistry.cs`, `LiteDB/Engine/FileReader/FileReaderV8.cs:52`).
-- Optional metadata serializers and rebuild hooks participate in checkpoints and `LiteDB/Engine/Engine/Rebuild.cs`, allowing plugins to persist auxiliary page headers and coordinate recovery.
+- Page factories are invoked when decoding pages with plugin-reserved numeric codes. If a page type is not registered, decoding fails with `PLUGIN_REQUIRED` when the page is accessed.
 
 ```csharp
 context.RegisterPageFactory(new PageFactoryRegistration(
     pluginId: "LiteDB.Vector",
     pageType: "VectorIndex",
+    numericCode: 0xE0,
     compatibilityRange: ">=8.0",
-    factory: VectorPageFactory.Create,
-    metadataSerializer: VectorPageFactory.SerializeMetadataAsync,
-    rebuildHook: VectorPageFactory.OnRebuildAsync));
+    factory: ctx =>
+    {
+        var buffer = (PageBuffer)ctx.Buffer;
+        return ctx.IsNewPage ? new VectorIndexPage(buffer, ctx.PageId) : new VectorIndexPage(buffer);
+    }));
 ```
 
 When a page type is registered, `LiteDatabaseServices` swaps the default fallback resolver so every page allocation/clone defers to the plugin without friend assemblies (`LiteDB/Client/Database/LiteDatabaseServices.cs:17`).
@@ -92,11 +106,11 @@ When a page type is registered, `LiteDatabaseServices` swaps the default fallbac
 - The LINQ visitor consults plugin resolvers before falling back to built-ins, and per-database resolver instances are cached for reuse (`LiteDB/Client/Mapper/Linq/LinqExpressionVisitor.cs:761`).
 - Use this hook to translate strong-typed helpers (e.g., `SpatialExpressions.Near`) into the functions you registered with the expression registry.
 
-### Index Interceptor Registry
+### EnsureIndexContext (custom interception)
 
-- Interceptors execute during `ILiteCollection<T>.EnsureIndex` before the engine sees the request (`LiteDB/Client/Database/Collections/Index.cs:167`).
-- `EnsureIndexContext` carries the entity type, mapper, database, engine, and helper methods. An interceptor may adjust parameters, call `ExecuteDefault`, and/or short-circuit with a custom result (`LiteDB/Plugins/EnsureIndexContext.cs:106`, `LiteDB/Plugins/EnsureIndexContext.cs:135`).
-- Use the `order` parameter when registering to control precedence (`LiteDB/Plugins/ILitePlugin.cs:164`).
+- `EnsureIndexContext` carries the entity type, mapper, database, engine, and helper methods (`LiteDB/Plugins/EnsureIndexContext.cs:20`).
+- Plugins can use `EnsureIndexContext.ExecuteDefault(...)` to delegate to core behavior and then override the final result via `SetResult(...)`.
+- There is no separate “interceptor registry” API: interception is coordinated via plugin-owned index strategies and/or custom index strategy descriptors.
 
 ## Expressions & Tokenization Pipeline
 
