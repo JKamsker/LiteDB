@@ -344,7 +344,9 @@ namespace LiteDB.Engine
         /// </summary>
         private IndexCost ChooseIndex(HashSet<string> fields)
         {
-            var indexes = _snapshot.CollectionPage.GetCollectionIndexes().ToArray();
+            var indexes = _snapshot.CollectionPage.GetCollectionIndexes()
+                .Where(x => x.IndexType == 0)
+                .ToArray();
 
             // if query contains a single field used, give preferred if this index exists
             var preferred = fields.Count == 1 ? "$." + fields.First() : null;
