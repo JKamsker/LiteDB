@@ -1,7 +1,23 @@
 # Assumptions / Defaults
 
 - Default missing-plugin behavior remains `PluginMissingBehavior.RefuseDatabase` (no breaking change).
+- `ValidatePluginsOnOpen` is `bool?` defaulting to `null`. Effective default: `true` if `MissingPluginBehavior == RefuseDatabase`, `false` if `AllowIfSafe`. Explicit `true`/`false` overrides the conditional default.
+- Missing-plugin modes reduced to two: `RefuseDatabase` and `AllowIfSafe`. `RefuseOperations` is deprecated (`[Obsolete]`) but retained at its original ordinal (`= 1`) for binary compatibility; at runtime it is treated as `AllowIfSafe`.
 - `$plugins` initially reports only plugin-owned indexes (not future plugin assets like arbitrary page allocations).
-- Validation-on-open scans persisted collection metadata and must not depend on a newly introduced persisted header marker being present (legacy databases exist).
-- Reuse-engine factory mode (`FactoryReuse.ReuseEngine`) shares a single engine/context pair and initializes plugins exactly once for that pair.
-- Factory reuse assumes `ILitePlugin.Initialize` is registration-only and plugins do not capture the `LiteDatabase` instance they are initialized with.
+- Validation-on-open scans persisted collection metadata using the fault-tolerant `TryParse` path (same as `$plugins`) and must not depend on a newly introduced persisted header marker being present (legacy databases exist).
+- Factory mode (`BuildFactory()`) always shares a single engine/context pair and initializes plugins exactly once for that pair.
+- Factory mode assumes `ILitePlugin.Initialize` is registration-only and plugins do not capture the `LiteDatabase` instance they are initialized with. **This assumption is currently violated by the Spatial plugin** (`SpatialPluginRegistry.Attach` stores `LiteDatabase`). This must be resolved before factory mode ships (see Intention.md for options).
+- The same `LiteDatabase` capture constraint applies to `LinqResolverFactory` delegate (currently the Spatial plugin ignores the parameter, but the delegate signature allows capture).
+- `IPluginDiagnosticPolicy.MissingBehavior` is deprecated and ignored for enforcement; host-controlled `LiteDatabaseOptions.MissingPluginBehavior` is the source of truth. The propagation path is: `LiteDatabaseOptions` → engine (`LiteEngine` field) → `TransactionMonitor` → `Transaction` → `Snapshot`.
+- `IndexType != 0` is the authoritative on-disk marker for plugin-owned indexes. Note: a single corrupted byte can trigger this. Under `RefuseDatabase`, a corrupted `IndexType` byte makes the database inaccessible. This is an acceptable trade-off (safety > availability) but should be documented. Future work could add a corroboration check.
+- Plugin disposal follows ownership conventions: factory-created plugins (via `UsePlugin(Func<...>)`) are disposed by the factory/database; instance-supplied plugins (via `UsePlugin(ILitePlugin)`) are NOT disposed (caller owns).
+- Builder is single-use and not thread-safe (same convention as `IHostBuilder`).
+- Second data-source call on builder throws `InvalidOperationException` (no "last call wins").
+- `UseFile(...)` + `BuildFactory()` + `ConnectionType.Direct` is safe and recommended. The factory creates ONE engine with exclusive file access; no corruption risk.
+- `Rebuild()` is incompatible with factory mode when multiple handles are active. Must be refused (`InvalidOperationException`) when factory refcount > 1. Factory-level rebuild with exclusive access is deferred to a future iteration.
+- The `_missingPluginWarnings` cache is scoped to `DefaultPluginContext` (or engine identity), not process-global.
+- Plugin context registries are frozen (`Freeze()`) after initialization in ALL modes (`Build()` and `BuildFactory()`) to enforce a uniform contract.
+- `DiagnosticPolicy` getter/setter use `volatile` or equivalent memory barrier for thread safety in factory mode.
+- `SharedEngine.OpenDatabase()` uses a local variable for engine construction, only assigning to `_engine` after both construction and `SetPluginContext` succeed. This prevents broken engine references on validation failure.
+- On-disk plugin metadata format has limited version extensibility (1 bit for legacy vs current). Consider reserving lower bits of the marker byte for format versioning in future iterations.
+- Phase 1 must include an explicit migration step: search all `RefuseOperations` references in the codebase and map them to `AllowIfSafe` before the enum member is deprecated.

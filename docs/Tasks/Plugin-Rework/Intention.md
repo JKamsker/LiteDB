@@ -6,6 +6,7 @@
 - Plugins must not break or corrupt existing databases (including databases created before vector/spatial work).
 - No silent data loss or inconsistency: if an operation cannot be proven safe without a plugin, it must be refused by default.
 - Missing-plugin handling is **host-controlled** and **defaults to strict**.
+- Core query planner must never select plugin-owned indexes (`IndexType != 0`) as btree candidates. This is an existing bug that must be fixed regardless of mode.
 
 ## Definitions (this iteration)
 
@@ -18,16 +19,18 @@ Note: plugins may also introduce persisted dependencies beyond indexes (custom B
 
 ### Missing-plugin modes (host policy)
 
-- `RefuseDatabase`: strict default. Without validation-on-open, construction may succeed and the first access that opens a snapshot for an affected collection fails; with validation-on-open enabled it fails as early as the engine is opened (construction for direct engines; first operation for `ConnectionType.Shared` / `SharedEngine`).
-- `RefuseOperations` (refuse affected collections entirely): allow opening the database and using unaffected collections, but refuse any access (read/write/DDL) to affected collections.
-- `AllowIfSafe`: allow read-only access to affected collections, but refuse any write/DDL that could mutate them or rely on plugin-owned indexes.
+- `RefuseDatabase`: strict default. Without validation-on-open, construction may succeed and the first access that opens a snapshot for an affected collection fails; with validation-on-open enabled it fails as early as the engine is opened (construction for direct engines; first operation for `ConnectionType.Shared` / `SharedEngine`). When `RefuseDatabase` is set, `ValidatePluginsOnOpen` defaults to `true` (fail-fast is strongly preferred over deferred failure in production).
+- `AllowIfSafe`: allow read-only access to affected collections, but refuse any write/DDL that could mutate them or rely on plugin-owned indexes. Allow opening the database and using unaffected collections normally.
+
+Note: the previous three-mode design (`RefuseDatabase` / `RefuseOperations` / `AllowIfSafe`) was simplified to two modes. `RefuseOperations` was dropped because its behavior is nearly identical to `AllowIfSafe` (both allow unaffected collections; the only difference was whether reads on affected collections were permitted), and the implementation complexity of three modes was not justified by the narrow use-case difference. If a consumer wants "refuse affected collections entirely", they can use `AllowIfSafe` and avoid querying affected collections (reads that fail due to missing BSON types will throw naturally).
 
 ### When plugin-owned indexes exist but the plugin is missing
 
-- Core must never plan against or use plugin-owned indexes; only btree indexes (`IndexType == 0`) are eligible for core planning.
+- Core must never plan against or use plugin-owned indexes; only btree indexes (`IndexType == 0`) are eligible for core planning. This includes all index selection paths: predicate matching, `OrderBy`, `GroupBy`, and preferred-index fallbacks.
 - Under `AllowIfSafe`, only operations that acquire `LockMode.Read` snapshots are permitted on affected collections. Any `LockMode.Write` (including “for update”), all writes, and all DDL that would touch an affected collection must be refused (`PLUGIN_REQUIRED`) to prevent stale plugin indexes and invariant violations.
-- Destructive DDL (drop/rename collection, ensure/drop index, rebuild/recovery, etc.) must refuse before doing partial work; core must not delete/modify a collection while skipping plugin-owned cleanup (page leaks/corruption).
+- Destructive DDL (drop/rename collection, ensure/drop index, rebuild/recovery, etc.) must refuse before doing partial work; core must not delete/modify a collection while skipping plugin-owned cleanup (page leaks/corruption). `DropCollection` must add a defensive guard: if `strategy == null && index.IndexType != 0`, throw rather than silently skipping cleanup (belt-and-suspenders against future regressions).
 - If the database can be opened safely without the plugin, it should remain usable (at minimum for reads on unaffected collections and for introspection).
+- Insert/Update/Delete paths that iterate `_plugins?.Indexes?.All` silently skip plugin index maintenance when the plugin is missing. This is acceptable only because `AllowIfSafe` refuses the write snapshot before these paths execute. The snapshot-level refusal is the primary safety gate; the silent skip is NOT a safe fallback.
 
 ### Rebuild / recovery
 
@@ -37,6 +40,8 @@ Note: plugins may also introduce persisted dependencies beyond indexes (custom B
 - Salvage rebuild must produce a durable report of what was dropped (collection, index name, pluginId (or `<unknown>`), indexType, unique flag, expression, reason) and must never drop plugin-owned indexes implicitly.
 - Salvage rebuild must not implicitly accept document loss: if any document cannot be decoded due to missing plugin BSON types/page factories, rebuild must fail by default (a separate explicit “allow data loss” option would be required for a “best-effort” salvage pass; not part of this intention).
 - Automatic recovery remains strict and must never drop plugin-owned indexes or skip unreadable documents implicitly.
+- **Known bug**: `FileReaderV8.Open()` has a generic `catch (Exception ex)` that calls `HandleError` and swallows the exception (no re-throw). This means recovery currently silently continues with partial data when plugin-required exceptions occur. This must be fixed: `PLUGIN_REQUIRED` exceptions must not be swallowed by the catch-all in `FileReaderV8.Open()`.
+- **Known gap**: There is no mechanism to distinguish "plugin BSON type decode failure" from "general corruption" during document reading in `FileReaderV8.GetDocuments()`. To enforce "fail if documents can't be decoded due to missing plugin", either `BufferReader` must throw a specific exception type for unknown BSON type codes, or a pre-check must be added.
 
 ## On-disk truth vs. caches
 
@@ -70,26 +75,46 @@ The current `LiteDatabase` constructors remain supported; the builder/factory is
 The goal is a fluent initialization path with explicit plugin and policy configuration:
 
 ```csharp
-var factory = new LiteDatabaseBuilder()
-    .WithServices(serviceProvider)
-    .UsePlugin(sp => new MyPlugin(sp)) // DI-friendly when WithServices(...) is set
-    .UseFile("my.db")
+// Single database (no engine sharing)
+using var db = new LiteDatabaseBuilder()
+    .UsePlugin<MyPlugin>()
+    .UseFile(“my.db”)
     .WithMissingPluginBehavior(PluginMissingBehavior.RefuseDatabase)
-    .ValidatePluginsOnOpen()
-    .BuildFactory(reuse: FactoryReuse.ReuseEngine);
+    .Build();
 
-using var db = factory.CreateDatabase();
+// Shared-engine factory (multiple handles to same engine)
+using var factory = new LiteDatabaseBuilder()
+    .WithServices(serviceProvider)
+    .UsePlugin(sp => new MyPlugin(sp))
+    .UseFile(“my.db”)
+    .WithMissingPluginBehavior(PluginMissingBehavior.RefuseDatabase)
+    .BuildFactory();
+
+using var db1 = factory.CreateDatabase();
+using var db2 = factory.CreateDatabase(); // shares engine with db1
 ```
 
 Key constraints:
 
-- Avoid naming collisions with existing `ConnectionType.Shared` / `SharedEngine`; “factory reuse” is an in-process lifetime concept, not the connection-string shared mutex mode.
-- `FactoryReuse` (in-process lifetime sharing) is independent of `ConnectionType.Shared` (cross-process mutex); they can be combined.
-- In factory reuse mode, plugins must be initialized exactly once per plugin context/engine pair; plugin initialization must be treated as **registration-only** and must not capture the `LiteDatabase` instance passed to `ILitePlugin.Initialize` (future work may add an explicit per-handle/session hook if needed). Plugins that need per-handle state must use `FactoryReuse.None` (or build factories per scope) until a per-handle hook exists.
-- Plugin `Initialize(...)` must not perform I/O (no opening snapshots, creating collections, or reads/writes); it must only register descriptors/operators/rules into the context.
-- In `FactoryReuse.ReuseEngine`, mapper + missing-plugin policy + validation-on-open are factory-level and consistent across all created handles.
-- The factory owns the engine + plugin context; `CreateDatabase()` returns leases/handles. Handle disposal must be idempotent and must never release a lease from a finalizer (`Dispose(false)`).
+- `Build()` creates a single `ILiteDatabase` (no engine sharing). `BuildFactory()` always creates a shared-engine factory (ref-counted handles). There is no `FactoryReuse` enum; the distinction is `Build()` vs `BuildFactory()`.
+- Avoid naming collisions with existing `ConnectionType.Shared` / `SharedEngine`; factory engine sharing is an in-process lifetime concept, not the connection-string shared mutex mode.
+- Factory engine sharing is independent of `ConnectionType.Shared` (cross-process mutex); they can be combined.
+- In factory mode, plugins must be initialized exactly once per plugin context/engine pair.
+- **`ILitePlugin.Initialize` contract**: The current signature `Initialize(LiteDatabase, ILitePluginContext)` is problematic because the Spatial plugin (and potentially others) captures the `LiteDatabase` reference for ongoing I/O. This is incompatible with factory mode where the initialization database is an internal host, not the returned handles. **Resolution options (choose one during implementation)**:
+  - (a) Change signature to `Initialize(ILitePluginContext context)` -- removes the temptation to capture; requires updating existing plugins (breaking change).
+  - (b) Add a per-handle hook `ILitePlugin.OnHandleCreated(ILiteDatabase handle)` -- allows plugins to bind to each handle; more pragmatic for existing plugins.
+  - (c) Keep current signature + document the constraint + add runtime validation that the passed instance is not stored (impractical to enforce).
+  Option (a) is preferred if breaking changes are acceptable in this iteration; option (b) is the pragmatic alternative.
+- Plugin `Initialize(...)` must not perform I/O (no opening snapshots, creating collections, or reads/writes); it must only register descriptors/operators/rules into the context. Existing violations (SpatialPlugin.Initialize calls `SpatialPluginRegistry.Attach` which stores the database) must be fixed.
+- In factory mode, mapper + missing-plugin policy + validation-on-open are factory-level and consistent across all created handles.
+- The factory owns the engine + plugin context; `CreateDatabase()` returns leases/handles. Handle disposal must be idempotent and must never release a lease from a finalizer (`Dispose(false)`). Use `Interlocked.CompareExchange` pattern for idempotent lease release (a simple boolean flag is not thread-safe under concurrent dispose).
+- `CreateDatabase()` must be thread-safe: use `Interlocked.Increment` for refcount, then check if factory is disposed; if disposed, decrement and throw `ObjectDisposedException`.
 - Disposing the factory prevents new handles but must not invalidate existing ones; the reused engine is disposed when the last lease is released (factory disposed + all handles disposed).
+- `Rebuild()` is incompatible with factory mode (it closes/reopens the engine internally, breaking shared handles). In factory mode, `Rebuild()` must either be refused, or exposed as a factory-level operation that requires exclusive access (no active handles).
 - Handles must outlive any readers/transactions they created (callers must dispose those first).
-- In `FactoryReuse.ReuseEngine`, plugin factories are invoked once per factory; the `IServiceProvider` (and any captured services) must be thread-safe and must outlive the factory + all created handles. Avoid scoped-service assumptions unless the host builds factories per scope.
-- In `FactoryReuse.ReuseEngine`, the mapper and plugin registries (`db.Services.*`) are shared across handles; treat them as immutable after factory build.
+- In factory mode, plugin factories are invoked once per factory; the `IServiceProvider` (and any captured services) must be thread-safe and must outlive the factory + all created handles. Avoid scoped-service assumptions unless the host builds factories per scope.
+- In factory mode, the mapper and plugin registries (`db.Services.*`) are shared across handles. After initialization, registries must be sealed/frozen (`Freeze()` or equivalent) so that post-init registration attempts throw `InvalidOperationException` rather than silently mutating shared state.
+- Plugin disposal follows ownership conventions: instances created by factories (`UsePlugin(Func<ILitePlugin>)`) are disposed by the factory/database when the owning scope ends; instances passed directly (`UsePlugin(ILitePlugin)`) are not disposed (caller owns).
+- `UsePlugin(ILitePlugin instance)` with `BuildFactory()`: the instance is used as-is by the factory (initialized once). Caller retains ownership of disposal.
+- `UseFile(...)` + `BuildFactory()` + `ConnectionType.Direct` (default) is safe and recommended: the factory creates ONE engine (exclusive file access) with multiple in-process handles. `ConnectionType.Shared` is only needed when multiple processes access the same file.
+- Builder validates incompatible combinations: `UseEngine(...)` + `WithConnectionType(...)` throws; `UseStream(...)` + `BuildFactory()` throws (stream cannot be shared); second data-source call throws (no “last call wins”).
