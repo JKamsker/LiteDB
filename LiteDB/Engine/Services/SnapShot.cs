@@ -113,52 +113,59 @@ namespace LiteDB.Engine
                 return;
             }
 
+            var pluginIdsByIndex = new Dictionary<string, string>(StringComparer.Ordinal);
+
             foreach (var (index, pluginId, _) in _collectionPage.GetPluginIndexes())
             {
-                if (this.HasPluginSupport(pluginId))
+                if (index == null || string.IsNullOrWhiteSpace(index.Name) || string.IsNullOrWhiteSpace(pluginId))
                 {
                     continue;
                 }
 
-                this.HandleMissingPluginAsset(pluginId, index?.Name);
+                pluginIdsByIndex[index.Name] = pluginId;
+            }
+
+            foreach (var index in _collectionPage.GetCollectionIndexes())
+            {
+                if (index == null || index.IndexType == 0)
+                {
+                    continue;
+                }
+
+                if (this.HasIndexTypeSupport(index.IndexType))
+                {
+                    continue;
+                }
+
+                pluginIdsByIndex.TryGetValue(index.Name, out var pluginId);
+                this.HandleMissingPluginAsset(pluginId, index.Name, index.IndexType);
             }
         }
 
-        private bool HasPluginSupport(string pluginId)
+        private bool HasIndexTypeSupport(byte indexType)
         {
-            var registry = _plugins?.CustomIndexes?.Registered;
-
-            if (registry == null)
+            if (indexType == 0)
             {
-                return false;
+                return true;
             }
 
-            foreach (var descriptor in registry)
-            {
-                if (descriptor == null)
-                {
-                    continue;
-                }
-
-                if (string.Equals(descriptor.PluginId, pluginId, StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return _plugins?.Indexes?.GetByType(indexType) != null;
         }
 
-        private void HandleMissingPluginAsset(string pluginId, string assetName)
+        private void HandleMissingPluginAsset(string pluginId, string assetName, byte indexType)
         {
             var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
             var behavior = PluginPolicyResolver.ResolveMissingPluginBehavior(_plugins);
+            var warningKey = !string.IsNullOrWhiteSpace(pluginId)
+                ? pluginId
+                : $"<unknown:{indexType}>";
             var diagnostics = new BsonDocument
             {
                 ["event"] = "plugin.asset_detected",
                 ["pluginId"] = pluginId,
                 ["collection"] = _collectionName ?? string.Empty,
-                ["asset"] = assetName ?? string.Empty
+                ["asset"] = assetName ?? string.Empty,
+                ["indexType"] = (int)indexType
             };
 
             if (behavior == PluginMissingBehavior.RefuseDatabase ||
@@ -167,7 +174,7 @@ namespace LiteDB.Engine
                 throw policy.CreateMissingPluginException(pluginId, "OpenSnapshot", diagnostics);
             }
 
-            this.LogMissingPluginWarning(pluginId, behavior);
+            this.LogMissingPluginWarning(warningKey, behavior);
         }
 
         private void LogMissingPluginWarning(string pluginId, PluginMissingBehavior behavior)
