@@ -82,7 +82,14 @@ namespace LiteDB.Engine
         /// </summary>
         ~TransactionService()
         {
-            Dispose(false);
+            try
+            {
+                Dispose(false);
+            }
+            catch
+            {
+                // Finalizers must never throw.
+            }
         }
 
         /// <summary>
@@ -407,48 +414,53 @@ namespace LiteDB.Engine
                 return;
             }
 
-            ENSURE(_state != TransactionState.Disposed, "transaction must be active before call Done");
-
-            // clean snapshots if there is no commit/rollback
-            if (_state == TransactionState.Active && _snapshots.Count > 0)
+            if (dispose)
             {
-                // release writable snapshots
-                foreach (var snapshot in _snapshots.Values.Where(x => x.Mode == LockMode.Write))
+                // clean snapshots if there is no commit/rollback
+                if (_state == TransactionState.Active && _snapshots.Count > 0)
                 {
-                    // discard all dirty pages (only buffers still writable)
-                    _disk.DiscardDirtyPages(snapshot
-                        .GetWritablePages(true, true)
-                        .Select(x => x.Buffer)
-                        .Where(x => x.ShareCounter == BUFFER_WRITABLE));
-
-                    // discard all clean pages (only buffers still writable)
-                    _disk.DiscardCleanPages(snapshot
-                        .GetWritablePages(false, true)
-                        .Select(x => x.Buffer)
-                        .Where(x => x.ShareCounter == BUFFER_WRITABLE));
-                }
-
-                // release buffers in read-only snaphosts
-                foreach (var snapshot in _snapshots.Values.Where(x => x.Mode == LockMode.Read))
-                {
-                    foreach (var page in snapshot.LocalPages)
+                    // release writable snapshots
+                    foreach (var snapshot in _snapshots.Values.Where(x => x.Mode == LockMode.Write))
                     {
-                        page.Buffer.Release();
+                        // discard all dirty pages (only buffers still writable)
+                        _disk.DiscardDirtyPages(snapshot
+                            .GetWritablePages(true, true)
+                            .Select(x => x.Buffer)
+                            .Where(x => x.ShareCounter == BUFFER_WRITABLE));
+
+                        // discard all clean pages (only buffers still writable)
+                        _disk.DiscardCleanPages(snapshot
+                            .GetWritablePages(false, true)
+                            .Select(x => x.Buffer)
+                            .Where(x => x.ShareCounter == BUFFER_WRITABLE));
                     }
 
-                    snapshot.CollectionPage?.Buffer.Release();
+                    // release buffers in read-only snaphosts
+                    foreach (var snapshot in _snapshots.Values.Where(x => x.Mode == LockMode.Read))
+                    {
+                        foreach (var page in snapshot.LocalPages)
+                        {
+                            page.Buffer.Release();
+                        }
+
+                        snapshot.CollectionPage?.Buffer.Release();
+                    }
+                }
+
+                _reader.Dispose();
+            }
+            else
+            {
+                try
+                {
+                    _reader.Dispose();
+                }
+                catch
+                {
                 }
             }
 
-            _reader.Dispose();
-
             _state = TransactionState.Disposed;
-
-            if (!dispose)
-            {
-                // Remove transaction monitor's dictionary
-                _monitor.ReleaseTransaction(this);
-            }
         }
     }
 }

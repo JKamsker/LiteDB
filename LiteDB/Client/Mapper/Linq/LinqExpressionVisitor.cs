@@ -47,6 +47,7 @@ namespace LiteDB
         private readonly BsonDocument _parameters = new BsonDocument();
         private int _paramIndex = 0;
         private Type _dbRefType = null;
+        private MemberMapper _dbRefAssignmentMember = null;
 
         private readonly StringBuilder _builder = new StringBuilder();
         private readonly Stack<Expression> _nodes = new Stack<Expression>();
@@ -375,6 +376,45 @@ namespace LiteDB
         {
             if (node.Members == null)
             {
+                if (node.Type.IsGenericType && node.Type.GetGenericTypeDefinition() == typeof(BsonRefId<>))
+                {
+                    if (_dbRefAssignmentMember == null || _dbRefAssignmentMember.IsDbRef == false)
+                    {
+                        throw new NotSupportedException($"New instance are not supported for {node.Type} when convert to BsonExpression ({node.ToString()}).");
+                    }
+
+                    if (_dbRefAssignmentMember.DbRefCollectionName.IsNullOrWhiteSpace())
+                    {
+                        throw new NotSupportedException("DbRef collection name must be provided when using BsonRefId<T>.");
+                    }
+
+                    var referenceType = node.Type.GetGenericArguments()[0];
+
+                    var declaredReferenceType = _dbRefAssignmentMember.IsEnumerable ?
+                        _dbRefAssignmentMember.UnderlyingType :
+                        _dbRefAssignmentMember.DataType;
+
+                    if (declaredReferenceType == null)
+                    {
+                        declaredReferenceType = referenceType;
+                    }
+
+                    _builder.Append("{ $id: ");
+                    this.Visit(node.Arguments[0]);
+                    _builder.Append(", $ref: ");
+                    base.Visit(Expression.Constant(_dbRefAssignmentMember.DbRefCollectionName));
+
+                    if (declaredReferenceType != referenceType)
+                    {
+                        _builder.Append(", $type: ");
+                        base.Visit(Expression.Constant(_mapper.SerializeTypeName(referenceType)));
+                    }
+
+                    _builder.Append(" }");
+
+                    return node;
+                }
+
                 if (this.TryGetResolver(node.Type, out var type))
                 {
                     var pattern = type.ResolveCtor(node.Constructor);
@@ -422,13 +462,23 @@ namespace LiteDB
             for (var i = 0; i < node.Bindings.Count; i++)
             {
                 var bind = node.Bindings[i] as MemberAssignment;
-                var member = this.ResolveMember(bind.Member);
+                var member = this.ResolveMember(bind.Member, out var memberMapper);
 
                 _builder.Append(i > 0 ? ", " : "");
                 _builder.Append(member.Substring(1));
                 _builder.Append(":");
 
-                this.Visit(bind.Expression);
+                var previousDbRefAssignmentMember = _dbRefAssignmentMember;
+                _dbRefAssignmentMember = memberMapper?.IsDbRef == true ? memberMapper : null;
+
+                try
+                {
+                    this.Visit(bind.Expression);
+                }
+                finally
+                {
+                    _dbRefAssignmentMember = previousDbRefAssignmentMember;
+                }
             }
 
             _builder.Append("}");
@@ -447,6 +497,32 @@ namespace LiteDB
             {
                 _builder.Append(i > 0 ? ", " : "");
                 this.Visit(node.Expressions[i]);
+            }
+
+            _builder.Append(" ]");
+
+            return node;
+        }
+
+        /// <summary>
+        /// Visit :: x => `new List&lt;int&gt; { 1, 2, 3 }`
+        /// </summary>
+        protected override Expression VisitListInit(ListInitExpression node)
+        {
+            _builder.Append("[ ");
+
+            for (var i = 0; i < node.Initializers.Count; i++)
+            {
+                _builder.Append(i > 0 ? ", " : "");
+
+                var initializer = node.Initializers[i];
+
+                if (initializer.Arguments.Count != 1)
+                {
+                    throw new NotSupportedException($"List initializer is not supported when convert to BsonExpression ({node.ToString()}).");
+                }
+
+                this.Visit(initializer.Arguments[0]);
             }
 
             _builder.Append(" ]");
@@ -647,6 +723,11 @@ namespace LiteDB
         /// </summary>
         private string ResolveMember(MemberInfo member)
         {
+            return this.ResolveMember(member, out _);
+        }
+
+        private string ResolveMember(MemberInfo member, out MemberMapper memberMapper)
+        {
             var name = member.Name;
 
             // checks if parent field are not DbRef (checks for same dataType)
@@ -665,6 +746,8 @@ namespace LiteDB
             _dbRefType = field.IsDbRef ? field.UnderlyingType : null;
 
             // if parent call is DbRef and are calling _id field, rename to $id
+            memberMapper = field;
+
             return "." + (isParentDbRef && field.FieldName == "_id" ? "$id" : field.FieldName);
         }
 

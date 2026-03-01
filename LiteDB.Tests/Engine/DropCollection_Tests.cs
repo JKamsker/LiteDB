@@ -232,7 +232,8 @@ namespace LiteDB.Tests.Engine
 
             using (var db = DatabaseFactory.Create(
                 TestDatabaseType.Disk,
-                $"Filename={file.Filename};Connection=Shared"))
+                $"Filename={file.Filename};Connection=Shared",
+                plugins: new[] { VectorSearchPlugin.Instance }))
             {
                 var collection = db.GetCollection<VectorDocument>("docs");
                 var options = new VectorIndexOptions(dimensions, VectorDistanceMetric.Cosine);

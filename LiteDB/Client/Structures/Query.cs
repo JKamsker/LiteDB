@@ -159,6 +159,19 @@ namespace LiteDB
         }
 
         /// <summary>
+        /// Returns all documents that ends with value (LIKE)
+        /// </summary>
+        public static BsonExpression EndsWith(string field, string value, IExpressionRegistry registry)
+        {
+            if (field.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(field));
+            if (value.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(value));
+
+            var effectiveRegistry = RequireRegistry(registry);
+
+            return BsonExpression.Create($"{field} LIKE {(new BsonValue("%" + value))}", effectiveRegistry);
+        }
+
+        /// <summary>
         /// Returns all documents that contains value (CONTAINS) - string Contains
         /// </summary>
         public static BsonExpression Contains(string field, string value, IExpressionRegistry registry)
@@ -277,6 +290,12 @@ namespace LiteDB
         public static BsonExpression StartsWith(string field, string value)
         {
             return StartsWith(field, value, DefaultExpressions);
+        }
+
+        [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
+        public static BsonExpression EndsWith(string field, string value)
+        {
+            return EndsWith(field, value, DefaultExpressions);
         }
 
         [Obsolete("Use overloads that accept IExpressionRegistry explicitly.")]
