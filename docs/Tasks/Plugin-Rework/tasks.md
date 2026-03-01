@@ -15,7 +15,7 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 
 - [x] Fix core planner to never select plugin indexes (`IndexType != 0`).
 - [x] Make missing-plugin enforcement host-controlled (`LiteDatabaseOptions.MissingPluginBehavior`).
-- [ ] `AllowIfSafe`: refuse all writes/DDL on affected collections.
+- [x] `AllowIfSafe`: refuse all writes/DDL on affected collections.
 - [ ] Scan `CollectionIndex.IndexType != 0` for enforcement (metadata is diagnostic-only).
 - [ ] `$plugins` introspection (safe under strict mode; no enforcement cache poisoning).
 - [ ] Validation-on-open (opt-in; fault-tolerant scan; strict mode fails fast).

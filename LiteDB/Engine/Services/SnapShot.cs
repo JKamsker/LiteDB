@@ -161,7 +161,8 @@ namespace LiteDB.Engine
                 ["asset"] = assetName ?? string.Empty
             };
 
-            if (behavior == PluginMissingBehavior.RefuseDatabase)
+            if (behavior == PluginMissingBehavior.RefuseDatabase ||
+                (behavior == PluginMissingBehavior.AllowIfSafe && _mode == LockMode.Write))
             {
                 throw policy.CreateMissingPluginException(pluginId, "OpenSnapshot", diagnostics);
             }
