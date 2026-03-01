@@ -55,10 +55,10 @@ namespace LiteDB
             _engine = connectionString.CreateEngine();
             _disposeOnClose = true;
 
-            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(mapper, null, plugins);
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(mapper, null, plugins);
 
             _mapper = resolvedMapper;
-            _pluginContext = new DefaultPluginContext(connectionString, services, logger);
+            _pluginContext = new DefaultPluginContext(connectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(resolvedPlugins);
@@ -82,10 +82,10 @@ namespace LiteDB
             _engine = connectionString.CreateEngine();
             _disposeOnClose = true;
 
-            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(null, options, null);
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(null, options, null);
 
             _mapper = resolvedMapper;
-            _pluginContext = new DefaultPluginContext(connectionString, services, logger);
+            _pluginContext = new DefaultPluginContext(connectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(resolvedPlugins);
@@ -109,10 +109,10 @@ namespace LiteDB
             _engine = new LiteEngine(settings);
             _disposeOnClose = true;
 
-            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(mapper, null, plugins);
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(mapper, null, plugins);
 
             _mapper = resolvedMapper;
-            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger);
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(resolvedPlugins);
@@ -161,10 +161,10 @@ namespace LiteDB
             _engine = new LiteEngine(settings);
             _disposeOnClose = true;
 
-            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(null, options, null);
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(null, options, null);
 
             _mapper = resolvedMapper;
-            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger);
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(resolvedPlugins);
@@ -203,10 +203,10 @@ namespace LiteDB
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _disposeOnClose = disposeOnClose;
 
-            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(mapper, null, plugins);
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(mapper, null, plugins);
 
             _mapper = resolvedMapper;
-            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger);
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(resolvedPlugins);
@@ -228,10 +228,10 @@ namespace LiteDB
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _disposeOnClose = disposeOnClose;
 
-            var (resolvedMapper, resolvedPlugins, services, logger) = ResolveConfiguration(null, options, null);
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(null, options, null);
 
             _mapper = resolvedMapper;
-            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger);
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePlugins(resolvedPlugins);
@@ -281,14 +281,16 @@ namespace LiteDB
 
         #endregion
 
-        private static (BsonMapper Mapper, IEnumerable<ILitePlugin> Plugins, IServiceProvider Services, ILogger Logger) ResolveConfiguration(BsonMapper mapperOverride, LiteDatabaseOptions options, IEnumerable<ILitePlugin> legacyPlugins)
+        private static (BsonMapper Mapper, IEnumerable<ILitePlugin> Plugins, IServiceProvider Services, ILogger Logger, PluginMissingBehavior MissingPluginBehavior, bool? ValidatePluginsOnOpen) ResolveConfiguration(BsonMapper mapperOverride, LiteDatabaseOptions options, IEnumerable<ILitePlugin> legacyPlugins)
         {
             var mapper = mapperOverride ?? options?.Mapper ?? BsonMapper.Global;
             var plugins = options?.Plugins ?? legacyPlugins ?? Array.Empty<ILitePlugin>();
             var services = options?.Services ?? NullServiceProvider.Instance;
             var logger = options?.Logger ?? NullLogger.Instance;
+            var missingPluginBehavior = PluginPolicyResolver.NormalizeMissingPluginBehavior(options?.MissingPluginBehavior ?? PluginMissingBehavior.RefuseDatabase);
+            var validatePluginsOnOpen = options?.ValidatePluginsOnOpen;
 
-            return (mapper, plugins, services, logger);
+            return (mapper, plugins, services, logger, missingPluginBehavior, validatePluginsOnOpen);
         }
 
         private void InitializePlugins(IEnumerable<ILitePlugin> plugins)

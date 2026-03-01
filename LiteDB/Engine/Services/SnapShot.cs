@@ -152,6 +152,7 @@ namespace LiteDB.Engine
         private void HandleMissingPluginAsset(string pluginId, string assetName)
         {
             var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+            var behavior = PluginPolicyResolver.ResolveMissingPluginBehavior(_plugins);
             var diagnostics = new BsonDocument
             {
                 ["event"] = "plugin.asset_detected",
@@ -160,12 +161,12 @@ namespace LiteDB.Engine
                 ["asset"] = assetName ?? string.Empty
             };
 
-            if (policy.MissingBehavior == PluginMissingBehavior.RefuseDatabase)
+            if (behavior == PluginMissingBehavior.RefuseDatabase)
             {
                 throw policy.CreateMissingPluginException(pluginId, "OpenSnapshot", diagnostics);
             }
 
-            this.LogMissingPluginWarning(pluginId, policy.MissingBehavior);
+            this.LogMissingPluginWarning(pluginId, behavior);
         }
 
         private void LogMissingPluginWarning(string pluginId, PluginMissingBehavior behavior)

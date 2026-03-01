@@ -31,5 +31,17 @@ namespace LiteDB
         /// Defaults to a no-op logger when not specified.
         /// </summary>
         public ILogger Logger { get; set; }
+
+        /// <summary>
+        /// Gets or sets how the database should behave when plugin-owned assets are encountered but the owning plugin is missing.
+        /// Defaults to <see cref="PluginMissingBehavior.RefuseDatabase"/>.
+        /// </summary>
+        public PluginMissingBehavior MissingPluginBehavior { get; set; } = PluginMissingBehavior.RefuseDatabase;
+
+        /// <summary>
+        /// Gets or sets whether plugins should be validated immediately when opening the database.
+        /// When <c>null</c> (default), validation is disabled to preserve legacy behavior.
+        /// </summary>
+        public bool? ValidatePluginsOnOpen { get; set; }
     }
 }

@@ -11,6 +11,11 @@ namespace LiteDB.Plugins
     internal sealed class DefaultPluginContext : ILitePluginContext
     {
         public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
+            : this(connectionString, services, logger, PluginMissingBehavior.RefuseDatabase, null)
+        {
+        }
+
+        public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger, PluginMissingBehavior missingPluginBehavior, bool? validatePluginsOnOpen)
         {
             this.QueryOperators = new QueryOperatorRegistry();
             this.Expressions = new ExpressionRegistry(this.QueryOperators);
@@ -28,6 +33,8 @@ namespace LiteDB.Plugins
             this.Services = services ?? NullServiceProvider.Instance;
             this.Logger = logger ?? NullLogger.Instance;
             this.ConnectionString = connectionString ?? new ConnectionString();
+            this.MissingPluginBehavior = PluginPolicyResolver.NormalizeMissingPluginBehavior(missingPluginBehavior);
+            this.ValidatePluginsOnOpen = validatePluginsOnOpen;
         }
 
         public IExpressionRegistry Expressions { get; }
@@ -61,6 +68,10 @@ namespace LiteDB.Plugins
         public ILogger Logger { get; }
 
         public ConnectionString ConnectionString { get; }
+
+        internal PluginMissingBehavior MissingPluginBehavior { get; }
+
+        internal bool? ValidatePluginsOnOpen { get; }
 
         public void RegisterQueryMetadata(string pluginId, int version, IReadOnlyCollection<string> reservedKeys)
         {

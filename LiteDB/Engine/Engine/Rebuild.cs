@@ -41,7 +41,7 @@ namespace LiteDB.Engine
 
         private void EnsurePluginAssetsAllowed()
         {
-            var behavior = _plugins?.DiagnosticPolicy?.MissingBehavior ?? PluginMissingBehavior.RefuseDatabase;
+            var behavior = PluginPolicyResolver.ResolveMissingPluginBehavior(_plugins);
 
             if (behavior != PluginMissingBehavior.RefuseDatabase)
             {
