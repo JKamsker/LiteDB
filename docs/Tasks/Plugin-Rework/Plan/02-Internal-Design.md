@@ -49,7 +49,7 @@ Notes:
 
 - **`ILitePlugin.Initialize` contract violation**: The Spatial plugin's `SpatialPluginRegistry.Attach(database, context)` stores the `LiteDatabase` reference in a `ConditionalWeakTable` and uses it for ongoing I/O. This makes factory reuse incompatible with the Spatial plugin. See Intention.md for resolution options (change `Initialize` signature or add per-handle hook).
 - Engine/plugin context must be treated as a fixed pair in reuse mode (do not swap contexts on a reused engine instance).
-- If the reused engine is `SharedEngine`, ensure mutex acquisition/release is reentrancy-safe for nested operations (existing recursion tests cover this usage pattern).
+- If the reused engine is `SharedEngine`, ensure mutex acquisition/release is reentrancy-safe for nested operations: every `WaitOne()` has a matching `ReleaseMutex()` (even on exceptions), and mutex release must not be conditional on whether an engine instance was created.
 - `_plugins` field in `LiteEngine` (line 41) is not `volatile` and has no memory barrier. `SetPluginContext` must happen-before any concurrent engine operations. In factory mode this is naturally guaranteed (context is set during factory build, before any handle is issued). Document this as a requirement.
 - **`Rebuild()` incompatibility**: `Rebuild()` calls `this.Close()` + `this.Open()`, which destroys and recreates engine internals. In factory mode, this breaks all shared handles. Solution: refuse `Rebuild()` on the engine when factory refcount > 1, or expose rebuild as a factory-level operation requiring exclusive access.
 
@@ -67,6 +67,7 @@ Current behavior (bugs to fix):
 
 - Enforcement reads `DiagnosticPolicy.MissingBehavior` (plugin-controlled), not `LiteDatabaseOptions.MissingPluginBehavior` (host-controlled). Must change to host-controlled.
 - `EvaluatePluginAssets()` only iterates `CollectionPage.GetPluginIndexes()` (metadata entries). Misses `IndexType != 0` indexes when metadata is missing/corrupt. Must also scan `CollectionIndex` entries.
+- `CollectionPage` parsing can throw `PLUGIN_REQUIRED` for legacy/corrupt plugin metadata markers before enforcement runs, which can bypass host policy and (for write snapshots) risks leaking collection locks. Snapshot construction must be exception-safe: any exception after acquiring a write lock (including during `CollectionService.Get(...)` / collection-page parsing) must dispose and release the lock. Plugin metadata parsing must be treated as diagnostic-only for safety decisions.
 - `HandleMissingPluginAsset` only has two branches: `RefuseDatabase` → throw, everything else → warn and allow. No write-mode refusal exists. Must add `AllowIfSafe` write refusal.
 - `_missingPluginWarnings` is a `static ConcurrentDictionary<string, byte>` keyed only by `pluginId` (process-global). Must be scoped by database identity.
 - `DropCollection` silently skips cleanup when `strategy == null && index.IndexType != 0` (page leak). Must throw instead.
@@ -91,6 +92,8 @@ Implementation approach:
 - Warning/warn-once cache: scope by database identity + pluginId (or `<unknown>:type:{indexType}` when pluginId is unknown). Use `ConditionalWeakTable` keyed by engine instance, or scope to `DefaultPluginContext` (which has the right lifetime) rather than a static dictionary. `$plugins` and validation-on-open must not populate this cache.
 - When `pluginId` is unknown (for example, `IndexType != 0` but metadata is missing/corrupt), include `indexType` in diagnostics.
 - Core warning text must be plugin-agnostic. Remove the hard-coded `"LiteDB.Vector"` message from `DefaultPluginDiagnosticPolicy`.
+- Plugin metadata entries must be treated as diagnostics-only: legacy/corrupt entries must not prevent opening read snapshots on unaffected collections, and must not bypass host-controlled enforcement decisions.
+- Required code change: `CollectionPage` metadata parsing must not throw on legacy/corrupt metadata markers; it must record per-entry parse errors for diagnostics (`errors[]`) and continue.
 - Add defensive guard in `DropCollection`: if `strategy == null && index.IndexType != 0`, throw `PLUGIN_REQUIRED` (belt-and-suspenders; should never be reached if snapshot-level refusal works correctly).
 - Note: `ForUpdate` queries open `LockMode.Write` snapshots (see `QueryExecutor.cs` line 91). The snapshot-level enforcement correctly catches these. Test plan must include a `ForUpdate` test case.
 
@@ -124,7 +127,7 @@ This must be unconditional: core btree planning must never treat plugin indexes 
 
 Goal: if enabled, fail fast instead of waiting for first collection access.
 
-Default: `true` when `MissingPluginBehavior == RefuseDatabase`; `false` otherwise.
+Default: disabled unless explicitly enabled (preserve legacy behavior; strict mode can still fail later when the first affected collection is accessed).
 
 Implementation:
 
@@ -142,16 +145,18 @@ Where validation executes:
     - context implements `IPluginValidationState` and `ValidatePluginAssetsOnOpen == true` and `PluginAssetsValidated == false`
   - then run a *non-enforcing collection-page scan* (do not open per-collection snapshots by name):
     - iterate `_header.GetCollections()` in an `AutoTransaction(...)`
-    - read each collection page by `pageId` from a neutral snapshot (`"$"`) / direct page access
-    - **Fault-tolerant parsing**: Use `CollectionPage.TryParse` (the same fault-tolerant path required for `$plugins`) rather than the regular `CollectionPage` constructor, which throws on legacy metadata format. Without this, a single legacy/corrupt metadata entry would prevent aggregating results across all collections.
-    - **Buffer safety**: extract all needed data (index types, plugin metadata) into local variables from the parsed result, then call `snapshot.Clear()`. Using page data after `Clear()` reads released memory.
+    - read each collection page as a raw `PageBuffer` (WAL-aware) by `pageId`:
+      - do NOT use `Snapshot.GetPage<T>` / `BasePage.ReadPage(...)` for `PageType.Collection` because they instantiate `CollectionPage` and can throw before a fault-tolerant `TryParse` runs
+      - add an internal helper (e.g., `Snapshot.ReadPageBuffer(uint pageId, out FileOrigin origin)` or equivalent) that returns the correct page version for the snapshot read version without constructing a page type (and always requires an explicit `buffer.Release()` by the caller)
+    - **Fault-tolerant scanning**: use a lightweight scan result (not `CollectionPage`/`CollectionIndex`) that does NOT compile `BsonExpression` or require index metadata to be parseable. This scan must surface per-index/plugin-metadata errors as data (for `$plugins` / exception diagnostics).
+    - **Buffer safety**: extract all needed data (index types, plugin metadata) into local variables from the scan result, then release the buffer explicitly. Do not rely on `snapshot.Clear()` to release raw buffers.
     - detect affected collections using:
       - `CollectionIndex.IndexType != 0` (authoritative), and/or
       - plugin index metadata entries when readable (diagnostics only)
     - record required pluginIds + affected collections + parse errors into the context for later diagnostics (and `$plugins`)
   - apply host policy to the scan result:
-    - `RefuseDatabase`: throw (fail fast) if any affected collection is found where the required plugin is not loaded (or pluginId is unknown / metadata is unparsable)
-    - `AllowIfSafe`: do not throw; log/warn (scoped to db identity) but do not populate the enforcement warn-once cache
+    - `RefuseDatabase`: throw (fail fast) if any affected collection is found where the required plugin is not loaded OR any required `IndexType != 0` lacks a registered `IIndexStrategy` (pluginId unknown/metadata errors become diagnostics, not the enforcement marker)
+    - `AllowIfSafe`: do not throw; record diagnostics for `$plugins` / typed API. Do not warn here (warnings are emitted on first real affected-collection access) and do not populate the enforcement warn-once cache
   - set `PluginAssetsValidated = true` on the context.
 
 Notes:
@@ -160,7 +165,9 @@ Notes:
 - Validation-on-open validates plugin-owned index requirements only; it does not attempt to prove that all documents/pages are readable without plugin-defined BSON/page support.
 - `PluginAssetsValidated` caching is valid because plugin contexts are scoped to a single engine/database identity.
 - Treat collection-page parse failures as "affected": under `RefuseDatabase`, fail fast with aggregated diagnostics; under `AllowIfSafe`, record the error and continue scanning.
-- Any validation warnings must use the same "database identity" scoping defined in `Intention.md`.
+- Any warnings (emitted on first real affected-collection access under `AllowIfSafe`) must use the same "database identity" scoping defined in `Intention.md`.
+- If validation throws under `RefuseDatabase`, include the aggregated scan result in the thrown exception diagnostics (same data surfaced by `$plugins` / typed API), since the database may not be openable for introspection.
+- If `SetPluginContext`/validation throws during construction (builder or constructors), dispose the just-created engine and release any file handles/mutexes (construction must be exception-safe; no leaked engines on failure paths).
 - **SharedEngine exception safety (required code change)**: `SharedEngine.OpenDatabase()` must handle exceptions from `SetPluginContext` correctly. Currently, the catch block releases the mutex but does NOT set `_engine = null` or dispose the partially-constructed engine. Recommended fix pattern: use a local variable for engine construction, only assign to `_engine` after both construction AND `SetPluginContext` succeed:
   ```csharp
   var engine = new LiteEngine(_settings);
@@ -190,19 +197,21 @@ Files:
 - `LiteDB/Engine/SystemCollections/SysPlugins.cs` (new) OR add `SysPlugins()` method in `LiteEngine` partial
 - `LiteDB/Engine/SystemCollections/Register.cs` (modify)
 
-Output: one row per `pluginId` (summary), aggregated across user collections (stable schema).
+Output: one row per plugin key (`pluginId` when known; otherwise `type:{indexType}`), aggregated across user collections (stable schema).
 
 ```json
 {
+  "key": "LiteDB.Vector",
   "pluginId": "LiteDB.Vector",
   "collections": ["vectors", "docs"],
   "indexCount": 2,
   "loaded": true,
+  "strategyAvailable": true,
   "errors": []
 }
 ```
 
-For `pluginId = "<unknown>"` rows, include `indexTypeCounts` (e.g., `[{ "indexType": 7, "count": 2 }]`).
+For unknown rows, use `pluginId = "<unknown>"` and `key = "type:{indexType}"` (and optionally include `indexTypeCounts` for diagnostics). If an orphan metadata entry cannot be attributed to any plugin key, surface it under a dedicated row (e.g., `key = "orphan-metadata"`).
 
 Key requirements:
 
@@ -212,17 +221,23 @@ Key requirements:
 Implementation approach:
 
 - Open a single read snapshot against `"$"` (proven pattern: `SysDump` already does this at `SysDump.cs` line 36).
-- Scan collections from `_header.GetCollections()` and read each collection page by `pageId` via the neutral snapshot.
-- **Fault-tolerant parsing**: The `CollectionPage` constructor throws `LiteException(PLUGIN_REQUIRED)` on legacy metadata format (line 102-128 of `CollectionPage.cs`). The `$plugins` implementation must NOT use the `CollectionPage` constructor directly. Instead, use a separate fault-tolerant parsing path (e.g., `CollectionPage.TryParse(PageBuffer, out CollectionPage, out List<Error>)`) that catches per-entry errors and records them. This is critical for `$plugins` to fulfill its non-throwing contract.
-- Buffer/memory hygiene: extract all data from `CollectionPage` into local variables BEFORE calling `snapshot.Clear()`. The temporary `CollectionPage` wrapper holds a reference to the page buffer; using it after `Clear()` reads released memory.
-- Aggregate rows by `pluginId` (and use `pluginId = "<unknown>"` when pluginId is not recoverable). Keep schema stable.
+- Scan collections from `_header.GetCollections()` and read each collection page **buffer** by `pageId` via a raw-buffer read helper (WAL-aware; do not instantiate `CollectionPage` via the normal snapshot page factory path).
+- **Fault-tolerant scanning**: the `$plugins` implementation must NOT use the `CollectionPage` constructor (it throws `LiteException(PLUGIN_REQUIRED)` on legacy metadata format). Use the same lightweight scan helper as validation-on-open, and surface errors as data (`errors[]`) rather than exceptions.
+- Buffer/memory hygiene: extract all data from the scan result into local variables BEFORE releasing the `PageBuffer`. Do not rely on `snapshot.Clear()` to release raw buffers.
+- Aggregate rows by plugin key: `key = pluginId` when readable; otherwise `key = $"type:{indexType}"`. Keep schema stable and avoid collapsing distinct unknown index types into a single `<unknown>` row.
 - Compute `loaded` by checking `_plugins?.CustomIndexes?.Registered` contains a descriptor with matching `PluginId`.
+- Compute `strategyAvailable` by checking that an `IIndexStrategy` exists for each persisted `IndexType` encountered for the row (protects against “pluginId registered but persisted IndexType not supported” version mismatches).
 
-Also consider a typed programmatic API in addition to the system collection:
+Prefer implementing a typed programmatic API first, then layering `$plugins` on top:
 
 ```csharp
 IReadOnlyList<PluginRequirement> LiteDatabase.GetPluginRequirements();
 ```
+
+Implementation note: to avoid drift, implement a single internal scanner (e.g., `PluginRequirementScanner`) used by:
+- the typed API
+- `$plugins`
+- validation-on-open
 
 This bypasses the query/snapshot/enforcement pipeline entirely and is more discoverable, testable, and type-safe. The `$plugins` system collection can be a thin wrapper over this API.
 
@@ -249,7 +264,7 @@ Files:
   - Those indexes are omitted from the rebuilt database.
   - Emit warnings and record dropped indexes into the rebuild report.
   - This is **index salvage only**: must still fail if documents cannot be decoded.
-  - Require audit trail: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` → reject or coerce.
+  - Require audit trail: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` throws `InvalidOperationException`.
 
 ### Required plumbing
 
@@ -313,6 +328,7 @@ Also make `DiagnosticPolicy` setter check `_frozen` state (currently `SetDiagnos
 - `LiteDB/Client/Database/ILiteDatabaseFactory.cs`
 - `LiteDB/Client/Database/LiteDatabaseFactory.cs`
 - `LiteDB/Engine/SystemCollections/SysPlugins.cs` (or equivalent partial method)
+- `LiteDB/Engine/Services/PluginRequirementScanner.cs` (internal shared scanner for typed API, `$plugins`, and validation-on-open)
 - `LiteDB/Plugins/IPluginValidationState.cs` (internal helper interface)
 
 ### Modify
@@ -323,13 +339,13 @@ Also make `DiagnosticPolicy` setter check `_frozen` state (currently `SetDiagnos
 - `LiteDB/Plugins/DefaultPluginContext.cs` (store validation flags; host policy; `Freeze()`)
 - `LiteDB/Plugins/ILitePlugin.cs` (resolve `Initialize` signature -- option a or b)
 - `LiteDB/Plugins/PluginDiagnosticPolicy.cs` (remove hard-coded Vector message; deprecate `MissingBehavior`)
-- `LiteDB/Engine/Services/SnapShot.cs` (write-mode refusal; `IndexType != 0` scanning; db-scoped cache; `DropCollection` guard)
+- `LiteDB/Engine/Services/SnapShot.cs` (write-mode refusal; `IndexType != 0` scanning; db-scoped cache; raw page-buffer helper for `$plugins`/validation scans; `DropCollection` guard)
 - `LiteDB/Engine/Query/QueryOptimization.cs` (filter `IndexType == 0` only)
 - `LiteDB/Engine/SystemCollections/Register.cs` (register `$plugins`)
 - `LiteDB/Engine/Structures/RebuildOptions.cs`
 - `LiteDB/Engine/Engine/Rebuild.cs` (preflight always runs; `TryRebuildPluginIndex` checks `IndexType`)
 - `LiteDB/Engine/Services/RebuildService.cs`
 - `LiteDB/Engine/FileReader/FileReaderV8.cs` (don't swallow `PLUGIN_REQUIRED`; `LoadIndexes` `IndexType` handling)
-- `LiteDB/Engine/Pages/CollectionPage.cs` (add `TryParse` for fault-tolerant `$plugins` scanning)
+- `LiteDB/Engine/Pages/CollectionPage.cs` (add a fault-tolerant scan helper for `$plugins`/validation that does not throw on legacy/corrupt metadata and does not compile `BsonExpression`)
 - `LiteDB/Engine/LiteEngine.cs` (`SetPluginContext` + validation-on-open; `_plugins` field documentation)
 - (Spatial plugin): fix `SpatialPluginRegistry.Attach` to not capture `LiteDatabase`

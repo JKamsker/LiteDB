@@ -13,6 +13,7 @@ Plugin registration (store factories internally):
 - `UsePlugin<TPlugin>() where TPlugin : ILitePlugin, new()` (no DI; convenience only)
 - `UsePlugin(Func<ILitePlugin> pluginFactory)` -- factory-created instances are disposed by the owning database/factory if they implement `IDisposable`
 - `UsePlugin(Func<IServiceProvider, ILitePlugin> pluginFactory)` (DI-friendly; receives the provider set via `WithServices(...)`, otherwise an empty provider)
+- `UsePlugin<TPlugin>(Func<IServiceProvider, TPlugin> pluginFactory) where TPlugin : ILitePlugin` (typed factory; avoids constructing then discarding duplicates when de-duping by CLR type)
 - `UsePlugins(IEnumerable<ILitePlugin> plugins)` / `UsePlugins(params ILitePlugin[] plugins)`
 
 Plugin lifetime notes:
@@ -21,6 +22,7 @@ Plugin lifetime notes:
 - `UsePlugin(ILitePlugin plugin)` reuses the same instance; the builder/database/factory does NOT dispose it. Caller owns lifetime.
 - `UsePlugin(Func<...>)` factories: the created instance IS disposed by the database/factory when the owning scope ends (if it implements `IDisposable`).
 - Plugin initialization is de-duped by plugin CLR type (first registered instance wins), mirroring existing `LiteDatabase` constructor behavior. **Duplicate registrations of the same CLR type log a warning** rather than being silently ignored.
+  - Note: warning-on-duplicates is a builder/factory diagnostic; existing constructors can remain silent for compatibility.
 - Plugin factories are invoked:
   - `Build()`: once per `Build()` call
   - `BuildFactory()`: once per factory (when the shared engine/context is created)
@@ -33,25 +35,27 @@ Data source (mutually exclusive; **second call throws `InvalidOperationException
 - `UseConnectionString(string connectionString)`
 - `UseConnectionString(ConnectionString connectionString)`
 - `UseInMemory()` (shorthand for `UseConnectionString(":memory:")`)
+- `UseTemp()` (shorthand for `UseConnectionString(":temp:")`)
 - `UseStream(Stream dataStream, Stream logStream = null)` (mirrors existing ctor semantics)
 - `UseEngine(ILiteEngine engine, bool ownsEngine = true)`
   - Ownership: when `ownsEngine=true`, the created database/factory owns the engine and disposes it (for `Build()`: when the returned `LiteDatabase` is disposed; for `BuildFactory()`: when the last lease is released). When false, the host owns engine disposal.
   - Note: when `UseEngine(...)` is chosen, `BuildFactory()` reuses the provided engine directly (ref-counted handles).
   - Note: plugin registrations only affect storage/query behavior when the supplied engine honors `IPluginHost.SetPluginContext` (as `LiteEngine`/`SharedEngine` do).
-  - Note: when `UseEngine(...)` is chosen, the plugin context `ConnectionString` is synthetic/empty unless the host supplies an explicit context connection string; plugins must not assume filename/read-only flags are available from the context in this mode.
+  - Note: when `UseEngine(...)` is chosen, the plugin context `ConnectionString` is synthetic/empty unless the host supplies an explicit context connection string via `WithContextConnectionString(...)`.
 
 Configuration:
 
 - `WithMapper(BsonMapper mapper)`
 - `WithServices(IServiceProvider services)`
 - `WithLogger(ILogger logger)`
+- `WithContextConnectionString(ConnectionString connectionString)` (used to supply a real connection string to the plugin context when `UseEngine(...)` is selected; copy at build time, do not retain a mutable reference)
 - `WithPassword(string password)` (applies to connection-string/engine settings where relevant)
 - `AsReadOnly()` (connection string `ReadOnly` / engine settings)
 - `WithConnectionType(ConnectionType type)` (maps to `ConnectionString.Connection` / `connection=` key; Direct vs `ConnectionType.Shared` mutex mode)
 - `ConfigureEngine(Action<EngineSettings> configure)` (passed into `ConnectionString.CreateEngine`)
 - `WithMissingPluginBehavior(PluginMissingBehavior behavior)` (host-controlled, see below)
-- `ValidatePluginsOnOpen(bool enabled = true)` (when not explicitly set: defaults to `true` if `MissingPluginBehavior == RefuseDatabase`, `false` otherwise)
-- `ConfigureOptions(Action<LiteDatabaseOptions> configure)` (escape hatch for future options; explicit builder methods take precedence over options set here)
+- `ValidatePluginsOnOpen(bool enabled = true)` (opt-in; defaults to disabled unless explicitly enabled, preserving legacy behavior)
+- `ConfigureOptions(Action<LiteDatabaseOptions> configure)` (escape hatch for future options; applied in call order/last-call-wins)
 
 Build:
 
@@ -64,11 +68,13 @@ Builder is NOT thread-safe (same convention as `IHostBuilder`, `DbContextOptions
 
 Notes:
 
-- `BuildFactory()` is not supported for `UseStream(Stream ...)` (throws; a stream cannot be shared across handles). To use streams with factory, provide a stream factory via a future overload.
+- All `With*` / `Configure*` calls are applied in call order (last call wins).
+- `BuildFactory()` is not supported for `UseStream(Stream ...)` (throws; stream lifetime/ownership and checkpoint override semantics are hard to make safe across ref-counted handles). If needed, use `UseEngine(...)` with a pre-created engine, or add a future `UseStreamFactory(...)` overload.
 - `UseInMemory()` + `BuildFactory()` returns many handles to the same in-memory database.
 - Builder validates incompatible combinations at build time:
   - `UseEngine(...)` + `WithConnectionType(...)` → throws
   - `UseStream(...)` + `BuildFactory()` → throws
+  - `WithContextConnectionString(...)` without `UseEngine(...)` → throws
   - Note: `UseFile(...)` + `BuildFactory()` + `ConnectionType.Direct` (the default) is safe and recommended. The factory creates ONE engine (exclusive file access) with multiple in-process handles -- no corruption risk. `ConnectionType.Shared` is only needed when *multiple processes* access the same file, not for in-process handle sharing.
 
 ## 2) ILiteDatabaseFactory + LiteDatabaseFactory (new)
@@ -114,9 +120,9 @@ Add:
 
 - `public PluginMissingBehavior MissingPluginBehavior { get; set; } = PluginMissingBehavior.RefuseDatabase;`
 - `public bool? ValidatePluginsOnOpen { get; set; } = null;`
-  - When `null` (default), the effective value is resolved at consumption time: `true` if `MissingPluginBehavior == RefuseDatabase`, `false` if `AllowIfSafe`.
+  - When `null` (default), the effective value is `false` (legacy behavior; do not fail-fast on open unless explicitly enabled).
   - When explicitly set to `true` or `false`, that value is used regardless of `MissingPluginBehavior`.
-  - This avoids the inconsistency where a hardcoded `= true` default would force validation even for `AllowIfSafe` users who don't use the builder.
+  - The builder should leave this `null` unless `ValidatePluginsOnOpen(...)` is called.
 
 Existing constructors + `LiteDatabaseOptions` should honor the new fields; the builder sets them when used.
 
@@ -124,6 +130,7 @@ Precedence:
 
 - `LiteDatabaseOptions.MissingPluginBehavior` is the enforcement source of truth (host-controlled).
 - `IPluginDiagnosticPolicy.MissingBehavior` is **deprecated** (marked `[Obsolete]`). It is ignored for enforcement. Plugin diagnostic policies can still customize exception messages via `CreateMissingPluginException`, but cannot influence the enforcement decision.
+- Compatibility note: any consumer/plugin relying on `IPluginDiagnosticPolicy.MissingBehavior != RefuseDatabase` to relax enforcement must now set `LiteDatabaseOptions.MissingPluginBehavior` explicitly.
 - The host-controlled `MissingPluginBehavior` must propagate from `LiteDatabaseOptions` → `DefaultPluginContext` (or a new field on `ILitePluginContext`) → `Snapshot` constructor. This is a new plumbing path that does not exist today.
 
 PluginMissingBehavior enum:
@@ -150,7 +157,7 @@ Add:
 public bool DropOrphanedPluginIndexes { get; set; } = false;
 ```
 
-Validation: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` is rejected (throw) or `IncludeErrorReport` is coerced to `true`, ensuring a durable audit trail.
+Validation: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` throws `InvalidOperationException` (audit trail required).
 
 ## 5) Diagnostic policy cleanup
 

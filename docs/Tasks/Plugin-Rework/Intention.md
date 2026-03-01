@@ -10,25 +10,26 @@
 
 ## Definitions (this iteration)
 
-- **Plugin-owned index**: any `CollectionIndex` with `IndexType != 0` (authoritative on-disk marker).
-- **Plugin index metadata entry**: persisted mapping (index name -> pluginId + metadata bytes). Improves diagnostics/rebuild, but may be missing/corrupt/legacy.
+- **Plugin-owned index**: any `CollectionIndex` with `IndexType != 0` (authoritative on-disk marker). Enforcement MUST scan `IndexType` directly; plugin index metadata entries are diagnostic only.
+- **Plugin index metadata entry**: persisted mapping (index name -> pluginId + metadata bytes). Improves diagnostics/rebuild, but may be missing/corrupt/legacy, or orphaned (metadata without a matching index).
 - **Affected collection**: for safety enforcement, any collection that contains a plugin-owned index (`IndexType != 0`). For reporting (`$plugins` / validation), also include collections where plugin index metadata exists or is corrupt/unparseable.
 - **Loaded plugin**: `loaded=true` iff the current plugin context has a registered custom-index descriptor for that `pluginId` (diagnostic only; write/DDL safety also requires an index strategy for the persisted `IndexType`).
+- **Strategy available**: `strategyAvailable=true` iff an `IIndexStrategy` is registered for every observed `IndexType != 0` required by that plugin key (protects against “pluginId registered but persisted IndexType unsupported” mismatches).
 
 Note: plugins may also introduce persisted dependencies beyond indexes (custom BSON types, custom page types). `AllowIfSafe` only controls safety around plugin-owned indexes and does not guarantee that every read will succeed without the plugin.
 
 ### Missing-plugin modes (host policy)
 
-- `RefuseDatabase`: strict default. Without validation-on-open, construction may succeed and the first access that opens a snapshot for an affected collection fails; with validation-on-open enabled it fails as early as the engine is opened (construction for direct engines; first operation for `ConnectionType.Shared` / `SharedEngine`). When `RefuseDatabase` is set, `ValidatePluginsOnOpen` defaults to `true` (fail-fast is strongly preferred over deferred failure in production).
+- `RefuseDatabase`: strict default. Without validation-on-open, construction may succeed and the first access that opens a snapshot for an affected collection fails; with validation-on-open enabled (opt-in) it fails as early as the engine is opened (construction for direct engines; first operation for `ConnectionType.Shared` / `SharedEngine`). `ValidatePluginsOnOpen` defaults to `false` to preserve legacy behavior; enable it for fail-fast behavior in production (leave it disabled if you need `$plugins` introspection on a missing-plugin database).
 - `AllowIfSafe`: allow read-only access to affected collections, but refuse any write/DDL that could mutate them or rely on plugin-owned indexes. Allow opening the database and using unaffected collections normally.
 
-Note: the previous three-mode design (`RefuseDatabase` / `RefuseOperations` / `AllowIfSafe`) was simplified to two modes. `RefuseOperations` was dropped because its behavior is nearly identical to `AllowIfSafe` (both allow unaffected collections; the only difference was whether reads on affected collections were permitted), and the implementation complexity of three modes was not justified by the narrow use-case difference. If a consumer wants "refuse affected collections entirely", they can use `AllowIfSafe` and avoid querying affected collections (reads that fail due to missing BSON types will throw naturally).
+Note: the public behavior surface is two modes (`RefuseDatabase` and `AllowIfSafe`). The legacy enum member `RefuseOperations` remains only for binary compatibility and is treated as `AllowIfSafe` at runtime; it does not provide a distinct “refuse reads on affected collections” mode in this iteration.
 
 ### When plugin-owned indexes exist but the plugin is missing
 
 - Core must never plan against or use plugin-owned indexes; only btree indexes (`IndexType == 0`) are eligible for core planning. This includes all index selection paths: predicate matching, `OrderBy`, `GroupBy`, and preferred-index fallbacks.
 - Under `AllowIfSafe`, only operations that acquire `LockMode.Read` snapshots are permitted on affected collections. Any `LockMode.Write` (including “for update”), all writes, and all DDL that would touch an affected collection must be refused (`PLUGIN_REQUIRED`) to prevent stale plugin indexes and invariant violations.
-- Destructive DDL (drop/rename collection, ensure/drop index, rebuild/recovery, etc.) must refuse before doing partial work; core must not delete/modify a collection while skipping plugin-owned cleanup (page leaks/corruption). `DropCollection` must add a defensive guard: if `strategy == null && index.IndexType != 0`, throw rather than silently skipping cleanup (belt-and-suspenders against future regressions).
+- Destructive DDL (drop/rename collection, ensure/drop index, rebuild/recovery, etc.) must refuse before doing partial work; core must not delete/modify a collection while skipping plugin-owned cleanup (page leaks/corruption). `DropCollection` must preflight plugin index cleanup before mutating delete lists / marking the collection page deleted, and must add a defensive guard: if `strategy == null && index.IndexType != 0`, throw rather than silently skipping cleanup (belt-and-suspenders against future regressions).
 - If the database can be opened safely without the plugin, it should remain usable (at minimum for reads on unaffected collections and for introspection).
 - Insert/Update/Delete paths that iterate `_plugins?.Indexes?.All` silently skip plugin index maintenance when the plugin is missing. This is acceptable only because `AllowIfSafe` refuses the write snapshot before these paths execute. The snapshot-level refusal is the primary safety gate; the silent skip is NOT a safe fallback.
 
@@ -36,6 +37,7 @@ Note: the previous three-mode design (`RefuseDatabase` / `RefuseOperations` / `A
 
 - Default remains strict: rebuild/recovery must fail when affected collections exist and the required plugin is missing (including “unknown plugin” cases where pluginId cannot be recovered but `IndexType != 0` is present).
 - Rebuild is DDL: it must throw `PLUGIN_REQUIRED` before closing/replacing files whenever plugin support is missing, regardless of `PluginMissingBehavior` (unless an explicit salvage option like “drop orphaned plugin indexes” is enabled).
+- Rebuild/recovery must treat `IndexType != 0` as plugin-owned even when plugin metadata is missing/unreadable; it must never attempt to rebuild such indexes as btree indexes (fail or require explicit salvage-drop).
 - Optional “salvage index rebuild” mode (explicit user opt-in): rebuild may **drop** plugin-owned indexes that cannot be rebuilt without the plugin. This may remove constraints (uniqueness/invariants) and change query semantics/performance.
 - Salvage rebuild must produce a durable report of what was dropped (collection, index name, pluginId (or `<unknown>`), indexType, unique flag, expression, reason) and must never drop plugin-owned indexes implicitly.
 - Salvage rebuild must not implicitly accept document loss: if any document cannot be decoded due to missing plugin BSON types/page factories, rebuild must fail by default (a separate explicit “allow data loss” option would be required for a “best-effort” salvage pass; not part of this intention).
@@ -55,12 +57,20 @@ Note: the previous three-mode design (`RefuseDatabase` / `RefuseOperations` / `A
 
 - Users must be able to discover required plugins even under strict missing-plugin policy.
 - Provide a `$plugins` system collection (best-effort) that reports at least:
-  - `pluginId`, `collections`, `indexCount`, and whether the plugin is currently loaded.
-- `$plugins` output schema must be stable (one summary row per `pluginId`, including `<unknown>`), and may include additional fields like `errors` and `indexTypeCounts`.
+  - `key` (stable row key)
+  - `pluginId` (`"<unknown>"` when not recoverable)
+  - `collections` (array of collection names)
+  - `indexCount` (int)
+  - `loaded` (bool; `true` iff a custom-index descriptor is registered for `pluginId`)
+  - `strategyAvailable` (bool; `true` iff an `IIndexStrategy` exists for every observed `IndexType != 0` under this `key`)
+- `$plugins` output schema must be stable (one summary row per plugin key: `pluginId` when known; otherwise `type:{indexType}`), and may include additional fields like `errors` and `indexTypeCounts`.
 - `$plugins` must be read-only and non-throwing: legacy/corrupt plugin metadata should be surfaced as data (error fields), not as exceptions, and scanning must continue.
 - `$plugins` must not trigger missing-plugin enforcement or poison missing-plugin warning caches (no per-user-collection snapshot opens by collection name).
 - Other system collections (for example, `$indexes`) may open per-collection snapshots and can be refused/throw under strict missing-plugin policies; `$plugins` is the supported safe alternative for plugin discovery.
-- When pluginId is unknown (e.g., `IndexType != 0` but metadata is missing/corrupt), `$plugins` must still surface the requirement (use `pluginId = "<unknown>"` and include `indexType` details).
+- When pluginId is unknown (e.g., `IndexType != 0` but metadata is missing/corrupt), `$plugins` must still surface the requirement (use `pluginId = "<unknown>"`, `key = "type:{indexType}"`, and include `indexType` details).
+- `$plugins` should surface orphan metadata entries (metadata without a matching index) as `errors[]` entries on the owning row; if an orphan entry cannot be attributed to any plugin key, surface it under a dedicated row (e.g., `key = "orphan-metadata"`).
+- `$plugins` scanning is inherently O(#collections) and must not be treated as a polling surface; hosts should cache results at the application level if needed.
+- If `ValidatePluginsOnOpen=true` in strict mode, construction/open can fail before `$plugins` is queryable; the thrown exception must include the same requirement diagnostics that `$plugins`/typed API would report.
 
 ## Modularity
 
@@ -78,7 +88,7 @@ The goal is a fluent initialization path with explicit plugin and policy configu
 // Single database (no engine sharing)
 using var db = new LiteDatabaseBuilder()
     .UsePlugin<MyPlugin>()
-    .UseFile(“my.db”)
+    .UseFile("my.db")
     .WithMissingPluginBehavior(PluginMissingBehavior.RefuseDatabase)
     .Build();
 
@@ -86,7 +96,7 @@ using var db = new LiteDatabaseBuilder()
 using var factory = new LiteDatabaseBuilder()
     .WithServices(serviceProvider)
     .UsePlugin(sp => new MyPlugin(sp))
-    .UseFile(“my.db”)
+    .UseFile("my.db")
     .WithMissingPluginBehavior(PluginMissingBehavior.RefuseDatabase)
     .BuildFactory();
 

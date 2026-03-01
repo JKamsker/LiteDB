@@ -5,12 +5,12 @@
 Introduce a fluent `LiteDatabaseBuilder` and an `ILiteDatabaseFactory` that reuses a single in-process engine/context across multiple `CreateDatabase()` calls. Strengthen safety by:
 
 - Making missing-plugin behavior host-controlled (default stays strict).
-- Adding "validate plugin-owned index requirements on open" (defaults to `true` for `RefuseDatabase` mode; reads collection pages and detects plugin-owned indexes via `IndexType != 0`; plugin metadata entries improve diagnostics; does not rely on a new header marker being present).
+- Adding "validate plugin-owned index requirements on open" (opt-in; reads collection pages and detects plugin-owned indexes via `IndexType != 0`; plugin metadata entries improve diagnostics; does not rely on a new header marker being present).
 - Adding a `$plugins` system collection for plugin requirement introspection.
 - Adding an explicit rebuild opt-in to drop orphaned plugin indexes when plugins are missing.
 - Fixing existing bugs: core planner selecting plugin indexes as btree; `Recovery()` silently swallowing plugin errors; `DropCollection` silently leaking plugin index pages.
 
-This is additive: keep all existing `LiteDatabase` constructors working and behavior-compatible by default.
+This is additive: keep all existing `LiteDatabase` constructors working. Defaults remain strict; any code relying on `IPluginDiagnosticPolicy.MissingBehavior` to relax enforcement must migrate to `LiteDatabaseOptions.MissingPluginBehavior`.
 
 ---
 
@@ -21,7 +21,7 @@ This is additive: keep all existing `LiteDatabase` constructors working and beha
 - Fluent, composable initialization (`UsePlugin`, `UseFile`, `UseInMemory`, …).
 - `Build()` for single-use databases; `BuildFactory()` for shared-engine factories (one engine + one plugin context reused; ref-counted handles).
 - Safety-first plugin handling:
-  - Default remains `RefuseDatabase` (current behavior) with fail-fast validation on open.
+  - Default remains `RefuseDatabase` (current behavior). Optional validation-on-open provides fail-fast failure in strict mode.
   - Optional `AllowIfSafe` mode: allow reads but prevent writes/DDL when plugin-owned indexes are present and the plugin is missing.
 - Fix core planner to never select `IndexType != 0` indexes (existing bug).
 - Explicit, opt-in rebuild behavior to prevent accidental index loss.
@@ -45,7 +45,7 @@ This is additive: keep all existing `LiteDatabase` constructors working and beha
    - Fix `FileReaderV8.Open()` catch-all to not swallow `PLUGIN_REQUIRED`.
    - Fix `DropCollection` to throw on null strategy with `IndexType != 0`.
    - Move enforcement from `IPluginDiagnosticPolicy.MissingBehavior` to `LiteDatabaseOptions.MissingPluginBehavior`.
-   - Deprecate/remove `IPluginDiagnosticPolicy.MissingBehavior`.
+   - Deprecate `IPluginDiagnosticPolicy.MissingBehavior` (kept for compatibility; ignored for enforcement).
    - Remove hard-coded Vector-specific message from `DefaultPluginDiagnosticPolicy`.
    - Scope `_missingPluginWarnings` cache by database identity.
    - Add `$plugins` system collection.
