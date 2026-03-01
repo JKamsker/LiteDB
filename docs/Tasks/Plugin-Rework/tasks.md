@@ -1,0 +1,46 @@
+# Plugin Rework: Task Tracker
+
+Use this file as the “single pane of glass” checklist. The detailed design and rationale lives in:
+
+- [ ] `Plan.md` (entry point)
+- [ ] `Intention.md` (constraints + policy)
+- [ ] `Plan/00-Overview.md` (phasing)
+- [ ] `Plan/01-Public-API.md` (builder/factory API)
+- [ ] `Plan/02-Internal-Design.md` (engine/snapshot/rebuild details)
+- [ ] `Plan/03-Files-Summary.md` (touch points)
+- [ ] `Plan/04-Test-Plan.md` (coverage)
+- [ ] `Plan/05-Assumptions.md` (defaults)
+
+## Phase 1 — Safety fixes
+
+- [ ] Fix core planner to never select plugin indexes (`IndexType != 0`).
+- [ ] Make missing-plugin enforcement host-controlled (`LiteDatabaseOptions.MissingPluginBehavior`).
+- [ ] `AllowIfSafe`: refuse all writes/DDL on affected collections.
+- [ ] Scan `CollectionIndex.IndexType != 0` for enforcement (metadata is diagnostic-only).
+- [ ] `$plugins` introspection (safe under strict mode; no enforcement cache poisoning).
+- [ ] Validation-on-open (opt-in; fault-tolerant scan; strict mode fails fast).
+- [ ] Rebuild/recovery: never swallow `PLUGIN_REQUIRED`; keep strict-by-default behavior.
+- [ ] Optional salvage: `DropOrphanedPluginIndexes` requires durable error report.
+
+## Phase 2 — Builder
+
+- [ ] Implement `LiteDatabaseBuilder` + `Build()`.
+- [ ] Enforce builder validation rules (single-use; mutually exclusive data source).
+- [ ] Define plugin registration semantics (dedupe, ownership, disposal).
+
+## Phase 3 — Factory
+
+- [ ] Implement `ILiteDatabaseFactory` + `BuildFactory()`.
+- [ ] Ref-counted handle/lease model (idempotent dispose; thread-safe `CreateDatabase()`).
+- [ ] Resolve `ILitePlugin.Initialize` factory-mode contract (signature change vs per-handle hook).
+- [ ] Freeze plugin context registries after initialization in all modes.
+- [ ] Refuse or re-scope `Rebuild()` in factory mode (exclusive access requirement).
+
+## Tests / Verification
+
+- [ ] Implement test infrastructure helpers (`TestTrackingPlugin`, seed/race/corruption helpers).
+- [ ] Cover builder + factory lifecycle/concurrency cases.
+- [ ] Cover missing-plugin behavior matrix (planner/read/write/DDL).
+- [ ] Cover `$plugins` + validation-on-open diagnostics and cache scoping.
+- [ ] Cover rebuild salvage option + strict recovery behavior.
+- [ ] Run: `dotnet test LiteDB.sln --settings tests.runsettings`.

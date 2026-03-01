@@ -1,6 +1,15 @@
 
 # Plugin Rework: Intention
 
+## Checklist
+
+- [ ] Fix core planner to never select plugin-owned indexes (`IndexType != 0`).
+- [ ] Decide missing-plugin behavior surface (`RefuseDatabase` vs `AllowIfSafe`) and document defaults.
+- [ ] Resolve `ILitePlugin.Initialize` factory-mode incompatibility (change signature vs add per-handle hook).
+- [ ] Enforce `AllowIfSafe` safety: refuse all writes/DDL that touch affected collections.
+- [ ] Implement `$plugins` and validation-on-open via fault-tolerant scanning (no `CollectionPage` constructor, no warn-cache poisoning).
+- [ ] Keep rebuild/recovery strict by default; if salvage-drop is enabled, require an audit trail/report.
+
 ## Safety (non-negotiable)
 
 - Plugins must not break or corrupt existing databases (including databases created before vector/spatial work).
