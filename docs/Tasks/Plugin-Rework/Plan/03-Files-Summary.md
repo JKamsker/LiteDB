@@ -13,7 +13,7 @@
 
 - `LiteDB/Client/Database/LiteDatabase.cs`
 - `LiteDB/Client/Database/LiteDatabaseOptions.cs`
-- `LiteDB/Client/Shared/SharedEngine.cs` (if factory reuse shares a `SharedEngine` instance, ensure mutex handling is reentrancy-safe)
+- `LiteDB/Client/Shared/SharedEngine.cs` (if factory reuse shares a `SharedEngine` instance, ensure mutex handling is reentrancy-safe and exception-safe; no mutex/engine leaks if `SetPluginContext`/validation throws)
 - `LiteDB/Plugins/DefaultPluginContext.cs` (store validation flags; host policy application)
 - `LiteDB/Engine/Services/SnapShot.cs` (write-mode refusal under `AllowIfSafe`/`RefuseOperations`)
 - `LiteDB/Engine/Query/QueryOptimization.cs` (ignore non-btree indexes)

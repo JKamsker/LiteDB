@@ -17,8 +17,10 @@ Plugin registration (store factories internally):
 
 Plugin lifetime notes:
 
+- `UsePlugin(...)` calls append; registration order matters.
 - `UsePlugin(ILitePlugin plugin)` reuses the same instance for every database/handle; prefer factories for stateful plugins.
 - In `FactoryReuse.None`, `UsePlugin(ILitePlugin plugin)` can initialize the same instance multiple times (once per `CreateDatabase()`); plugin `Initialize(...)` should be idempotent or prefer plugin factories.
+- Plugin initialization is de-duped by plugin CLR type (first registered instance wins), mirroring existing `LiteDatabase` constructor behavior.
 - Plugin factories are invoked:
   - `FactoryReuse.None`: once per `CreateDatabase()`
   - `FactoryReuse.ReuseEngine`: once per factory (when the reused engine/context is created)
@@ -37,6 +39,7 @@ Data source (mutually exclusive, last call wins):
   - Ownership: when `disposeOnFactoryDispose=true`, the created database/factory owns the engine and disposes it (for `Build()`: when the returned `LiteDatabase` is disposed; for `BuildFactory()`: when the last lease is released). When false, the host owns engine disposal.
   - Note: when `UseEngine(...)` is chosen, `BuildFactory(reuse: ...)` must use `FactoryReuse.ReuseEngine` (see below).
   - Note: plugin registrations only affect storage/query behavior when the supplied engine honors `IPluginHost.SetPluginContext` (as `LiteEngine`/`SharedEngine` do).
+  - Note: when `UseEngine(...)` is chosen, the plugin context `ConnectionString` is synthetic/empty unless the host supplies an explicit context connection string; plugins must not assume filename/read-only flags are available from the context in this mode.
 
 Configuration:
 
@@ -59,6 +62,7 @@ Build:
 Notes:
 
 - `BuildFactory(...)` is not supported for `UseStream(Stream ...)` unless we introduce a stream factory (e.g. `UseStream(Func<(Stream Data, Stream Log)> openStreams)`), because a single stream instance cannot safely back multiple databases.
+- `UseInMemory()` semantics: `FactoryReuse.None` creates a new empty in-memory database per `CreateDatabase()`; `FactoryReuse.ReuseEngine` returns many handles to the same in-memory database.
 - Builder validates incompatible combinations (for example: `UseEngine(...)` + `WithConnectionType(...)`).
 
 ## 2) Factory reuse toggle for factories (new)
@@ -69,7 +73,7 @@ Namespace: `LiteDB`
 public enum FactoryReuse
 {
     None = 0,   // config-only factory
-    ReuseEngine = 1  // shared in-process engine/context
+    ReuseEngine = 1  // reused in-process engine/context
 }
 
 ## 3) ILiteDatabaseFactory + LiteDatabaseFactory (new)
@@ -86,19 +90,26 @@ public interface ILiteDatabaseFactory : IDisposable
     ILiteDatabase CreateDatabase();
 }
 
+Disposal + concurrency contract:
+
+- `CreateDatabase()` must be thread-safe.
+- After factory disposal, `CreateDatabase()` throws.
+- Disposing the factory must not invalidate existing handles; they remain usable until disposed.
+
 Behavior modes (driven by builder’s `BuildFactory(reuse: ...)`):
 
 - `FactoryReuse.None`: each `CreateDatabase()` creates:
   - new engine (from connection string/stream settings),
   - new `DefaultPluginContext`,
   - initializes plugins once for that database.
+  - Note: for file-backed databases, `FactoryReuse.None` can create multiple independent engines for the same file; if handles may be alive concurrently, require `ConnectionType.Shared` (or prefer `FactoryReuse.ReuseEngine`) to avoid locking/corruption risks.
 - `FactoryReuse.ReuseEngine`: factory owns:
   - one engine instance (or one `ILiteEngine` wrapper, e.g. `SharedEngine`),
   - one plugin context instance,
   - initializes plugins exactly once for that context/engine pair,
-  - returns ref-counted `LiteDatabase` handles that share engine/context and do not re-initialize plugins.
+  - returns ref-counted `LiteDatabase` handles that share engine/context and do not re-initialize plugins (handles are leases, not isolated “sessions”; they share engine state and per-thread transactions).
 
-Important: because `ILitePlugin.Initialize` receives a `LiteDatabase` instance, shared-engine reuse requires a documented constraint that plugin initialization is registration-only and must not capture the passed database instance (future work may add an explicit per-session hook if needed).
+Important: because `ILitePlugin.Initialize` receives a `LiteDatabase` instance, reused-engine mode requires a documented constraint that plugin initialization is registration-only and must not capture the passed database instance (future work may add an explicit per-handle/session hook if needed).
 
 ## 4) Host-controlled missing plugin behavior
 
@@ -109,12 +120,12 @@ Add:
 - `public PluginMissingBehavior MissingPluginBehavior { get; set; } = PluginMissingBehavior.RefuseDatabase;`
 - `public bool ValidatePluginsOnOpen { get; set; } = false;` (optional; builder sets this too)
 
-Builder writes these options regardless of whether user uses the builder or constructors. Existing constructors + `LiteDatabaseOptions` should honor the new fields.
+Existing constructors + `LiteDatabaseOptions` should honor the new fields; the builder sets them when used.
 
 Precedence:
 
-- `LiteDatabaseOptions.MissingPluginBehavior` is a host override and is authoritative.
-- Plugin diagnostic policies may customize exception messages/diagnostics, but must not weaken host enforcement (engine uses the stricter of host behavior and plugin policy).
+- `LiteDatabaseOptions.MissingPluginBehavior` is the enforcement source of truth (host-controlled).
+- Plugin diagnostic policies (`IPluginDiagnosticPolicy`) may customize exception messages/diagnostics, but must not influence enforcement (its `MissingBehavior` is ignored for enforcement in this iteration).
 
 ## 5) Rebuild option: drop orphaned plugin indexes (new)
 

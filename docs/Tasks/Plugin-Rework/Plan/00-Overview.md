@@ -2,10 +2,10 @@
 
 ## Summary
 
-Introduce a fluent `LiteDatabaseBuilder` and an `ILiteDatabaseFactory` that can either (a) create fresh databases from captured configuration, or (b) share a single in-process engine/context across multiple `CreateDatabase()` calls. Strengthen safety by:
+Introduce a fluent `LiteDatabaseBuilder` and an `ILiteDatabaseFactory` that can either (a) create fresh databases from captured configuration, or (b) reuse a single in-process engine/context across multiple `CreateDatabase()` calls. Strengthen safety by:
 
 - Making missing-plugin behavior host-controlled (default stays strict).
-- Adding an opt-in “validate plugin-owned index requirements on open” scan (scans persisted collection metadata; does not rely on a new header marker being present).
+- Adding an opt-in “validate plugin-owned index requirements on open” scan (reads collection pages and detects plugin-owned indexes via `IndexType != 0`; plugin metadata entries improve diagnostics; does not rely on a new header marker being present).
 - Adding a `$plugins` system collection for plugin requirement introspection.
 - Adding an explicit rebuild opt-in to drop orphaned plugin indexes when plugins are missing.
 
@@ -20,7 +20,7 @@ This is additive: keep all existing `LiteDatabase` constructors working and beha
 - Fluent, composable initialization (`UsePlugin`, `UseFile`, `UseInMemory`, …).
 - `BuildFactory()` that supports:
   - Config-only mode (new engine + new plugin context per database)
-  - Reuse-engine mode (one engine + one plugin context shared; ref-counted handles)
+  - Reuse-engine mode (one engine + one plugin context reused; ref-counted handles)
 - Safety-first plugin handling:
   - Default remains `RefuseDatabase` (current behavior).
   - Optional “read-only safe access” mode: allow reads but prevent writes/DDL when plugin-owned indexes are present and the plugin is missing.

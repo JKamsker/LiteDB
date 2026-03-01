@@ -11,8 +11,8 @@
 
 - **Plugin-owned index**: any `CollectionIndex` with `IndexType != 0` (authoritative on-disk marker).
 - **Plugin index metadata entry**: persisted mapping (index name -> pluginId + metadata bytes). Improves diagnostics/rebuild, but may be missing/corrupt/legacy.
-- **Affected collection**: any collection that contains a plugin-owned index and/or a plugin index metadata entry.
-- **Loaded plugin**: `loaded=true` iff the current plugin context has a registered custom-index descriptor for that `pluginId`.
+- **Affected collection**: for safety enforcement, any collection that contains a plugin-owned index (`IndexType != 0`). For reporting (`$plugins` / validation), also include collections where plugin index metadata exists or is corrupt/unparseable.
+- **Loaded plugin**: `loaded=true` iff the current plugin context has a registered custom-index descriptor for that `pluginId` (diagnostic only; write/DDL safety also requires an index strategy for the persisted `IndexType`).
 
 Note: plugins may also introduce persisted dependencies beyond indexes (custom BSON types, custom page types). `AllowIfSafe` only controls safety around plugin-owned indexes and does not guarantee that every read will succeed without the plugin.
 
@@ -34,7 +34,7 @@ Note: plugins may also introduce persisted dependencies beyond indexes (custom B
 - Default remains strict: rebuild/recovery must fail when affected collections exist and the required plugin is missing (including “unknown plugin” cases where pluginId cannot be recovered but `IndexType != 0` is present).
 - Rebuild is DDL: it must throw `PLUGIN_REQUIRED` before closing/replacing files whenever plugin support is missing, regardless of `PluginMissingBehavior` (unless an explicit salvage option like “drop orphaned plugin indexes” is enabled).
 - Optional “salvage index rebuild” mode (explicit user opt-in): rebuild may **drop** plugin-owned indexes that cannot be rebuilt without the plugin. This may remove constraints (uniqueness/invariants) and change query semantics/performance.
-- Salvage rebuild must produce a durable report of what was dropped (collection, index name, pluginId or indexType, unique flag, expression, reason) and must never drop plugin-owned indexes implicitly.
+- Salvage rebuild must produce a durable report of what was dropped (collection, index name, pluginId (or `<unknown>`), indexType, unique flag, expression, reason) and must never drop plugin-owned indexes implicitly.
 - Salvage rebuild must not implicitly accept document loss: if any document cannot be decoded due to missing plugin BSON types/page factories, rebuild must fail by default (a separate explicit “allow data loss” option would be required for a “best-effort” salvage pass; not part of this intention).
 - Automatic recovery remains strict and must never drop plugin-owned indexes or skip unreadable documents implicitly.
 
@@ -42,7 +42,7 @@ Note: plugins may also introduce persisted dependencies beyond indexes (custom B
 
 - The authoritative on-disk marker for plugin-owned indexes is `CollectionIndex.IndexType != 0`. Plugin index metadata entries improve diagnostics/rebuild but are not required for safety decisions.
 - Any header marker/flag is an optional optimization only; absence must never be treated as proof that no plugin assets exist.
-- “Validate plugins on open” (opt-in) must work for legacy databases by scanning persisted collection metadata at least once (do not rely on a newly introduced header marker being present).
+- “Validate plugins on open” (opt-in) must work for legacy databases by scanning persisted collection pages/metadata at least once (do not rely on a newly introduced header marker being present).
 - “Validate plugins on open” validates index requirements only; it does not attempt to predict failures caused by other persisted plugin dependencies (custom BSON types/page factories).
 - Any in-memory cache (validated / warned-once / etc.) is a performance optimization only; it must be scoped to a specific database identity (canonical absolute filename when file-backed; otherwise a per-engine instance identity) and is not cross-process authoritative under `ConnectionType.Shared`. Runtime enforcement must still re-check on access.
 
@@ -54,6 +54,7 @@ Note: plugins may also introduce persisted dependencies beyond indexes (custom B
 - `$plugins` output schema must be stable (one summary row per `pluginId`, including `<unknown>`), and may include additional fields like `errors` and `indexTypeCounts`.
 - `$plugins` must be read-only and non-throwing: legacy/corrupt plugin metadata should be surfaced as data (error fields), not as exceptions, and scanning must continue.
 - `$plugins` must not trigger missing-plugin enforcement or poison missing-plugin warning caches (no per-user-collection snapshot opens by collection name).
+- Other system collections (for example, `$indexes`) may open per-collection snapshots and can be refused/throw under strict missing-plugin policies; `$plugins` is the supported safe alternative for plugin discovery.
 - When pluginId is unknown (e.g., `IndexType != 0` but metadata is missing/corrupt), `$plugins` must still surface the requirement (use `pluginId = "<unknown>"` and include `indexType` details).
 
 ## Modularity
