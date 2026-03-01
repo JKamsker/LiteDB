@@ -16,6 +16,13 @@ using System.Threading;
 #if DEBUG || TESTING
 [assembly: InternalsVisibleTo("ConsoleApp1")]
 #endif
+[assembly: InternalsVisibleTo("LiteDB.Spatial")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Core")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Geographic")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Cartesian2D")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Cartesian3D")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Core.Tests")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Testing.Oracles")]
 
 namespace LiteDB
 {

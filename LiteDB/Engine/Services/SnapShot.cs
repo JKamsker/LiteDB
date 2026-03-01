@@ -15,7 +15,7 @@ namespace LiteDB.Engine
     /// <summary>
     /// Represent a single snapshot
     /// </summary>
-    internal class Snapshot : IDisposable
+    internal sealed class Snapshot : IDisposable
     {
         // instances from Engine
         private readonly HeaderPage _header;
@@ -848,6 +848,3 @@ namespace LiteDB.Engine
         }
     }
 }
-
-
-

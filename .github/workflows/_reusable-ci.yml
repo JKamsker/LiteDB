@@ -8,9 +8,9 @@ on:
         type: string
         default: |
           [
-            { "display": ".NET 8",  "sdk": "8.0.x",           "framework": "net8.0", "includePrerelease": false, "msbuildProps": "" },
-            { "display": ".NET 9",  "sdk": "9.0.x\n8.0.x",    "framework": "net8.0", "includePrerelease": true,  "msbuildProps": "" },
-            { "display": ".NET 10", "sdk": "10.0.x\n8.0.x",   "framework": "net10.0", "includePrerelease": true, "msbuildProps": "-p:LiteDBTestsEnableNet10=true" }
+            { "display": ".NET 8",  "sdk": "8.0.x",           "framework": "net8.0",  "includePrerelease": false, "msbuildProps": "", "artifactSuffix": "dotnet-8" },
+            { "display": ".NET 9",  "sdk": "9.0.x\n8.0.x",    "framework": "net8.0",  "includePrerelease": true,  "msbuildProps": "", "artifactSuffix": "dotnet-9" },
+            { "display": ".NET 10", "sdk": "10.0.x\n8.0.x",   "framework": "net10.0", "includePrerelease": true,  "msbuildProps": "-p:LiteDBTestsEnableNet10=true", "artifactSuffix": "dotnet-10" }
           ]
 
 jobs:
@@ -44,6 +44,18 @@ jobs:
           LiteDB.Tests/obj/Release
           LiteDB.Vector/bin/Release
           LiteDB.Vector/obj/Release
+          LiteDB.Spatial/bin/Release
+          LiteDB.Spatial/obj/Release
+          LiteDB.Spatial.Core/bin/Release
+          LiteDB.Spatial.Core/obj/Release
+          LiteDB.Spatial.Geographic/bin/Release
+          LiteDB.Spatial.Geographic/obj/Release
+          LiteDB.Spatial.Cartesian2D/bin/Release
+          LiteDB.Spatial.Cartesian2D/obj/Release
+          LiteDB.Spatial.Cartesian3D/bin/Release
+          LiteDB.Spatial.Cartesian3D/obj/Release
+          LiteDB.Spatial.Testing.Oracles/bin/Release
+          LiteDB.Spatial.Testing.Oracles/obj/Release
 
       - name: Upload linux test build
         uses: actions/upload-artifact@v4
@@ -101,6 +113,86 @@ jobs:
           --logger "console;verbosity=detailed"
           ${{ matrix.item.msbuildProps }}
 
+      - name: Build spatial core tests
+        if: matrix.item.framework == 'net8.0'
+        run: >-
+          dotnet build LiteDB.Spatial.Core.Tests/LiteDB.Spatial.Core.Tests.csproj
+          --configuration Release
+          --framework net8.0
+          --no-dependencies
+
+      - name: Run spatial core tests
+        if: matrix.item.framework == 'net8.0'
+        timeout-minutes: 10
+        run: >-
+          dotnet test LiteDB.Spatial.Core.Tests/LiteDB.Spatial.Core.Tests.csproj
+          --configuration Release
+          --no-build
+          --framework net8.0
+          --verbosity normal
+          --settings tests.ci.runsettings
+          --logger "trx;LogFileName=SpatialCoreTests.trx"
+          --logger "console;verbosity=detailed"
+
+      - name: Collect test results
+        if: always()
+        run: |
+          set -euxo pipefail
+          results_dir="artifacts/${{ matrix.item.framework }}"
+          mkdir -p "${results_dir}"
+
+          if compgen -G "LiteDB.Tests/TestResults/*.trx" > /dev/null; then
+            cp LiteDB.Tests/TestResults/*.trx "${results_dir}/"
+          fi
+
+          if [ -d LiteDB.Spatial.Core.Tests/TestResults ] && compgen -G "LiteDB.Spatial.Core.Tests/TestResults/*.trx" > /dev/null; then
+            cp LiteDB.Spatial.Core.Tests/TestResults/*.trx "${results_dir}/"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.item.artifactSuffix }}
+          path: artifacts/${{ matrix.item.framework }}
+          if-no-files-found: ignore
+
+  repro-runner:
+    runs-on: ubuntu-latest
+    needs: build-linux
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore LiteDB.sln
+
+      - name: Build
+        run: dotnet build LiteDB.sln --configuration Release --no-restore /p:TestingEnabled=true
+
+      - name: List repros
+        run: dotnet run --project LiteDB.ReproRunner/LiteDB.ReproRunner.Cli -- list --strict
+
+      - name: Validate manifests
+        run: dotnet run --project LiteDB.ReproRunner/LiteDB.ReproRunner.Cli -- validate
+
+      - name: Run repro suite
+        run: dotnet run --project LiteDB.ReproRunner/LiteDB.ReproRunner.Cli -- run --all --report repro-summary.json
+
+      - name: Upload repro summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: repro-summary
+          path: repro-summary.json
+
   build-macos:
     name: Build (macOS)
     runs-on: macos-latest
@@ -123,7 +215,14 @@ jobs:
         run: dotnet build LiteDB.sln --configuration Release --no-restore /p:TestingEnabled=true
 
       - name: Package build outputs
-        run: tar -czf tests-build-macos.tar.gz LiteDB/bin/Release LiteDB/obj/Release LiteDB.Tests/bin/Release LiteDB.Tests/obj/Release
+        run: >-
+          tar -czf tests-build-macos.tar.gz
+          LiteDB/bin/Release
+          LiteDB/obj/Release
+          LiteDB.Tests/bin/Release
+          LiteDB.Tests/obj/Release
+          LiteDB.Vector/bin/Release
+          LiteDB.Vector/obj/Release
 
       - name: Upload macOS test build
         uses: actions/upload-artifact@v4
@@ -211,6 +310,8 @@ jobs:
             LiteDB/obj/Release
             LiteDB.Tests/bin/Release
             LiteDB.Tests/obj/Release
+            LiteDB.Vector/bin/Release
+            LiteDB.Vector/obj/Release
 
   test-windows:
     name: Test (Windows ${{ matrix.os }} - ${{ matrix.arch }} - ${{ matrix.item.display }})

@@ -132,7 +132,11 @@ namespace LiteDB.Stress
 
                 this.ReportPrint(output);
 
-                Console.Clear();
+                if (!Console.IsOutputRedirected)
+                {
+                    Console.Clear();
+                }
+
                 Console.WriteLine(output.ToString());
             }
 
@@ -145,7 +149,11 @@ namespace LiteDB.Stress
             this.ReportPrint(output);
             this.ReportSummary(output);
 
-            Console.Clear();
+            if (!Console.IsOutputRedirected)
+            {
+                Console.Clear();
+            }
+
             Console.WriteLine(output.ToString());
 
             File.AppendAllText(_file.Output, output.ToString());
