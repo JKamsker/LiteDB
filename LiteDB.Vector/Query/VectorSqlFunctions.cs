@@ -50,7 +50,11 @@ namespace LiteDB.Vector.Query
                 return VectorExpressions.VectorDistance(arguments[0], arguments[1]);
             }
 
-            var metric = ResolveMetric(arguments[2]);
+            if (!VectorMetricParser.TryParseOptional(arguments[2], out var metric))
+            {
+                return BsonValue.Null;
+            }
+
             return VectorExpressions.VectorDistance(arguments[0], arguments[1], metric);
         }
 
@@ -63,7 +67,11 @@ namespace LiteDB.Vector.Query
                 return VectorExpressions.VectorSimilarity(arguments[0], arguments[1]);
             }
 
-            var metric = ResolveMetric(arguments[2]);
+            if (!VectorMetricParser.TryParseOptional(arguments[2], out var metric))
+            {
+                return BsonValue.Null;
+            }
+
             return VectorExpressions.VectorSimilarity(arguments[0], arguments[1], metric);
         }
 
@@ -80,19 +88,6 @@ namespace LiteDB.Vector.Query
             }
         }
 
-        private static VectorDistanceMetric? ResolveMetric(BsonValue candidate)
-        {
-            if (candidate == null || candidate.IsNull)
-            {
-                return null;
-            }
 
-            if (VectorMetricParser.TryParse(candidate, out var parsed))
-            {
-                return parsed;
-            }
-
-            return null;
-        }
     }
 }

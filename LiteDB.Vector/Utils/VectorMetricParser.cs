@@ -85,6 +85,12 @@ namespace LiteDB.Vector.Utils
                 lastSegment = trimmed.Substring(lastDotIndex + 1);
             }
 
+            if (lastSegment.Length > 0 &&
+                (char.IsDigit(lastSegment[0]) || lastSegment[0] == '+' || lastSegment[0] == '-'))
+            {
+                return false;
+            }
+
             if (Enum.TryParse<VectorDistanceMetric>(lastSegment, true, out var parsed) &&
                 Enum.IsDefined(typeof(VectorDistanceMetric), parsed))
             {
@@ -226,4 +232,3 @@ namespace LiteDB.Vector.Utils
         }
     }
 }
-
