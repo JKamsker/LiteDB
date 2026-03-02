@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Plugins;
+using LiteDB.Tests.Utils;
 using Xunit;
 
 namespace LiteDB.Tests.Client
@@ -14,7 +15,7 @@ namespace LiteDB.Tests.Client
         [Fact]
         public void BuildFactory_should_share_engine_across_handles()
         {
-            var plugin = new TrackingPlugin();
+            var plugin = new TestTrackingPlugin();
 
             using var factory = new LiteDatabaseBuilder()
                 .UseInMemory()
@@ -52,7 +53,7 @@ namespace LiteDB.Tests.Client
         [Fact]
         public void Factory_should_invoke_handle_lifecycle_hooks_per_handle()
         {
-            var plugin = new HandleLifecyclePlugin();
+            var plugin = new TestTrackingPlugin();
 
             using var factory = new LiteDatabaseBuilder()
                 .UseInMemory()
@@ -137,31 +138,5 @@ namespace LiteDB.Tests.Client
             factory.Dispose();
         }
 
-        private sealed class TrackingPlugin : ILitePlugin
-        {
-            public int InitializeCount { get; private set; }
-
-            public void Initialize(LiteDatabase database, ILitePluginContext context)
-            {
-                InitializeCount++;
-            }
-        }
-
-        private sealed class HandleLifecyclePlugin : ILitePlugin, ILiteDatabaseHandleLifecycle
-        {
-            public int InitializeCount { get; private set; }
-
-            public int HandleCreatedCount { get; private set; }
-
-            public void Initialize(LiteDatabase database, ILitePluginContext context)
-            {
-                InitializeCount++;
-            }
-
-            public void OnHandleCreated(ILiteDatabase database)
-            {
-                HandleCreatedCount++;
-            }
-        }
     }
 }

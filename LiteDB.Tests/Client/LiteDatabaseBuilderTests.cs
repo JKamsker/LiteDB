@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Plugins;
+using LiteDB.Tests.Utils;
 using Xunit;
 
 namespace LiteDB.Tests.Client
@@ -13,7 +14,7 @@ namespace LiteDB.Tests.Client
         public void Build_should_create_database_and_initialize_plugins()
         {
             using var file = new TempFile();
-            var plugin = new TrackingPlugin();
+            var plugin = new TestTrackingPlugin();
 
             using (var db = new LiteDatabaseBuilder()
                 .UseFile(file.Filename)
@@ -119,7 +120,7 @@ namespace LiteDB.Tests.Client
         [Fact]
         public void Build_should_invoke_handle_lifecycle_hooks()
         {
-            var plugin = new HandleLifecyclePlugin();
+            var plugin = new TestTrackingPlugin();
 
             using var db = new LiteDatabaseBuilder()
                 .UseInMemory()
@@ -140,16 +141,6 @@ namespace LiteDB.Tests.Client
             Action act = () => db.Services.ExpressionRegistry.RegisterKeyword("AFTER_INIT");
 
             act.Should().Throw<InvalidOperationException>();
-        }
-
-        private sealed class TrackingPlugin : ILitePlugin
-        {
-            public int InitializeCount { get; private set; }
-
-            public void Initialize(LiteDatabase database, ILitePluginContext context)
-            {
-                InitializeCount++;
-            }
         }
 
         private sealed class DisposableTrackingPlugin : ILitePlugin, IDisposable
@@ -176,23 +167,6 @@ namespace LiteDB.Tests.Client
             public void Write(LogLevel level, string message, Exception exception = null)
             {
                 Entries.Add((level, message));
-            }
-        }
-
-        private sealed class HandleLifecyclePlugin : ILitePlugin, ILiteDatabaseHandleLifecycle
-        {
-            public int InitializeCount { get; private set; }
-
-            public int HandleCreatedCount { get; private set; }
-
-            public void Initialize(LiteDatabase database, ILitePluginContext context)
-            {
-                InitializeCount++;
-            }
-
-            public void OnHandleCreated(ILiteDatabase database)
-            {
-                HandleCreatedCount++;
             }
         }
     }
