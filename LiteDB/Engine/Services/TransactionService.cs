@@ -264,13 +264,25 @@ namespace LiteDB.Engine
             {
                 lock (_header)
                 {
-                    // persist all dirty page as commit mode (mark last page as IsConfirm)
-                    var count = this.PersistDirtyPages(true);
+                    // Create a header save point before any header change.
+                    var safepoint = _header.Savepoint();
 
-                    // update wal-index (if any page was added into log disk)
-                    if (count > 0)
+                    try
                     {
-                        _walIndex.ConfirmTransaction(_transactionID, _transPages.DirtyPages.Values);
+                        // persist all dirty page as commit mode (mark last page as IsConfirm)
+                        var count = this.PersistDirtyPages(true);
+
+                        // update wal-index (if any page was added into log disk)
+                        if (count > 0)
+                        {
+                            _walIndex.ConfirmTransaction(_transactionID, _transPages.DirtyPages.Values);
+                        }
+                    }
+                    catch
+                    {
+                        // Revert header changes if commit fails partway through.
+                        _header.Restore(safepoint);
+                        throw;
                     }
                 }
             }
