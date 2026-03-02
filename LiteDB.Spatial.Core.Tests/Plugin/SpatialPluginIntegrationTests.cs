@@ -15,14 +15,14 @@ namespace LiteDB.Spatial.Core.Tests.Plugin;
 public sealed class SpatialPluginIntegrationTests
 {
     [Fact]
-    public void UseGeographic_OnGeoPoint_RegistersSpatialDescriptor()
+    public void EnsureIndex_OnGeoPoint_RegistersSpatialDescriptorAndBackingIndexes()
     {
         using var database = CreateDatabase();
 
         var collection = database.GetCollection<GeoDocument>("points");
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(10.0, 20.0) });
 
-        Spatial.UseGeographic(collection, x => x.Location);
+        collection.EnsureIndex(x => x.Location);
 
         var metadata = database.GetCollection(SpatialMetadataStore.MetadataCollectionName);
         var descriptors = metadata.FindAll().ToList();
@@ -31,17 +31,22 @@ public sealed class SpatialPluginIntegrationTests
         descriptor["engine"].AsString.Should().Be(GeographicEngine.EngineName);
         descriptor["geometryField"].AsString.Should().Be("Location");
         descriptor["options"]["indexFieldName"].AsString.Should().NotBeNullOrWhiteSpace();
+
+        collection.DropIndex("idx")
+            .Should().BeTrue("spatial provisioning should create the numeric Morton index");
+        collection.DropIndex("mbb")
+            .Should().BeTrue("spatial provisioning should create the bounding-box index");
     }
 
     [Fact]
-    public void UseGeographic_RecreatesBackingIndexes_WhenDropped()
+    public void EnsureIndex_RecreatesBackingIndexes_WhenDropped()
     {
         using var database = CreateDatabase();
 
         var collection = database.GetCollection<GeoDocument>("points");
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(42.0, 20.0) });
 
-        Spatial.UseGeographic(collection, x => x.Location);
+        collection.EnsureIndex(x => x.Location);
 
         const string mortonIndexName = "idx";
         const string boundingIndexName = "mbb";
@@ -51,7 +56,7 @@ public sealed class SpatialPluginIntegrationTests
         collection.DropIndex(boundingIndexName)
             .Should().BeTrue("dropping the bounding-box index should succeed after spatial provisioning");
 
-        Spatial.UseGeographic(collection, x => x.Location);
+        collection.EnsureIndex(x => x.Location);
 
         collection.DropIndex(mortonIndexName)
             .Should().BeTrue("spatial provisioning should recreate the numeric Morton index when missing");
@@ -67,7 +72,7 @@ public sealed class SpatialPluginIntegrationTests
 
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
         collection.Insert(new GeoDocument { Id = 2, Location = new GeoPoint(1, 1) });
-        Spatial.UseGeographic(collection, x => x.Location);
+        collection.EnsureIndex(x => x.Location);
 
         var results = collection.Query()
             .WhereNear(x => x.Location, new GeoPoint(0, 0), 1_000) // meters
@@ -84,7 +89,7 @@ public sealed class SpatialPluginIntegrationTests
 
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
         collection.Insert(new GeoDocument { Id = 2, Location = new GeoPoint(1, 1) });
-        Spatial.UseGeographic(collection, x => x.Location);
+        collection.EnsureIndex(x => x.Location);
 
         var plan = collection.Query()
             .WhereNear(x => x.Location, new GeoPoint(0, 0), 1_000)
@@ -103,7 +108,7 @@ public sealed class SpatialPluginIntegrationTests
 
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
         collection.Insert(new GeoDocument { Id = 2, Location = new GeoPoint(1, 1) });
-        Spatial.UseGeographic(collection, x => x.Location);
+        collection.EnsureIndex(x => x.Location);
 
         var plan = collection.Query()
             .WhereNear("Location", new GeoPoint(0, 0), 1_000)
@@ -120,7 +125,7 @@ public sealed class SpatialPluginIntegrationTests
 
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
         collection.Insert(new GeoDocument { Id = 2, Location = new GeoPoint(5, 5) });
-        Spatial.UseGeographic(collection, x => x.Location);
+        collection.EnsureIndex(x => x.Location);
 
         var queryable = collection.Query();
         var expressionRegistry = ((BaseLiteDB.LiteQueryable<GeoDocument>)queryable).ExpressionRegistry;
@@ -130,6 +135,40 @@ public sealed class SpatialPluginIntegrationTests
             .GetPlan();
 
         plan["index"]["mode"].AsString.Should().Contain("SpatialMultiRangeIndex");
+    }
+
+    [Fact]
+    public void EnsureIndex_InSharedMode_UsesSpatialPlanningRule()
+    {
+        var filename = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".db");
+        var extension = Path.GetExtension(filename);
+        var baseName = Path.GetFileNameWithoutExtension(filename);
+        var folder = Path.GetDirectoryName(filename);
+        var logFile = Path.Combine(folder!, baseName + "-log" + extension);
+        var tmpFile = Path.Combine(folder!, baseName + "-tmp" + extension);
+
+        try
+        {
+            LiteDbPlugins.ILitePlugin[] plugins = { new SpatialPlugin() };
+            using var database = new BaseLiteDB.LiteDatabase($"Filename={filename};Connection=Shared", mapper: null, plugins: plugins);
+            var collection = database.GetCollection<GeoDocument>("points");
+
+            collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
+            collection.Insert(new GeoDocument { Id = 2, Location = new GeoPoint(1, 1) });
+            collection.EnsureIndex(x => x.Location);
+
+            var plan = collection.Query()
+                .WhereNear(x => x.Location, new GeoPoint(0, 0), 1_000)
+                .GetPlan();
+
+            plan["index"]["mode"].AsString.Should().Contain("SpatialMultiRangeIndex");
+        }
+        finally
+        {
+            TryDelete(filename);
+            TryDelete(logFile);
+            TryDelete(tmpFile);
+        }
     }
 
     [Fact]
@@ -160,7 +199,7 @@ public sealed class SpatialPluginIntegrationTests
         using var database = CreateDatabase();
         var collection = database.GetCollection<GeoDocument>("points");
         collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(10, 10) });
-        Spatial.UseGeographic(collection, x => x.Location);
+        collection.EnsureIndex(x => x.Location);
 
         Action act = () => SpatialPlugin.LogDiagnostics(database, throwOnFailure: true);
 
@@ -172,6 +211,25 @@ public sealed class SpatialPluginIntegrationTests
         var stream = new MemoryStream();
         LiteDbPlugins.ILitePlugin[] plugins = { new SpatialPlugin() };
         return new BaseLiteDB.LiteDatabase(stream, mapper: null, logStream: null, plugins: plugins);
+    }
+
+    private static void TryDelete(string filename)
+    {
+        if (string.IsNullOrWhiteSpace(filename))
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(filename))
+            {
+                File.Delete(filename);
+            }
+        }
+        catch
+        {
+        }
     }
 
     private sealed class GeoDocument

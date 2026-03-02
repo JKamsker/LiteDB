@@ -20,6 +20,56 @@ namespace LiteDB
             if (string.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
 
+            var pluginContext = _database?.Services?.Context;
+            var interceptorRegistry = pluginContext?.EnsureIndexInterceptors;
+
+            if (interceptorRegistry?.Count > 0)
+            {
+                var interceptors = interceptorRegistry.Interceptors;
+
+                bool DefaultHandler(string resolvedName, BsonExpression resolvedExpression, bool resolvedUnique)
+                {
+                    return _engine.EnsureIndex(_collection, resolvedName, resolvedExpression, resolvedUnique);
+                }
+
+                var ensureContext = new Plugins.EnsureIndexContext(
+                    _database,
+                    _engine,
+                    typeof(T),
+                    _collection,
+                    name,
+                    expression,
+                    unique,
+                    _mapper,
+                    pluginContext,
+                    DefaultHandler);
+
+                foreach (var interceptor in interceptors)
+                {
+                    if (interceptor == null)
+                    {
+                        continue;
+                    }
+
+                    if (interceptor.TryHandleEnsureIndex(ensureContext))
+                    {
+                        break;
+                    }
+
+                    if (ensureContext.DefaultExecuted || ensureContext.Result.HasValue)
+                    {
+                        break;
+                    }
+                }
+
+                if (!ensureContext.Result.HasValue)
+                {
+                    ensureContext.ExecuteDefault();
+                }
+
+                return ensureContext.Result.GetValueOrDefault();
+            }
+
             return _engine.EnsureIndex(_collection, name, expression, unique);
         }
 

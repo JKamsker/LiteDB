@@ -19,7 +19,7 @@ namespace LiteDB.Plugins
 
         internal EnsureIndexContext(
             LiteDatabase database,
-            LiteEngine engine,
+            ILiteEngine engine,
             Type entityType,
             string collectionName,
             string name,
@@ -49,7 +49,7 @@ namespace LiteDB.Plugins
         /// <summary>
         /// Gets the low-level engine for advanced operations.
         /// </summary>
-        public LiteEngine Engine { get; }
+        public ILiteEngine Engine { get; }
 
         /// <summary>
         /// Gets the entity type associated with the collection.

@@ -49,6 +49,11 @@ namespace LiteDB
         public ICustomIndexStrategyRegistry CustomIndexes => _context.CustomIndexes;
 
         /// <summary>
+        /// Gets the EnsureIndex interceptor registry associated with the database.
+        /// </summary>
+        public IEnsureIndexInterceptorRegistry EnsureIndexInterceptors => _context.EnsureIndexInterceptors;
+
+        /// <summary>
         /// Gets the SQL function registry associated with the database.
         /// </summary>
         public ISqlFunctionRegistry SqlFunctions => _context.SqlFunctions;

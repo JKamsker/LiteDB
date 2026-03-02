@@ -181,7 +181,7 @@ namespace LiteDB.Spatial.Plugin
             var engine = context.Engine;
             if (engine == null)
             {
-                Log(LiteDbPlugins.LogLevel.Debug, $"Spatial plugin could not access LiteEngine to verify backing index '{fieldName}' for '{context.CollectionName}'.");
+                Log(LiteDbPlugins.LogLevel.Debug, $"Spatial plugin could not access ILiteEngine to verify backing index '{fieldName}' for '{context.CollectionName}'.");
                 return false;
             }
 

@@ -38,6 +38,8 @@ namespace LiteDB.Plugins
 
         IIndexRegistry Indexes { get; }
 
+        IEnsureIndexInterceptorRegistry EnsureIndexInterceptors { get; }
+
         IQueryPlannerRegistry QueryPlanner { get; }
 
         IQueryMetadataAccessor QueryMetadata { get; }
@@ -178,6 +180,26 @@ namespace LiteDB.Plugins
         IIndexStrategy GetByType(byte indexType);
 
         IEnumerable<IIndexStrategy> All { get; }
+    }
+
+    /// <summary>
+    /// Intercepts EnsureIndex requests so plugins can provide custom provisioning.
+    /// </summary>
+    public interface IEnsureIndexInterceptor
+    {
+        bool TryHandleEnsureIndex(EnsureIndexContext context);
+    }
+
+    /// <summary>
+    /// Registry responsible for orchestrating <see cref="IEnsureIndexInterceptor"/> implementations.
+    /// </summary>
+    public interface IEnsureIndexInterceptorRegistry
+    {
+        void Add(IEnsureIndexInterceptor interceptor, int order = 0);
+
+        int Count { get; }
+
+        IEnumerable<IEnsureIndexInterceptor> Interceptors { get; }
     }
 
     /// <summary>

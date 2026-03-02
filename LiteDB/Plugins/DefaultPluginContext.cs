@@ -27,6 +27,7 @@ namespace LiteDB.Plugins
             this.QueryOperators = new QueryOperatorRegistry(this);
             this.Expressions = new ExpressionRegistry(this.QueryOperators, this);
             this.Indexes = new IndexRegistry(this);
+            this.EnsureIndexInterceptors = new EnsureIndexInterceptorRegistry(this);
             this.QueryPlanner = new QueryPlannerRegistry(this);
             this.QueryMetadata = new QueryMetadataAccessor(this);
             this.DiagnosticPolicy = DefaultPluginDiagnosticPolicy.Instance;
@@ -47,6 +48,8 @@ namespace LiteDB.Plugins
         public IExpressionRegistry Expressions { get; }
 
         public IIndexRegistry Indexes { get; }
+
+        public IEnsureIndexInterceptorRegistry EnsureIndexInterceptors { get; }
 
         public IQueryPlannerRegistry QueryPlanner { get; }
 
@@ -730,6 +733,56 @@ namespace LiteDB.Plugins
                 lock (_sync)
                 {
                     return _rules.Values.SelectMany(x => x).ToArray();
+                }
+            }
+        }
+    }
+
+    internal sealed class EnsureIndexInterceptorRegistry : IEnsureIndexInterceptorRegistry
+    {
+        private readonly IPluginContextFreezeState _freezeState;
+        private readonly object _sync = new object();
+        private readonly SortedList<int, List<IEnsureIndexInterceptor>> _interceptors = new SortedList<int, List<IEnsureIndexInterceptor>>();
+        private int _count;
+
+        public EnsureIndexInterceptorRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState ?? throw new ArgumentNullException(nameof(freezeState));
+        }
+
+        public void Add(IEnsureIndexInterceptor interceptor, int order = 0)
+        {
+            if (interceptor == null) throw new ArgumentNullException(nameof(interceptor));
+
+            _freezeState.EnsureNotFrozen();
+
+            lock (_sync)
+            {
+                if (!_interceptors.TryGetValue(order, out var bucket))
+                {
+                    bucket = new List<IEnsureIndexInterceptor>();
+                    _interceptors.Add(order, bucket);
+                }
+
+                bucket.Add(interceptor);
+                _count++;
+            }
+        }
+
+        public int Count => Volatile.Read(ref _count);
+
+        public IEnumerable<IEnsureIndexInterceptor> Interceptors
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    if (_interceptors.Count == 0)
+                    {
+                        return Array.Empty<IEnsureIndexInterceptor>();
+                    }
+
+                    return _interceptors.Values.SelectMany(x => x).ToArray();
                 }
             }
         }

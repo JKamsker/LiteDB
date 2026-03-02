@@ -31,6 +31,7 @@ namespace LiteDB.Spatial.Plugin
             context.LinqResolvers.Register(typeof(Spatial), _ => services.GetOrCreateResolver(typeof(Spatial)));
 
             context.QueryPlanner.AddRule(services.CreatePlanningRule(), order: 100);
+            context.EnsureIndexInterceptors.Add(new SpatialEnsureIndexInterceptor(services), order: 100);
         }
 
         public void OnHandleCreated(BaseLiteDB.ILiteDatabase database)
@@ -114,6 +115,21 @@ namespace LiteDB.Spatial.Plugin
                     convertScalarLeftToEnumerable: false,
                     isScalarResult: true
                 );
+            }
+        }
+
+        private sealed class SpatialEnsureIndexInterceptor : LiteDbPlugins.IEnsureIndexInterceptor
+        {
+            private readonly SpatialPluginServices _services;
+
+            public SpatialEnsureIndexInterceptor(SpatialPluginServices services)
+            {
+                _services = services ?? throw new ArgumentNullException(nameof(services));
+            }
+
+            public bool TryHandleEnsureIndex(LiteDbPlugins.EnsureIndexContext context)
+            {
+                return _services.TryHandleEnsureIndex(context);
             }
         }
     }
