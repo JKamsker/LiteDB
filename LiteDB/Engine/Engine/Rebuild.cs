@@ -23,6 +23,11 @@ namespace LiteDB.Engine
 
             if (options == null) throw new ArgumentNullException(nameof(options));
 
+            if (_settings.ReadOnly)
+            {
+                throw LiteException.DatabaseReadOnly();
+            }
+
             this.EnsurePluginAssetsAllowed(options);
 
             this.Close();

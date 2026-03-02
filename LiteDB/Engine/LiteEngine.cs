@@ -223,6 +223,11 @@ namespace LiteDB.Engine
                 // if database is set to invalid state, need rebuild
                 if (buffer[HeaderPage.P_INVALID_DATAFILE_STATE] != 0 && _settings.AutoRebuild)
                 {
+                    if (_settings.ReadOnly)
+                    {
+                        throw LiteException.DatabaseReadOnly();
+                    }
+
                     // dispose disk access to rebuild process
                     _disk.Dispose();
                     _disk = null;

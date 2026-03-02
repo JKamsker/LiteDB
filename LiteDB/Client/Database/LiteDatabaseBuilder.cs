@@ -393,7 +393,7 @@ namespace LiteDB
 
                 if (_logStream == null && _dataStream is not MemoryStream)
                 {
-                    if (_dataStream.CanWrite)
+                    if (settings.ReadOnly == false && _dataStream.CanWrite)
                     {
                         var originalCheckpointSize = engine.Pragma(Pragmas.CHECKPOINT);
 

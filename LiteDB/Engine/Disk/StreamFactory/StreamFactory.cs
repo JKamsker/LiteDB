@@ -34,13 +34,15 @@ namespace LiteDB.Engine
         /// </summary>
         public Stream GetStream(bool canWrite, bool sequencial)
         {
+            var write = canWrite && !_readOnly && _stream.CanWrite;
+
             if (_password == null)
             {
-                return new ConcurrentStream(_stream, canWrite);
+                return new ConcurrentStream(_stream, write);
             }
             else
             {
-                return new AesStream(_password, new ConcurrentStream(_stream, canWrite));
+                return new AesStream(_password, new ConcurrentStream(_stream, write));
             }
         }
 

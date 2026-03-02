@@ -55,6 +55,13 @@ namespace LiteDB.Engine
             // create new database if not exist yet
             if (isNew)
             {
+                if (_readOnly)
+                {
+                    throw new LiteException(
+                        LiteException.DATABASE_READ_ONLY,
+                        "Database is opened in read-only mode and cannot be created or initialized.");
+                }
+
                 LOG($"creating new database: '{Path.GetFileName(_dataFactory.Name)}'", "DISK");
 
                 this.Initialize(_dataPool.Writer.Value, settings.Collation, settings.InitialSize);
