@@ -11,6 +11,8 @@ namespace LiteDB.Plugins
 {
     internal sealed class DefaultPluginContext : ILitePluginContext, IPluginContextFreezeState
     {
+        internal string WarningScopeKey { get; } = Guid.NewGuid().ToString("N");
+
         private int _frozen;
 
         public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)

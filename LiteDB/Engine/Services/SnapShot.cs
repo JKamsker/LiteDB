@@ -205,7 +205,14 @@ namespace LiteDB.Engine
 
         private void LogMissingPluginWarning(string pluginId, PluginMissingBehavior behavior)
         {
-            if (!_missingPluginWarnings.TryAdd(pluginId, 1))
+            var key = pluginId;
+
+            if (_plugins is DefaultPluginContext defaultContext)
+            {
+                key = $"{defaultContext.WarningScopeKey}:{pluginId}";
+            }
+
+            if (!_missingPluginWarnings.TryAdd(key, 1))
             {
                 return;
             }
