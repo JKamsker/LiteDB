@@ -15,6 +15,9 @@ namespace LiteDB.Plugins
     {
         /// <summary>
         /// Called once during database construction allowing the plugin to register behaviours.
+        /// When using <see cref="LiteDatabaseBuilder.BuildFactory"/>, the provided <paramref name="database"/> can be an internal host handle used
+        /// only for initialization. Plugins should avoid capturing it for later use and instead implement <see cref="ILiteDatabaseHandleLifecycle"/>
+        /// to observe user-facing handles created by the factory.
         /// </summary>
         /// <param name="database">The database that is being configured.</param>
         /// <param name="context">The plugin context exposing registration entry points.</param>
@@ -26,6 +29,9 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface ILiteDatabaseHandleLifecycle
     {
+        /// <summary>
+        /// Invoked when a new database handle is created. Implementations must be thread-safe because factories can create handles concurrently.
+        /// </summary>
         void OnHandleCreated(ILiteDatabase database);
     }
 

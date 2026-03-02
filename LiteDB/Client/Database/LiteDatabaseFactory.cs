@@ -59,42 +59,43 @@ namespace LiteDB
             _ownedResources = ownedResources;
             _refCount = 1;
 
-            try
-            {
-                _hostDatabase = new LiteDatabase(
-                    _engine,
-                    disposeOnClose: false,
-                    mapper: _mapper,
-                    pluginContext: _pluginContext,
-                    initializePlugins: true,
-                    plugins: _plugins);
-            }
-            catch
-            {
-                if (_ownsEngine)
-                {
-                    try
-                    {
-                        _engine.Dispose();
-                    }
-                    catch
-                    {
-                        // Best-effort cleanup.
-                    }
-                }
+             try
+             {
+                 _hostDatabase = new LiteDatabase(
+                     _engine,
+                     disposeOnClose: false,
+                     mapper: _mapper,
+                     pluginContext: _pluginContext,
+                     initializePlugins: true,
+                     plugins: _plugins,
+                     disallowRebuild: true);
+             }
+             catch
+             {
+                 try
+                 {
+                     _ownedResources?.Dispose();
+                 }
+                 catch
+                 {
+                     // Best-effort cleanup.
+                 }
 
-                try
-                {
-                    _ownedResources?.Dispose();
-                }
-                catch
-                {
-                    // Best-effort cleanup.
-                }
+                 if (_ownsEngine)
+                 {
+                     try
+                     {
+                         _engine.Dispose();
+                     }
+                     catch
+                     {
+                         // Best-effort cleanup.
+                     }
+                 }
 
-                throw;
-            }
-        }
+                 throw;
+             }
+         }
 
         public ILiteDatabase CreateDatabase()
         {
@@ -129,7 +130,8 @@ namespace LiteDB
                     pluginContext: _pluginContext,
                     initializePlugins: false,
                     plugins: null,
-                    engineLease: lease);
+                    engineLease: lease,
+                    disallowRebuild: true);
             }
             catch
             {
@@ -174,6 +176,15 @@ namespace LiteDB
 
             try
             {
+                _ownedResources?.Dispose();
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+
+            try
+            {
                 _hostDatabase?.Dispose();
             }
             catch
@@ -191,15 +202,6 @@ namespace LiteDB
                 {
                     // Best-effort cleanup.
                 }
-            }
-
-            try
-            {
-                _ownedResources?.Dispose();
-            }
-            catch
-            {
-                // Best-effort cleanup.
             }
         }
 

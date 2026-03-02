@@ -24,6 +24,7 @@ namespace LiteDB
         private readonly IDisposable _engineLease;
         private readonly IDisposable _ownedResources;
         private readonly DefaultPluginContext _pluginContext;
+        private readonly bool _disallowRebuild;
 
         /// <summary>
         /// Provides access to plugin services registered for this database instance.
@@ -254,7 +255,8 @@ namespace LiteDB
             IEnumerable<ILitePlugin> plugins,
             IDisposable ownedResources = null,
             IDisposable engineLease = null,
-            int? checkpointOverride = null)
+            int? checkpointOverride = null,
+            bool disallowRebuild = false)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _disposeOnClose = disposeOnClose;
@@ -263,6 +265,7 @@ namespace LiteDB
             _ownedResources = ownedResources;
             _engineLease = engineLease;
             _checkpointOverride = checkpointOverride;
+            _disallowRebuild = disallowRebuild || engineLease != null;
 
             this.Services = new LiteDatabaseServices(_pluginContext);
 
@@ -544,7 +547,7 @@ namespace LiteDB
         /// </summary>
         public long Rebuild(RebuildOptions options = null)
         {
-            if (_engineLease != null)
+            if (_engineLease != null || _disallowRebuild)
             {
                 throw new InvalidOperationException("Rebuild is not supported for databases created by a factory. Rebuild requires exclusive access to the engine.");
             }
@@ -643,6 +646,8 @@ namespace LiteDB
         {
             if (disposing)
             {
+                _ownedResources?.Dispose();
+
                 if (_engineLease != null)
                 {
                     _engineLease.Dispose();
@@ -656,8 +661,6 @@ namespace LiteDB
 
                     _engine.Dispose();
                 }
-
-                _ownedResources?.Dispose();
             }
         }
     }
