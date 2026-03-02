@@ -176,9 +176,13 @@ namespace LiteDB.Engine
                 {
                     ENSURE(page.ShareCounter == BUFFER_WRITABLE, "to enqueue page, page must be writable");
 
+                    // Reserve a new page position at the end of the log file.
+                    // Avoid publishing _logLength until after the write succeeds.
+                    var position = _logLength + PAGE_SIZE;
+
                     // adding this page into file AS new page (at end of file)
                     // must add into cache to be sure that new readers can see this page
-                    page.Position = Interlocked.Add(ref _logLength, PAGE_SIZE);
+                    page.Position = position;
 
                     // should mark page origin to log because async queue works only for log file
                     // if this page came from data file, must be changed before MoveToReadable
@@ -188,25 +192,26 @@ namespace LiteDB.Engine
                     var readable = _cache.MoveToReadable(page);
 
                     // set log stream position to page
-                    stream.Position = page.Position;
+                    stream.Position = position;
 
                     try
                     {
 #if DEBUG || TESTING
-                        _state.SimulateDiskWriteFail?.Invoke(page);
+                        _state.SimulateDiskWriteFail?.Invoke(readable);
 #endif
 
                         // and write to disk in a sync mode
-                        stream.Write(page.Array, page.Offset, PAGE_SIZE);
+                        stream.Write(readable.Array, readable.Offset, PAGE_SIZE);
 
                         count++;
+                        _logLength = position;
                     }
                     finally
                     {
                         // release page even on write failure (avoids leaking ShareCounter != 0 buffers)
-                        if (page.ShareCounter > 0)
+                        if (readable.ShareCounter > 0)
                         {
-                            page.Release();
+                            readable.Release();
                         }
                     }
                 }
@@ -257,10 +262,6 @@ namespace LiteDB.Engine
         /// </summary>
         public IEnumerable<PageBuffer> ReadFull(FileOrigin origin)
         {
-            // do not use MemoryCache factory - reuse same buffer array (one page per time)
-            // do not use BufferPool because header page can't be shared (byte[] is used inside page return)
-            var buffer = new byte[PAGE_SIZE];
-
             var pool = origin == FileOrigin.Log ? _logPool : _dataPool;
             var stream = pool.Rent();
 
@@ -274,6 +275,10 @@ namespace LiteDB.Engine
                 while (stream.Position < length)
                 {
                     var position = stream.Position;
+
+                    // Do not reuse buffers across yields: consumers may materialize the enumeration.
+                    // Do not use BufferPool because header page can't be shared (byte[] is used inside page return).
+                    var buffer = new byte[PAGE_SIZE];
 
                     var bytesRead = 0;
 
