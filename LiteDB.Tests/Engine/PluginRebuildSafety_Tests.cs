@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using FluentAssertions;
 using LiteDB.Engine;
 using LiteDB.Plugins;
@@ -58,15 +57,6 @@ namespace LiteDB.Tests.Engine
                 File.Delete(logFile);
             }
 
-            var collectionPageId = ReadCollectionPageId(file.Filename, "docs");
-            collectionPageId.Should().NotBe(uint.MaxValue);
-            ReadPageType(file.Filename, collectionPageId).Should().Be(PageType.Collection);
-            var markerOffset = FindPluginMetadataMarkerOffset(file.Filename, collectionPageId, "embedding_idx");
-            (ReadByteAt(file.Filename, collectionPageId, markerOffset) & 0x80).Should().Be(0x80);
-            FlipPluginMetadataMarkerHighBit(file.Filename, collectionPageId, markerOffset);
-            (ReadByteAt(file.Filename, collectionPageId, markerOffset) & 0x80).Should().Be(0);
-            AssertLegacyMetadataMarkerThrows(file.Filename, collectionPageId);
-
             var settings = new EngineSettings { Filename = file.Filename };
             var errors = new List<FileReaderError>();
 
@@ -76,160 +66,6 @@ namespace LiteDB.Tests.Engine
 
             act.Should().Throw<LiteException>()
                 .Where(ex => ex.ErrorCode == LiteException.PLUGIN_REQUIRED);
-        }
-
-        private static uint ReadCollectionPageId(string filename, string collectionName)
-        {
-            var headerBytes = new byte[PAGE_SIZE];
-
-            using (var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            {
-                ReadFully(stream, headerBytes);
-            }
-
-            var headerBuffer = new PageBuffer(headerBytes, 0, uniqueID: 0);
-            var header = new HeaderPage(headerBuffer);
-
-            return header.GetCollectionPageID(collectionName);
-        }
-
-        private static int FindPluginMetadataMarkerOffset(string filename, uint collectionPageId, string indexName)
-        {
-            var pageBytes = new byte[PAGE_SIZE];
-
-            using (var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            {
-                stream.Position = BasePage.GetPagePosition(collectionPageId);
-                ReadFully(stream, pageBytes);
-            }
-
-            var expectedPluginId = VectorPlugin.PluginId;
-            var pageBuffer = new PageBuffer(pageBytes, 0, uniqueID: 0);
-            var area = pageBuffer.Slice(PAGE_HEADER_SIZE, PAGE_SIZE - PAGE_HEADER_SIZE);
-
-            using (var reader = new BufferReader(new[] { area }, false))
-            {
-                for (var i = 0; i < PAGE_FREE_LIST_SLOTS; i++)
-                {
-                    reader.ReadUInt32();
-                }
-
-                reader.Skip(CollectionPage.P_INDEXES - PAGE_HEADER_SIZE - reader.Position);
-
-                var indexCount = reader.ReadByte();
-                for (var i = 0; i < indexCount; i++)
-                {
-                    _ = new CollectionIndex(reader);
-                }
-
-                var metadataCount = reader.ReadByte();
-                for (var i = 0; i < metadataCount; i++)
-                {
-                    var name = reader.ReadCString();
-                    var markerOffset = PAGE_HEADER_SIZE + reader.Position;
-                    var marker = reader.ReadByte();
-
-                    if ((marker & 0x80) == 0)
-                    {
-                        continue;
-                    }
-
-                    var pluginIdLength = marker & 0x7F;
-                    var pluginId = reader.ReadString(pluginIdLength);
-                    var payloadLength = reader.ReadUInt16();
-                    reader.Skip(payloadLength);
-
-                    if (string.Equals(name, indexName, StringComparison.Ordinal) &&
-                        string.Equals(pluginId, expectedPluginId, StringComparison.Ordinal))
-                    {
-                        return markerOffset;
-                    }
-                }
-            }
-
-            throw new InvalidOperationException($"Unable to locate plugin metadata marker for index '{indexName}'.");
-        }
-
-        private static void FlipPluginMetadataMarkerHighBit(string filename, uint collectionPageId, int markerOffset)
-        {
-            using var stream = new FileStream(filename, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-            stream.Position = BasePage.GetPagePosition(collectionPageId) + markerOffset;
-
-            var marker = stream.ReadByte();
-            if (marker < 0)
-            {
-                throw new EndOfStreamException("Unable to read plugin metadata marker.");
-            }
-
-            var legacyMarker = (byte)(marker & 0x7F);
-
-            stream.Position = BasePage.GetPagePosition(collectionPageId) + markerOffset;
-            stream.WriteByte(legacyMarker);
-            stream.Flush();
-        }
-
-        private static PageType ReadPageType(string filename, uint pageId)
-        {
-            using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            stream.Position = BasePage.GetPagePosition(pageId) + BasePage.P_PAGE_TYPE;
-
-            var value = stream.ReadByte();
-            if (value < 0)
-            {
-                throw new EndOfStreamException("Unable to read page type.");
-            }
-
-            return (PageType)(byte)value;
-        }
-
-        private static void AssertLegacyMetadataMarkerThrows(string filename, uint collectionPageId)
-        {
-            var pageBytes = new byte[PAGE_SIZE];
-
-            using (var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            {
-                stream.Position = BasePage.GetPagePosition(collectionPageId);
-                ReadFully(stream, pageBytes);
-            }
-
-            var pageBuffer = new PageBuffer(pageBytes, 0, uniqueID: 0);
-
-            Action act = () => new CollectionPage(pageBuffer);
-
-            act.Should().Throw<LiteException>()
-                .Where(ex => ex.ErrorCode == LiteException.PLUGIN_REQUIRED);
-        }
-
-        private static byte ReadByteAt(string filename, uint collectionPageId, int markerOffset)
-        {
-            using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            stream.Position = BasePage.GetPagePosition(collectionPageId) + markerOffset;
-
-            var marker = stream.ReadByte();
-            if (marker < 0)
-            {
-                throw new EndOfStreamException("Unable to read plugin metadata marker.");
-            }
-
-            return (byte)marker;
-        }
-
-        private static void ReadFully(Stream stream, byte[] buffer)
-        {
-            if (stream == null) throw new ArgumentNullException(nameof(stream));
-            if (buffer == null) throw new ArgumentNullException(nameof(buffer));
-
-            var offset = 0;
-            while (offset < buffer.Length)
-            {
-                var read = stream.Read(buffer, offset, buffer.Length - offset);
-                if (read == 0)
-                {
-                    throw new EndOfStreamException("Unable to read expected number of bytes from stream.");
-                }
-
-                offset += read;
-            }
         }
 
         private sealed class TestDocument

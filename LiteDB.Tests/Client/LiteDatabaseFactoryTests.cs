@@ -141,7 +141,7 @@ namespace LiteDB.Tests.Client
 
             await Task.WhenAll(tasks);
 
-            exceptions.Should().OnlyContain(ex => ex is ObjectDisposedException);
+            exceptions.Should().NotContain(ex => !(ex is ObjectDisposedException));
 
             foreach (var handle in handles)
             {

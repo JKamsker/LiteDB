@@ -15,7 +15,7 @@ namespace LiteDB
         private LiteEngine _engine;
         private bool _transactionRunning = false;
         private ILitePluginContext _plugins;
-        private int _openCount;
+        private readonly ThreadLocal<int> _mutexDepth = new ThreadLocal<int>(() => 0);
 
         public SharedEngine(EngineSettings settings)
         {
@@ -43,19 +43,20 @@ namespace LiteDB
         /// </summary>
         private void OpenDatabase()
         {
-            var outermost = Interlocked.Increment(ref _openCount) == 1;
+            var depth = _mutexDepth.Value;
 
-            if (outermost)
+            if (depth == 0)
             {
                 try
                 {
-                    // Acquire mutex for the outermost call.
                     _mutex.WaitOne();
                 }
                 catch (AbandonedMutexException)
                 {
                 }
             }
+
+            _mutexDepth.Value = depth + 1;
 
             // Don't create a new engine while a transaction is running.
             if (!_transactionRunning && _engine == null)
@@ -92,7 +93,17 @@ namespace LiteDB
         /// </summary>
         private void CloseDatabase()
         {
-            if (Interlocked.Decrement(ref _openCount) != 0)
+            var depth = _mutexDepth.Value;
+
+            if (depth <= 0)
+            {
+                return;
+            }
+
+            depth--;
+            _mutexDepth.Value = depth;
+
+            if (depth != 0)
             {
                 return;
             }
@@ -285,24 +296,25 @@ namespace LiteDB
         {
             if (disposing)
             {
-                if (_engine != null && Volatile.Read(ref _openCount) == 0)
+                if (_engine != null && _mutexDepth.Value == 0)
                 {
                     _engine.Dispose();
                     _engine = null;
                 }
 
-                while (Volatile.Read(ref _openCount) > 0)
+                if (_mutexDepth.Value > 0)
                 {
                     try
                     {
-                        CloseDatabase();
+                        _mutexDepth.Value = 0;
+                        _mutex.ReleaseMutex();
                     }
                     catch
                     {
-                        break;
                     }
                 }
 
+                _mutexDepth.Dispose();
                 _mutex.Dispose();
             }
         }
