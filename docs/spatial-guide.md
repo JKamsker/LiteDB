@@ -9,7 +9,7 @@ using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Spatial;
 
-var connection = new ConnectionString("Filename=places.db;Mode=Shared");
+var connection = new ConnectionString("Filename=places.db;Connection=Shared");
 using var db = new LiteDatabase(connection, plugins: new ILitePlugin[]
 {
     new SpatialPlugin()
