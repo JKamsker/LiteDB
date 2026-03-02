@@ -11,6 +11,21 @@ namespace LiteDB.Spatial
     /// </summary>
     public static class SpatialQueryableExtensions
     {
+        private static BaseLiteDB.LiteQueryable<T> Unwrap<T>(BaseLiteDB.ILiteQueryable<T> source)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (source is BaseLiteDB.LiteQueryable<T> queryable)
+            {
+                return queryable;
+            }
+
+            throw new ArgumentException("Spatial operations require LiteDB's default queryable implementation.", nameof(source));
+        }
+
         /// <summary>
         /// Filters the query to points near the specified center.
         /// </summary>
@@ -106,9 +121,11 @@ namespace LiteDB.Spatial
             if (string.IsNullOrWhiteSpace(geometryField)) throw new ArgumentException("Geometry field must be provided.", nameof(geometryField));
 
             EnsureNonNegativeRadius(radius);
+
+            var queryable = Unwrap(source);
             var fieldReference = BuildFieldReference(geometryField);
-            var predicate = CreateNearExpression(fieldReference, CreateGeoPointValue(center), radius, distanceMode);
-            return source.Where(predicate);
+            var predicate = CreateNearExpression(fieldReference, CreateGeoPointValue(center), radius, distanceMode, queryable.ExpressionRegistry);
+            return queryable.Where(predicate);
         }
 
         /// <summary>
@@ -124,9 +141,11 @@ namespace LiteDB.Spatial
             if (string.IsNullOrWhiteSpace(geometryField)) throw new ArgumentException("Geometry field must be provided.", nameof(geometryField));
 
             EnsureNonNegativeRadius(radius);
+
+            var queryable = Unwrap(source);
             var fieldReference = BuildFieldReference(geometryField);
-            var predicate = CreateNearExpression(fieldReference, CreateGeoPoint3DValue(center), radius, distanceMode: null);
-            return source.Where(predicate);
+            var predicate = CreateNearExpression(fieldReference, CreateGeoPoint3DValue(center), radius, distanceMode: null, queryable.ExpressionRegistry);
+            return queryable.Where(predicate);
         }
 
         /// <summary>
@@ -148,8 +167,10 @@ namespace LiteDB.Spatial
             if (geometryExpression == null) throw new ArgumentNullException(nameof(geometryExpression));
 
             EnsureNonNegativeRadius(radius);
-            var predicate = CreateNearExpression(ExtractExpressionSource(geometryExpression), CreateGeoPointValue(center), radius, distanceMode);
-            return source.Where(predicate);
+
+            var queryable = Unwrap(source);
+            var predicate = CreateNearExpression(ExtractExpressionSource(geometryExpression), CreateGeoPointValue(center), radius, distanceMode, queryable.ExpressionRegistry);
+            return queryable.Where(predicate);
         }
 
         /// <summary>
@@ -165,8 +186,10 @@ namespace LiteDB.Spatial
             if (geometryExpression == null) throw new ArgumentNullException(nameof(geometryExpression));
 
             EnsureNonNegativeRadius(radius);
-            var predicate = CreateNearExpression(ExtractExpressionSource(geometryExpression), CreateGeoPoint3DValue(center), radius, distanceMode: null);
-            return source.Where(predicate);
+
+            var queryable = Unwrap(source);
+            var predicate = CreateNearExpression(ExtractExpressionSource(geometryExpression), CreateGeoPoint3DValue(center), radius, distanceMode: null, queryable.ExpressionRegistry);
+            return queryable.Where(predicate);
         }
 
         /// <summary>
@@ -222,8 +245,9 @@ namespace LiteDB.Spatial
                 throw new ArgumentException("Bounding boxes must describe two or three dimensions.", nameof(bounds));
             }
 
-            var predicate = CreateInBoxExpression(BuildFieldReference(geometryField), CreateBoundingBoxValue(bounds));
-            return source.Where(predicate);
+            var queryable = Unwrap(source);
+            var predicate = CreateInBoxExpression(BuildFieldReference(geometryField), CreateBoundingBoxValue(bounds), queryable.ExpressionRegistry);
+            return queryable.Where(predicate);
         }
 
         /// <summary>
@@ -241,8 +265,9 @@ namespace LiteDB.Spatial
                 throw new ArgumentException("Bounding boxes must describe two or three dimensions.", nameof(bounds));
             }
 
-            var predicate = CreateInBoxExpression(ExtractExpressionSource(geometryExpression), CreateBoundingBoxValue(bounds));
-            return source.Where(predicate);
+            var queryable = Unwrap(source);
+            var predicate = CreateInBoxExpression(ExtractExpressionSource(geometryExpression), CreateBoundingBoxValue(bounds), queryable.ExpressionRegistry);
+            return queryable.Where(predicate);
         }
 
         /// <summary>
@@ -395,12 +420,15 @@ namespace LiteDB.Spatial
             string geometryReference,
             BaseLiteDB.BsonValue centerValue,
             double radius,
-            GeographicDistanceMode? distanceMode)
+            GeographicDistanceMode? distanceMode,
+            BaseLiteDB.Plugins.IExpressionRegistry registry)
         {
             if (string.IsNullOrWhiteSpace(geometryReference))
             {
                 throw new ArgumentException("Geometry reference must be provided.", nameof(geometryReference));
             }
+
+            if (registry == null) throw new ArgumentNullException(nameof(registry));
 
             var parameters = new BaseLiteDB.BsonDocument
             {
@@ -409,22 +437,24 @@ namespace LiteDB.Spatial
                 ["2"] = CreateDistanceModeValue(distanceMode)
             };
 
-            return BaseLiteDB.BsonExpression.Create($"SPATIAL_NEAR({geometryReference}, @0, @1, @2)", parameters);
+            return BaseLiteDB.BsonExpression.Create($"SPATIAL_NEAR({geometryReference}, @0, @1, @2)", parameters, registry);
         }
 
-        private static BaseLiteDB.BsonExpression CreateInBoxExpression(string geometryReference, BaseLiteDB.BsonValue boundingBox)
+        private static BaseLiteDB.BsonExpression CreateInBoxExpression(string geometryReference, BaseLiteDB.BsonValue boundingBox, BaseLiteDB.Plugins.IExpressionRegistry registry)
         {
             if (string.IsNullOrWhiteSpace(geometryReference))
             {
                 throw new ArgumentException("Geometry reference must be provided.", nameof(geometryReference));
             }
 
+            if (registry == null) throw new ArgumentNullException(nameof(registry));
+
             var parameters = new BaseLiteDB.BsonDocument
             {
                 ["0"] = boundingBox ?? BaseLiteDB.BsonValue.Null
             };
 
-            return BaseLiteDB.BsonExpression.Create($"SPATIAL_IN_BOX({geometryReference}, @0)", parameters);
+            return BaseLiteDB.BsonExpression.Create($"SPATIAL_IN_BOX({geometryReference}, @0)", parameters, registry);
         }
 
         private static string BuildFieldReference(string geometryField)
