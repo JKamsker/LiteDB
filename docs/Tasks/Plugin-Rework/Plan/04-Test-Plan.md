@@ -113,7 +113,7 @@
     - [x] If documents contain plugin-defined BSON types, rebuild without plugin fails (no implicit document skipping).
     - [x] Assert dropped plugin index is absent after rebuild; re-creating it returns true.
     - [x] Assert durable rebuild report contains the drop entry.
-    - [x] Report enforcement: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` throws `InvalidOperationException` (audit trail required).
+    - [x] Report enforcement: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` throws `ArgumentException` (audit trail required).
     - [x] Unknown-plugin/metadata-missing case: craft db with `IndexType != 0` but no metadata; strict rebuild fails; salvage drops+reports; **never** rebuilt as btree.
     - [x] Reopen with plugin, re-create vector index, verify it works and produces correct query results on all existing documents.
 

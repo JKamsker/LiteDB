@@ -260,7 +260,7 @@ Files:
   - [x] Those indexes are omitted from the rebuilt database.
   - [x] Emit warnings and record dropped indexes into the rebuild report.
   - [x] This is **index salvage only**: must still fail if documents cannot be decoded.
-  - [x] Require audit trail: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` throws `InvalidOperationException`.
+  - [x] Require audit trail: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` throws `ArgumentException`.
 
 ### Required plumbing
 

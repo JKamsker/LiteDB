@@ -90,7 +90,6 @@ Interface:
 public interface ILiteDatabaseFactory : IDisposable
 {
     ILiteDatabase CreateDatabase();
-    bool IsDisposed { get; }
 }
 ```
 

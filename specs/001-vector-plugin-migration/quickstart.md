@@ -182,7 +182,7 @@ var best = collection
     {
         match.Document.Id,
         match.Distance,
-        match.Similarity   // null for non-cosine metrics
+        match.Similarity   // null for metrics without similarity transforms (e.g., Euclidean)
     })
     .ToList();
 ```
