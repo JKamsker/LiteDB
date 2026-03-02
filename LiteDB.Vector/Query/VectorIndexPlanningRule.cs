@@ -54,19 +54,23 @@ namespace LiteDB.Vector.Query
             var metadataIndicatesNormalized = metadataBag != null && VectorQueryMetadata.IsMaxDistanceNormalized(metadataBag);
 
             if (context.Query.OrderBy.Count > 0 &&
-                context.Query.OrderBy[0].Order == LiteDB.Query.Ascending &&
-                TryParseVectorExpression(context.Query.OrderBy[0].Expression, collation, out orderByExpression, out orderByTarget, out orderByMetric))
+                TryParseVectorExpression(context.Query.OrderBy[0].Expression, collation, out orderByExpression, out orderByTarget, out orderByMetric, out var orderByIsSimilarity))
             {
-                if (context.Query.OrderBy.Count == 1)
+                var requiredOrder = orderByIsSimilarity ? LiteDB.Query.Descending : LiteDB.Query.Ascending;
+
+                if (context.Query.OrderBy[0].Order == requiredOrder)
                 {
-                    orderByConsumable = true;
-                }
-                else if (context.Query.OrderBy.Count == 2 &&
-                    context.Query.OrderBy[1].Order == LiteDB.Query.Ascending &&
-                    IsIdOrderByExpression(context.Query.OrderBy[1].Expression))
-                {
-                    // Allow deterministic tie-breaking by _id without forcing a secondary in-engine sort.
-                    orderByConsumable = true;
+                    if (context.Query.OrderBy.Count == 1)
+                    {
+                        orderByConsumable = true;
+                    }
+                    else if (context.Query.OrderBy.Count == 2 &&
+                        context.Query.OrderBy[1].Order == LiteDB.Query.Ascending &&
+                        IsIdOrderByExpression(context.Query.OrderBy[1].Expression))
+                    {
+                        // Allow deterministic tie-breaking by _id without forcing a secondary in-engine sort.
+                        orderByConsumable = true;
+                    }
                 }
             }
 
@@ -329,15 +333,35 @@ namespace LiteDB.Vector.Query
             }
 
             if ((predicate.Type == BsonExpressionType.LessThan || predicate.Type == BsonExpressionType.LessThanOrEqual) &&
-                TryParseVectorExpression(predicate.Left, collation, out expression, out target, out metric) &&
+                TryParseVectorExpression(predicate.Left, collation, out expression, out target, out metric, out var leftIsSimilarity) &&
+                !leftIsSimilarity &&
                 TryConvertToDouble(predicate.Right?.ExecuteScalar(collation), out maxDistance))
             {
                 return true;
             }
 
             if ((predicate.Type == BsonExpressionType.GreaterThan || predicate.Type == BsonExpressionType.GreaterThanOrEqual) &&
-                TryParseVectorExpression(predicate.Right, collation, out expression, out target, out metric) &&
+                TryParseVectorExpression(predicate.Right, collation, out expression, out target, out metric, out var rightIsSimilarity) &&
+                !rightIsSimilarity &&
                 TryConvertToDouble(predicate.Left?.ExecuteScalar(collation), out maxDistance))
+            {
+                return true;
+            }
+
+            if ((predicate.Type == BsonExpressionType.GreaterThan || predicate.Type == BsonExpressionType.GreaterThanOrEqual) &&
+                TryParseVectorExpression(predicate.Left, collation, out expression, out target, out metric, out var similarityLeftIsSimilarity) &&
+                similarityLeftIsSimilarity &&
+                TryConvertToDouble(predicate.Right?.ExecuteScalar(collation), out var minSimilarity) &&
+                TryConvertSimilarityToMaxDistance(metric, minSimilarity, out maxDistance))
+            {
+                return true;
+            }
+
+            if ((predicate.Type == BsonExpressionType.LessThan || predicate.Type == BsonExpressionType.LessThanOrEqual) &&
+                TryParseVectorExpression(predicate.Right, collation, out expression, out target, out metric, out var similarityRightIsSimilarity) &&
+                similarityRightIsSimilarity &&
+                TryConvertToDouble(predicate.Left?.ExecuteScalar(collation), out var swappedSimilarity) &&
+                TryConvertSimilarityToMaxDistance(metric, swappedSimilarity, out maxDistance))
             {
                 return true;
             }
@@ -351,16 +375,30 @@ namespace LiteDB.Vector.Query
 
         private static bool TryParseVectorExpression(BsonExpression? expression, Collation collation, out string? fieldExpression, out float[]? target)
         {
-            return TryParseVectorExpression(expression, collation, out fieldExpression, out target, out _);
+            return TryParseVectorExpression(expression, collation, out fieldExpression, out target, out _, out _);
         }
 
         private static bool TryParseVectorExpression(BsonExpression? expression, Collation collation, out string? fieldExpression, out float[]? target, out byte? metric)
         {
+            return TryParseVectorExpression(expression, collation, out fieldExpression, out target, out metric, out _);
+        }
+
+        private static bool TryParseVectorExpression(BsonExpression? expression, Collation collation, out string? fieldExpression, out float[]? target, out byte? metric, out bool isSimilarity)
+        {
             fieldExpression = null;
             target = null;
             metric = null;
+            isSimilarity = false;
 
-            if (!IsVectorDistance(expression))
+            if (expression == null)
+            {
+                return false;
+            }
+
+            var isDistance = IsVectorDistance(expression);
+            isSimilarity = IsVectorSimilarity(expression);
+
+            if (!isDistance && !isSimilarity)
             {
                 return false;
             }
@@ -521,6 +559,31 @@ namespace LiteDB.Vector.Query
 
             number = value.AsDouble;
             return !double.IsNaN(number);
+        }
+
+        private static bool TryConvertSimilarityToMaxDistance(byte? metric, double minSimilarity, out double maxDistance)
+        {
+            maxDistance = double.NaN;
+
+            if (double.IsNaN(minSimilarity) || double.IsInfinity(minSimilarity))
+            {
+                return false;
+            }
+
+            var metricValue = (VectorDistanceMetric)(metric ?? (byte)VectorDistanceMetric.Cosine);
+
+            switch (metricValue)
+            {
+                case VectorDistanceMetric.Cosine:
+                    maxDistance = 1d - minSimilarity;
+                    return true;
+                case VectorDistanceMetric.DotProduct:
+                    // Dot product uses distance = -similarity, so keep the similarity threshold and let NormalizeMaxDistance handle negation.
+                    maxDistance = minSimilarity;
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static bool TryExtractVectorArgumentsFromSource(string source, out string fieldExpression, out string targetExpression, out string? metricExpression)
