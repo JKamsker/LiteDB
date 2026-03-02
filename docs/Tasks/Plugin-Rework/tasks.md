@@ -39,7 +39,7 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 ## Tests / Verification
 
 - [x] Implement test infrastructure helpers (`TestTrackingPlugin`, seed/race/corruption helpers).
-- [ ] Cover builder + factory lifecycle/concurrency cases.
+- [x] Cover builder + factory lifecycle/concurrency cases.
 - [ ] Cover missing-plugin behavior matrix (planner/read/write/DDL).
 - [ ] Cover `$plugins` + validation-on-open diagnostics and cache scoping.
 - [ ] Cover rebuild salvage option + strict recovery behavior.

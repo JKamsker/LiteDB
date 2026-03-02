@@ -51,6 +51,20 @@ namespace LiteDB.Tests.Client
         }
 
         [Fact]
+        public void Factory_should_refuse_new_handles_after_disposal()
+        {
+            using var factory = new LiteDatabaseBuilder()
+                .UseInMemory()
+                .BuildFactory();
+
+            factory.Dispose();
+
+            Action act = () => factory.CreateDatabase();
+
+            act.Should().Throw<ObjectDisposedException>();
+        }
+
+        [Fact]
         public void Factory_should_invoke_handle_lifecycle_hooks_per_handle()
         {
             var plugin = new TestTrackingPlugin();
