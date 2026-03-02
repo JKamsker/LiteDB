@@ -33,6 +33,12 @@ namespace LiteDB.Engine
         public bool IncludeErrorReport { get; set; } = true;
 
         /// <summary>
+        /// When set true, rebuild may drop plugin-owned indexes when the owning plugin is missing/unavailable.
+        /// This is a destructive, salvage-only option and requires <see cref="IncludeErrorReport"/> to be enabled.
+        /// </summary>
+        public bool DropOrphanedPluginIndexes { get; set; } = false;
+
+        /// <summary>
         /// After run rebuild process, get a error report (empty if no error detected)
         /// </summary>
         internal IList<FileReaderError> Errors { get; } = new List<FileReaderError>();
@@ -46,7 +52,7 @@ namespace LiteDB.Engine
             {
                 ["buildId"] = _buildId,
                 ["created"] = x.Created,
-                ["pageID"] = (int)x.PageID,
+                ["pageID"] = x.PageID.HasValue ? (int)x.PageID.Value : BsonValue.Null,
                 ["positionID"] = (long)x.Position,
                 ["origin"] = x.Origin.ToString(),
                 ["pageType"] = x.PageType.ToString(),

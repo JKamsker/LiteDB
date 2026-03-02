@@ -21,7 +21,9 @@ namespace LiteDB.Engine
         {
             if (string.IsNullOrEmpty(_settings.Filename)) return 0; // works only with os file
 
-            this.EnsurePluginAssetsAllowed();
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
+            this.EnsurePluginAssetsAllowed(options);
 
             this.Close();
 
@@ -39,8 +41,13 @@ namespace LiteDB.Engine
             return diff;
         }
 
-        private void EnsurePluginAssetsAllowed()
+        private void EnsurePluginAssetsAllowed(RebuildOptions options)
         {
+            if (options != null && options.DropOrphanedPluginIndexes)
+            {
+                return;
+            }
+
             var scanner = new PluginRequirementScanner(_header, _disk, _walIndex, _plugins);
             var requirements = scanner.Scan(transactionPages: null);
             var missing = requirements.Where(x => x.StrategyAvailable == false).ToArray();
@@ -77,7 +84,7 @@ namespace LiteDB.Engine
         /// <summary>
         /// Fill current database with data inside file reader - run inside a transacion
         /// </summary>
-        internal void RebuildContent(IFileReader reader)
+        internal void RebuildContent(IFileReader reader, RebuildOptions options)
         {
             // begin transaction and get TransactionID
             var transaction = _monitor.GetTransaction(true, false, out _);
@@ -106,7 +113,7 @@ namespace LiteDB.Engine
                     // first create all user indexes (exclude _id index)
                     foreach (var index in reader.GetIndexes(collection))
                     {
-                        if (this.TryRebuildPluginIndex(collection, index))
+                        if (this.TryRebuildPluginIndex(collection, index, options))
                         {
                             continue;
                         }
@@ -131,89 +138,121 @@ namespace LiteDB.Engine
             }
         }
 
-    private bool TryRebuildPluginIndex(string collection, IndexInfo index)
+    private bool TryRebuildPluginIndex(string collection, IndexInfo index, RebuildOptions options)
     {
         if (index == null)
         {
             return false;
         }
 
-        if (index.PluginMetadata == null || string.IsNullOrWhiteSpace(index.PluginId))
+        var isPluginOwned = index.IndexType != 0 || index.PluginMetadata != null || !string.IsNullOrWhiteSpace(index.PluginId);
+
+        if (isPluginOwned == false)
         {
             return false;
         }
 
-        var pluginId = index.PluginId;
-        var pluginContext = _plugins;
-        var metadataRegistry = pluginContext?.IndexMetadata;
-        var strategyRegistry = pluginContext?.CustomIndexes;
-
-        if (metadataRegistry == null || strategyRegistry == null || string.IsNullOrWhiteSpace(pluginId))
+        try
         {
-            throw this.CreatePluginRequiredException(
-                pluginId: pluginId,
-                strategyKind: pluginId ?? $"type:{index.IndexType}",
-                operation: "RebuildCustomIndex",
-                collection: collection,
-                indexName: index.Name,
-                expression: index.Expression,
-                options: null);
-        }
-
-        var metadataDescriptor = this.ResolvePluginMetadataDescriptor(metadataRegistry, pluginId, index.PluginIndexKind);
-
-        if (metadataDescriptor == null)
-        {
-            throw this.CreatePluginRequiredException(
-                pluginId: pluginId,
-                strategyKind: pluginId,
-                operation: "RebuildCustomIndex",
-                collection: collection,
-                indexName: index.Name,
-                expression: index.Expression,
-                options: null);
-        }
-
-        var metadataDocument = index.PluginMetadataDocument;
-
-        if (metadataDocument == null)
-        {
-            try
+            if (index.PluginMetadata == null || string.IsNullOrWhiteSpace(index.PluginId))
             {
-                metadataDocument = metadataDescriptor.Deserialize(index.PluginMetadata) ?? new BsonDocument();
+                throw this.CreatePluginRequiredException(
+                    pluginId: index.PluginId,
+                    strategyKind: index.PluginId ?? $"type:{index.IndexType}",
+                    operation: "RebuildCustomIndex",
+                    collection: collection,
+                    indexName: index.Name,
+                    expression: index.Expression,
+                    options: null);
             }
-            catch (Exception ex)
+
+            var pluginId = index.PluginId;
+            var pluginContext = _plugins;
+            var metadataRegistry = pluginContext?.IndexMetadata;
+            var strategyRegistry = pluginContext?.CustomIndexes;
+
+            if (metadataRegistry == null || strategyRegistry == null || string.IsNullOrWhiteSpace(pluginId))
             {
-                throw new LiteException(LiteException.PLUGIN_REQUIRED, ex, $"Failed to deserialize metadata for index '{collection}.{index.Name}' owned by plugin '{pluginId}'.");
+                throw this.CreatePluginRequiredException(
+                    pluginId: pluginId,
+                    strategyKind: pluginId ?? $"type:{index.IndexType}",
+                    operation: "RebuildCustomIndex",
+                    collection: collection,
+                    indexName: index.Name,
+                    expression: index.Expression,
+                    options: null);
             }
+
+            var metadataDescriptor = this.ResolvePluginMetadataDescriptor(metadataRegistry, pluginId, index.PluginIndexKind);
+
+            if (metadataDescriptor == null)
+            {
+                throw this.CreatePluginRequiredException(
+                    pluginId: pluginId,
+                    strategyKind: pluginId,
+                    operation: "RebuildCustomIndex",
+                    collection: collection,
+                    indexName: index.Name,
+                    expression: index.Expression,
+                    options: null);
+            }
+
+            var metadataDocument = index.PluginMetadataDocument;
+
+            if (metadataDocument == null)
+            {
+                try
+                {
+                    metadataDocument = metadataDescriptor.Deserialize(index.PluginMetadata) ?? new BsonDocument();
+                }
+                catch (Exception ex)
+                {
+                    throw new LiteException(LiteException.PLUGIN_REQUIRED, ex, $"Failed to deserialize metadata for index '{collection}.{index.Name}' owned by plugin '{pluginId}'.");
+                }
+            }
+
+            var indexOptions = this.BuildPluginIndexOptions(metadataDescriptor, metadataDocument);
+            var strategyKind = this.ResolveStrategyKind(index.IndexType);
+
+            if (string.IsNullOrWhiteSpace(strategyKind))
+            {
+                throw this.CreatePluginRequiredException(
+                    pluginId: pluginId,
+                    strategyKind: pluginId,
+                    operation: "RebuildCustomIndex",
+                    collection: collection,
+                    indexName: index.Name,
+                    expression: index.Expression,
+                    options: indexOptions);
+            }
+
+            this.EnsureCustomIndex(
+                collection,
+                index.Name,
+                strategyKind,
+                index.BsonExpr,
+                indexOptions);
+
+            var strategyDescriptor = this.ResolveCustomIndexDescriptor(strategyRegistry, pluginId);
+            strategyDescriptor?.RebuildStrategy?.Invoke(new CustomIndexRebuildContext(this, _plugins));
+
+            return true;
         }
-
-        var options = this.BuildPluginIndexOptions(metadataDescriptor, metadataDocument);
-        var strategyKind = this.ResolveStrategyKind(index.IndexType);
-
-        if (string.IsNullOrWhiteSpace(strategyKind))
+        catch (Exception ex) when (options?.DropOrphanedPluginIndexes == true)
         {
-            throw this.CreatePluginRequiredException(
-                pluginId: pluginId,
-                strategyKind: pluginId,
-                operation: "RebuildCustomIndex",
-                collection: collection,
-                indexName: index.Name,
-                expression: index.Expression,
-                options: options);
+            var owner = string.IsNullOrWhiteSpace(index.PluginId) ? $"<unknown:type:{index.IndexType}>" : index.PluginId;
+
+            options.Errors.Add(new FileReaderError
+            {
+                Origin = FileOrigin.Data,
+                PageType = PageType.Index,
+                Collection = collection,
+                Message = $"Dropped orphaned plugin index '{collection}.{index.Name}' owned by '{owner}'. {ex.Message}",
+                Exception = ex
+            });
+
+            return true;
         }
-
-        this.EnsureCustomIndex(
-            collection,
-            index.Name,
-            strategyKind,
-            index.BsonExpr,
-            options);
-
-        var strategyDescriptor = this.ResolveCustomIndexDescriptor(strategyRegistry, pluginId);
-        strategyDescriptor?.RebuildStrategy?.Invoke(new CustomIndexRebuildContext(this, _plugins));
-
-        return true;
     }
 
     private PluginIndexMetadataDescriptor ResolvePluginMetadataDescriptor(IPluginIndexMetadataRegistry registry, string pluginId, string indexKind)

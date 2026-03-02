@@ -42,6 +42,13 @@ namespace LiteDB.Engine
 
         public long Rebuild(RebuildOptions options)
         {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
+            if (options.DropOrphanedPluginIndexes && options.IncludeErrorReport == false)
+            {
+                throw new ArgumentException($"{nameof(RebuildOptions.DropOrphanedPluginIndexes)} requires {nameof(RebuildOptions.IncludeErrorReport)} to be enabled.", nameof(options));
+            }
+
             var backupFilename = FileHelper.GetSuffixFile(_settings.Filename, "-backup", true);
             var backupLogFilename = FileHelper.GetSuffixFile(FileHelper.GetLogFile(_settings.Filename), "-backup", true);
             var tempFilename = FileHelper.GetSuffixFile(_settings.Filename, "-temp", true);
@@ -49,7 +56,7 @@ namespace LiteDB.Engine
             // open file reader
             using (var reader = _fileVersion == 7 ?
                 new FileReaderV7(_settings) :
-                (IFileReader)new FileReaderV8(_settings, options.Errors, _plugins))
+                (IFileReader)new FileReaderV8(_settings, options.Errors, _plugins, allowOrphanedPluginIndexes: options.DropOrphanedPluginIndexes))
             {
                 // open file reader and ready to import to new temp engine instance
                 reader.Open();
@@ -71,7 +78,7 @@ namespace LiteDB.Engine
                     engine.Pragma(Pragmas.CHECKPOINT, 0);
 
                     // rebuild all content from reader into new engine
-                    engine.RebuildContent(reader);
+                    engine.RebuildContent(reader, options);
 
                     // insert error report
                     if (options.IncludeErrorReport && options.Errors.Count > 0)

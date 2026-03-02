@@ -50,12 +50,14 @@ namespace LiteDB.Engine
         private readonly EngineSettings _settings;
         private readonly IList<FileReaderError> _errors;
         private readonly ILitePluginContext _plugins;
+        private readonly bool _allowOrphanedPluginIndexes;
 
-        public FileReaderV8(EngineSettings settings, IList<FileReaderError> errors, ILitePluginContext plugins = null)
+        public FileReaderV8(EngineSettings settings, IList<FileReaderError> errors, ILitePluginContext plugins = null, bool allowOrphanedPluginIndexes = false)
         {
             _settings = settings;
             _errors = errors;
             _plugins = plugins;
+            _allowOrphanedPluginIndexes = allowOrphanedPluginIndexes;
         }
 
         /// <summary>
@@ -419,14 +421,20 @@ namespace LiteDB.Engine
                         {
                             if (!resolvedPluginIndexes.ContainsKey(raw.Key))
                             {
-                                throw this.CreateMetadataSerializerException(raw.Value.PluginId, collection.Key, raw.Key);
+                                if (_allowOrphanedPluginIndexes == false)
+                                {
+                                    throw this.CreateMetadataSerializerException(raw.Value.PluginId, collection.Key, raw.Key);
+                                }
                             }
                         }
                     }
                     else if (metadataRegistry == null && rawPluginIndexes.Count > 0)
                     {
-                        var blocking = rawPluginIndexes.First();
-                        throw this.CreateMetadataSerializerException(blocking.Value.PluginId, collection.Key, blocking.Key);
+                        if (_allowOrphanedPluginIndexes == false)
+                        {
+                            var blocking = rawPluginIndexes.First();
+                            throw this.CreateMetadataSerializerException(blocking.Value.PluginId, collection.Key, blocking.Key);
+                        }
                     }
 
                     foreach (var index in collectionPage.GetCollectionIndexes())
@@ -445,6 +453,12 @@ namespace LiteDB.Engine
                         string pluginIndexKind = null;
                         byte[] pluginMetadata = null;
 
+                        if (rawPluginIndexes.TryGetValue(index.Name, out var rawPluginIndex))
+                        {
+                            pluginId = rawPluginIndex.PluginId;
+                            pluginMetadata = rawPluginIndex.Metadata;
+                        }
+
                         if (resolvedMetadata != null)
                         {
                             pluginId = resolvedMetadata.PluginId;
@@ -458,7 +472,10 @@ namespace LiteDB.Engine
                             }
                             catch (Exception ex)
                             {
-                                throw this.CreateMetadataDeserializationException(pluginId, collection.Key, index.Name, ex);
+                                if (_allowOrphanedPluginIndexes == false)
+                                {
+                                    throw this.CreateMetadataDeserializationException(pluginId, collection.Key, index.Name, ex);
+                                }
                             }
                         }
 
