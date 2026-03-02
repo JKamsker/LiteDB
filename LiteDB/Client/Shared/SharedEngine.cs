@@ -15,6 +15,7 @@ namespace LiteDB
         private LiteEngine _engine;
         private bool _transactionRunning = false;
         private ILitePluginContext _plugins;
+        private int _openCount;
 
         public SharedEngine(EngineSettings settings)
         {
@@ -40,15 +41,21 @@ namespace LiteDB
         /// <summary>
         /// Open database in safe mode
         /// </summary>
-        /// <returns>true if successfully opened; false if already open</returns>
-        private bool OpenDatabase()
+        private void OpenDatabase()
         {
-            try
+            var outermost = Interlocked.Increment(ref _openCount) == 1;
+
+            if (outermost)
             {
-                // Acquire mutex for every call to open DB.
-                _mutex.WaitOne();
+                try
+                {
+                    // Acquire mutex for the outermost call.
+                    _mutex.WaitOne();
+                }
+                catch (AbandonedMutexException)
+                {
+                }
             }
-            catch (AbandonedMutexException) { }
 
             // Don't create a new engine while a transaction is running.
             if (!_transactionRunning && _engine == null)
@@ -71,17 +78,12 @@ namespace LiteDB
                         engine.Dispose();
                         throw;
                     }
-                    return true;
                 }
                 catch
                 {
-                    _mutex.ReleaseMutex();
+                    CloseDatabase();
                     throw;
                 }
-            }
-            else
-            {
-                return false;
             }
         }
 
@@ -90,6 +92,11 @@ namespace LiteDB
         /// </summary>
         private void CloseDatabase()
         {
+            if (Interlocked.Decrement(ref _openCount) != 0)
+            {
+                return;
+            }
+
             // Don't dispose the engine while a transaction is running.
             if (!_transactionRunning && _engine != null)
             {
@@ -157,17 +164,19 @@ namespace LiteDB
 
         public IBsonDataReader Query(string collection, Query query)
         {
-            bool opened = OpenDatabase();
+            OpenDatabase();
 
-            var reader = _engine.Query(collection, query);
-
-            return new SharedDataReader(reader, () =>
+            try
             {
-                if (opened)
-                {
-                    CloseDatabase();
-                }
-            });
+                var reader = _engine.Query(collection, query);
+
+                return new SharedDataReader(reader, () => CloseDatabase());
+            }
+            catch
+            {
+                CloseDatabase();
+                throw;
+            }
         }
 
         public BsonValue Pragma(string name)
@@ -276,28 +285,38 @@ namespace LiteDB
         {
             if (disposing)
             {
-                if (_engine != null)
+                if (_engine != null && Volatile.Read(ref _openCount) == 0)
                 {
                     _engine.Dispose();
                     _engine = null;
-                    _mutex.ReleaseMutex();
                 }
+
+                while (Volatile.Read(ref _openCount) > 0)
+                {
+                    try
+                    {
+                        CloseDatabase();
+                    }
+                    catch
+                    {
+                        break;
+                    }
+                }
+
+                _mutex.Dispose();
             }
         }
 
         private T QueryDatabase<T>(Func<T> Query)
         {
-            bool opened = OpenDatabase();
+            OpenDatabase();
             try
             {
                 return Query();
             }
             finally
             {
-                if (opened)
-                {
-                    CloseDatabase();
-                }
+                CloseDatabase();
             }
         }
     }

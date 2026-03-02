@@ -48,8 +48,8 @@ Recommended lease/refcount model (deterministic):
 Notes:
 
 - [ ] **`ILitePlugin.Initialize` contract violation**: The Spatial plugin's `SpatialPluginRegistry.Attach(database, context)` stores the `LiteDatabase` reference in a `ConditionalWeakTable` and uses it for ongoing I/O. This makes factory reuse incompatible with the Spatial plugin. See Intention.md for resolution options (change `Initialize` signature or add per-handle hook).
-- [ ] Engine/plugin context must be treated as a fixed pair in reuse mode (do not swap contexts on a reused engine instance).
-- [ ] If the reused engine is `SharedEngine`, ensure mutex acquisition/release is reentrancy-safe for nested operations: every `WaitOne()` has a matching `ReleaseMutex()` (even on exceptions), and mutex release must not be conditional on whether an engine instance was created.
+- [x] Engine/plugin context must be treated as a fixed pair in reuse mode (do not swap contexts on a reused engine instance).
+- [x] If the reused engine is `SharedEngine`, ensure mutex acquisition/release is reentrancy-safe for nested operations: every `WaitOne()` has a matching `ReleaseMutex()` (even on exceptions), and mutex release must not be conditional on whether an engine instance was created.
 - [ ] `_plugins` field in `LiteEngine` (line 41) is not `volatile` and has no memory barrier. `SetPluginContext` must happen-before any concurrent engine operations. In factory mode this is naturally guaranteed (context is set during factory build, before any handle is issued). Document this as a requirement.
 - [ ] **`Rebuild()` incompatibility**: `Rebuild()` calls `this.Close()` + `this.Open()`, which destroys and recreates engine internals. In factory mode, this breaks all shared handles. Solution: refuse `Rebuild()` on the engine when factory refcount > 1, or expose rebuild as a factory-level operation requiring exclusive access.
 
