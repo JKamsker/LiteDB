@@ -62,7 +62,51 @@ namespace LiteDB.Engine
 
             if (context.ValidationOnOpenRan)
             {
-                return;
+                if (context.MissingPluginBehavior != PluginMissingBehavior.RefuseDatabase)
+                {
+                    return;
+                }
+
+                var previousDiagnostics = context.ValidationOnOpenDiagnostics;
+
+                if (previousDiagnostics == null)
+                {
+                    return;
+                }
+
+                if (previousDiagnostics.TryGetValue("missingCount", out var missingCountValue) == false ||
+                    missingCountValue.IsInt32 == false ||
+                    missingCountValue.AsInt32 <= 0)
+                {
+                    return;
+                }
+
+                string previousPluginId = null;
+
+                if (previousDiagnostics.TryGetValue("requirements", out var requirementsValue) && requirementsValue.IsArray)
+                {
+                    foreach (var requirementValue in requirementsValue.AsArray)
+                    {
+                        if (requirementValue.IsDocument == false) continue;
+
+                        var requirement = requirementValue.AsDocument;
+
+                        if (requirement.TryGetValue("strategyAvailable", out var strategyValue) &&
+                            strategyValue.IsBoolean &&
+                            strategyValue.AsBoolean == false &&
+                            requirement.TryGetValue("pluginId", out var requirementPluginIdValue) &&
+                            requirementPluginIdValue.IsString &&
+                            !string.Equals(requirementPluginIdValue.AsString, "<unknown>", StringComparison.Ordinal))
+                        {
+                            previousPluginId = requirementPluginIdValue.AsString;
+                            break;
+                        }
+                    }
+                }
+
+                var previousPolicy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+
+                throw previousPolicy.CreateMissingPluginException(previousPluginId, "OpenDatabase", previousDiagnostics);
             }
 
             var scanner = new PluginRequirementScanner(_header, _disk, _walIndex, _plugins);

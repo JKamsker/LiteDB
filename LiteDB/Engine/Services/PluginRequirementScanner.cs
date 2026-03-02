@@ -340,6 +340,7 @@ namespace LiteDB.Engine
                     ["pluginId"] = PluginId,
                     ["collections"] = new BsonArray(_collections.OrderBy(x => x, StringComparer.Ordinal).Select(x => new BsonValue(x))),
                     ["indexCount"] = IndexCount,
+                    ["requiredIndexTypes"] = new BsonArray(_requiredIndexTypes.OrderBy(x => x).Select(x => new BsonValue((int)x))),
                     ["loaded"] = Loaded,
                     ["strategyAvailable"] = StrategyAvailable,
                     ["errors"] = new BsonArray(_errors.Select(x => new BsonValue((object)x)))
