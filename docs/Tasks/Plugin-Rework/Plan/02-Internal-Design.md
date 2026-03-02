@@ -132,22 +132,18 @@ Default: disabled unless explicitly enabled (preserve legacy behavior; strict mo
 Implementation:
 
 - [x] Store requested validation on the plugin context (so it works with SharedEngine recreating LiteEngine instances).
-- [x] Add an internal interface (example):
-  - [x] File: `LiteDB/Plugins/IPluginValidationState.cs` (new, internal)
-  - [x] `bool ValidatePluginAssetsOnOpen { get; set; }`
-  - [x] `bool PluginAssetsValidated { get; set; }`
-- [x] `DefaultPluginContext` implements it and initializes to false.
+- [x] Implementation note: the final design stores this state directly on `DefaultPluginContext` (no separate interface/file), using `ValidatePluginsOnOpen`, `ValidationOnOpenRan`, `ValidationOnOpenEngineInstanceId`, `ValidationOnOpenDiagnostics`, and `RecordValidationOnOpen(...)`.
 
 Where validation executes:
 
 - [x] File: `LiteDB/Engine/LiteEngine.cs` (modify `IPluginHost.SetPluginContext`)
   - [x] After setting `_plugins`, if:
-    - [x] context implements `IPluginValidationState` and `ValidatePluginAssetsOnOpen == true` and `PluginAssetsValidated == false`
+    - [x] context is `DefaultPluginContext` and `ValidatePluginsOnOpen == true` (and the scan has not yet run for the current engine instance id)
   - [x] then run a *non-enforcing collection-page scan* (do not open per-collection snapshots by name):
     - [x] iterate `_header.GetCollections()` in an `AutoTransaction(...)`
     - [x] read each collection page as a raw `PageBuffer` (WAL-aware) by `pageId`:
       - [x] do NOT use `Snapshot.GetPage<T>` / `BasePage.ReadPage(...)` for `PageType.Collection` because they instantiate `CollectionPage` and can throw before a fault-tolerant `TryParse` runs
-      - [x] add an internal helper (e.g., `Snapshot.ReadPageBuffer(uint pageId, out FileOrigin origin)` or equivalent) that returns the correct page version for the snapshot read version without constructing a page type (and always requires an explicit `buffer.Release()` by the caller)
+      - [x] use an internal helper (implemented in `PluginRequirementScanner.ReadPageBuffer(...)`) that returns the correct page version for the snapshot read version without constructing a page type (and always requires an explicit `buffer.Release()` by the caller)
     - [x] **Fault-tolerant scanning**: use a lightweight scan result (not `CollectionPage`/`CollectionIndex`) that does NOT compile `BsonExpression` or require index metadata to be parseable. This scan must surface per-index/plugin-metadata errors as data (for `$plugins` / exception diagnostics).
     - [x] **Buffer safety**: extract all needed data (index types, plugin metadata) into local variables from the scan result, then release the buffer explicitly. Do not rely on `snapshot.Clear()` to release raw buffers.
     - [x] detect affected collections using:
@@ -157,13 +153,13 @@ Where validation executes:
   - [x] apply host policy to the scan result:
     - [x] `RefuseDatabase`: throw (fail fast) if any affected collection is found where the required plugin is not loaded OR any required `IndexType != 0` lacks a registered `IIndexStrategy` (pluginId unknown/metadata errors become diagnostics, not the enforcement marker)
     - [x] `AllowIfSafe`: do not throw; record diagnostics for `$plugins` / typed API. Do not warn here (warnings are emitted on first real affected-collection access) and do not populate the enforcement warn-once cache
-  - [x] set `PluginAssetsValidated = true` on the context.
+  - [x] record scan results on the context via `RecordValidationOnOpen(...)` (sets the cached validation state).
 
 Notes:
 
 - [x] `SetPluginContext` is called after `LiteEngine.Open()` completes (from `LiteDatabase.InitializePlugins`). `AutoTransaction` and `_monitor` are available at this point.
 - [x] Validation-on-open validates plugin-owned index requirements only; it does not attempt to prove that all documents/pages are readable without plugin-defined BSON/page support.
-- [x] `PluginAssetsValidated` caching is valid because plugin contexts are scoped to a single engine/database identity.
+- [x] Validation-on-open caching is valid because plugin contexts are scoped to a single engine/database identity.
 - [x] Treat collection-page parse failures as "affected": under `RefuseDatabase`, fail fast with aggregated diagnostics; under `AllowIfSafe`, record the error and continue scanning.
 - [x] Any warnings (emitted on first real affected-collection access under `AllowIfSafe`) must use the same "database identity" scoping defined in `Intention.md`.
 - [x] If validation throws under `RefuseDatabase`, include the aggregated scan result in the thrown exception diagnostics (same data surfaced by `$plugins` / typed API), since the database may not be openable for introspection.
@@ -185,7 +181,7 @@ Notes:
   }
   ```
   This avoids the double-dispose risk of assigning first and disposing on failure, and ensures `_engine` is never set to a broken instance.
-- [x] Under `SharedEngine`, validation runs when the underlying `LiteEngine` is created and `SetPluginContext` executes. `PluginAssetsValidated` persists on the context across engine recreations, so re-scans are avoided. However, this cached result is not cross-process authoritative (another process could modify the database between operations). This is documented as a limitation.
+- [x] Under `SharedEngine`, validation runs when the underlying `LiteEngine` is created and `SetPluginContext` executes. The cached validation state persists on the context (keyed by engine instance id), so re-scans are avoided. However, this cached result is not cross-process authoritative (another process could modify the database between operations). This is documented as a limitation.
 - [x] Exception safety: callers must treat exceptions from `SetPluginContext` as open failures.
 
 ---
@@ -329,7 +325,8 @@ Also make `DiagnosticPolicy` setter check `_frozen` state (currently `SetDiagnos
 - [x] `LiteDB/Client/Database/LiteDatabaseFactory.cs`
 - [x] `LiteDB/Engine/SystemCollections/SysPlugins.cs` (or equivalent partial method)
 - [x] `LiteDB/Engine/Services/PluginRequirementScanner.cs` (internal shared scanner for typed API, `$plugins`, and validation-on-open)
-- [x] `LiteDB/Plugins/IPluginValidationState.cs` (internal helper interface)
+
+Note: the initial design called for a dedicated `IPluginValidationState` interface, but the final implementation stores validation-on-open state directly on `DefaultPluginContext` (`ValidationOnOpen*` + `RecordValidationOnOpen(...)`).
 
 ### Modify
 
@@ -339,7 +336,7 @@ Also make `DiagnosticPolicy` setter check `_frozen` state (currently `SetDiagnos
 - [x] `LiteDB/Plugins/DefaultPluginContext.cs` (store validation flags; host policy; `Freeze()`)
 - [x] `LiteDB/Plugins/ILitePlugin.cs` (resolve `Initialize` signature -- option a or b)
 - [x] `LiteDB/Plugins/PluginDiagnosticPolicy.cs` (remove hard-coded Vector message; deprecate `MissingBehavior`)
-- [x] `LiteDB/Engine/Services/SnapShot.cs` (write-mode refusal; `IndexType != 0` scanning; db-scoped cache; raw page-buffer helper for `$plugins`/validation scans; `DropCollection` guard)
+- [x] `LiteDB/Engine/Services/SnapShot.cs` (write-mode refusal; `IndexType != 0` scanning; db-scoped cache; `DropCollection` guard)
 - [x] `LiteDB/Engine/Query/QueryOptimization.cs` (filter `IndexType == 0` only)
 - [x] `LiteDB/Engine/SystemCollections/Register.cs` (register `$plugins`)
 - [x] `LiteDB/Engine/Structures/RebuildOptions.cs`
@@ -347,5 +344,5 @@ Also make `DiagnosticPolicy` setter check `_frozen` state (currently `SetDiagnos
 - [x] `LiteDB/Engine/Services/RebuildService.cs`
 - [x] `LiteDB/Engine/FileReader/FileReaderV8.cs` (don't swallow `PLUGIN_REQUIRED`; `LoadIndexes` `IndexType` handling)
 - [x] `LiteDB/Engine/Pages/CollectionPage.cs` (add a fault-tolerant scan helper for `$plugins`/validation that does not throw on legacy/corrupt metadata and does not compile `BsonExpression`)
-- [x] `LiteDB/Engine/LiteEngine.cs` (`SetPluginContext` + validation-on-open; `_plugins` field documentation)
+- [x] `LiteDB/Engine/LiteEngine.cs` (`SetPluginContext` + validation-on-open)
 - [x] (Spatial plugin): fix `SpatialPluginRegistry.Attach` to not capture `LiteDatabase`

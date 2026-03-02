@@ -157,7 +157,7 @@ Add:
 public bool DropOrphanedPluginIndexes { get; set; } = false;
 ```
 
-Validation: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` throws `InvalidOperationException` (audit trail required).
+Validation: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` throws `ArgumentException` (audit trail required).
 
 ## 5) Diagnostic policy cleanup
 
