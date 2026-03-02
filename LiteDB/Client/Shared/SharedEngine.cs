@@ -3,6 +3,7 @@ using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using LiteDB.Client.Shared;
 
@@ -109,15 +110,24 @@ namespace LiteDB
             }
 
             // Don't dispose the engine while a transaction is running.
+            LiteEngine engineToDispose = null;
+
             if (!_transactionRunning && _engine != null)
             {
                 // If no transaction pending, dispose the engine.
-                _engine.Dispose();
+                engineToDispose = _engine;
                 _engine = null;
             }
 
-            // Release Mutex on every call to close DB.
-            _mutex.ReleaseMutex();
+            try
+            {
+                engineToDispose?.Dispose();
+            }
+            finally
+            {
+                // Release Mutex on every call to close DB.
+                _mutex.ReleaseMutex();
+            }
         }
 
         #region Transaction Operations
@@ -128,9 +138,16 @@ namespace LiteDB
 
             try
             {
-                _transactionRunning = _engine.BeginTrans();
+                if (_engine.BeginTrans())
+                {
+                    _transactionRunning = true;
+                    return true;
+                }
 
-                return _transactionRunning;
+                // Reentrant BeginTrans() must not leak mutex depth when the engine reports an existing transaction.
+                CloseDatabase();
+
+                return false;
             }
             catch
             {
@@ -296,26 +313,48 @@ namespace LiteDB
         {
             if (disposing)
             {
-                if (_engine != null && _mutexDepth.Value == 0)
+                Exception disposeException = null;
+
+                try
                 {
-                    _engine.Dispose();
-                    _engine = null;
+                    if (_engine != null && _mutexDepth.Value == 0)
+                    {
+                        try
+                        {
+                            _engine.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            disposeException = ex;
+                        }
+                        finally
+                        {
+                            _engine = null;
+                        }
+                    }
+                }
+                finally
+                {
+                    if (_mutexDepth.Value > 0)
+                    {
+                        try
+                        {
+                            _mutexDepth.Value = 0;
+                            _mutex.ReleaseMutex();
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    _mutexDepth.Dispose();
+                    _mutex.Dispose();
                 }
 
-                if (_mutexDepth.Value > 0)
+                if (disposeException != null)
                 {
-                    try
-                    {
-                        _mutexDepth.Value = 0;
-                        _mutex.ReleaseMutex();
-                    }
-                    catch
-                    {
-                    }
+                    ExceptionDispatchInfo.Capture(disposeException).Throw();
                 }
-
-                _mutexDepth.Dispose();
-                _mutex.Dispose();
             }
         }
 

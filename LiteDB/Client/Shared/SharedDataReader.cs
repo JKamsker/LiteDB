@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Runtime.ExceptionServices;
 
 namespace LiteDB
 {
@@ -48,8 +49,35 @@ namespace LiteDB
 
             if (disposing)
             {
-                _reader.Dispose();
-                _dispose();
+                Exception disposeException = null;
+
+                try
+                {
+                    _reader.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    disposeException = ex;
+                }
+                finally
+                {
+                    try
+                    {
+                        _dispose?.Invoke();
+                    }
+                    catch
+                    {
+                        if (disposeException == null)
+                        {
+                            throw;
+                        }
+                    }
+                }
+
+                if (disposeException != null)
+                {
+                    ExceptionDispatchInfo.Capture(disposeException).Throw();
+                }
             }
         }
     }
