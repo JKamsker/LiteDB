@@ -30,5 +30,19 @@ namespace LiteDB.Plugins
                 throw new InvalidOperationException($"{identifierDescription} is already registered by plugin '{existingPluginId}' and cannot be claimed by '{incomingPluginId}'.");
             }
         }
+
+        public static void EnsurePluginOwnsReservedIdentifier(string pluginId, string value, string reservedValue, string owner, string identifierKind)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            if (string.Equals(value, reservedValue, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(pluginId, owner, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"{identifierKind} '{value}' is reserved for plugin '{owner}'. '{pluginId}' cannot claim it.");
+            }
+        }
     }
 }

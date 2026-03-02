@@ -3,6 +3,8 @@ using FluentAssertions;
 using LiteDB;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Bson;
+using LiteDB.Plugins.Indexing;
+using LiteDB.Plugins.Query;
 using LiteDB.Plugins.Storage;
 using Xunit;
 
@@ -55,6 +57,60 @@ namespace LiteDB.Tests.Plugins
         }
 
         [Fact]
+        public void IndexMetadataRegistryShouldRejectVectorReservedKindsFromOtherPlugins()
+        {
+            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            var descriptor = new PluginIndexMetadataDescriptor(
+                pluginId: "ThirdParty.Plugin",
+                indexKind: ReservedCodeRanges.VectorIndexKind,
+                serialize: _ => Array.Empty<byte>(),
+                deserialize: _ => new BsonDocument());
+
+            Action act = () => context.IndexMetadata.Register(descriptor);
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*LiteDB.Vector*");
+        }
+
+        [Fact]
+        public void QueryCostModelRegistryShouldRejectVectorReservedKindsFromOtherPlugins()
+        {
+            var registry = new QueryCostModelRegistry();
+            var registration = new QueryCostModelRegistration(
+                pluginId: "ThirdParty.Plugin",
+                indexKind: ReservedCodeRanges.VectorIndexKind,
+                calculateCost: _ => 1d);
+
+            Action act = () => registry.Register(registration);
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*LiteDB.Vector*");
+        }
+
+        [Fact]
+        public void VectorPluginShouldRegisterReservedIndexKindSuccessfully()
+        {
+            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            var descriptor = new PluginIndexMetadataDescriptor(
+                pluginId: ReservedCodeRanges.VectorPluginId,
+                indexKind: ReservedCodeRanges.VectorIndexKind,
+                serialize: _ => Array.Empty<byte>(),
+                deserialize: _ => new BsonDocument
+                {
+                    ["kind"] = ReservedCodeRanges.VectorIndexKind
+                });
+
+            context.IndexMetadata.Register(descriptor);
+
+            context.IndexMetadata.TryGet(ReservedCodeRanges.VectorIndexKind.ToUpperInvariant(), out var resolved)
+                .Should().BeTrue();
+            resolved.PluginId.Should().Be(ReservedCodeRanges.VectorPluginId);
+            resolved.IndexKind.Should().Be(ReservedCodeRanges.VectorIndexKind);
+        }
+
+        [Fact]
         public void PageTypeRegistryShouldRejectVectorReservedCodesFromOtherPlugins()
         {
             var registry = new PageTypeRegistry();
@@ -94,6 +150,7 @@ namespace LiteDB.Tests.Plugins
         [InlineData((byte)0x02)]
         [InlineData((byte)0x03)]
         [InlineData((byte)0x04)]
+        [InlineData((byte)0x7F)]
         public void PageTypeRegistryShouldRejectCorePageCodes(byte code)
         {
             var registry = new PageTypeRegistry();

@@ -35,7 +35,7 @@ namespace LiteDB.Plugins.Storage
 
             _freezeState?.EnsureNotFrozen();
 
-            if (registration.NumericCode <= 0x04)
+            if (registration.NumericCode < 0x80)
             {
                 throw new InvalidOperationException($"Page type code 0x{registration.NumericCode:X2} is reserved for core page types. '{registration.PluginId}' cannot claim it.");
             }

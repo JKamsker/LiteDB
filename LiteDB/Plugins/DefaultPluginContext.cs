@@ -417,7 +417,7 @@ namespace LiteDB.Plugins
     {
         private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
-        private readonly Dictionary<string, PluginIndexMetadataDescriptor> _descriptors = new Dictionary<string, PluginIndexMetadataDescriptor>(StringComparer.Ordinal);
+        private readonly Dictionary<string, PluginIndexMetadataDescriptor> _descriptors = new Dictionary<string, PluginIndexMetadataDescriptor>(StringComparer.OrdinalIgnoreCase);
 
         public PluginIndexMetadataRegistry(IPluginContextFreezeState freezeState)
         {
@@ -432,6 +432,13 @@ namespace LiteDB.Plugins
             }
 
             _freezeState.EnsureNotFrozen();
+
+            ReservedCodeRanges.EnsurePluginOwnsReservedIdentifier(
+                descriptor.PluginId,
+                descriptor.IndexKind,
+                ReservedCodeRanges.VectorIndexKind,
+                ReservedCodeRanges.VectorPluginId,
+                "Index kind");
 
             lock (_sync)
             {
