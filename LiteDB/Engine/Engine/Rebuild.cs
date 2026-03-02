@@ -41,22 +41,26 @@ namespace LiteDB.Engine
 
         private void EnsurePluginAssetsAllowed()
         {
-            var behavior = PluginPolicyResolver.ResolveMissingPluginBehavior(_plugins);
+            var scanner = new PluginRequirementScanner(_header, _disk, _walIndex, _plugins);
+            var requirements = scanner.Scan(transactionPages: null);
+            var missing = requirements.Where(x => x.StrategyAvailable == false).ToArray();
 
-            if (behavior != PluginMissingBehavior.RefuseDatabase)
+            if (missing.Length == 0)
             {
                 return;
             }
 
-            this.AutoTransaction(transaction =>
+            var diagnostics = new BsonDocument
             {
-                foreach (var collection in _header.GetCollections())
-                {
-                    using var snapshot = transaction.CreateSnapshot(LockMode.Read, collection.Key, false);
-                }
+                ["event"] = "plugin.rebuild_preflight_failed",
+                ["requirements"] = new BsonArray(requirements.Select(x => x.ToDocument())),
+                ["missingCount"] = missing.Length
+            };
 
-                return true;
-            });
+            var pluginId = missing.Select(x => x.PluginId).FirstOrDefault(x => !string.Equals(x, "<unknown>", StringComparison.Ordinal));
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+
+            throw policy.CreateMissingPluginException(pluginId, "Rebuild", diagnostics);
         }
 
         /// <summary>

@@ -90,6 +90,10 @@ namespace LiteDB.Engine
 
                 this.LoadIndexes();
             }
+            catch (LiteException ex) when (ex.ErrorCode == LiteException.PLUGIN_REQUIRED)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 this.HandleError(ex, new PageInfo());
@@ -133,6 +137,10 @@ namespace LiteDB.Engine
                 if (page.Fail)
                 {
                     this.HandleError(page.Exception, pageInfo);
+                    if (page.Exception is LiteException exception && exception.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                    {
+                        throw exception;
+                    }
                     continue;
                 }
 
@@ -239,6 +247,11 @@ namespace LiteDB.Engine
                         }
                     }
                     // try/catch block per dataBlock extend=false
+                    catch (LiteException ex) when (ex.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                    {
+                        this.HandleError(ex, pageInfo);
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         this.HandleError(ex, pageInfo);
@@ -348,6 +361,10 @@ namespace LiteDB.Engine
                 if (result.Fail)
                 {
                     this.HandleError(result.Exception, pageInfo);
+                    if (result.Exception is LiteException exception && exception.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                    {
+                        throw exception;
+                    }
                 }
             }
 
@@ -373,6 +390,10 @@ namespace LiteDB.Engine
                 if (result.Fail)
                 {
                     this.HandleError(result.Exception, pageInfo);
+                    if (result.Exception is LiteException exception && exception.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                    {
+                        throw exception;
+                    }
                     continue;
                 }
 
