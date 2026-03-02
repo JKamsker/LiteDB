@@ -442,6 +442,28 @@ namespace LiteDB
             typeof(BsonExpressionFunctions).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .ToDictionary(m => m.Name.ToUpperInvariant() + "~" + m.GetParameters()
             .Skip(5).Count());
+        private static readonly object _functionsSync = new object();
+
+        internal static void RegisterFunction(string name, MethodInfo method)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+            if (method == null) throw new ArgumentNullException(nameof(method));
+
+            var parameters = method.GetParameters();
+
+            if (parameters.Length < 5)
+            {
+                throw new ArgumentException("Expression functions must declare at least the default expression parameters.", nameof(method));
+            }
+
+            var parameterCount = parameters.Length - 5;
+            var key = name.ToUpperInvariant() + "~" + parameterCount;
+
+            lock (_functionsSync)
+            {
+                _functions[key] = method;
+            }
+        }
 
         /// <summary>
         /// Get expression function with same name and same parameter - return null if not found
@@ -450,7 +472,10 @@ namespace LiteDB
         {
             var key = name.ToUpperInvariant() + "~" + parameterCount;
 
-            return _functions.GetOrDefault(key);
+            lock (_functionsSync)
+            {
+                return _functions.GetOrDefault(key);
+            }
         }
 
         #endregion

@@ -98,9 +98,18 @@ namespace LiteDB
             "LIKE",
             "IN",
             "AND",
-            "OR",
-            "VECTOR_SIM"
+            "OR"
         };
+
+        internal static void RegisterKeyword(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentNullException(nameof(keyword));
+
+            lock (_keywords)
+            {
+                _keywords.Add(keyword.ToUpperInvariant());
+            }
+        }
 
         public Token(TokenType tokenType, string value, long position)
         {

@@ -65,6 +65,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LiteDB\LiteDB.csproj" />
+    <ProjectReference Include="..\LiteDB.Vector\LiteDB.Vector.csproj" />
   </ItemGroup>
 
 </Project>
