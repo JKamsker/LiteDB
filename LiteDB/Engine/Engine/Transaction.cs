@@ -86,17 +86,13 @@ namespace LiteDB.Engine
 
             var transaction = _monitor.GetTransaction(true, false, out var isNew);
 
+            T result;
+
             try
             {
-                var result = fn(transaction);
-
-                // if this transaction was auto-created for this operation, commit & dispose now
-                if (isNew)
-                    this.CommitAndReleaseTransaction(transaction);
-
-                return result;
+                result = fn(transaction);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 if (_state.Handle(ex))
                 {
@@ -112,6 +108,21 @@ namespace LiteDB.Engine
 
                 throw;
             }
+
+            if (isNew)
+            {
+                try
+                {
+                    this.CommitAndReleaseTransaction(transaction);
+                }
+                catch (Exception ex)
+                {
+                    _state.Handle(ex);
+                    throw;
+                }
+            }
+
+            return result;
         }
 
         private void CommitAndReleaseTransaction(TransactionService transaction)
