@@ -667,7 +667,7 @@ namespace LiteDB.Vector.Query
             var lastSegment = trimmed.Split('.').LastOrDefault() ?? trimmed;
 
             if (byte.TryParse(lastSegment, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numeric) &&
-                Enum.IsDefined(typeof(VectorDistanceMetric), (int)numeric))
+                Enum.IsDefined(typeof(VectorDistanceMetric), numeric))
             {
                 metric = numeric;
                 return true;
@@ -695,9 +695,16 @@ namespace LiteDB.Vector.Query
             {
                 var numeric = value.AsInt32;
 
-                if (Enum.IsDefined(typeof(VectorDistanceMetric), numeric))
+                if (numeric < byte.MinValue || numeric > byte.MaxValue)
                 {
-                    metric = (byte)numeric;
+                    return false;
+                }
+
+                var numericByte = (byte)numeric;
+
+                if (Enum.IsDefined(typeof(VectorDistanceMetric), numericByte))
+                {
+                    metric = numericByte;
                     return true;
                 }
 

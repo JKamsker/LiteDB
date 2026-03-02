@@ -63,14 +63,7 @@ namespace LiteDB.Plugins
 
             if (diagnostics != null)
             {
-                try
-                {
-                    exception.Data["PluginDiagnostics"] = DefaultPluginContext.CloneDiagnostics(diagnostics);
-                }
-                catch (ArgumentException)
-                {
-                    exception.Data["PluginDiagnostics"] = diagnostics.ToString();
-                }
+                exception.Data["PluginDiagnostics"] = DefaultPluginContext.CloneDiagnostics(diagnostics);
             }
 
             return exception;

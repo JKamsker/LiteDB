@@ -9,6 +9,7 @@ using static LiteDB.Constants;
 
 namespace LiteDB
 {
+    [Serializable]
     public class BsonDocument : BsonValue, IDictionary<string, BsonValue>
     {
         public BsonDocument()

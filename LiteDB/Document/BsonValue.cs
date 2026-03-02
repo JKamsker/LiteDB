@@ -11,6 +11,7 @@ namespace LiteDB
     /// <summary>
     /// Represent a Bson Value used in BsonDocument
     /// </summary>
+    [Serializable]
     public class BsonValue : IComparable<BsonValue>, IEquatable<BsonValue>
     {
         public static readonly DateTime UnixEpoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
