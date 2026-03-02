@@ -204,6 +204,16 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface IEnsureIndexInterceptor
     {
+        /// <summary>
+        /// Attempts to handle an <c>EnsureIndex</c> request.
+        /// </summary>
+        /// <param name="context">Context describing the ensure operation.</param>
+        /// <returns>
+        /// True when the interceptor handled the request and wants to stop evaluation.
+        /// Returning true requires the interceptor to either call <see cref="EnsureIndexContext.ExecuteDefault"/> or <see cref="EnsureIndexContext.SetResult(bool)"/>.
+        /// Returning false indicates the interceptor did not handle the request and evaluation should continue unless
+        /// <see cref="EnsureIndexContext.ExecuteDefault"/> or <see cref="EnsureIndexContext.SetResult(bool)"/> were invoked (both stop evaluation).
+        /// </returns>
         bool TryHandleEnsureIndex(EnsureIndexContext context);
     }
 

@@ -9,7 +9,10 @@ using LiteDB.Plugins.Storage;
 namespace LiteDB.Plugins
 {
     /// <summary>
-    /// Represents the context provided to index interceptors.
+    /// Represents the context provided to <see cref="IEnsureIndexInterceptor"/> implementations.
+    /// Interceptors can either execute the default handler via <see cref="ExecuteDefault"/> or assign a custom
+    /// result via <see cref="SetResult(bool)"/>.
+    /// Assigning a result (directly or via the default handler) will stop evaluation of additional interceptors.
     /// </summary>
     public sealed class EnsureIndexContext
     {
@@ -211,12 +214,13 @@ namespace LiteDB.Plugins
         public bool DefaultExecuted => _defaultInvoked;
 
         /// <summary>
-        /// Gets the result assigned by the interceptor or default handler.
+        /// Gets the result assigned by an interceptor or the default handler.
         /// </summary>
         public bool? Result => _result;
 
         /// <summary>
         /// Executes the default index creation logic using the current or overridden parameters.
+        /// Calling this method assigns <see cref="Result"/> and stops evaluation of additional interceptors.
         /// </summary>
         /// <param name="name">Optional replacement for the index name.</param>
         /// <param name="expression">Optional replacement expression.</param>
@@ -253,6 +257,7 @@ namespace LiteDB.Plugins
 
         /// <summary>
         /// Sets the final result for the interception.
+        /// Calling this method assigns <see cref="Result"/> and stops evaluation of additional interceptors.
         /// </summary>
         /// <param name="value">The result to assign.</param>
         public void SetResult(bool value)
