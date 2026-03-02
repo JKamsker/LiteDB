@@ -294,7 +294,7 @@ namespace LiteDB.Engine
             // stop running all transactions
             tc.Catch(() => _monitor?.Dispose());
 
-            if (_header?.Pragmas.Checkpoint > 0)
+            if (_header?.Pragmas.Checkpoint > 0 && _settings.ReadOnly == false)
             {
                 // do a soft checkpoint (only if exclusive lock is possible)
                 tc.Catch(() => _walIndex?.TryCheckpoint());
