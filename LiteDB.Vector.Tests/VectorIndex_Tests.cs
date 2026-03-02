@@ -663,6 +663,43 @@ namespace LiteDB.Vector.Tests.Querying
         }
 
         [Fact]
+        public void OrderBy_VectorSimilarity_WithCompositeOrdering_AndLimit_Should_Not_Underfill()
+        {
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            var docs = Enumerable.Range(1, 200)
+                .Select(i => new VectorDocument
+                {
+                    Id = i,
+                    Embedding = new[] { (float)i, 0f },
+                    Flag = (i % 2) == 0
+                })
+                .ToArray();
+
+            collection.Insert(docs);
+
+            collection.EnsureIndex(
+                "embedding_idx",
+                CreateExpression(db, "$.Embedding"),
+                new VectorIndexOptions(2, VectorDistanceMetric.Euclidean));
+
+            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [0.0, 0.0])");
+
+            var query = collection.Query()
+                .OrderBy(distanceExpr, LiteDB.Query.Ascending)
+                .ThenBy(x => x.Flag)
+                .Limit(100);
+
+            var plan = query.GetPlan();
+            plan["index"]["mode"].AsString.Should().NotBe("VECTOR INDEX SEARCH");
+
+            var results = query.ToArray();
+
+            results.Should().HaveCount(100);
+        }
+
+        [Fact]
         public void OrderBy_VectorDistance_WithOffsetAndLimit_UsesVectorIndexAndHonorsOffset()
         {
             using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
@@ -727,6 +764,65 @@ namespace LiteDB.Vector.Tests.Querying
                 .ToArray();
 
             mediumThreshold.Select(x => x.Id).Should().Equal(new[] { 1, 2 });
+        }
+
+        [Fact]
+        public void VectorDist_DotProductPredicateWithoutMetadata_Should_InterpretThresholdAsSimilarity()
+        {
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            collection.Insert(new[]
+            {
+                new VectorDocument { Id = 1, Embedding = new[] { 1f, 0f } },
+                new VectorDocument { Id = 2, Embedding = new[] { 0.6f, 0.6f } },
+                new VectorDocument { Id = 3, Embedding = new[] { 0f, 1f } }
+            });
+
+            collection.EnsureIndex(
+                "embedding_idx",
+                CreateExpression(db, "$.Embedding"),
+                new VectorIndexOptions(2, VectorDistanceMetric.DotProduct));
+
+            var predicate = CreateExpression(db, "VECTOR_DIST($.Embedding, [1.0, 0.0], 'DotProduct') <= 0.75");
+
+            var results = collection.Query()
+                .Where(predicate)
+                .ToArray();
+
+            results.Select(x => x.Id).Should().Equal(new[] { 1 });
+        }
+
+        [Fact]
+        public void VectorDist_MetricMismatch_Should_Not_Use_VectorIndex()
+        {
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            collection.Insert(new[]
+            {
+                new VectorDocument { Id = 1, Embedding = new[] { 100f, 0f } },
+                new VectorDocument { Id = 2, Embedding = new[] { 1f, 0f } },
+                new VectorDocument { Id = 3, Embedding = new[] { 0f, 1f } }
+            });
+
+            collection.EnsureIndex(
+                "embedding_idx",
+                CreateExpression(db, "$.Embedding"),
+                new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
+
+            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [1.0, 0.0], 'Euclidean')");
+
+            var query = collection.Query()
+                .OrderBy(distanceExpr, LiteDB.Query.Ascending)
+                .Limit(3);
+
+            var plan = query.GetPlan();
+            plan["index"]["mode"].AsString.Should().NotBe("VECTOR INDEX SEARCH");
+
+            var results = query.ToArray();
+
+            results.Select(x => x.Id).Should().Equal(new[] { 2, 3, 1 });
         }
 
         [Fact]

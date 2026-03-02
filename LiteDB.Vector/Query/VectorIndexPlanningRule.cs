@@ -44,6 +44,7 @@ namespace LiteDB.Vector.Query
             var maxDistanceNormalized = false;
             string? orderByExpression = null;
             float[]? orderByTarget = null;
+            byte? orderByMetric = null;
             var orderByConsumable = false;
 
             if (context.Query.TryGetMetadata(VectorQueryMetadata.PluginId, out var bag))
@@ -54,7 +55,7 @@ namespace LiteDB.Vector.Query
 
             if (context.Query.OrderBy.Count > 0 &&
                 context.Query.OrderBy[0].Order == LiteDB.Query.Ascending &&
-                TryParseVectorExpression(context.Query.OrderBy[0].Expression, collation, out orderByExpression, out orderByTarget))
+                TryParseVectorExpression(context.Query.OrderBy[0].Expression, collation, out orderByExpression, out orderByTarget, out orderByMetric))
             {
                 if (context.Query.OrderBy.Count == 1)
                 {
@@ -71,10 +72,18 @@ namespace LiteDB.Vector.Query
 
             foreach (var term in context.Terms)
             {
-                if (TryParseVectorPredicate(term, collation, out expression, out target, out maxDistance))
+                if (TryParseVectorPredicate(term, collation, out expression, out target, out maxDistance, out var predicateMetric))
                 {
                     consumedTerm = term;
-                    maxDistanceNormalized = true;
+
+                    if (predicateMetric.HasValue)
+                    {
+                        metric = predicateMetric;
+                    }
+
+                    // Terms produced by the vector extensions (e.g., WhereNear) store already-normalized distances
+                    // and mark that fact via metadata. Manual predicates default to non-normalized values.
+                    maxDistanceNormalized = metadataIndicatesNormalized;
                     break;
                 }
             }
@@ -84,6 +93,11 @@ namespace LiteDB.Vector.Query
                 expression = orderByExpression;
                 target = orderByTarget;
                 maxDistance = double.MaxValue;
+            }
+
+            if (!metric.HasValue && orderByConsumable && orderByMetric.HasValue)
+            {
+                metric = orderByMetric;
             }
 
             if (metadataBag != null)
@@ -106,7 +120,10 @@ namespace LiteDB.Vector.Query
 
                         if (metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var bagMetric))
                         {
-                            metric = bagMetric;
+                            if (!metric.HasValue)
+                            {
+                                metric = bagMetric;
+                            }
                         }
 
                     }
@@ -148,7 +165,8 @@ namespace LiteDB.Vector.Query
 
             var orderByMatchesVectorQuery = orderByConsumable &&
                 string.Equals(orderByExpression, expression, StringComparison.OrdinalIgnoreCase) &&
-                TargetsEqual(orderByTarget, target);
+                TargetsEqual(orderByTarget, target) &&
+                (!orderByMetric.HasValue || !metric.HasValue || orderByMetric.Value == metric.Value);
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
             var offset = context.Query.Offset;
@@ -157,11 +175,22 @@ namespace LiteDB.Vector.Query
                 context.Query.OrderBy.Count > 0 &&
                 !orderByMatchesVectorQuery)
             {
-                // Avoid pushing LIMIT when ORDER BY requires post-processing, otherwise LIMIT/OFFSET semantics
-                // can be corrupted by early truncation (especially with additional ORDER BY segments).
-                limit = null;
+                // LIMIT + non-vector ordering requires full semantics. Avoid rewriting to the vector index
+                // because approximate candidate truncation (DefaultEfSearch) can silently underfill LIMIT.
+                return false;
             }
-            else if (limit.HasValue && offset > 0)
+
+            if (!limit.HasValue &&
+                offset > 0 &&
+                context.Query.OrderBy.Count > 0 &&
+                orderByMatchesVectorQuery)
+            {
+                // OFFSET without LIMIT requires retrieving (potentially) the full ordered result set.
+                // Vector searches use a finite candidate cap, which can underfill OFFSET-only paging.
+                return false;
+            }
+
+            if (limit.HasValue && offset > 0)
             {
                 var required = (long)offset + limit.Value;
                 limit = required > int.MaxValue ? int.MaxValue : (int)required;
@@ -182,6 +211,11 @@ namespace LiteDB.Vector.Query
                 }
 
                 if (metadata.Dimensions != target.Length)
+                {
+                    continue;
+                }
+
+                if (metric.HasValue && metric.Value != metadata.Metric)
                 {
                     continue;
                 }
@@ -250,9 +284,15 @@ namespace LiteDB.Vector.Query
 
         private static bool TryParseVectorPredicate(BsonExpression? predicate, Collation collation, out string? expression, out float[]? target, out double maxDistance)
         {
+            return TryParseVectorPredicate(predicate, collation, out expression, out target, out maxDistance, out _);
+        }
+
+        private static bool TryParseVectorPredicate(BsonExpression? predicate, Collation collation, out string? expression, out float[]? target, out double maxDistance, out byte? metric)
+        {
             expression = null;
             target = null;
             maxDistance = double.MaxValue;
+            metric = null;
 
             if (predicate == null)
             {
@@ -260,14 +300,14 @@ namespace LiteDB.Vector.Query
             }
 
             if ((predicate.Type == BsonExpressionType.LessThan || predicate.Type == BsonExpressionType.LessThanOrEqual) &&
-                TryParseVectorExpression(predicate.Left, collation, out expression, out target) &&
+                TryParseVectorExpression(predicate.Left, collation, out expression, out target, out metric) &&
                 TryConvertToDouble(predicate.Right?.ExecuteScalar(collation), out maxDistance))
             {
                 return true;
             }
 
             if ((predicate.Type == BsonExpressionType.GreaterThan || predicate.Type == BsonExpressionType.GreaterThanOrEqual) &&
-                TryParseVectorExpression(predicate.Right, collation, out expression, out target) &&
+                TryParseVectorExpression(predicate.Right, collation, out expression, out target, out metric) &&
                 TryConvertToDouble(predicate.Left?.ExecuteScalar(collation), out maxDistance))
             {
                 return true;
@@ -276,13 +316,20 @@ namespace LiteDB.Vector.Query
             expression = null;
             target = null;
             maxDistance = double.MaxValue;
+            metric = null;
             return false;
         }
 
         private static bool TryParseVectorExpression(BsonExpression? expression, Collation collation, out string? fieldExpression, out float[]? target)
         {
+            return TryParseVectorExpression(expression, collation, out fieldExpression, out target, out _);
+        }
+
+        private static bool TryParseVectorExpression(BsonExpression? expression, Collation collation, out string? fieldExpression, out float[]? target, out byte? metric)
+        {
             fieldExpression = null;
             target = null;
+            metric = null;
 
             if (!IsVectorDistance(expression))
             {
@@ -291,10 +338,11 @@ namespace LiteDB.Vector.Query
 
             var field = expression.Left;
             string? targetSource = null;
+            string? metricSource = null;
 
             if (field == null || string.IsNullOrEmpty(field.Source))
             {
-                if (!TryExtractVectorArgumentsFromSource(expression.Source, out var parsedField, out targetSource))
+                if (!TryExtractVectorArgumentsFromSource(expression.Source, out var parsedField, out targetSource, out metricSource))
                 {
                     return false;
                 }
@@ -310,7 +358,12 @@ namespace LiteDB.Vector.Query
             {
                 if (TryResolveVectorArgument(expression, targetSource, out target))
                 {
-                    return true;
+                    if (metricSource == null || TryResolveMetricArgument(expression, metricSource, out metric))
+                    {
+                        return true;
+                    }
+
+                    return false;
                 }
 
                 return false;
@@ -319,13 +372,23 @@ namespace LiteDB.Vector.Query
             var targetValue = expression.Right?.ExecuteScalar(collation);
             if (TryConvertToVector(targetValue, out target))
             {
-                return true;
+                if (metricSource == null || TryResolveMetricArgument(expression, metricSource, out metric))
+                {
+                    return true;
+                }
+
+                return false;
             }
 
-            if (TryExtractVectorArgumentsFromSource(expression.Source, out _, out targetSource) &&
+            if (TryExtractVectorArgumentsFromSource(expression.Source, out _, out targetSource, out metricSource) &&
                 TryResolveVectorArgument(expression, targetSource, out target))
             {
-                return true;
+                if (metricSource == null || TryResolveMetricArgument(expression, metricSource, out metric))
+                {
+                    return true;
+                }
+
+                return false;
             }
 
             return false;
@@ -412,10 +475,11 @@ namespace LiteDB.Vector.Query
             return !double.IsNaN(number);
         }
 
-        private static bool TryExtractVectorArgumentsFromSource(string source, out string fieldExpression, out string targetExpression)
+        private static bool TryExtractVectorArgumentsFromSource(string source, out string fieldExpression, out string targetExpression, out string? metricExpression)
         {
             fieldExpression = null;
             targetExpression = null;
+            metricExpression = null;
 
             if (string.IsNullOrWhiteSpace(source))
             {
@@ -531,6 +595,11 @@ namespace LiteDB.Vector.Query
             fieldExpression = segments[0];
             targetExpression = segments[1];
 
+            if (segments.Count >= 3)
+            {
+                metricExpression = segments[2];
+            }
+
             return !string.IsNullOrWhiteSpace(fieldExpression) &&
                 !string.IsNullOrWhiteSpace(targetExpression);
         }
@@ -561,6 +630,87 @@ namespace LiteDB.Vector.Query
             }
 
             return TryParseVectorLiteral(source, out vector);
+        }
+
+        private static bool TryResolveMetricArgument(BsonExpression expression, string source, out byte? metric)
+        {
+            metric = null;
+
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return false;
+            }
+
+            source = source.Trim();
+
+            if (source.StartsWith("@", StringComparison.Ordinal))
+            {
+                var key = source.Substring(1);
+
+                if (expression.Parameters != null &&
+                    expression.Parameters.TryGetValue(key, out var parameterValue) &&
+                    TryConvertToMetric(parameterValue, out metric))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            if ((source.StartsWith("'", StringComparison.Ordinal) && source.EndsWith("'", StringComparison.Ordinal)) ||
+                (source.StartsWith("\"", StringComparison.Ordinal) && source.EndsWith("\"", StringComparison.Ordinal)))
+            {
+                source = source.Substring(1, source.Length - 2);
+            }
+
+            var trimmed = source.Trim();
+            var lastSegment = trimmed.Split('.').LastOrDefault() ?? trimmed;
+
+            if (byte.TryParse(lastSegment, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numeric) &&
+                Enum.IsDefined(typeof(VectorDistanceMetric), (int)numeric))
+            {
+                metric = numeric;
+                return true;
+            }
+
+            if (Enum.TryParse<VectorDistanceMetric>(lastSegment, true, out var parsed))
+            {
+                metric = (byte)parsed;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryConvertToMetric(BsonValue? value, out byte? metric)
+        {
+            metric = null;
+
+            if (value == null || value.IsNull)
+            {
+                return false;
+            }
+
+            if (value.IsNumber)
+            {
+                var numeric = value.AsInt32;
+
+                if (Enum.IsDefined(typeof(VectorDistanceMetric), numeric))
+                {
+                    metric = (byte)numeric;
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (value.IsString && Enum.TryParse<VectorDistanceMetric>(value.AsString, true, out var parsed))
+            {
+                metric = (byte)parsed;
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryParseVectorLiteral(string source, out float[]? vector)

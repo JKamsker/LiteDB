@@ -93,9 +93,18 @@ namespace LiteDB.Vector.Engine
                 currentEntry = this.GreedySearch(metadata, target, currentEntry, level, vectorCache, visited);
             }
 
-            var effectiveLimit = limit.HasValue && limit.Value > 0
-                ? Math.Max(limit.Value * 4, DefaultEfSearch)
-                : DefaultEfSearch;
+            var effectiveLimit = DefaultEfSearch;
+
+            if (limit.HasValue && limit.Value > 0)
+            {
+                var scaled = (long)limit.Value * 4;
+                if (scaled > int.MaxValue)
+                {
+                    scaled = int.MaxValue;
+                }
+
+                effectiveLimit = (int)Math.Max(scaled, DefaultEfSearch);
+            }
 
             var candidates = this.SearchLayer(
                 metadata,
