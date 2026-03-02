@@ -57,6 +57,24 @@ namespace LiteDB.Tests.Plugins
             resolvedPage.Should().BeSameAs(vectorPage);
         }
 
+        [Theory]
+        [InlineData((byte)0x00)]
+        [InlineData((byte)0x01)]
+        [InlineData((byte)0x02)]
+        [InlineData((byte)0x03)]
+        [InlineData((byte)0x04)]
+        public void PageTypeRegistryShouldRejectCorePageCodes(byte code)
+        {
+            var registry = new PageTypeRegistry();
+            var registration = CreatePageRegistration("ThirdParty.Plugin", code);
+
+            Action act = () => registry.Register(registration);
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*reserved for core page types*");
+        }
+
         private static CustomBsonTypeDescriptor CreateBsonDescriptor(string pluginId, byte typeCode)
         {
             return new CustomBsonTypeDescriptor(
