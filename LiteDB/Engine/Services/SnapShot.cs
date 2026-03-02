@@ -100,9 +100,35 @@ namespace LiteDB.Engine
                 }
                 catch
                 {
+                    this.CleanupFailedSnapshot();
                     this.Dispose();
                     throw;
                 }
+            }
+        }
+
+        private void CleanupFailedSnapshot()
+        {
+            if (_mode != LockMode.Write || _disk == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _disk.DiscardDirtyPages(this
+                    .GetWritablePages(true, includeCollectionPage: true)
+                    .Select(x => x.Buffer)
+                    .Where(x => x.ShareCounter == BUFFER_WRITABLE));
+
+                _disk.DiscardCleanPages(this
+                    .GetWritablePages(false, includeCollectionPage: true)
+                    .Select(x => x.Buffer)
+                    .Where(x => x.ShareCounter == BUFFER_WRITABLE));
+            }
+            catch
+            {
+                // Avoid masking the original exception.
             }
         }
 
@@ -754,6 +780,51 @@ namespace LiteDB.Engine
 
             var indexer = new IndexService(this, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
             var pluginIndexes = _plugins?.Indexes;
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+
+            var pluginIdsByIndex = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (var (index, pluginId, _) in _collectionPage.GetPluginIndexes())
+            {
+                if (index == null || string.IsNullOrWhiteSpace(index.Name) || string.IsNullOrWhiteSpace(pluginId))
+                {
+                    continue;
+                }
+
+                pluginIdsByIndex[index.Name] = pluginId;
+            }
+
+            var indexes = _collectionPage
+                .GetCollectionIndexes()
+                .PreventChangeFullFX()
+                .ToArray();
+
+            foreach (var index in indexes)
+            {
+                if (index == null || index.IndexType == 0)
+                {
+                    continue;
+                }
+
+                if (pluginIndexes?.GetByType(index.IndexType) != null)
+                {
+                    continue;
+                }
+
+                pluginIdsByIndex.TryGetValue(index.Name, out var pluginId);
+
+                var diagnostics = new BsonDocument
+                {
+                    ["event"] = "plugin.drop_collection_requires_plugin",
+                    ["operation"] = "DropCollection",
+                    ["collection"] = _collectionName ?? string.Empty,
+                    ["asset"] = index.Name ?? string.Empty,
+                    ["indexType"] = (int)index.IndexType,
+                    ["pluginId"] = pluginId ?? string.Empty
+                };
+
+                throw policy.CreateMissingPluginException(pluginId, "DropCollection", diagnostics);
+            }
             
             // CollectionPage will be last deleted page (there is no NextPageID from CollectionPage)
             _transPages.FirstDeletedPageID = _collectionPage.PageID;
@@ -767,16 +838,12 @@ namespace LiteDB.Engine
             var indexPages = new HashSet<uint>();
 
             // getting all indexes pages from all indexes
-            foreach(var index in _collectionPage.GetCollectionIndexes().PreventChangeFullFX())
+            foreach(var index in indexes)
             {
                 if (index.IndexType != 0)
                 {
-                    var strategy = pluginIndexes?.GetByType(index.IndexType);
-
-                    if (strategy != null)
-                    {
-                        strategy.DropIndex(this, _collectionPage, index.Name);
-                    }
+                    var strategy = pluginIndexes.GetByType(index.IndexType);
+                    strategy.DropIndex(this, _collectionPage, index.Name);
 
                     safePoint();
                     continue;
