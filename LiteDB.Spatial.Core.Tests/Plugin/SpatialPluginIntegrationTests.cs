@@ -39,6 +39,21 @@ public sealed class SpatialPluginIntegrationTests
     }
 
     [Fact]
+    public void EnsureIndex_ReturnsTrueOnlyWhenChangesAreMade()
+    {
+        using var database = CreateDatabase();
+
+        var collection = database.GetCollection<GeoDocument>("points");
+        collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(10.0, 20.0) });
+
+        collection.EnsureIndex(x => x.Location)
+            .Should().BeTrue("the first EnsureIndex should provision spatial metadata and backing indexes");
+
+        collection.EnsureIndex(x => x.Location)
+            .Should().BeFalse("subsequent EnsureIndex calls should be a no-op when the spatial index is already provisioned");
+    }
+
+    [Fact]
     public void EnsureIndex_RecreatesBackingIndexes_WhenDropped()
     {
         using var database = CreateDatabase();
@@ -204,6 +219,31 @@ public sealed class SpatialPluginIntegrationTests
         Action act = () => SpatialPlugin.LogDiagnostics(database, throwOnFailure: true);
 
         act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void EnsureIndex_InFactoryMode_DoesNotDependOnLastHandle()
+    {
+        var plugin = new SpatialPlugin();
+
+        using var factory = new BaseLiteDB.LiteDatabaseBuilder()
+            .UseInMemory()
+            .UsePlugin(plugin)
+            .BuildFactory();
+
+        using var handle1 = (BaseLiteDB.LiteDatabase)factory.CreateDatabase();
+
+        using (factory.CreateDatabase())
+        {
+            // Ensure the spatial plugin sees multiple handles.
+        }
+
+        var collection = handle1.GetCollection<GeoDocument>("points");
+        collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
+
+        Action act = () => collection.EnsureIndex(x => x.Location);
+
+        act.Should().NotThrow("spatial EnsureIndex interception must not depend on the most recently created handle remaining undisposed");
     }
 
     private static BaseLiteDB.LiteDatabase CreateDatabase()

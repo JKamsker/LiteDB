@@ -35,7 +35,6 @@ namespace LiteDB.Spatial.Plugin
             if (database == null) throw new ArgumentNullException(nameof(database));
             if (services == null) throw new ArgumentNullException(nameof(services));
 
-            services.UpdateDatabase(database);
             return _services.GetValue(database, _ => services);
         }
     }

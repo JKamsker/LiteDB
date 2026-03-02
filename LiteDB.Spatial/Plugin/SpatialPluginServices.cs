@@ -91,6 +91,7 @@ namespace LiteDB.Spatial.Plugin
             }
 
             var descriptorCreated = false;
+            var didChange = false;
 
             if (!TryResolveDescriptor(context.CollectionName, fieldPath, out var descriptor))
             {
@@ -100,6 +101,7 @@ namespace LiteDB.Spatial.Plugin
                 }
 
                 descriptorCreated = true;
+                didChange = true;
             }
 
             if (descriptor == null)
@@ -114,6 +116,8 @@ namespace LiteDB.Spatial.Plugin
 
                 if (ensureFailed)
                 {
+                    didChange = true;
+
                     var refreshedOnFailure = TryRebuildDescriptor(context, descriptor);
                     if (refreshedOnFailure == null)
                     {
@@ -124,6 +128,8 @@ namespace LiteDB.Spatial.Plugin
                 }
                 else if (indexesCreated)
                 {
+                    didChange = true;
+
                     var refreshed = TryRebuildDescriptor(context, descriptor);
                     if (refreshed == null)
                     {
@@ -135,7 +141,7 @@ namespace LiteDB.Spatial.Plugin
             }
 
             CacheGeometryField(context.Name, descriptor);
-            context.SetResult(true);
+            context.SetResult(didChange);
             return true;
         }
 
