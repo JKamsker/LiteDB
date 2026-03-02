@@ -165,6 +165,33 @@ namespace LiteDB.Internals
         }
 
         [Fact]
+        public void Cache_ReadablePage_LostRace_DoesNotReturnDirtyTimestampZeroPages()
+        {
+            var m = new MemoryCache(new int[] { 1 });
+
+            var page = m.GetReadablePage(0, FileOrigin.Data, (pos, slice) =>
+            {
+                slice[0] = 123;
+
+                var competing = m.NewPage();
+                competing.Position = pos;
+                competing.Origin = FileOrigin.Data;
+                competing[0] = 55;
+
+                m.TryMoveToReadable(competing).Should().BeTrue();
+            });
+
+            page[0].Should().Be(55);
+            page.Release();
+
+            var writable = m.NewPage();
+
+            writable.All(0).Should().BeTrue("lost readable pages must be cleared when returned to the free list");
+
+            m.DiscardPage(writable);
+        }
+
+        [Fact]
         public void Cache_UniqueIDNumbering()
         {
             // Test case when second segment size is smaller than first

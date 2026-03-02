@@ -58,7 +58,9 @@ namespace LiteDB.Engine
             // get dict key based on position/origin
             var key = this.GetReadableKey(position, origin);
 
-            if (_readable.TryGetValue(key, out var page) == false)
+            PageBuffer page;
+
+            while (_readable.TryGetValue(key, out page) == false)
             {
                 // get new page from _free pages (or extend)
                 var newPage = this.GetFreePage();
@@ -73,8 +75,11 @@ namespace LiteDB.Engine
                 }
                 catch
                 {
+                    // restore free-list invariants
+                    newPage.ShareCounter = 0;
                     newPage.Position = long.MaxValue;
                     newPage.Origin = FileOrigin.None;
+                    newPage.Timestamp = DateTime.UtcNow.Ticks;
                     _free.Enqueue(newPage);
                     throw;
                 }
@@ -82,15 +87,15 @@ namespace LiteDB.Engine
                 if (_readable.TryAdd(key, newPage))
                 {
                     page = newPage;
+                    break;
                 }
-                else
-                {
-                    newPage.Position = long.MaxValue;
-                    newPage.Origin = FileOrigin.None;
-                    _free.Enqueue(newPage);
 
-                    page = _readable[key];
-                }
+                // lost the race - return page to free list and try again
+                newPage.ShareCounter = 0;
+                newPage.Position = long.MaxValue;
+                newPage.Origin = FileOrigin.None;
+                newPage.Timestamp = DateTime.UtcNow.Ticks;
+                _free.Enqueue(newPage);
             }
 
             // update LRU
