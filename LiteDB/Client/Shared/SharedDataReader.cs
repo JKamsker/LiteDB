@@ -22,13 +22,41 @@ namespace LiteDB
             _ownerThreadId = Environment.CurrentManagedThreadId;
         }
 
-        public BsonValue this[string field] => _reader[field];
+        public BsonValue this[string field]
+        {
+            get
+            {
+                EnsureOwnerThread();
+                return _reader[field];
+            }
+        }
 
-        public string Collection => _reader.Collection;
+        public string Collection
+        {
+            get
+            {
+                EnsureOwnerThread();
+                return _reader.Collection;
+            }
+        }
 
-        public BsonValue Current => _reader.Current;
+        public BsonValue Current
+        {
+            get
+            {
+                EnsureOwnerThread();
+                return _reader.Current;
+            }
+        }
 
-        public bool HasValues => _reader.HasValues;
+        public bool HasValues
+        {
+            get
+            {
+                EnsureOwnerThread();
+                return _reader.HasValues;
+            }
+        }
 
         public bool Read()
         {
@@ -51,15 +79,15 @@ namespace LiteDB
         {
             if (_disposed) return;
 
-            _disposed = true;
-
             if (disposing)
             {
+                EnsureOwnerThread();
+                _disposed = true;
+
                 Exception disposeException = null;
 
                 try
                 {
-                    EnsureOwnerThread();
                     _reader.Dispose();
                 }
                 catch (Exception ex)

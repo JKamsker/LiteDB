@@ -204,5 +204,76 @@ namespace LiteDB.Tests.Client
                 .Should()
                 .Throw<ObjectDisposedException>();
         }
+
+        [Fact]
+        public void SharedDataReader_should_not_poison_reader_when_disposed_from_wrong_thread()
+        {
+            using var file = new TempFile();
+
+            var shared = new SharedEngine(new EngineSettings { Filename = file.Filename });
+
+            try
+            {
+                shared.Insert("col", new[] { new BsonDocument { ["_id"] = 1 } }, BsonAutoId.Int32);
+
+                var reader = shared.Query("col", Query.All());
+
+                Exception disposeException = null;
+
+                var thread = new Thread(() =>
+                {
+                    try
+                    {
+                        reader.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        disposeException = ex;
+                    }
+                });
+
+                thread.Start();
+                thread.Join(TimeSpan.FromSeconds(5)).Should().BeTrue();
+
+                disposeException.Should().BeOfType<InvalidOperationException>();
+
+                reader.Invoking(x => x.Dispose()).Should().NotThrow();
+
+                var mutexField = typeof(SharedEngine).GetField("_mutex", BindingFlags.Instance | BindingFlags.NonPublic);
+                mutexField.Should().NotBeNull();
+
+                var mutex = (Mutex)mutexField.GetValue(shared);
+                mutex.Should().NotBeNull();
+
+                var acquired = false;
+                Exception error = null;
+
+                var checkThread = new Thread(() =>
+                {
+                    try
+                    {
+                        acquired = mutex.WaitOne(0);
+                        if (acquired)
+                        {
+                            mutex.ReleaseMutex();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        error = ex;
+                    }
+                });
+
+                checkThread.Start();
+                checkThread.Join(TimeSpan.FromSeconds(5)).Should().BeTrue();
+
+                error.Should().BeNull();
+                acquired.Should().BeTrue();
+            }
+            finally
+            {
+                shared.Dispose();
+            }
+        }
     }
 }

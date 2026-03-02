@@ -17,7 +17,7 @@ namespace LiteDB
         private bool _transactionRunning = false;
         private ILitePluginContext _plugins;
         private readonly ThreadLocal<int> _mutexDepth = new ThreadLocal<int>(() => 0);
-        private int _disposed;
+        private int _disposeState;
 
         public SharedEngine(EngineSettings settings)
         {
@@ -45,7 +45,7 @@ namespace LiteDB
         /// </summary>
         private void OpenDatabase()
         {
-            if (Volatile.Read(ref _disposed) != 0)
+            if (Volatile.Read(ref _disposeState) != 0)
             {
                 throw new ObjectDisposedException(nameof(SharedEngine));
             }
@@ -322,29 +322,38 @@ namespace LiteDB
                 return;
             }
 
-            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            if (Interlocked.CompareExchange(ref _disposeState, 1, 0) != 0)
             {
                 return;
             }
 
             if (_mutexDepth.Value != 0)
             {
+                Volatile.Write(ref _disposeState, 0);
                 throw new InvalidOperationException("SharedEngine cannot be disposed while it is in use on the current thread.");
             }
 
             Exception disposeException = null;
             var acquiredMutex = false;
+            var finalize = false;
 
             try
             {
                 try
                 {
-                    _mutex.WaitOne();
+                    if (_mutex.WaitOne(TimeSpan.FromMinutes(1)) == false)
+                    {
+                        Volatile.Write(ref _disposeState, 0);
+                        throw new TimeoutException("Timed out waiting to dispose SharedEngine while the shared mutex is held by another thread or process.");
+                    }
+
                     acquiredMutex = true;
+                    finalize = true;
                 }
                 catch (AbandonedMutexException)
                 {
                     acquiredMutex = true;
+                    finalize = true;
                 }
 
                 if (_engine != null)
@@ -376,8 +385,12 @@ namespace LiteDB
                     }
                 }
 
-                _mutexDepth.Dispose();
-                _mutex.Dispose();
+                if (finalize)
+                {
+                    _mutexDepth.Dispose();
+                    _mutex.Dispose();
+                    Volatile.Write(ref _disposeState, 2);
+                }
             }
 
             if (disposeException != null)
