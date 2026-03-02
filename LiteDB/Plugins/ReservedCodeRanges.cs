@@ -23,7 +23,7 @@ namespace LiteDB.Plugins
             }
         }
 
-        public static void EnsureUnique<T>(bool conflictDetected, string identifierDescription, string existingPluginId, string incomingPluginId)
+        public static void EnsureUnique(bool conflictDetected, string identifierDescription, string existingPluginId, string incomingPluginId)
         {
             if (conflictDetected)
             {
