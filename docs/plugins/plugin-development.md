@@ -52,7 +52,7 @@ Use `LiteDatabase.Services.QueryMetadata` when application code needs to inspect
 
 ### BSON Type Registry
 
-- Plugins reserve type codes and serializers by calling `context.RegisterBsonType(new CustomBsonTypeDescriptor(...))` during initialization (`LiteDB/Plugins/Bson/ICustomBsonTypeRegistry.cs`).
+- Plugins reserve type codes and serializers by calling `context.RegisterBsonType(new CustomBsonTypeDescriptor(...))` during initialization (`LiteDB/Plugins/Bson/CustomBsonTypeDescriptor.cs`).
 - Type codes ≥128 keep core enums stable while allowing plugins to round-trip values via `BufferWriter`/`BufferReader` handlers (passed as `object` to keep the core/engine boundary decoupled) (`LiteDB/Document/Bson/BsonTypeRegistry.cs:14`).
 - The registry feeds every BSON serialization path (`LiteDB/Document/BsonValue.cs`, `LiteDB/Document/Json/JsonWriter.cs`), so once a plugin registers a type, all writers/readers automatically delegate to the supplied delegates.
 
@@ -73,11 +73,10 @@ context.RegisterBsonType(new CustomBsonTypeDescriptor(
         // read payload from bufferReader and return a BsonValue
         return BsonValue.Null;
     },
-    jsonFormatter: value => /* format JSON */,
-    legacyAliases: new byte[] { (byte)BsonType.Vector }));
+    jsonFormatter: value => /* format JSON */));
 ```
 
-Fallback registrations keep legacy documents readable, but new writes should use the plugin-owned code path to avoid reintroducing core dependencies.
+Use `legacyAliases` when migrating existing on-disk BSON encodings to a new plugin-owned type code. New writes should use the plugin-owned code path to avoid reintroducing core dependencies.
 
 ### Page Factory Registry
 
@@ -98,7 +97,7 @@ context.RegisterPageFactory(new PageFactoryRegistration(
     }));
 ```
 
-When a page type is registered, `LiteDatabaseServices` swaps the default fallback resolver so every page allocation/clone defers to the plugin without friend assemblies (`LiteDB/Client/Database/LiteDatabaseServices.cs:17`).
+Page factories are resolved per `ILitePluginContext` via `PageFactoryResolver`, so registrations stay isolated to the database instance that initialized the plugin.
 
 ### LINQ Resolver Registry
 
@@ -142,7 +141,7 @@ Custom expression artifacts propagate automatically:
 
 - The plugin context exposes an `ILogger` abstraction so you can emit structured messages without depending on LiteDB’s internal logger (`LiteDB/Plugins/ILitePlugin.cs:45`).
 - `Services` and `ConnectionString` give you a DI hook and configuration surface. For example, dependency injection can provide cloud SDK clients to a plugin at initialization time.
-- `LiteDatabase.Services` exposes a default context for scenarios that need registry access without an active plugin (`LiteDB/Client/Database/LiteDatabaseServices.cs:61`).
+- `LiteDatabase.Services` exposes the registries for the active database instance; there is no global plugin registry that spans databases.
 
 ## Spatial Plugin Case Study
 
@@ -150,9 +149,9 @@ The spatial revamp demonstrates how a complex feature composes the registries:
 
 1. **Initialization:** `SpatialPlugin.Initialize` attaches plugin services to the database, registers spatial expression functions, LINQ resolvers, a query planning rule, and an index interceptor (`LiteDB.Spatial/Plugin/SpatialPlugin.cs:19`).
 2. **State Management:** `SpatialPluginRegistry` keeps a per-database `SpatialPluginServices` instance in a `ConditionalWeakTable`, avoiding manual disposal while providing shared caches (`LiteDB.Spatial/Plugin/SpatialPluginRegistry.cs:12`).
-3. **Expression Surface:** Functions such as `SPATIAL_NEAR` are added to the expression registry and mirrored into the global default for convenience (`LiteDB.Spatial/Plugin/SpatialPlugin.cs:85`).
+3. **Expression Surface:** Functions such as `SPATIAL_NEAR` are added to the per-database expression registry (`LiteDB.Spatial/Plugin/SpatialPlugin.cs:85`).
 4. **LINQ Integration:** LINQ resolvers translate `SpatialExpressions` method calls into the registered functions via the registry (`LiteDB.Spatial/Plugin/SpatialPlugin.cs:28`).
-5. **EnsureIndex Interception:** `SpatialPluginServices.TryHandleEnsureIndex` recognizes spatial field paths, ensures supporting B-tree indexes, rebuilds metadata, and signals success through `context.SetResult(true)` without hitting the default engine path (`LiteDB.Spatial/Plugin/SpatialPluginServices.cs:50`).
+5. **EnsureIndex Interception:** `SpatialPluginServices.TryHandleEnsureIndex` recognizes spatial field paths, provisions backing B-tree indexes/metadata when needed, and sets the final `EnsureIndex` result based on whether provisioning work was performed (`LiteDB.Spatial/Plugin/SpatialPluginServices.cs:50`).
 6. **Query Planning:** `SpatialQueryPlanningRule` scans query terms for spatial predicates, resolves metadata, and injects a custom `SpatialMultiRangeIndex` into the plan via `context.UseIndex` (`LiteDB.Spatial/Plugin/QueryPlanning/SpatialQueryPlanningRule.cs:25`).
 7. **Diagnostics:** The plugin uses the shared logger to surface configuration issues and ships a static `LogDiagnostics` helper for runtime audits (`LiteDB.Spatial/Plugin/SpatialPlugin.cs:36`).
 
