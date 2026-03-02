@@ -46,6 +46,46 @@ namespace LiteDB.Engine
         {
             _plugins = context;
             _monitor?.SetPluginContext(context);
+
+            if (context is DefaultPluginContext defaultContext && defaultContext.ValidatePluginsOnOpen == true)
+            {
+                this.ValidatePluginsOnOpen(defaultContext);
+            }
+        }
+
+        private void ValidatePluginsOnOpen(DefaultPluginContext context)
+        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            if (context.MissingPluginBehavior != PluginMissingBehavior.RefuseDatabase)
+            {
+                return;
+            }
+
+            var scanner = new PluginRequirementScanner(_header, _disk, _walIndex, _plugins);
+            var requirements = scanner.Scan(transactionPages: null);
+
+            var missing = requirements.Where(x => x.StrategyAvailable == false).ToArray();
+
+            if (missing.Length == 0)
+            {
+                return;
+            }
+
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = "plugin.validation_on_open_failed",
+                ["requirements"] = new BsonArray(requirements.Select(x => x.ToDocument())),
+                ["missingCount"] = missing.Length
+            };
+
+            var pluginId = missing.Select(x => x.PluginId).FirstOrDefault(x => !string.Equals(x, "<unknown>", StringComparison.Ordinal));
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+
+            throw policy.CreateMissingPluginException(pluginId, "OpenDatabase", diagnostics);
         }
 
         /// <summary>

@@ -18,7 +18,7 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 - [x] `AllowIfSafe`: refuse all writes/DDL on affected collections.
 - [x] Scan `CollectionIndex.IndexType != 0` for enforcement (metadata is diagnostic-only).
 - [x] `$plugins` introspection (safe under strict mode; no enforcement cache poisoning).
-- [ ] Validation-on-open (opt-in; fault-tolerant scan; strict mode fails fast).
+- [x] Validation-on-open (opt-in; fault-tolerant scan; strict mode fails fast).
 - [ ] Rebuild/recovery: never swallow `PLUGIN_REQUIRED`; keep strict-by-default behavior.
 - [ ] Optional salvage: `DropOrphanedPluginIndexes` requires durable error report.
 

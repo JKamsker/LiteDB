@@ -61,7 +61,7 @@ namespace LiteDB
             _pluginContext = new DefaultPluginContext(connectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(resolvedPlugins);
+            this.InitializePluginsWithCleanup(resolvedPlugins);
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace LiteDB
             _pluginContext = new DefaultPluginContext(connectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(resolvedPlugins);
+            this.InitializePluginsWithCleanup(resolvedPlugins);
         }
 
         /// <summary>
@@ -115,7 +115,7 @@ namespace LiteDB
             _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(resolvedPlugins);
+            this.InitializePluginsWithCleanup(resolvedPlugins);
 
             if (logStream == null && stream is not MemoryStream)
             {
@@ -167,7 +167,7 @@ namespace LiteDB
             _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(resolvedPlugins);
+            this.InitializePluginsWithCleanup(resolvedPlugins);
 
             if (logStream == null && stream is not MemoryStream)
             {
@@ -209,7 +209,7 @@ namespace LiteDB
             _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(resolvedPlugins);
+            this.InitializePluginsWithCleanup(resolvedPlugins);
         }
 
         /// <summary>
@@ -234,7 +234,7 @@ namespace LiteDB
             _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
             this.Services = new LiteDatabaseServices(_pluginContext);
 
-            this.InitializePlugins(resolvedPlugins);
+            this.InitializePluginsWithCleanup(resolvedPlugins);
         }
 
         #endregion
@@ -318,6 +318,30 @@ namespace LiteDB
             if (_engine is IPluginHost host)
             {
                 host.SetPluginContext(_pluginContext);
+            }
+        }
+
+        private void InitializePluginsWithCleanup(IEnumerable<ILitePlugin> plugins)
+        {
+            try
+            {
+                this.InitializePlugins(plugins);
+            }
+            catch
+            {
+                if (_disposeOnClose)
+                {
+                    try
+                    {
+                        _engine.Dispose();
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
+                }
+
+                throw;
             }
         }
 

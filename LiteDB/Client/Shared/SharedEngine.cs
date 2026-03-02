@@ -55,10 +55,21 @@ namespace LiteDB
             {
                 try
                 {
-                    _engine = new LiteEngine(_settings);
-                    if (_plugins != null)
+                    var engine = new LiteEngine(_settings);
+
+                    try
                     {
-                        ((IPluginHost)_engine).SetPluginContext(_plugins);
+                        if (_plugins != null)
+                        {
+                            ((IPluginHost)engine).SetPluginContext(_plugins);
+                        }
+
+                        _engine = engine;
+                    }
+                    catch
+                    {
+                        engine.Dispose();
+                        throw;
                     }
                     return true;
                 }
