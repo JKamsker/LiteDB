@@ -78,7 +78,9 @@ namespace LiteDB.Vector.Extensions
 
             var effectiveMaxDistance = maxDistance ?? double.MaxValue;
             var existingMetric = GetQueryMetric(source);
-            var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric;
+            var metricByte = metric.HasValue
+                ? (byte)metric.Value
+                : existingMetric ?? ResolveMetricFromIndexes(source, fieldExpr);
 
             if (maxDistance.HasValue)
             {
@@ -113,7 +115,9 @@ namespace LiteDB.Vector.Extensions
 
             var effectiveMaxDistance = maxDistance ?? double.MaxValue;
             var existingMetric = GetQueryMetric(source);
-            var metricByte = metric.HasValue ? (byte)metric.Value : existingMetric;
+            var metricByte = metric.HasValue
+                ? (byte)metric.Value
+                : existingMetric ?? ResolveMetricFromIndexes(source, fieldExpr);
 
             if (maxDistance.HasValue)
             {

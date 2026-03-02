@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using LiteDB;
 using LiteDB.Engine;
@@ -39,15 +40,34 @@ namespace LiteDB.Vector.Query
             double maxDistance = double.MaxValue;
             byte? metric = null;
             BsonExpression? consumedTerm = null;
-            var matchedFromOrderBy = false;
             QueryMetadataBag? metadataBag = null;
             var maxDistanceNormalized = false;
+            string? orderByExpression = null;
+            float[]? orderByTarget = null;
+            var orderByConsumable = false;
 
             if (context.Query.TryGetMetadata(VectorQueryMetadata.PluginId, out var bag))
             {
                 metadataBag = bag;
             }
             var metadataIndicatesNormalized = metadataBag != null && VectorQueryMetadata.IsMaxDistanceNormalized(metadataBag);
+
+            if (context.Query.OrderBy.Count > 0 &&
+                context.Query.OrderBy[0].Order == LiteDB.Query.Ascending &&
+                TryParseVectorExpression(context.Query.OrderBy[0].Expression, collation, out orderByExpression, out orderByTarget))
+            {
+                if (context.Query.OrderBy.Count == 1)
+                {
+                    orderByConsumable = true;
+                }
+                else if (context.Query.OrderBy.Count == 2 &&
+                    context.Query.OrderBy[1].Order == LiteDB.Query.Ascending &&
+                    IsIdOrderByExpression(context.Query.OrderBy[1].Expression))
+                {
+                    // Allow deterministic tie-breaking by _id without forcing a secondary in-engine sort.
+                    orderByConsumable = true;
+                }
+            }
 
             foreach (var term in context.Terms)
             {
@@ -59,17 +79,11 @@ namespace LiteDB.Vector.Query
                 }
             }
 
-            if (expression == null && context.Query.OrderBy.Count > 0)
+            if (expression == null && orderByConsumable)
             {
-                foreach (var order in context.Query.OrderBy)
-                {
-                    if (TryParseVectorExpression(order.Expression, collation, out expression, out target))
-                    {
-                        matchedFromOrderBy = true;
-                        maxDistance = double.MaxValue;
-                        break;
-                    }
-                }
+                expression = orderByExpression;
+                target = orderByTarget;
+                maxDistance = double.MaxValue;
             }
 
             if (metadataBag != null)
@@ -95,10 +109,6 @@ namespace LiteDB.Vector.Query
                             metric = bagMetric;
                         }
 
-                        matchedFromOrderBy = matchedFromOrderBy ||
-                            context.Query.OrderBy.Any(order =>
-                                IsVectorDistance(order.Expression) ||
-                                IsVectorSimilarity(order.Expression));
                     }
                 }
                 else if (metadataBag.TryGet<string>(VectorQueryMetadata.FieldKey, out var field) &&
@@ -136,7 +146,26 @@ namespace LiteDB.Vector.Query
                 return false;
             }
 
+            var orderByMatchesVectorQuery = orderByConsumable &&
+                string.Equals(orderByExpression, expression, StringComparison.OrdinalIgnoreCase) &&
+                TargetsEqual(orderByTarget, target);
+
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
+            var offset = context.Query.Offset;
+
+            if (limit.HasValue &&
+                context.Query.OrderBy.Count > 0 &&
+                !orderByMatchesVectorQuery)
+            {
+                // Avoid pushing LIMIT when ORDER BY requires post-processing, otherwise LIMIT/OFFSET semantics
+                // can be corrupted by early truncation (especially with additional ORDER BY segments).
+                limit = null;
+            }
+            else if (limit.HasValue && offset > 0)
+            {
+                var required = (long)offset + limit.Value;
+                limit = required > int.MaxValue ? int.MaxValue : (int)required;
+            }
 
             foreach (var (index, pluginId, metadataBuffer) in collection.GetPluginIndexes())
             {
@@ -174,11 +203,49 @@ namespace LiteDB.Vector.Query
                     pluginIndexKind: VectorPlugin.IndexKind,
                     pluginMetadata: metadataDocument);
 
-                context.OrderByConsumed = matchedFromOrderBy;
+                context.OrderByConsumed = orderByConsumable &&
+                    string.Equals(orderByExpression, expression, StringComparison.OrdinalIgnoreCase) &&
+                    TargetsEqual(orderByTarget, target);
                 return true;
             }
 
             return false;
+        }
+
+        private static bool TargetsEqual(float[]? left, float[]? right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null || left.Length != right.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Length; i++)
+            {
+                if (left[i] != right[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsIdOrderByExpression(BsonExpression? expression)
+        {
+            var source = expression?.Source?.Trim();
+
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return false;
+            }
+
+            return string.Equals(source, "$._id", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(source, "_id", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool TryParseVectorPredicate(BsonExpression? predicate, Collation collation, out string? expression, out float[]? target, out double maxDistance)
@@ -223,9 +290,11 @@ namespace LiteDB.Vector.Query
             }
 
             var field = expression.Left;
+            string? targetSource = null;
+
             if (field == null || string.IsNullOrEmpty(field.Source))
             {
-                if (!TryExtractVectorFieldFromSource(expression.Source, out var parsedField))
+                if (!TryExtractVectorArgumentsFromSource(expression.Source, out var parsedField, out targetSource))
                 {
                     return false;
                 }
@@ -237,13 +306,29 @@ namespace LiteDB.Vector.Query
                 fieldExpression = field.Source;
             }
 
-            var targetValue = expression.Right?.ExecuteScalar(collation);
-            if (!TryConvertToVector(targetValue, out target))
+            if (targetSource != null)
             {
+                if (TryResolveVectorArgument(expression, targetSource, out target))
+                {
+                    return true;
+                }
+
                 return false;
             }
 
-            return true;
+            var targetValue = expression.Right?.ExecuteScalar(collation);
+            if (TryConvertToVector(targetValue, out target))
+            {
+                return true;
+            }
+
+            if (TryExtractVectorArgumentsFromSource(expression.Source, out _, out targetSource) &&
+                TryResolveVectorArgument(expression, targetSource, out target))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private static bool IsVectorDistance(BsonExpression? expression)
@@ -327,9 +412,10 @@ namespace LiteDB.Vector.Query
             return !double.IsNaN(number);
         }
 
-        private static bool TryExtractVectorFieldFromSource(string source, out string fieldExpression)
+        private static bool TryExtractVectorArgumentsFromSource(string source, out string fieldExpression, out string targetExpression)
         {
             fieldExpression = null;
+            targetExpression = null;
 
             if (string.IsNullOrWhiteSpace(source))
             {
@@ -342,43 +428,181 @@ namespace LiteDB.Vector.Query
                 return false;
             }
 
-            var depth = 0;
-            for (var i = openIndex + 1; i < source.Length; i++)
+            var segmentStart = openIndex + 1;
+            var parenDepth = 0;
+            var bracketDepth = 0;
+            var inString = false;
+            var stringDelimiter = '\0';
+            var escape = false;
+            var segments = new List<string>(capacity: 3);
+
+            for (var i = segmentStart; i < source.Length; i++)
             {
                 var ch = source[i];
 
+                if (inString)
+                {
+                    if (escape)
+                    {
+                        escape = false;
+                        continue;
+                    }
+
+                    if (ch == '\\')
+                    {
+                        escape = true;
+                        continue;
+                    }
+
+                    if (ch == stringDelimiter)
+                    {
+                        inString = false;
+                        stringDelimiter = '\0';
+                    }
+
+                    continue;
+                }
+
+                if (ch == '\'' || ch == '"')
+                {
+                    inString = true;
+                    stringDelimiter = ch;
+                    continue;
+                }
+
+                if (ch == '[')
+                {
+                    bracketDepth++;
+                    continue;
+                }
+
+                if (ch == ']')
+                {
+                    if (bracketDepth > 0)
+                    {
+                        bracketDepth--;
+                    }
+
+                    continue;
+                }
+
                 if (ch == '(')
                 {
-                    depth++;
+                    parenDepth++;
                     continue;
                 }
 
                 if (ch == ')')
                 {
-                    if (depth == 0)
+                    if (parenDepth == 0)
                     {
+                        var segment = source.Substring(segmentStart, i - segmentStart).Trim();
+                        if (!string.IsNullOrWhiteSpace(segment))
+                        {
+                            segments.Add(segment);
+                        }
+
                         break;
                     }
 
-                    depth--;
+                    parenDepth--;
                     continue;
                 }
 
-                if (ch == ',' && depth == 0)
+                if (ch == ',' && parenDepth == 0 && bracketDepth == 0)
                 {
-                    var segment = source.Substring(openIndex + 1, i - openIndex - 1).Trim();
+                    var segment = source.Substring(segmentStart, i - segmentStart).Trim();
 
                     if (string.IsNullOrWhiteSpace(segment))
                     {
                         return false;
                     }
 
-                    fieldExpression = segment;
-                    return true;
+                    segments.Add(segment);
+                    segmentStart = i + 1;
                 }
             }
 
-            return false;
+            if (segments.Count < 2)
+            {
+                return false;
+            }
+
+            fieldExpression = segments[0];
+            targetExpression = segments[1];
+
+            return !string.IsNullOrWhiteSpace(fieldExpression) &&
+                !string.IsNullOrWhiteSpace(targetExpression);
+        }
+
+        private static bool TryResolveVectorArgument(BsonExpression expression, string source, out float[]? vector)
+        {
+            vector = null;
+
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return false;
+            }
+
+            source = source.Trim();
+
+            if (source.StartsWith("@", StringComparison.Ordinal))
+            {
+                var key = source.Substring(1);
+
+                if (expression.Parameters != null &&
+                    expression.Parameters.TryGetValue(key, out var parameterValue) &&
+                    TryConvertToVector(parameterValue, out vector))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            return TryParseVectorLiteral(source, out vector);
+        }
+
+        private static bool TryParseVectorLiteral(string source, out float[]? vector)
+        {
+            vector = null;
+
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return false;
+            }
+
+            source = source.Trim();
+
+            if (!source.StartsWith("[", StringComparison.Ordinal) || !source.EndsWith("]", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var inner = source.Substring(1, source.Length - 2);
+            if (string.IsNullOrWhiteSpace(inner))
+            {
+                return false;
+            }
+
+            var parts = inner.Split(',');
+            var buffer = new float[parts.Length];
+
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i].Trim();
+
+                if (part.Length == 0 ||
+                    !float.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                {
+                    return false;
+                }
+
+                buffer[i] = value;
+            }
+
+            vector = buffer;
+            return true;
         }
 
         private static string NormalizeVectorField(string field)

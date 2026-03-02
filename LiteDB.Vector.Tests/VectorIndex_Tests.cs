@@ -655,12 +655,47 @@ namespace LiteDB.Vector.Tests.Querying
 
             plan["index"]["mode"].AsString.Should().Be("VECTOR INDEX SEARCH");
             plan["index"]["expr"].AsString.Should().Be("$.Embedding");
+            plan.ContainsKey("orderBy").Should().BeTrue();
+
+            var results = query.ToArray();
+
+            results.Select(x => x.Id).Should().Equal(new[] { 2, 1, 3 });
+        }
+
+        [Fact]
+        public void OrderBy_VectorDistance_WithOffsetAndLimit_UsesVectorIndexAndHonorsOffset()
+        {
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            collection.Insert(new[]
+            {
+                new VectorDocument { Id = 1, Embedding = new[] { 0f, 0f } },
+                new VectorDocument { Id = 2, Embedding = new[] { 1f, 0f } },
+                new VectorDocument { Id = 3, Embedding = new[] { 2f, 0f } },
+                new VectorDocument { Id = 4, Embedding = new[] { 3f, 0f } }
+            });
+
+            collection.EnsureIndex(
+                "embedding_idx",
+                CreateExpression(db, "$.Embedding"),
+                new VectorIndexOptions(2, VectorDistanceMetric.Euclidean));
+
+            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [0.0, 0.0])");
+
+            var query = collection.Query()
+                .OrderBy(distanceExpr, LiteDB.Query.Ascending)
+                .Offset(1)
+                .Limit(2);
+
+            var plan = query.GetPlan();
+
+            plan["index"]["mode"].AsString.Should().Be("VECTOR INDEX SEARCH");
             plan.ContainsKey("orderBy").Should().BeFalse();
 
             var results = query.ToArray();
 
-            results.Should().HaveCount(3);
-            results.Select(x => x.Id).Should().BeEquivalentTo(new[] { 1, 2, 3 });
+            results.Select(x => x.Id).Should().Equal(new[] { 2, 3 });
         }
 
         [Fact]
