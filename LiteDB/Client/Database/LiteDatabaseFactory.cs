@@ -38,6 +38,7 @@ namespace LiteDB
 
         private int _refCount;
         private int _disposed;
+        private int _cleanupRan;
 
         internal Action AfterRefCountIncrementForTesting { get; set; }
 
@@ -98,7 +99,15 @@ namespace LiteDB
         {
             Interlocked.Increment(ref _refCount);
 
-            this.AfterRefCountIncrementForTesting?.Invoke();
+            try
+            {
+                this.AfterRefCountIncrementForTesting?.Invoke();
+            }
+            catch
+            {
+                ReleaseLease();
+                throw;
+            }
 
             var lease = new Lease(this);
 
@@ -153,6 +162,11 @@ namespace LiteDB
         private void ReleaseLease()
         {
             if (Interlocked.Decrement(ref _refCount) != 0)
+            {
+                return;
+            }
+
+            if (Interlocked.Exchange(ref _cleanupRan, 1) != 0)
             {
                 return;
             }
