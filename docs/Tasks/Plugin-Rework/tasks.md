@@ -2,14 +2,14 @@
 
 Use this file as the “single pane of glass” checklist. The detailed design and rationale lives in:
 
-- [ ] `Plan.md` (entry point)
-- [ ] `Intention.md` (constraints + policy)
-- [ ] `Plan/00-Overview.md` (phasing)
-- [ ] `Plan/01-Public-API.md` (builder/factory API)
-- [ ] `Plan/02-Internal-Design.md` (engine/snapshot/rebuild details)
-- [ ] `Plan/03-Files-Summary.md` (touch points)
-- [ ] `Plan/04-Test-Plan.md` (coverage)
-- [ ] `Plan/05-Assumptions.md` (defaults)
+- [x] `Plan.md` (entry point)
+- [x] `Intention.md` (constraints + policy)
+- [x] `Plan/00-Overview.md` (phasing)
+- [x] `Plan/01-Public-API.md` (builder/factory API)
+- [x] `Plan/02-Internal-Design.md` (engine/snapshot/rebuild details)
+- [x] `Plan/03-Files-Summary.md` (touch points)
+- [x] `Plan/04-Test-Plan.md` (coverage)
+- [x] `Plan/05-Assumptions.md` (defaults)
 
 ## Phase 1 — Safety fixes
 
