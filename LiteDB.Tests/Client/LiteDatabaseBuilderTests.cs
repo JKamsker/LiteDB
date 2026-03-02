@@ -132,6 +132,25 @@ namespace LiteDB.Tests.Client
         }
 
         [Fact]
+        public void Build_should_dispose_engine_when_plugin_factory_throws()
+        {
+            using var file = new TempFile();
+
+            var builder = new LiteDatabaseBuilder()
+                .UseFile(file.Filename)
+                .UsePlugin(() => throw new InvalidOperationException("plugin factory failure"));
+
+            Action act = () => builder.Build();
+
+            act.Should().Throw<InvalidOperationException>()
+                .WithMessage("*plugin factory failure*");
+
+            using var reopened = new LiteDatabase(file.Filename);
+            reopened.GetCollection<BsonDocument>("docs").Insert(new BsonDocument { ["_id"] = 1 });
+            reopened.GetCollection<BsonDocument>("docs").Count().Should().Be(1);
+        }
+
+        [Fact]
         public void Registries_should_be_frozen_after_initialization()
         {
             using var db = (LiteDatabase)new LiteDatabaseBuilder()

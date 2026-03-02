@@ -367,6 +367,19 @@ namespace LiteDB
             catch
             {
                 ownedResources?.Dispose();
+
+                if (disposeOnClose)
+                {
+                    try
+                    {
+                        engine.Dispose();
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
+                }
+
                 throw;
             }
         }
