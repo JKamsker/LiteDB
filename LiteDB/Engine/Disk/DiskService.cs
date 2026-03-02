@@ -267,9 +267,19 @@ namespace LiteDB.Engine
                 {
                     var position = stream.Position;
 
-                    var bytesRead = stream.Read(buffer, 0, PAGE_SIZE);
+                    var bytesRead = 0;
 
-                    ENSURE(bytesRead == PAGE_SIZE, "ReadFull must read PAGE_SIZE bytes [{0}]", bytesRead);
+                    while (bytesRead < PAGE_SIZE)
+                    {
+                        var read = stream.Read(buffer, bytesRead, PAGE_SIZE - bytesRead);
+
+                        if (read == 0)
+                        {
+                            throw new EndOfStreamException($"ReadFull reached end of stream at position {position} after reading {bytesRead} bytes.");
+                        }
+
+                        bytesRead += read;
+                    }
 
                     yield return new PageBuffer(buffer, 0, 0)
                     {
