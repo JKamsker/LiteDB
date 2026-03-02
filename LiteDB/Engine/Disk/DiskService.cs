@@ -122,7 +122,7 @@ namespace LiteDB.Engine
         /// The result is used to prevent infinite loops in case of problems with pointers
         /// Each page support max of 255 items. Use 10 pages offset (avoid empty disk)
         /// </summary>
-        public uint MAX_ITEMS_COUNT => (uint)(((_dataLength + _logLength) / PAGE_SIZE) + 10) * byte.MaxValue;
+        public uint MAX_ITEMS_COUNT => (uint)(((Volatile.Read(ref _dataLength) + Volatile.Read(ref _logLength)) / PAGE_SIZE) + 10) * byte.MaxValue;
 
         /// <summary>
         /// When a page are requested as Writable but not saved in disk, must be discard before release
@@ -172,13 +172,15 @@ namespace LiteDB.Engine
             // do a global write lock - only 1 thread can write on disk at time
             lock(stream)
             {
+                var logLength = Volatile.Read(ref _logLength);
+
                 foreach (var page in pages)
                 {
                     ENSURE(page.ShareCounter == BUFFER_WRITABLE, "to enqueue page, page must be writable");
 
                     // Reserve a new page position at the end of the log file.
                     // Avoid publishing _logLength until after the write succeeds.
-                    var position = _logLength + PAGE_SIZE;
+                    var position = logLength + PAGE_SIZE;
 
                     // adding this page into file AS new page (at end of file)
                     // must add into cache to be sure that new readers can see this page
@@ -204,7 +206,7 @@ namespace LiteDB.Engine
                         stream.Write(readable.Array, readable.Offset, PAGE_SIZE);
 
                         count++;
-                        _logLength = position;
+                        logLength = position;
                     }
                     finally
                     {
@@ -216,6 +218,8 @@ namespace LiteDB.Engine
                     }
                 }
                 stream.Flush();
+
+                Volatile.Write(ref _logLength, logLength);
             }
 
             return count;
@@ -228,11 +232,11 @@ namespace LiteDB.Engine
         {
             if (origin == FileOrigin.Log)
             {
-                return _logLength + PAGE_SIZE;
+                return Volatile.Read(ref _logLength) + PAGE_SIZE;
             }
             else
             {
-                return _dataLength + PAGE_SIZE;
+                return Volatile.Read(ref _dataLength) + PAGE_SIZE;
             }
         }
 
@@ -314,12 +318,13 @@ namespace LiteDB.Engine
         public void WriteDataDisk(IEnumerable<PageBuffer> pages)
         {
             var stream = _dataPool.Writer.Value;
+            var dataLength = Volatile.Read(ref _dataLength);
 
             foreach (var page in pages)
             {
                 ENSURE(page.ShareCounter == 0, "this page can't be shared to use sync operation - do not use cached pages");
 
-                _dataLength = Math.Max(_dataLength, page.Position);
+                dataLength = Math.Max(dataLength, page.Position);
 
                 stream.Position = page.Position;
 
@@ -327,6 +332,8 @@ namespace LiteDB.Engine
             }
 
             stream.FlushToDisk();
+
+            Volatile.Write(ref _dataLength, dataLength);
         }
 
         /// <summary>
@@ -334,18 +341,21 @@ namespace LiteDB.Engine
         /// </summary>
         public void SetLength(long length, FileOrigin origin)
         {
-            var stream = origin == FileOrigin.Log ? _logPool.Writer : _dataPool.Writer;
+            var writer = origin == FileOrigin.Log ? _logPool.Writer.Value : _dataPool.Writer.Value;
 
             if (origin == FileOrigin.Log)
             {
-                Interlocked.Exchange(ref _logLength, length - PAGE_SIZE);
+                lock (writer)
+                {
+                    writer.SetLength(length);
+                    Volatile.Write(ref _logLength, length - PAGE_SIZE);
+                }
             }
             else
             {
-                Interlocked.Exchange(ref _dataLength, length - PAGE_SIZE);
+                writer.SetLength(length);
+                Volatile.Write(ref _dataLength, length - PAGE_SIZE);
             }
-
-            stream.Value.SetLength(length);
         }
 
         /// <summary>
