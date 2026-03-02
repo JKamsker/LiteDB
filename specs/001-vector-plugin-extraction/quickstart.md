@@ -55,7 +55,7 @@
            }));
    }
    ```
-   These registrations ensure collection pages, BSON serialization, and page factories all route through the plugin; without them, behavior follows `PluginMissingBehavior` (default strict): warnings are emitted only in non-strict modes and `VectorCompatibility.PluginRequired` (`LITE2002`) is thrown when vector-owned assets are accessed.
+   These registrations ensure collection pages, BSON serialization, and page factories all route through the plugin; without them, behavior follows `PluginMissingBehavior` (default strict): warnings are emitted only in non-strict modes and `LiteException (LITE2002 / PLUGIN_REQUIRED)` is thrown when vector-owned assets are accessed.
 4. **Demonstrate missing-plugin behavior**—if you forget to register the plugin, vector operations fail deterministically while other data stays accessible:
    ```csharp
    using var db = new LiteDatabase(connectionString); // no plugins

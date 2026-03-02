@@ -86,7 +86,7 @@ specs/001-vector-plugin-extraction/  # Feature docs/assets
 | SC-001 (`rg "Vector" LiteDB` clean outside hooks) | T002, T007-T010 | `scripts/verify-vector-clean.ps1` enforces the grep check after vector APIs move to the plugin. |
 | SC-002 (API surface unchanged aside from removals) | T007, T008, T011 | Optionality tests plus API diff review during T011 confirm the LiteDB-only assembly no longer exposes vector symbols. |
 | SC-003 (=2% regression ceiling with plugin installed) | T009, T020 | Vector benchmarks run as part of plugin extension rewrites; regressions gated before closing Phase 5. |
-| SC-004 (consolidated plugin absence diagnostics) | T005, T014, T015 | Diagnostic policy work and engine enforcement emit a single `VectorCompatibility.PluginRequired` path validated by tests. |
+| SC-004 (consolidated plugin absence diagnostics) | T005, T014, T015 | Diagnostic policy work and engine enforcement emit a single `LiteException (LITE2002 / PLUGIN_REQUIRED)` path validated by tests. |
 | SC-005 (deterministic behavior with/without plugin) | T014, T016 | VectorMetadataCompatibilityTests exercise prototype files both ways, asserting policy-appropriate warnings (non-strict modes) + targeted failures only. |
 
 ## Outstanding Production Readiness Items
