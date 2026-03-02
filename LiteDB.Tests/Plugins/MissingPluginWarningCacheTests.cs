@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Concurrent;
-using System.Reflection;
 using FluentAssertions;
-using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Tests.Utils;
 using LiteDB.Vector;
@@ -16,8 +14,6 @@ namespace LiteDB.Tests.Plugins
         [Fact]
         public void Missing_plugin_warning_cache_should_be_scoped_per_database()
         {
-            ClearMissingPluginWarnings();
-
             using var firstFile = new TempFile();
             using var secondFile = new TempFile();
 
@@ -56,23 +52,6 @@ namespace LiteDB.Tests.Plugins
             collection.EnsureIndex("embedding_idx", x => x.Embedding, new VectorIndexOptions(3)).Should().BeTrue();
         }
 
-        private static void ClearMissingPluginWarnings()
-        {
-            var cache = GetMissingPluginWarnings();
-            cache.Clear();
-        }
-
-        private static ConcurrentDictionary<string, byte> GetMissingPluginWarnings()
-        {
-            var field = typeof(Snapshot).GetField("_missingPluginWarnings", BindingFlags.NonPublic | BindingFlags.Static);
-            field.Should().NotBeNull();
-
-            var cache = field.GetValue(null);
-            cache.Should().NotBeNull();
-
-            return (ConcurrentDictionary<string, byte>)cache;
-        }
-
         private sealed class CollectingLogger : ILogger
         {
             public ConcurrentBag<string> Messages { get; } = new ConcurrentBag<string>();
@@ -91,4 +70,3 @@ namespace LiteDB.Tests.Plugins
         }
     }
 }
-

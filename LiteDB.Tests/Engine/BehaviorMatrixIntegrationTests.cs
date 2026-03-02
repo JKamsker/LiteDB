@@ -1,14 +1,11 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using FluentAssertions;
 using LiteDB.Plugins;
 using LiteDB.Vector;
 using LiteDB.Vector.Utils;
 using LiteDB.Tests.Utils;
-using LiteDB.Engine;
 using Xunit;
 
 namespace LiteDB.Tests.Engine
@@ -48,7 +45,6 @@ namespace LiteDB.Tests.Engine
         {
             using var file = new TempFile();
             SeedDatabase(file.Filename);
-            ClearPluginWarningCache();
 
             using var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename);
             Action action = () => db.Rebuild();
@@ -69,7 +65,6 @@ namespace LiteDB.Tests.Engine
         {
             using var file = new TempFile();
             SeedDatabase(file.Filename, safeToIgnore);
-            ClearPluginWarningCache();
 
             var plugins = pluginPresent ? new[] { VectorSearchPlugin.Instance } : null;
 
@@ -106,8 +101,6 @@ namespace LiteDB.Tests.Engine
             else
             {
                 scenario();
-                var cache = GetPluginWarningCache();
-                cache.Keys.Should().BeEmpty();
             }
         }
 
@@ -125,16 +118,6 @@ namespace LiteDB.Tests.Engine
 
             collection.Insert(documents);
             collection.EnsureIndex(IndexName, x => x.Embedding, new VectorIndexOptions(8, VectorDistanceMetric.Cosine)).Should().BeTrue();
-
-            ClearPluginWarningCache();
-        }
-
-        private static void ClearPluginWarningCache() => GetPluginWarningCache().Clear();
-
-        private static ConcurrentDictionary<string, byte> GetPluginWarningCache()
-        {
-            var field = typeof(Snapshot).GetField("_missingPluginWarnings", BindingFlags.NonPublic | BindingFlags.Static);
-            return (ConcurrentDictionary<string, byte>)field.GetValue(null);
         }
 
         private sealed class VectorDocument

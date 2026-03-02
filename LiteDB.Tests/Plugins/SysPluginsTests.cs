@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using FluentAssertions;
 using LiteDB.Engine;
@@ -18,8 +17,6 @@ namespace LiteDB.Tests.Plugins
         [Fact]
         public void SysPlugins_should_work_under_strict_mode_without_poisoning_warning_cache()
         {
-            ClearMissingPluginWarnings();
-
             using var file = new TempFile();
 
             using (var pluginDatabase = new LiteDatabase(file.Filename, plugins: new[] { VectorSearchPlugin.Instance }))
@@ -41,7 +38,6 @@ namespace LiteDB.Tests.Plugins
                 .FindAll()
                 .ToArray();
 
-            GetMissingPluginWarningCount().Should().Be(0);
             logger.Messages.Should().BeEmpty();
 
             plugins.Should().ContainSingle(row => row["key"].AsString == VectorPlugin.PluginId);
@@ -149,34 +145,6 @@ namespace LiteDB.Tests.Plugins
             var row = plugins.Single(x => x["indexCount"].AsInt32 == 2);
 
             row["errors"].AsArray.Count.Should().Be(1);
-        }
-
-        private static void ClearMissingPluginWarnings()
-        {
-            var field = typeof(Snapshot).GetField("_missingPluginWarnings", BindingFlags.NonPublic | BindingFlags.Static);
-            field.Should().NotBeNull();
-
-            var cache = field.GetValue(null);
-            cache.Should().NotBeNull();
-
-            var clear = cache.GetType().GetMethod("Clear", BindingFlags.Public | BindingFlags.Instance);
-            clear.Should().NotBeNull();
-
-            clear.Invoke(cache, null);
-        }
-
-        private static int GetMissingPluginWarningCount()
-        {
-            var field = typeof(Snapshot).GetField("_missingPluginWarnings", BindingFlags.NonPublic | BindingFlags.Static);
-            field.Should().NotBeNull();
-
-            var cache = field.GetValue(null);
-            cache.Should().NotBeNull();
-
-            var count = cache.GetType().GetProperty("Count", BindingFlags.Public | BindingFlags.Instance);
-            count.Should().NotBeNull();
-
-            return (int)count.GetValue(cache);
         }
 
         private sealed class CollectingLogger : ILogger

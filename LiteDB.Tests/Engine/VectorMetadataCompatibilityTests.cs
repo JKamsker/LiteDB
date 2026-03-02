@@ -1,13 +1,10 @@
 using System;
-using System.Collections.Concurrent;
 using System.Linq;
-using System.Reflection;
 using FluentAssertions;
 using LiteDB.Plugins;
 using LiteDB.Vector;
 using LiteDB.Vector.Utils;
 using LiteDB.Tests.Utils;
-using LiteDB.Engine;
 using Xunit;
 
 namespace LiteDB.Tests.Engine
@@ -22,16 +19,27 @@ namespace LiteDB.Tests.Engine
         {
             using var file = new TempFile();
             SeedVectorDatabase(file.Filename);
-            ClearPluginWarningCache();
 
-            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
+            var logger = new CollectingLogger();
+
+            using (var db = new LiteDatabase(file.Filename, new LiteDatabaseOptions
+            {
+                MissingPluginBehavior = PluginMissingBehavior.AllowIfSafe,
+                Logger = logger
+            }))
             {
                 var collection = db.GetCollection<VectorDocument>(CollectionName);
 
-                var ex = Assert.Throws<LiteException>(() => collection.Count());
-                ex.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
-                ex.Message.Should().Contain(VectorPlugin.PluginId);
+                collection.Count().Should().Be(3);
+                collection.Count().Should().Be(3);
+
+                Action act = () => collection.EnsureIndex(IndexName + "_missing", x => x.Embedding, new VectorIndexOptions(8, VectorDistanceMetric.Cosine));
+
+                act.Should().Throw<LiteException>()
+                    .Which.ErrorCode.Should().Be(LiteException.PLUGIN_REQUIRED);
             }
+
+            logger.Messages.Should().ContainSingle(x => x.Contains(VectorPlugin.PluginId, StringComparison.Ordinal));
         }
 
         [Fact]
@@ -39,9 +47,14 @@ namespace LiteDB.Tests.Engine
         {
             using var file = new TempFile();
             SeedVectorDatabase(file.Filename);
-            ClearPluginWarningCache();
 
-            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename, plugins: new[] { VectorSearchPlugin.Instance }))
+            var logger = new CollectingLogger();
+
+            using (var db = new LiteDatabase(file.Filename, new LiteDatabaseOptions
+            {
+                Logger = logger,
+                Plugins = new[] { VectorSearchPlugin.Instance }
+            }))
             {
                 var collection = db.GetCollection<VectorDocument>(CollectionName);
                 collection.Count().Should().Be(3);
@@ -50,7 +63,7 @@ namespace LiteDB.Tests.Engine
                 recreated.Should().BeFalse();
             }
 
-            GetPluginWarningCache().Keys.Should().BeEmpty();
+            logger.Messages.Should().NotContain(x => x.Contains("is not loaded", StringComparison.OrdinalIgnoreCase));
         }
 
         private static void SeedVectorDatabase(string filename)
@@ -69,12 +82,19 @@ namespace LiteDB.Tests.Engine
             collection.EnsureIndex(IndexName, x => x.Embedding, new VectorIndexOptions(8, VectorDistanceMetric.Cosine)).Should().BeTrue();
         }
 
-        private static void ClearPluginWarningCache() => GetPluginWarningCache().Clear();
-
-        private static ConcurrentDictionary<string, byte> GetPluginWarningCache()
+        private sealed class CollectingLogger : ILogger
         {
-            var field = typeof(Snapshot).GetField("_missingPluginWarnings", BindingFlags.NonPublic | BindingFlags.Static);
-            return (ConcurrentDictionary<string, byte>)field.GetValue(null);
+            private readonly System.Collections.Generic.List<string> _messages = new System.Collections.Generic.List<string>();
+
+            public System.Collections.Generic.IReadOnlyList<string> Messages => _messages;
+
+            public void Write(LogLevel level, string message, Exception exception = null)
+            {
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    _messages.Add(message);
+                }
+            }
         }
 
         private sealed class VectorDocument
