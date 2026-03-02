@@ -190,17 +190,25 @@ namespace LiteDB.Engine
                     // set log stream position to page
                     stream.Position = page.Position;
 
+                    try
+                    {
 #if DEBUG || TESTING
-                    _state.SimulateDiskWriteFail?.Invoke(page);
+                        _state.SimulateDiskWriteFail?.Invoke(page);
 #endif
 
-                    // and write to disk in a sync mode
-                    stream.Write(page.Array, page.Offset, PAGE_SIZE);
+                        // and write to disk in a sync mode
+                        stream.Write(page.Array, page.Offset, PAGE_SIZE);
 
-                    // release page here (no page use after this)
-                    page.Release();
-
-                    count++;
+                        count++;
+                    }
+                    finally
+                    {
+                        // release page even on write failure (avoids leaking ShareCounter != 0 buffers)
+                        if (page.ShareCounter > 0)
+                        {
+                            page.Release();
+                        }
+                    }
                 }
                 stream.Flush();
             }

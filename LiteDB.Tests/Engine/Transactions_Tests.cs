@@ -233,6 +233,33 @@ namespace LiteDB.Tests.Engine
             }
         }
 
+        [Fact]
+        public void Commit_failure_should_release_transaction()
+        {
+            using var logStream = new ToggleThrowStream();
+            using var dataStream = new MemoryStream();
+            using var engine = new LiteEngine(new EngineSettings
+            {
+                DataStream = dataStream,
+                LogStream = logStream
+            });
+            using var db = new LiteDatabase(engine);
+
+            var col = db.GetCollection<BsonDocument>("col");
+
+            db.BeginTrans().Should().BeTrue();
+            col.Insert(new BsonDocument { ["_id"] = 1 });
+
+            logStream.ThrowOnWrite = true;
+
+            db.Invoking(x => x.Commit())
+                .Should()
+                .Throw<InvalidOperationException>();
+
+            db.BeginTrans().Should().BeTrue("failed commits must not leave the current thread in an active transaction");
+            db.Rollback().Should().BeTrue();
+        }
+
         [CpuBoundFact(MIN_CPU_COUNT)]
         public void Test_Transaction_Finalizer()
         {
@@ -244,6 +271,21 @@ namespace LiteDB.Tests.Engine
             // Finalizer should not throw exception
             // If it does, it will be an unhandled exception
             GC.WaitForPendingFinalizers();
+        }
+
+        private sealed class ToggleThrowStream : MemoryStream
+        {
+            public bool ThrowOnWrite { get; set; }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                if (ThrowOnWrite)
+                {
+                    throw new InvalidOperationException("Simulated log stream failure.");
+                }
+
+                base.Write(buffer, offset, count);
+            }
         }
 
 #if DEBUG || TESTING

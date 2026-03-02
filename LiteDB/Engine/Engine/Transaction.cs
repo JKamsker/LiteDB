@@ -63,11 +63,15 @@ namespace LiteDB.Engine
 
             if (transaction != null && transaction.State == TransactionState.Active)
             {
-                transaction.Rollback();
-
-                _monitor.ReleaseTransaction(transaction);
-
-                return true;
+                try
+                {
+                    transaction.Rollback();
+                    return true;
+                }
+                finally
+                {
+                    _monitor.ReleaseTransaction(transaction);
+                }
             }
 
             return false;
@@ -107,12 +111,21 @@ namespace LiteDB.Engine
 
         private void CommitAndReleaseTransaction(TransactionService transaction)
         {
-            transaction.Commit();
+            var committed = false;
 
-            _monitor.ReleaseTransaction(transaction);
+            try
+            {
+                transaction.Commit();
+                committed = true;
+            }
+            finally
+            {
+                _monitor.ReleaseTransaction(transaction);
+            }
 
             // try checkpoint when finish transaction and log file are bigger than checkpoint pragma value (in pages)
-            if (_header.Pragmas.Checkpoint > 0 &&
+            if (committed &&
+                _header.Pragmas.Checkpoint > 0 &&
                 _disk.GetFileLength(FileOrigin.Log) >= (_header.Pragmas.Checkpoint * PAGE_SIZE))
             {
                 _walIndex.TryCheckpoint();
