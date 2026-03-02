@@ -60,6 +60,11 @@ namespace LiteDB.Engine
                 throw new ArgumentNullException(nameof(context));
             }
 
+            if (context.ValidationOnOpenRan)
+            {
+                return;
+            }
+
             var scanner = new PluginRequirementScanner(_header, _disk, _walIndex, _plugins);
             var requirements = scanner.Scan(transactionPages: null);
 
@@ -67,7 +72,9 @@ namespace LiteDB.Engine
 
             var diagnostics = new BsonDocument
             {
-                ["event"] = "plugin.validation_on_open_failed",
+                ["event"] = missing.Length == 0
+                    ? "plugin.validation_on_open_succeeded"
+                    : "plugin.validation_on_open_failed",
                 ["requirements"] = new BsonArray(requirements.Select(x => x.ToDocument())),
                 ["missingCount"] = missing.Length
             };
