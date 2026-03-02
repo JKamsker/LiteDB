@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Threading.Tasks;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Plugins;
@@ -46,6 +49,45 @@ namespace LiteDB.Tests.Client
             handle.GetCollection<BsonDocument>("docs").Count().Should().Be(1);
         }
 
+        [Fact]
+        public async Task CreateDatabase_should_be_race_safe_with_dispose()
+        {
+            var factory = new LiteDatabaseBuilder()
+                .UseInMemory()
+                .BuildFactory();
+
+            var handles = new ConcurrentBag<ILiteDatabase>();
+            var exceptions = new ConcurrentQueue<Exception>();
+
+            var tasks = Enumerable.Range(0, 50)
+                .Select(_ => Task.Run(() =>
+                {
+                    try
+                    {
+                        handles.Add(factory.CreateDatabase());
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Enqueue(ex);
+                    }
+                }))
+                .ToArray();
+
+            factory.Dispose();
+
+            await Task.WhenAll(tasks);
+
+            exceptions.Should().OnlyContain(ex => ex is ObjectDisposedException);
+
+            foreach (var handle in handles)
+            {
+                handle.Dispose();
+                handle.Dispose();
+            }
+
+            factory.Dispose();
+        }
+
         private sealed class TrackingPlugin : ILitePlugin
         {
             public int InitializeCount { get; private set; }
@@ -57,4 +99,3 @@ namespace LiteDB.Tests.Client
         }
     }
 }
-

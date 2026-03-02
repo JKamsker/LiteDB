@@ -31,7 +31,7 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 ## Phase 3 — Factory
 
 - [x] Implement `ILiteDatabaseFactory` + `BuildFactory()`.
-- [ ] Ref-counted handle/lease model (idempotent dispose; thread-safe `CreateDatabase()`).
+- [x] Ref-counted handle/lease model (idempotent dispose; thread-safe `CreateDatabase()`).
 - [ ] Resolve `ILitePlugin.Initialize` factory-mode contract (signature change vs per-handle hook).
 - [ ] Freeze plugin context registries after initialization in all modes.
 - [ ] Refuse or re-scope `Rebuild()` in factory mode (exclusive access requirement).
