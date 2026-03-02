@@ -27,18 +27,34 @@ namespace LiteDB.Engine
 
             this.Close();
 
-            // run build service
-            var rebuilder = new RebuildService(_settings, _plugins);
+            try
+            {
+                // run build service
+                var rebuilder = new RebuildService(_settings, _plugins);
 
-            // return how many bytes of diference from original/rebuild version
-            var diff = rebuilder.Rebuild(options);
+                // return how many bytes of diference from original/rebuild version
+                var diff = rebuilder.Rebuild(options);
 
-            // re-open engine
-            this.Open();
+                // re-open engine
+                this.Open();
 
-            _state.Disposed = false;
+                _state.Disposed = false;
 
-            return diff;
+                return diff;
+            }
+            catch
+            {
+                try
+                {
+                    this.Open();
+                    _state.Disposed = false;
+                }
+                catch
+                {
+                }
+
+                throw;
+            }
         }
 
         private void EnsurePluginAssetsAllowed(RebuildOptions options)
