@@ -350,6 +350,52 @@ namespace LiteDB.Tests.Engine
 
 #endif
 
+        [CpuBoundFact(MIN_CPU_COUNT)]
+        public async Task ForUpdate_Query_Should_Not_Leak_Collection_Write_Lock()
+        {
+            using (var db = DatabaseFactory.Create(connectionString: "filename=:memory:"))
+            {
+                db.Pragma(Pragmas.TIMEOUT, 1);
+                SetEngineTimeout(db, TimeSpan.FromMilliseconds(50));
+
+                var person = db.GetCollection<Person>();
+
+                person.Insert(new Person { Id = 1, Name = "John" });
+
+                var readerDisposed = new SemaphoreSlim(0, 1);
+                var keepThreadAlive = new SemaphoreSlim(0, 1);
+
+                var ta = Task.Run(() =>
+                {
+                    using (var reader = person.Query().ForUpdate().ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                        }
+                    }
+
+                    readerDisposed.Release();
+                    keepThreadAlive.Wait();
+                });
+
+                var tb = Task.Run(() =>
+                {
+                    readerDisposed.Wait();
+
+                    person
+                        .Invoking(x => x.Insert(new Person { Id = 2, Name = "Jane" }))
+                        .Should()
+                        .NotThrow();
+                });
+
+                await tb;
+
+                keepThreadAlive.Release();
+
+                await ta;
+            }
+        }
+
         private class BlockingStream : MemoryStream
         {
             public readonly AutoResetEvent Blocked = new AutoResetEvent(false);

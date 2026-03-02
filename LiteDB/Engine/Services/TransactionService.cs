@@ -435,15 +435,9 @@ namespace LiteDB.Engine
                             .Where(x => x.ShareCounter == BUFFER_WRITABLE));
                     }
 
-                    // release buffers in read-only snaphosts
-                    foreach (var snapshot in _snapshots.Values.Where(x => x.Mode == LockMode.Read))
+                    foreach (var snapshot in _snapshots.Values)
                     {
-                        foreach (var page in snapshot.LocalPages)
-                        {
-                            page.Buffer.Release();
-                        }
-
-                        snapshot.CollectionPage?.Buffer.Release();
+                        snapshot.Dispose();
                     }
                 }
 
