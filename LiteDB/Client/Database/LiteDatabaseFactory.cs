@@ -35,6 +35,7 @@ namespace LiteDB
         private readonly DefaultPluginContext _pluginContext;
         private readonly IReadOnlyList<ILitePlugin> _plugins;
         private readonly IDisposable _ownedResources;
+        private readonly LiteDatabase _hostDatabase;
 
         private int _refCount;
         private int _disposed;
@@ -60,7 +61,7 @@ namespace LiteDB
 
             try
             {
-                using var host = new LiteDatabase(
+                _hostDatabase = new LiteDatabase(
                     _engine,
                     disposeOnClose: false,
                     mapper: _mapper,
@@ -169,6 +170,15 @@ namespace LiteDB
             if (Interlocked.Exchange(ref _cleanupRan, 1) != 0)
             {
                 return;
+            }
+
+            try
+            {
+                _hostDatabase?.Dispose();
+            }
+            catch
+            {
+                // Best-effort cleanup.
             }
 
             if (_ownsEngine)
