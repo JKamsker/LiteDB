@@ -15,11 +15,13 @@ namespace LiteDB.Engine
     {
         private readonly Stream _stream;
         private readonly string _password;
+        private readonly bool _readOnly;
 
-        public StreamFactory(Stream stream, string password)
+        public StreamFactory(Stream stream, string password, bool readOnly = false)
         {
             _stream = stream;
             _password = password;
+            _readOnly = readOnly;
         }
 
         /// <summary>
@@ -55,8 +57,11 @@ namespace LiteDB.Engine
             {
                 length = length - (length % PAGE_SIZE);
 
-                _stream.SetLength(length);
-                _stream.FlushToDisk();
+                if (_readOnly == false && _stream.CanWrite)
+                {
+                    _stream.SetLength(length);
+                    _stream.FlushToDisk();
+                }
             }
 
             return length > 0 ?

@@ -79,16 +79,24 @@ namespace LiteDB.Engine
             {
                 length = length - (length % PAGE_SIZE);
 
-                using (var fs = new FileStream(
-                    _filename,
-                    System.IO.FileMode.Open,
-                    FileAccess.Write,
-                    FileShare.None,
-                    PAGE_SIZE,
-                    FileOptions.SequentialScan))
+                if (_readonly)
                 {
-                    fs.SetLength(length);
-                    fs.FlushToDisk();
+                    // Do not modify the underlying file in read-only mode.
+                    // The engine will treat the logical file length as page-aligned.
+                }
+                else
+                {
+                    using (var fs = new FileStream(
+                        _filename,
+                        System.IO.FileMode.Open,
+                        FileAccess.Write,
+                        FileShare.None,
+                        PAGE_SIZE,
+                        FileOptions.SequentialScan))
+                    {
+                        fs.SetLength(length);
+                        fs.FlushToDisk();
+                    }
                 }
             }
 
