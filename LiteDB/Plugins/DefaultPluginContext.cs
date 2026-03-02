@@ -14,6 +14,8 @@ namespace LiteDB.Plugins
         internal string WarningScopeKey { get; } = Guid.NewGuid().ToString("N");
 
         private int _frozen;
+        private int _validationOnOpenRan;
+        private BsonDocument _validationOnOpenDiagnostics;
 
         public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
             : this(connectionString, services, logger, PluginMissingBehavior.RefuseDatabase, null)
@@ -77,6 +79,16 @@ namespace LiteDB.Plugins
         internal PluginMissingBehavior MissingPluginBehavior { get; }
 
         internal bool? ValidatePluginsOnOpen { get; }
+
+        internal bool ValidationOnOpenRan => Volatile.Read(ref _validationOnOpenRan) != 0;
+
+        internal BsonDocument ValidationOnOpenDiagnostics => Volatile.Read(ref _validationOnOpenDiagnostics);
+
+        internal void RecordValidationOnOpen(BsonDocument diagnostics)
+        {
+            Volatile.Write(ref _validationOnOpenDiagnostics, diagnostics);
+            Interlocked.Exchange(ref _validationOnOpenRan, 1);
+        }
 
         public void RegisterQueryMetadata(string pluginId, int version, IReadOnlyCollection<string> reservedKeys)
         {

@@ -60,20 +60,10 @@ namespace LiteDB.Engine
                 throw new ArgumentNullException(nameof(context));
             }
 
-            if (context.MissingPluginBehavior != PluginMissingBehavior.RefuseDatabase)
-            {
-                return;
-            }
-
             var scanner = new PluginRequirementScanner(_header, _disk, _walIndex, _plugins);
             var requirements = scanner.Scan(transactionPages: null);
 
             var missing = requirements.Where(x => x.StrategyAvailable == false).ToArray();
-
-            if (missing.Length == 0)
-            {
-                return;
-            }
 
             var diagnostics = new BsonDocument
             {
@@ -81,6 +71,18 @@ namespace LiteDB.Engine
                 ["requirements"] = new BsonArray(requirements.Select(x => x.ToDocument())),
                 ["missingCount"] = missing.Length
             };
+
+            context.RecordValidationOnOpen(diagnostics);
+
+            if (missing.Length == 0)
+            {
+                return;
+            }
+
+            if (context.MissingPluginBehavior != PluginMissingBehavior.RefuseDatabase)
+            {
+                return;
+            }
 
             var pluginId = missing.Select(x => x.PluginId).FirstOrDefault(x => !string.Equals(x, "<unknown>", StringComparison.Ordinal));
             var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;

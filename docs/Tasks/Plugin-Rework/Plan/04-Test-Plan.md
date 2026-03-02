@@ -77,7 +77,7 @@
     - [ ] Corrupt legacy/plugin metadata (or a collection page) so scanning triggers a parse failure; `$plugins` must not throw, must include an `errors[]` entry, and must still surface the affected collection under the appropriate unknown/type row (`key = "type:{indexType}"`).
     - [ ] Orphan metadata case: metadata-without-index is surfaced in `errors[]` and does not by itself change enforcement if `IndexType == 0` (metadata is diagnostic-only).
 21. [ ] (P0) `ValidatePluginsOnOpen` does not poison missing-plugin enforcement/warn caches:
-    - [ ] Enable `ValidatePluginsOnOpen` with `AllowIfSafe`, open db without the plugin; validation records diagnostics but does not warn or poison warn-once behavior. First real affected-collection access produces the expected warn-once behavior.
+    - [x] Enable `ValidatePluginsOnOpen` with `AllowIfSafe`, open db without the plugin; validation records diagnostics but does not warn or poison warn-once behavior. First real affected-collection access produces the expected warn-once behavior.
 
 ## Validation-on-open
 
@@ -86,7 +86,7 @@
     - [ ] Enabled: expect failure before first operation (fail-fast). Under `ConnectionType.Direct` this can fail during construction; under `ConnectionType.Shared` it fails on the first operation.
     - [ ] Failure diagnostics parity: the thrown exception includes the same requirement diagnostics that `$plugins`/typed API would report (since `$plugins` may be unreachable when validation fails during open).
     - [ ] Resource cleanup: after a fail-fast validation failure during construction, the underlying file/engine is not left locked; the database can be reopened normally in a subsequent attempt.
-23. [ ] (P0) `ValidatePluginsOnOpen=true` + `AllowIfSafe`: construction succeeds; diagnostics recorded; no warnings emitted during validation.
+23. [x] (P0) `ValidatePluginsOnOpen=true` + `AllowIfSafe`: construction succeeds; diagnostics recorded; no warnings emitted during validation.
 24. [ ] (P0) `ConnectionType.Shared` + validation failure does not deadlock:
     - [ ] Trigger a validation-on-open failure under `SharedEngine` and then run another operation; it must fail fast (no hang) and must not leak the shared mutex/engine state.
 25. [ ] (P0) `SharedEngine` + `AllowIfSafe` + write attempt:
