@@ -205,7 +205,7 @@ namespace LiteDB.Engine
             }
 
             var termsSnapshot = _terms.ToArray();
-            var planningContext = new QueryPlanningContext(_snapshot, _query, Array.AsReadOnly(termsSnapshot), _queryPlan, pluginContext);
+            var terms = Array.AsReadOnly(termsSnapshot);
 
             foreach (var rule in rules)
             {
@@ -213,6 +213,8 @@ namespace LiteDB.Engine
                 {
                     continue;
                 }
+
+                var planningContext = new QueryPlanningContext(_snapshot, _query, terms, _queryPlan, pluginContext);
 
                 if (!rule.TryRewrite(planningContext))
                 {
@@ -247,9 +249,6 @@ namespace LiteDB.Engine
                 _queryPlan.IndexExpression = planningContext.SelectedIndexExpression;
                 _queryPlan.IsIndexKeyOnly = planningContext.SelectedIsIndexKeyOnly;
 
-                var computedCost = this.CalculateIndexCost(planningContext, selected);
-                _queryPlan.IndexCost = computedCost;
-
                 foreach (var term in planningContext.ConsumedTerms)
                 {
                     if (term != null && consumedTerms.Add(term) && selected == null)
@@ -257,6 +256,9 @@ namespace LiteDB.Engine
                         selected = term;
                     }
                 }
+
+                var computedCost = this.CalculateIndexCost(planningContext, selected);
+                _queryPlan.IndexCost = computedCost;
 
                 if (planningContext.OrderByConsumed)
                 {
@@ -303,7 +305,8 @@ namespace LiteDB.Engine
 
             ENSURE(_queryPlan.Index != null, "query optimization must select an index");
 
-            if (_queryPlan.Fields.Count == 1 && _queryPlan.IndexExpression == "$." + _queryPlan.Fields.First())
+            if (_queryPlan.Fields.Count == 1 &&
+                string.Equals(_queryPlan.IndexExpression, "$." + _queryPlan.Fields.First(), StringComparison.OrdinalIgnoreCase))
             {
                 _queryPlan.IsIndexKeyOnly = true;
             }
@@ -377,10 +380,10 @@ namespace LiteDB.Engine
                 else
                 {
                     index = indexes
-                        .Where(x => x.Expression == expr.Left.Source && expr.Right.IsValue)
+                        .Where(x => string.Equals(x.Expression, expr.Left.Source, StringComparison.OrdinalIgnoreCase) && expr.Right.IsValue)
                         .Select(x => Tuple.Create(x, expr.Right))
                         .Union(indexes
-                            .Where(x => x.Expression == expr.Right.Source && expr.Left.IsValue)
+                            .Where(x => string.Equals(x.Expression, expr.Right.Source, StringComparison.OrdinalIgnoreCase) && expr.Left.IsValue)
                             .Select(x => Tuple.Create(x, expr.Left))
                         ).FirstOrDefault();
                 }
@@ -403,9 +406,9 @@ namespace LiteDB.Engine
             {
                 var orderByExpr = _query.OrderBy.Count > 0 ? _query.OrderBy[0].Expression.Source : null;
                 var index =
-                    indexes.FirstOrDefault(x => x.Expression == _query.GroupBy?.Source) ??
-                    indexes.FirstOrDefault(x => x.Expression == orderByExpr) ??
-                    indexes.FirstOrDefault(x => x.Expression == preferred);
+                    indexes.FirstOrDefault(x => string.Equals(x.Expression, _query.GroupBy?.Source, StringComparison.OrdinalIgnoreCase)) ??
+                    indexes.FirstOrDefault(x => string.Equals(x.Expression, orderByExpr, StringComparison.OrdinalIgnoreCase)) ??
+                    indexes.FirstOrDefault(x => string.Equals(x.Expression, preferred, StringComparison.OrdinalIgnoreCase));
 
                 if (index != null)
                 {
@@ -437,7 +440,7 @@ namespace LiteDB.Engine
             var orderBy = new OrderBy(_query.OrderBy.Select(x => new OrderByItem(x.Expression, x.Order)));
 
             // if index expression are same as primary OrderBy segment, use index order configuration
-            if (orderBy.PrimaryExpression.Source == _queryPlan.IndexExpression)
+            if (string.Equals(orderBy.PrimaryExpression.Source, _queryPlan.IndexExpression, StringComparison.OrdinalIgnoreCase))
             {
                 _queryPlan.Index.Order = orderBy.PrimaryOrder;
 
@@ -466,7 +469,7 @@ namespace LiteDB.Engine
             var groupOrderBy = (OrderBy)null;
 
             // if groupBy use same expression in index, no additional ordering is required before grouping
-            if (expression.Source == _queryPlan.IndexExpression)
+            if (string.Equals(expression.Source, _queryPlan.IndexExpression, StringComparison.OrdinalIgnoreCase))
             {
                 // index already provides grouped ordering
             }
@@ -556,13 +559,68 @@ namespace LiteDB.Engine
                 }
             }
 
-            var pk = _snapshot.CollectionPage?.PK;
-            return _queryPlan.Index.GetCost(pk);
+            var collectionPage = _snapshot.CollectionPage;
+            var index = collectionPage?.GetCollectionIndex(_queryPlan.Index.Name) ?? collectionPage?.PK;
+
+            if (index == null)
+            {
+                return uint.MaxValue;
+            }
+
+            return _queryPlan.Index.GetCost(index);
         }
+
+        private long? _estimatedDocumentCount;
 
         private long GetEstimatedDocumentCount()
         {
-            return 0;
+            if (_estimatedDocumentCount.HasValue)
+            {
+                return _estimatedDocumentCount.Value;
+            }
+
+            long estimate = 0;
+
+            try
+            {
+                var collectionPage = _snapshot?.CollectionPage;
+
+                if (collectionPage != null)
+                {
+                    var visitedPages = new HashSet<uint>();
+
+                    for (var slot = 0; slot < PAGE_FREE_LIST_SLOTS; slot++)
+                    {
+                        var next = collectionPage.FreeDataPageList[slot];
+                        var counter = 0u;
+
+                        while (next != uint.MaxValue)
+                        {
+                            if (!visitedPages.Add(next))
+                            {
+                                break;
+                            }
+
+                            var page = _snapshot.GetPage<DataPage>(next);
+
+                            estimate += page.ItemsCount;
+                            next = page.NextPageID;
+
+                            if (counter++ > _snapshot.MaxItemsCount)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                estimate = 0;
+            }
+
+            _estimatedDocumentCount = estimate;
+            return estimate;
         }
     }
 }
