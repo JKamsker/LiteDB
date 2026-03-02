@@ -37,7 +37,8 @@ namespace LiteDB.Plugins.Query
             {
                 if (_registrations.ContainsKey(registration.IndexKind))
                 {
-                    throw new InvalidOperationException($"Cost model for index kind '{registration.IndexKind}' is already registered by plugin '{_registrations[registration.IndexKind].PluginId}'.");
+                    var existing = _registrations[registration.IndexKind];
+                    throw new InvalidOperationException($"Cost model for index kind '{registration.IndexKind}' is already registered by plugin '{existing.PluginId}' and cannot be claimed by '{registration.PluginId}'.");
                 }
 
                 _registrations[registration.IndexKind] = registration;

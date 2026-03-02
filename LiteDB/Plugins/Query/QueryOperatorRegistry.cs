@@ -37,7 +37,8 @@ namespace LiteDB.Plugins.Query
             {
                 if (_operators.ContainsKey(registration.OperatorName))
                 {
-                    throw new InvalidOperationException($"Query operator '{registration.OperatorName}' is already registered by plugin '{_operators[registration.OperatorName].PluginId}'.");
+                    var existing = _operators[registration.OperatorName];
+                    throw new InvalidOperationException($"Query operator '{registration.OperatorName}' is already registered by plugin '{existing.PluginId}' and cannot be claimed by '{registration.PluginId}'.");
                 }
 
                 _operators[registration.OperatorName] = registration;

@@ -370,7 +370,7 @@ namespace LiteDB.Plugins
             {
                 if (_strategies.TryGetValue(descriptor.StrategyId, out var existing))
                 {
-                    throw new InvalidOperationException($"Index strategy '{descriptor.StrategyId}' is already registered by plugin '{existing.PluginId}'.");
+                    throw new InvalidOperationException($"Index strategy '{descriptor.StrategyId}' is already registered by plugin '{existing.PluginId}' and cannot be claimed by '{descriptor.PluginId}'.");
                 }
 
                 _strategies[descriptor.StrategyId] = descriptor;
@@ -437,7 +437,7 @@ namespace LiteDB.Plugins
             {
                 if (_descriptors.TryGetValue(descriptor.IndexKind, out var existing))
                 {
-                    throw new InvalidOperationException($"Index metadata descriptor '{descriptor.IndexKind}' is already registered by plugin '{existing.PluginId}'.");
+                    throw new InvalidOperationException($"Index metadata descriptor '{descriptor.IndexKind}' is already registered by plugin '{existing.PluginId}' and cannot be claimed by '{descriptor.PluginId}'.");
                 }
 
                 _descriptors[descriptor.IndexKind] = descriptor;

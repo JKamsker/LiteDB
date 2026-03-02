@@ -37,7 +37,8 @@ namespace LiteDB.Plugins.Query
             {
                 if (_registrations.ContainsKey(registration.FunctionName))
                 {
-                    throw new InvalidOperationException($"SQL function '{registration.FunctionName}' is already registered by plugin '{_registrations[registration.FunctionName].PluginId}'.");
+                    var existing = _registrations[registration.FunctionName];
+                    throw new InvalidOperationException($"SQL function '{registration.FunctionName}' is already registered by plugin '{existing.PluginId}' and cannot be claimed by '{registration.PluginId}'.");
                 }
 
                 _registrations[registration.FunctionName] = registration;
