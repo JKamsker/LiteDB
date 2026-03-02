@@ -100,9 +100,14 @@ namespace LiteDB.Engine
             {
                 if (_state.Handle(ex))
                 {
-                    transaction.Rollback();
-
-                    _monitor.ReleaseTransaction(transaction);
+                    try
+                    {
+                        transaction.Rollback();
+                    }
+                    finally
+                    {
+                        _monitor.ReleaseTransaction(transaction);
+                    }
                 }
 
                 throw;
