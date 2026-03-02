@@ -23,6 +23,37 @@ namespace LiteDB.Tests.Plugins
                 .WithMessage("*LiteDB.Vector*");
         }
 
+        [Theory]
+        [InlineData(ReservedCodeRanges.VectorBsonStart)]
+        [InlineData(ReservedCodeRanges.VectorBsonEnd)]
+        public void CustomBsonRegistryShouldRejectVectorReservedAliasesFromOtherPlugins(byte reservedAlias)
+        {
+            var registry = new CustomBsonTypeRegistry();
+            var descriptor = CreateBsonDescriptor("ThirdParty.Plugin", typeCode: 0x80, legacyAliases: new[] { reservedAlias });
+
+            Action act = () => registry.Register(descriptor);
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*LiteDB.Vector*");
+        }
+
+        [Fact]
+        public void CustomBsonRegistryShouldRejectAliasesThatOverlapTypeCodes()
+        {
+            var registry = new CustomBsonTypeRegistry();
+            var descriptor = CreateBsonDescriptor("Plugin.A", typeCode: 0x80);
+            var conflicting = CreateBsonDescriptor("Plugin.B", typeCode: 0x81, legacyAliases: new[] { (byte)0x80 });
+
+            registry.Register(descriptor);
+
+            Action act = () => registry.Register(conflicting);
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*Plugin.A*Plugin.B*");
+        }
+
         [Fact]
         public void PageTypeRegistryShouldRejectVectorReservedCodesFromOtherPlugins()
         {
@@ -77,6 +108,11 @@ namespace LiteDB.Tests.Plugins
 
         private static CustomBsonTypeDescriptor CreateBsonDescriptor(string pluginId, byte typeCode)
         {
+            return CreateBsonDescriptor(pluginId, typeCode, legacyAliases: null);
+        }
+
+        private static CustomBsonTypeDescriptor CreateBsonDescriptor(string pluginId, byte typeCode, byte[] legacyAliases)
+        {
             return new CustomBsonTypeDescriptor(
                 pluginId,
                 typeCode,
@@ -84,7 +120,8 @@ namespace LiteDB.Tests.Plugins
                 calculateSize: _ => 0,
                 serializer: (_, __) => { },
                 deserializer: _ => BsonValue.Null,
-                jsonFormatter: _ => "null");
+                jsonFormatter: _ => "null",
+                legacyAliases: legacyAliases);
         }
 
         private static PageFactoryRegistration CreatePageRegistration(string pluginId, byte code)

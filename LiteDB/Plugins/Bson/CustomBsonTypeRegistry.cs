@@ -70,6 +70,33 @@ namespace LiteDB.Plugins.Bson
                 {
                     foreach (var alias in descriptor.LegacyAliases)
                     {
+                        if (alias == descriptor.TypeCode)
+                        {
+                            continue;
+                        }
+
+                        if (alias < 128 && !string.Equals(descriptor.PluginId, "LiteDB.Core", StringComparison.Ordinal))
+                        {
+                            throw new ArgumentOutOfRangeException(nameof(descriptor.LegacyAliases), "Plugin-reserved BSON type aliases must be >= 128.");
+                        }
+
+                        ReservedCodeRanges.EnsurePluginOwnsReservedRange(
+                            descriptor.PluginId,
+                            alias,
+                            ReservedCodeRanges.VectorBsonStart,
+                            ReservedCodeRanges.VectorBsonEnd,
+                            ReservedCodeRanges.VectorPluginId,
+                            "BSON type code");
+
+                        if (_typesByCode.TryGetValue(alias, out var existingByAliasCode))
+                        {
+                            ReservedCodeRanges.EnsureUnique(
+                                conflictDetected: true,
+                                identifierDescription: $"BSON type alias 0x{alias:X2}",
+                                existingPluginId: existingByAliasCode.PluginId,
+                                incomingPluginId: descriptor.PluginId);
+                        }
+
                         if (_aliases.ContainsKey(alias))
                         {
                             ReservedCodeRanges.EnsureUnique(
