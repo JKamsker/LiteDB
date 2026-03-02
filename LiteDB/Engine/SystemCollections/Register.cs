@@ -17,6 +17,7 @@ namespace LiteDB.Engine
 
             this.RegisterSystemCollection("$cols", () => this.SysCols());
             this.RegisterSystemCollection("$indexes", () => this.SysIndexes());
+            this.RegisterSystemCollection("$plugins", () => this.SysPlugins());
 
             this.RegisterSystemCollection("$sequences", () => this.SysSequences());
 
