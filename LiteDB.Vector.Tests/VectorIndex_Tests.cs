@@ -610,7 +610,7 @@ namespace LiteDB.Vector.Tests.Querying
         }
 
         [Fact]
-        public void OrderBy_VectorSimilarity_WithCompositeOrdering_UsesVectorIndex()
+        public void OrderBy_VectorSimilarity_WithIdTieBreaker_UsesVectorIndex()
         {
             using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
             var collection = db.GetCollection<VectorDocument>("vectors");
@@ -631,7 +631,8 @@ namespace LiteDB.Vector.Tests.Querying
 
             var query = (LiteQueryable<VectorDocument>)collection.Query()
                 .OrderBy(distanceExpr, LiteDB.Query.Ascending)
-                .ThenBy(x => x.Flag);
+                .ThenBy(x => x.Id)
+                .Limit(3);
 
             var queryField = typeof(LiteQueryable<VectorDocument>).GetField("_query", BindingFlags.NonPublic | BindingFlags.Instance);
             var definition = (LiteDB.Query)queryField.GetValue(query);
@@ -655,11 +656,11 @@ namespace LiteDB.Vector.Tests.Querying
 
             plan["index"]["mode"].AsString.Should().Be("VECTOR INDEX SEARCH");
             plan["index"]["expr"].AsString.Should().Be("$.Embedding");
-            plan.ContainsKey("orderBy").Should().BeTrue();
+            plan.ContainsKey("orderBy").Should().BeFalse();
 
             var results = query.ToArray();
 
-            results.Select(x => x.Id).Should().Equal(new[] { 2, 1, 3 });
+            results.Select(x => x.Id).Should().Equal(new[] { 1, 2, 3 });
         }
 
         [Fact]
@@ -684,7 +685,7 @@ namespace LiteDB.Vector.Tests.Querying
                 CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions(2, VectorDistanceMetric.Euclidean));
 
-            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [0.0, 0.0])");
+            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [0.0, 0.0], 'Euclidean')");
 
             var query = collection.Query()
                 .OrderBy(distanceExpr, LiteDB.Query.Ascending)
@@ -718,7 +719,7 @@ namespace LiteDB.Vector.Tests.Querying
                 CreateExpression(db, "$.Embedding"),
                 new VectorIndexOptions(2, VectorDistanceMetric.Euclidean));
 
-            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [0.0, 0.0])");
+            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [0.0, 0.0], 'Euclidean')");
 
             var query = collection.Query()
                 .OrderBy(distanceExpr, LiteDB.Query.Ascending)

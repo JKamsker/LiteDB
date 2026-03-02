@@ -163,13 +163,24 @@ namespace LiteDB.Vector.Query
                 return false;
             }
 
+            var defaultMetric = (byte)VectorDistanceMetric.Cosine;
+            var effectiveMetric = metric ?? defaultMetric;
+            var effectiveOrderByMetric = orderByMetric ?? defaultMetric;
+
             var orderByMatchesVectorQuery = orderByConsumable &&
                 string.Equals(orderByExpression, expression, StringComparison.OrdinalIgnoreCase) &&
                 TargetsEqual(orderByTarget, target) &&
-                (!orderByMetric.HasValue || !metric.HasValue || orderByMetric.Value == metric.Value);
+                effectiveOrderByMetric == effectiveMetric;
 
             int? limit = context.Query.Limit != int.MaxValue ? context.Query.Limit : (int?)null;
             var offset = context.Query.Offset;
+
+            if (!limit.HasValue && offset > 0)
+            {
+                // OFFSET without LIMIT requires retrieving (potentially) the full result set.
+                // Vector searches use a finite candidate cap, which can underfill OFFSET-based paging.
+                return false;
+            }
 
             if (limit.HasValue &&
                 context.Query.OrderBy.Count > 0 &&
@@ -181,19 +192,25 @@ namespace LiteDB.Vector.Query
             }
 
             if (!limit.HasValue &&
-                offset > 0 &&
                 context.Query.OrderBy.Count > 0 &&
-                orderByMatchesVectorQuery)
+                orderByMatchesVectorQuery &&
+                consumedTerm == null)
             {
-                // OFFSET without LIMIT requires retrieving (potentially) the full ordered result set.
-                // Vector searches use a finite candidate cap, which can underfill OFFSET-only paging.
+                // ORDER BY without LIMIT requires retrieving (potentially) the full ordered result set.
+                // Vector searches use a finite candidate cap, which can underfill ORDER BY semantics.
                 return false;
             }
 
             if (limit.HasValue && offset > 0)
             {
                 var required = (long)offset + limit.Value;
-                limit = required > int.MaxValue ? int.MaxValue : (int)required;
+
+                if (required > int.MaxValue)
+                {
+                    return false;
+                }
+
+                limit = (int)required;
             }
 
             foreach (var (index, pluginId, metadataBuffer) in collection.GetPluginIndexes())
@@ -215,13 +232,14 @@ namespace LiteDB.Vector.Query
                     continue;
                 }
 
-                if (metric.HasValue && metric.Value != metadata.Metric)
+                var resolvedMetric = metric ?? (metadataBag != null ? metadata.Metric : defaultMetric);
+
+                if (resolvedMetric != metadata.Metric)
                 {
                     continue;
                 }
 
-                byte? metricByte = metric ?? metadata.Metric;
-                var effectiveMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, metricByte, maxDistanceNormalized);
+                var effectiveMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, resolvedMetric, maxDistanceNormalized);
 
                 var vectorIndex = new VectorIndexQuery(index.Name, snapshot, index, metadata, target, effectiveMaxDistance, limit, collation);
                 var consumed = consumedTerm != null ? new[] { consumedTerm } : Array.Empty<BsonExpression>();
@@ -237,9 +255,12 @@ namespace LiteDB.Vector.Query
                     pluginIndexKind: VectorPlugin.IndexKind,
                     pluginMetadata: metadataDocument);
 
+                var resolvedOrderByMetric = orderByMetric ?? resolvedMetric;
+
                 context.OrderByConsumed = orderByConsumable &&
                     string.Equals(orderByExpression, expression, StringComparison.OrdinalIgnoreCase) &&
-                    TargetsEqual(orderByTarget, target);
+                    TargetsEqual(orderByTarget, target) &&
+                    resolvedOrderByMetric == resolvedMetric;
                 return true;
             }
 
@@ -426,7 +447,19 @@ namespace LiteDB.Vector.Query
 #pragma warning disable CS0618
             if (value is BsonVector bsonVector)
             {
-                vector = bsonVector.Values.ToArray();
+                var candidate = bsonVector.Values.ToArray();
+
+                for (var i = 0; i < candidate.Length; i++)
+                {
+                    var item = candidate[i];
+
+                    if (float.IsNaN(item) || float.IsInfinity(item))
+                    {
+                        return false;
+                    }
+                }
+
+                vector = candidate;
                 return true;
             }
             #pragma warning restore CS0618
@@ -450,7 +483,14 @@ namespace LiteDB.Vector.Query
 
                 try
                 {
-                    buffer[i] = (float)item.AsDouble;
+                    var floatValue = (float)item.AsDouble;
+
+                    if (float.IsNaN(floatValue) || float.IsInfinity(floatValue))
+                    {
+                        return false;
+                    }
+
+                    buffer[i] = floatValue;
                 }
                 catch
                 {
@@ -693,7 +733,16 @@ namespace LiteDB.Vector.Query
 
             if (value.IsNumber)
             {
-                var numeric = value.AsInt32;
+                int numeric;
+
+                try
+                {
+                    numeric = value.AsInt32;
+                }
+                catch
+                {
+                    return false;
+                }
 
                 if (numeric < byte.MinValue || numeric > byte.MaxValue)
                 {
@@ -711,7 +760,9 @@ namespace LiteDB.Vector.Query
                 return false;
             }
 
-            if (value.IsString && Enum.TryParse<VectorDistanceMetric>(value.AsString, true, out var parsed))
+            if (value.IsString &&
+                Enum.TryParse<VectorDistanceMetric>(value.AsString, true, out var parsed) &&
+                Enum.IsDefined(typeof(VectorDistanceMetric), parsed))
             {
                 metric = (byte)parsed;
                 return true;
@@ -756,6 +807,11 @@ namespace LiteDB.Vector.Query
                 }
 
                 buffer[i] = value;
+
+                if (float.IsNaN(value) || float.IsInfinity(value))
+                {
+                    return false;
+                }
             }
 
             vector = buffer;
