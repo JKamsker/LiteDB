@@ -8,6 +8,7 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface IPluginDiagnosticPolicy
     {
+        [Obsolete("Use LiteDatabaseOptions.MissingPluginBehavior instead. This property is ignored for enforcement.")]
         PluginMissingBehavior MissingBehavior { get; }
 
         LiteException CreateMissingPluginException(string pluginId, string operation, BsonDocument diagnostics);
@@ -19,6 +20,7 @@ namespace LiteDB.Plugins
     public enum PluginMissingBehavior
     {
         RefuseDatabase = 0,
+        [Obsolete("Use AllowIfSafe instead. RefuseOperations is treated as AllowIfSafe.")]
         RefuseOperations = 1,
         AllowIfSafe = 2
     }
@@ -33,6 +35,7 @@ namespace LiteDB.Plugins
             MissingBehavior = behavior;
         }
 
+        [Obsolete("Use LiteDatabaseOptions.MissingPluginBehavior instead. This property is ignored for enforcement.")]
         public PluginMissingBehavior MissingBehavior { get; }
 
         public abstract LiteException CreateMissingPluginException(string pluginId, string operation, BsonDocument diagnostics);

@@ -22,7 +22,7 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 - [x] Rebuild/recovery: never swallow `PLUGIN_REQUIRED`; keep strict-by-default behavior.
 - [x] Optional salvage: `DropOrphanedPluginIndexes` requires durable error report.
 - [x] Remove vector-specific wording from missing-plugin warnings (core must be plugin-agnostic).
-- [ ] Mark `IPluginDiagnosticPolicy.MissingBehavior` and `PluginMissingBehavior.RefuseOperations` as `[Obsolete]` per plan.
+- [x] Mark `IPluginDiagnosticPolicy.MissingBehavior` and `PluginMissingBehavior.RefuseOperations` as `[Obsolete]` per plan.
 
 ## Phase 2 — Builder
 
