@@ -123,9 +123,13 @@ namespace LiteDB.Engine
                 ["event"] = missing.Length == 0
                     ? "plugin.validation_on_open_succeeded"
                     : "plugin.validation_on_open_failed",
-                ["requirements"] = new BsonArray(requirements.Select(x => x.ToDocument())),
                 ["missingCount"] = missing.Length
             };
+
+            if (missing.Length > 0)
+            {
+                diagnostics["requirements"] = new BsonArray(requirements.Select(x => x.ToDocument()));
+            }
 
             context.RecordValidationOnOpen(diagnostics, _engineInstanceId);
 
