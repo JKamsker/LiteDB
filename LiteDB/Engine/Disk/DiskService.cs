@@ -417,7 +417,7 @@ namespace LiteDB.Engine
         {
             // get stream length from writer - is safe because only this instance
             // can change file size
-            var delete = _logFactory.Exists() && _logPool.Writer.Value.Length == 0;
+            var delete = _readOnly == false && _logFactory.Exists() && _logPool.Writer.Value.Length == 0;
 
             // dispose Stream pools
             _dataPool.Dispose();
