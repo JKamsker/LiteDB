@@ -25,6 +25,7 @@ namespace LiteDB
         private readonly IDisposable _ownedResources;
         private readonly DefaultPluginContext _pluginContext;
         private readonly bool _disallowRebuild;
+        private int _disposed;
 
         /// <summary>
         /// Provides access to plugin services registered for this database instance.
@@ -549,7 +550,7 @@ namespace LiteDB
         {
             if (_engineLease != null || _disallowRebuild)
             {
-                throw new InvalidOperationException("Rebuild is not supported for databases created by a factory. Rebuild requires exclusive access to the engine.");
+                throw new InvalidOperationException("Rebuild requires exclusive engine access and is not supported for leased or shared database handles.");
             }
 
             return _engine.Rebuild(options ?? new RebuildOptions());
@@ -639,27 +640,109 @@ namespace LiteDB
 
         ~LiteDatabase()
         {
-            this.Dispose(false);
+            try
+            {
+                this.Dispose(false);
+            }
+            catch
+            {
+                // Never throw from finalizers.
+            }
         }
 
         protected virtual void Dispose(bool disposing)
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
             if (disposing)
             {
-                _ownedResources?.Dispose();
-
-                if (_engineLease != null)
+                try
                 {
-                    _engineLease.Dispose();
+                    _engineLease?.Dispose();
                 }
-                else if (_disposeOnClose)
+                catch
+                {
+                    // Best-effort cleanup.
+                }
+
+                try
+                {
+                    _ownedResources?.Dispose();
+                }
+                catch
+                {
+                    // Best-effort cleanup.
+                }
+
+                if (_engineLease == null && _disposeOnClose)
                 {
                     if (_checkpointOverride.HasValue)
                     {
-                        _engine.Pragma(Pragmas.CHECKPOINT, _checkpointOverride.Value);
+                        try
+                        {
+                            _engine.Pragma(Pragmas.CHECKPOINT, _checkpointOverride.Value);
+                        }
+                        catch
+                        {
+                            // Best-effort cleanup.
+                        }
                     }
 
+                    try
+                    {
+                        _engine.Dispose();
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
+                }
+
+                return;
+            }
+
+            try
+            {
+                _ownedResources?.Dispose();
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+
+            try
+            {
+                _engineLease?.Dispose();
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+
+            if (_engineLease == null && _disposeOnClose)
+            {
+                if (_checkpointOverride.HasValue)
+                {
+                    try
+                    {
+                        _engine.Pragma(Pragmas.CHECKPOINT, _checkpointOverride.Value);
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
+                }
+
+                try
+                {
                     _engine.Dispose();
+                }
+                catch
+                {
+                    // Best-effort cleanup.
                 }
             }
         }

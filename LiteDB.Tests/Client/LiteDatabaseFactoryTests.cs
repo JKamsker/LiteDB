@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -104,6 +105,46 @@ namespace LiteDB.Tests.Client
 
             handle.GetCollection<BsonDocument>("docs").Insert(new BsonDocument { ["_id"] = 1 });
             handle.GetCollection<BsonDocument>("docs").Count().Should().Be(1);
+        }
+
+        [Fact]
+        public void Factory_cleanup_should_run_when_unreferenced_handle_is_finalized()
+        {
+            var engine = new TestPluginHostEngine();
+            var ownedResources = new TrackingDisposable();
+            var pluginContext = new DefaultPluginContext(new ConnectionString(), null, null);
+
+            using var factory = new LiteDatabaseFactory(
+                engine,
+                ownsEngine: true,
+                mapper: BsonMapper.Global,
+                pluginContext: pluginContext,
+                plugins: Array.Empty<ILitePlugin>(),
+                ownedResources: ownedResources);
+
+            var handleRef = CreateUnreleasedHandle(factory);
+
+            factory.Dispose();
+
+            ForceGarbageCollection();
+
+            handleRef.IsAlive.Should().BeFalse();
+            engine.DisposeCount.Should().Be(1);
+            ownedResources.DisposeCount.Should().Be(1);
+
+            static void ForceGarbageCollection()
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference CreateUnreleasedHandle(ILiteDatabaseFactory factory)
+        {
+            var handle = factory.CreateDatabase();
+            return new WeakReference(handle);
         }
 
         [Fact]

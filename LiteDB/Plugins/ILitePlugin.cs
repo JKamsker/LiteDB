@@ -25,12 +25,23 @@ namespace LiteDB.Plugins
     }
 
     /// <summary>
-    /// Optional hook invoked when a user-facing database handle is created.
+    /// Optional hook invoked when a database handle is created via <see cref="LiteDatabaseBuilder"/> or <see cref="ILiteDatabaseFactory"/>.
     /// </summary>
+    /// <remarks>
+    /// This hook is invoked for handles created by <see cref="LiteDatabaseBuilder.Build"/>, as well as handles created by factories
+    /// (<see cref="LiteDatabaseBuilder.BuildFactory"/> and <see cref="ILiteDatabaseFactory.CreateDatabase"/>). It is not invoked for handles created
+    /// directly via <c>new LiteDatabase(...)</c>.
+    ///
+    /// <para>
+    /// Ordering: For builder-created handles, <see cref="ILitePlugin.Initialize"/> is invoked first and then <see cref="OnHandleCreated"/> is called.
+    /// For factory-created handles, <see cref="ILitePlugin.Initialize"/> is invoked once during factory construction (potentially with an internal host handle),
+    /// and <see cref="OnHandleCreated"/> is called for each user-facing handle created by the factory.
+    /// </para>
+    /// </remarks>
     public interface ILiteDatabaseHandleLifecycle
     {
         /// <summary>
-        /// Invoked when a new database handle is created. Implementations must be thread-safe because factories can create handles concurrently.
+        /// Invoked after a database handle has been created. Implementations must be thread-safe because factories can create handles concurrently.
         /// </summary>
         void OnHandleCreated(ILiteDatabase database);
     }
