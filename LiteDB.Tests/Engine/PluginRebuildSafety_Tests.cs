@@ -84,7 +84,7 @@ namespace LiteDB.Tests.Engine
 
             using (var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                stream.ReadExactly(headerBytes);
+                ReadFully(stream, headerBytes);
             }
 
             var headerBuffer = new PageBuffer(headerBytes, 0, uniqueID: 0);
@@ -100,7 +100,7 @@ namespace LiteDB.Tests.Engine
             using (var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
                 stream.Position = BasePage.GetPagePosition(collectionPageId);
-                stream.ReadExactly(pageBytes);
+                ReadFully(stream, pageBytes);
             }
 
             var expectedPluginId = VectorPlugin.PluginId;
@@ -189,7 +189,7 @@ namespace LiteDB.Tests.Engine
             using (var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
                 stream.Position = BasePage.GetPagePosition(collectionPageId);
-                stream.ReadExactly(pageBytes);
+                ReadFully(stream, pageBytes);
             }
 
             var pageBuffer = new PageBuffer(pageBytes, 0, uniqueID: 0);
@@ -212,6 +212,24 @@ namespace LiteDB.Tests.Engine
             }
 
             return (byte)marker;
+        }
+
+        private static void ReadFully(Stream stream, byte[] buffer)
+        {
+            if (stream == null) throw new ArgumentNullException(nameof(stream));
+            if (buffer == null) throw new ArgumentNullException(nameof(buffer));
+
+            var offset = 0;
+            while (offset < buffer.Length)
+            {
+                var read = stream.Read(buffer, offset, buffer.Length - offset);
+                if (read == 0)
+                {
+                    throw new EndOfStreamException("Unable to read expected number of bytes from stream.");
+                }
+
+                offset += read;
+            }
         }
 
         private sealed class TestDocument

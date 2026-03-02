@@ -43,4 +43,4 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 - [x] Cover missing-plugin behavior matrix (planner/read/write/DDL).
 - [x] Cover `$plugins` + validation-on-open diagnostics and cache scoping.
 - [x] Cover rebuild salvage option + strict recovery behavior.
-- [ ] Run: `dotnet test LiteDB.sln --settings tests.runsettings`.
+- [x] Run: `dotnet test LiteDB.sln --settings tests.runsettings`.
