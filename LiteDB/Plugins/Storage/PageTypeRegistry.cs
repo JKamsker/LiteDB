@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LiteDB.Plugins;
 
 namespace LiteDB.Plugins.Storage
 {
@@ -9,10 +10,21 @@ namespace LiteDB.Plugins.Storage
     /// </summary>
     public sealed class PageTypeRegistry : IPageTypeRegistry
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<byte, PageFactoryRegistration> _byCode = new Dictionary<byte, PageFactoryRegistration>();
         private readonly Dictionary<string, PageFactoryRegistration> _byName = new Dictionary<string, PageFactoryRegistration>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, PageFactoryRegistration> _byPluginAndName = new Dictionary<string, PageFactoryRegistration>(StringComparer.Ordinal);
+
+        public PageTypeRegistry()
+            : this(null)
+        {
+        }
+
+        internal PageTypeRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState;
+        }
 
         public void Register(PageFactoryRegistration registration)
         {
@@ -20,6 +32,8 @@ namespace LiteDB.Plugins.Storage
             {
                 throw new ArgumentNullException(nameof(registration));
             }
+
+            _freezeState?.EnsureNotFrozen();
 
             ReservedCodeRanges.EnsurePluginOwnsReservedRange(
                 registration.PluginId,

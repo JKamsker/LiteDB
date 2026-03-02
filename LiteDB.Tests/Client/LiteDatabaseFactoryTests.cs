@@ -67,6 +67,20 @@ namespace LiteDB.Tests.Client
         }
 
         [Fact]
+        public void Factory_handles_should_have_frozen_registries()
+        {
+            using var factory = new LiteDatabaseBuilder()
+                .UseInMemory()
+                .BuildFactory();
+
+            using var handle = (LiteDatabase)factory.CreateDatabase();
+
+            Action act = () => handle.Services.ExpressionRegistry.RegisterKeyword("AFTER_INIT");
+
+            act.Should().Throw<InvalidOperationException>();
+        }
+
+        [Fact]
         public async Task CreateDatabase_should_be_race_safe_with_dispose()
         {
             var factory = new LiteDatabaseBuilder()

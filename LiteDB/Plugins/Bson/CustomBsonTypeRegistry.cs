@@ -10,15 +10,28 @@ namespace LiteDB.Plugins.Bson
     /// </summary>
     public sealed class CustomBsonTypeRegistry : ICustomBsonTypeRegistry
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<byte, CustomBsonTypeDescriptor> _typesByCode = new Dictionary<byte, CustomBsonTypeDescriptor>();
         private readonly Dictionary<string, CustomBsonTypeDescriptor> _typesByName = new Dictionary<string, CustomBsonTypeDescriptor>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<byte, CustomBsonTypeDescriptor> _aliases = new Dictionary<byte, CustomBsonTypeDescriptor>();
 
+        public CustomBsonTypeRegistry()
+            : this(null)
+        {
+        }
+
+        internal CustomBsonTypeRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState;
+        }
+
         /// <inheritdoc />
         public void Register(CustomBsonTypeDescriptor descriptor)
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
+
+            _freezeState?.EnsureNotFrozen();
 
             ReservedCodeRanges.EnsurePluginOwnsReservedRange(
                 descriptor.PluginId,

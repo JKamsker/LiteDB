@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using LiteDB.Plugins.Bson;
 using LiteDB.Plugins.Indexing;
 using LiteDB.Plugins.Query;
@@ -8,8 +9,10 @@ using LiteDB.Plugins.Storage;
 
 namespace LiteDB.Plugins
 {
-    internal sealed class DefaultPluginContext : ILitePluginContext
+    internal sealed class DefaultPluginContext : ILitePluginContext, IPluginContextFreezeState
     {
+        private int _frozen;
+
         public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
             : this(connectionString, services, logger, PluginMissingBehavior.RefuseDatabase, null)
         {
@@ -17,19 +20,19 @@ namespace LiteDB.Plugins
 
         public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger, PluginMissingBehavior missingPluginBehavior, bool? validatePluginsOnOpen)
         {
-            this.QueryOperators = new QueryOperatorRegistry();
-            this.Expressions = new ExpressionRegistry(this.QueryOperators);
-            this.Indexes = new IndexRegistry();
-            this.QueryPlanner = new QueryPlannerRegistry();
-            this.QueryMetadata = new QueryMetadataAccessor();
+            this.QueryOperators = new QueryOperatorRegistry(this);
+            this.Expressions = new ExpressionRegistry(this.QueryOperators, this);
+            this.Indexes = new IndexRegistry(this);
+            this.QueryPlanner = new QueryPlannerRegistry(this);
+            this.QueryMetadata = new QueryMetadataAccessor(this);
             this.DiagnosticPolicy = DefaultPluginDiagnosticPolicy.Instance;
-            this.SqlFunctions = new SqlFunctionRegistry();
-            this.QueryCostModels = new QueryCostModelRegistry();
-            this.BsonTypes = new CustomBsonTypeRegistry();
-            this.PageFactories = new PageTypeRegistry();
-            this.IndexMetadata = new PluginIndexMetadataRegistry();
-            this.CustomIndexes = new CustomIndexStrategyRegistry();
-            this.LinqResolvers = new LinqResolverRegistry();
+            this.SqlFunctions = new SqlFunctionRegistry(this);
+            this.QueryCostModels = new QueryCostModelRegistry(this);
+            this.BsonTypes = new CustomBsonTypeRegistry(this);
+            this.PageFactories = new PageTypeRegistry(this);
+            this.IndexMetadata = new PluginIndexMetadataRegistry(this);
+            this.CustomIndexes = new CustomIndexStrategyRegistry(this);
+            this.LinqResolvers = new LinqResolverRegistry(this);
             this.Services = services ?? NullServiceProvider.Instance;
             this.Logger = logger ?? NullLogger.Instance;
             this.ConnectionString = connectionString ?? new ConnectionString();
@@ -90,7 +93,26 @@ namespace LiteDB.Plugins
 
         public void SetDiagnosticPolicy(IPluginDiagnosticPolicy policy)
         {
-            DiagnosticPolicy = policy ?? throw new ArgumentNullException(nameof(policy));
+            if (policy == null) throw new ArgumentNullException(nameof(policy));
+
+            this.EnsureNotFrozen();
+
+            DiagnosticPolicy = policy;
+        }
+
+        public void Freeze()
+        {
+            Interlocked.Exchange(ref _frozen, 1);
+        }
+
+        public bool IsFrozen => Volatile.Read(ref _frozen) != 0;
+
+        public void EnsureNotFrozen()
+        {
+            if (this.IsFrozen)
+            {
+                throw new InvalidOperationException("Plugin context registries are frozen after initialization and cannot be modified.");
+            }
         }
 
         public void RegisterBsonType(CustomBsonTypeDescriptor registration)
@@ -166,11 +188,19 @@ namespace LiteDB.Plugins
 
     internal sealed class QueryMetadataAccessor : IQueryMetadataAccessor
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<string, QueryMetadataDescriptor> _descriptors = new Dictionary<string, QueryMetadataDescriptor>(StringComparer.Ordinal);
 
+        public QueryMetadataAccessor(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState ?? throw new ArgumentNullException(nameof(freezeState));
+        }
+
         public void Register(string pluginId, int version, IReadOnlyCollection<string> reservedKeys)
         {
+            _freezeState.EnsureNotFrozen();
+
             var descriptor = new QueryMetadataDescriptor(pluginId, version, reservedKeys);
 
             lock (_sync)
@@ -206,12 +236,20 @@ namespace LiteDB.Plugins
 
     internal sealed class CustomIndexStrategyRegistry : ICustomIndexStrategyRegistry
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<string, CustomIndexStrategyDescriptor> _strategies = new Dictionary<string, CustomIndexStrategyDescriptor>(StringComparer.Ordinal);
+
+        public CustomIndexStrategyRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState ?? throw new ArgumentNullException(nameof(freezeState));
+        }
 
         public void Register(CustomIndexStrategyDescriptor descriptor)
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
+
+            _freezeState.EnsureNotFrozen();
 
             lock (_sync)
             {
@@ -262,8 +300,14 @@ namespace LiteDB.Plugins
 
     internal sealed class PluginIndexMetadataRegistry : IPluginIndexMetadataRegistry
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<string, PluginIndexMetadataDescriptor> _descriptors = new Dictionary<string, PluginIndexMetadataDescriptor>(StringComparer.Ordinal);
+
+        public PluginIndexMetadataRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState ?? throw new ArgumentNullException(nameof(freezeState));
+        }
 
         public void Register(PluginIndexMetadataDescriptor descriptor)
         {
@@ -271,6 +315,8 @@ namespace LiteDB.Plugins
             {
                 throw new ArgumentNullException(nameof(descriptor));
             }
+
+            _freezeState.EnsureNotFrozen();
 
             lock (_sync)
             {
@@ -317,14 +363,16 @@ namespace LiteDB.Plugins
     internal sealed class ExpressionRegistry : IExpressionRegistry
     {
         private readonly IQueryOperatorRegistry _queryOperators;
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<string, BinaryOperatorRegistration> _operators = new Dictionary<string, BinaryOperatorRegistration>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ExpressionFunctionRegistration> _functions = new Dictionary<string, ExpressionFunctionRegistration>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _keywords = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        public ExpressionRegistry(IQueryOperatorRegistry queryOperators)
+        public ExpressionRegistry(IQueryOperatorRegistry queryOperators, IPluginContextFreezeState freezeState)
         {
             _queryOperators = queryOperators ?? throw new ArgumentNullException(nameof(queryOperators));
+            _freezeState = freezeState ?? throw new ArgumentNullException(nameof(freezeState));
         }
 
         public IReadOnlyCollection<BinaryOperatorRegistration> Operators
@@ -366,6 +414,8 @@ namespace LiteDB.Plugins
         {
             var registration = new BinaryOperatorRegistration(token, expressionType, implementation, precedence, source);
 
+            _freezeState.EnsureNotFrozen();
+
             lock (_sync)
             {
                 _operators[registration.Token] = registration;
@@ -377,6 +427,8 @@ namespace LiteDB.Plugins
             var registration = new ExpressionFunctionRegistration(name, implementation, expressionType, convertScalarLeftToEnumerable, isScalarResult);
             var key = GetFunctionKey(registration.Name, registration.AdditionalArgumentCount);
 
+            _freezeState.EnsureNotFrozen();
+
             lock (_sync)
             {
                 _functions[key] = registration;
@@ -386,6 +438,8 @@ namespace LiteDB.Plugins
         public void RegisterKeyword(string keyword)
         {
             if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentNullException(nameof(keyword));
+
+            _freezeState.EnsureNotFrozen();
 
             lock (_sync)
             {
@@ -453,9 +507,15 @@ namespace LiteDB.Plugins
 
     internal sealed class IndexRegistry : IIndexRegistry
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<string, IIndexStrategy> _strategies = new Dictionary<string, IIndexStrategy>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<byte, IIndexStrategy> _strategiesByType = new Dictionary<byte, IIndexStrategy>();
+
+        public IndexRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState ?? throw new ArgumentNullException(nameof(freezeState));
+        }
 
         public IEnumerable<IIndexStrategy> All
         {
@@ -492,6 +552,8 @@ namespace LiteDB.Plugins
         {
             if (strategy == null) throw new ArgumentNullException(nameof(strategy));
 
+            _freezeState.EnsureNotFrozen();
+
             lock (_sync)
             {
                 _strategies[strategy.Kind] = strategy;
@@ -502,12 +564,20 @@ namespace LiteDB.Plugins
 
     internal sealed class QueryPlannerRegistry : IQueryPlannerRegistry
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly SortedList<int, List<IQueryPlanningRule>> _rules = new SortedList<int, List<IQueryPlanningRule>>();
+
+        public QueryPlannerRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState ?? throw new ArgumentNullException(nameof(freezeState));
+        }
 
         public void AddRule(IQueryPlanningRule rule, int order = 0)
         {
             if (rule == null) throw new ArgumentNullException(nameof(rule));
+
+            _freezeState.EnsureNotFrozen();
 
             lock (_sync)
             {
@@ -535,13 +605,21 @@ namespace LiteDB.Plugins
 
     internal sealed class LinqResolverRegistry : ILinqResolverRegistry
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<Type, LinqResolverFactory> _factories = new Dictionary<Type, LinqResolverFactory>();
+
+        public LinqResolverRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState ?? throw new ArgumentNullException(nameof(freezeState));
+        }
 
         public void Register(Type targetType, LinqResolverFactory factory)
         {
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
             if (factory == null) throw new ArgumentNullException(nameof(factory));
+
+            _freezeState.EnsureNotFrozen();
 
             lock (_sync)
             {

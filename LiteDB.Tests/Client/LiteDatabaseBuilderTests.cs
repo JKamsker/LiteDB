@@ -130,6 +130,18 @@ namespace LiteDB.Tests.Client
             plugin.HandleCreatedCount.Should().Be(1);
         }
 
+        [Fact]
+        public void Registries_should_be_frozen_after_initialization()
+        {
+            using var db = (LiteDatabase)new LiteDatabaseBuilder()
+                .UseInMemory()
+                .Build();
+
+            Action act = () => db.Services.ExpressionRegistry.RegisterKeyword("AFTER_INIT");
+
+            act.Should().Throw<InvalidOperationException>();
+        }
+
         private sealed class TrackingPlugin : ILitePlugin
         {
             public int InitializeCount { get; private set; }

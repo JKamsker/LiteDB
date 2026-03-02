@@ -64,6 +64,7 @@ namespace LiteDB
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
         }
 
         /// <summary>
@@ -91,6 +92,7 @@ namespace LiteDB
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
         }
 
         /// <summary>
@@ -118,6 +120,7 @@ namespace LiteDB
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
 
             if (logStream == null && stream is not MemoryStream)
             {
@@ -170,6 +173,7 @@ namespace LiteDB
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
 
             if (logStream == null && stream is not MemoryStream)
             {
@@ -212,6 +216,7 @@ namespace LiteDB
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
         }
 
         /// <summary>
@@ -237,6 +242,7 @@ namespace LiteDB
             this.Services = new LiteDatabaseServices(_pluginContext);
 
             this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
         }
 
         internal LiteDatabase(
@@ -263,6 +269,7 @@ namespace LiteDB
             if (initializePlugins)
             {
                 this.InitializePluginsWithCleanup(plugins, ownedResources);
+                _pluginContext.Freeze();
             }
             else if (_engine is IPluginHost host)
             {

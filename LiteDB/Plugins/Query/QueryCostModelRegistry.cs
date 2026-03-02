@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LiteDB.Plugins;
 
 namespace LiteDB.Plugins.Query
 {
@@ -9,8 +10,19 @@ namespace LiteDB.Plugins.Query
     /// </summary>
     public sealed class QueryCostModelRegistry : IQueryCostModelRegistry
     {
+        private readonly IPluginContextFreezeState _freezeState;
         private readonly object _sync = new object();
         private readonly Dictionary<string, QueryCostModelRegistration> _registrations = new Dictionary<string, QueryCostModelRegistration>(StringComparer.OrdinalIgnoreCase);
+
+        public QueryCostModelRegistry()
+            : this(null)
+        {
+        }
+
+        internal QueryCostModelRegistry(IPluginContextFreezeState freezeState)
+        {
+            _freezeState = freezeState;
+        }
 
         public void Register(QueryCostModelRegistration registration)
         {
@@ -18,6 +30,8 @@ namespace LiteDB.Plugins.Query
             {
                 throw new ArgumentNullException(nameof(registration));
             }
+
+            _freezeState?.EnsureNotFrozen();
 
             lock (_sync)
             {
