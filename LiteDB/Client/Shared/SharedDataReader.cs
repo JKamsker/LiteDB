@@ -11,6 +11,7 @@ namespace LiteDB
     {
         private readonly IBsonDataReader _reader;
         private readonly Action _dispose;
+        private readonly int _ownerThreadId;
 
         private bool _disposed = false;
 
@@ -18,6 +19,7 @@ namespace LiteDB
         {
             _reader = reader;
             _dispose = dispose;
+            _ownerThreadId = Environment.CurrentManagedThreadId;
         }
 
         public BsonValue this[string field] => _reader[field];
@@ -28,7 +30,11 @@ namespace LiteDB
 
         public bool HasValues => _reader.HasValues;
 
-        public bool Read() => _reader.Read();
+        public bool Read()
+        {
+            EnsureOwnerThread();
+            return _reader.Read();
+        }
 
         public void Dispose()
         {
@@ -53,6 +59,7 @@ namespace LiteDB
 
                 try
                 {
+                    EnsureOwnerThread();
                     _reader.Dispose();
                 }
                 catch (Exception ex)
@@ -78,6 +85,14 @@ namespace LiteDB
                 {
                     ExceptionDispatchInfo.Capture(disposeException).Throw();
                 }
+            }
+        }
+
+        private void EnsureOwnerThread()
+        {
+            if (Environment.CurrentManagedThreadId != _ownerThreadId)
+            {
+                throw new InvalidOperationException("Shared data readers must be used and disposed on the same thread they were created on.");
             }
         }
     }

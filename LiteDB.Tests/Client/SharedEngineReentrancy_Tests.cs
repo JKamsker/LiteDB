@@ -189,5 +189,20 @@ namespace LiteDB.Tests.Client
                 shared.Dispose();
             }
         }
+
+        [Fact]
+        public void SharedEngine_Dispose_should_be_idempotent_and_prevent_further_operations()
+        {
+            using var file = new TempFile();
+
+            var shared = new SharedEngine(new EngineSettings { Filename = file.Filename });
+
+            shared.Dispose();
+            shared.Invoking(x => x.Dispose()).Should().NotThrow();
+
+            shared.Invoking(x => x.Pragma(Pragmas.UTC_DATE))
+                .Should()
+                .Throw<ObjectDisposedException>();
+        }
     }
 }

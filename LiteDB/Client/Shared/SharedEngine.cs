@@ -17,6 +17,7 @@ namespace LiteDB
         private bool _transactionRunning = false;
         private ILitePluginContext _plugins;
         private readonly ThreadLocal<int> _mutexDepth = new ThreadLocal<int>(() => 0);
+        private int _disposed;
 
         public SharedEngine(EngineSettings settings)
         {
@@ -44,6 +45,11 @@ namespace LiteDB
         /// </summary>
         private void OpenDatabase()
         {
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                throw new ObjectDisposedException(nameof(SharedEngine));
+            }
+
             var depth = _mutexDepth.Value;
 
             if (depth == 0)
@@ -311,50 +317,72 @@ namespace LiteDB
 
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing)
+            if (!disposing)
             {
-                Exception disposeException = null;
+                return;
+            }
 
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            if (_mutexDepth.Value != 0)
+            {
+                throw new InvalidOperationException("SharedEngine cannot be disposed while it is in use on the current thread.");
+            }
+
+            Exception disposeException = null;
+            var acquiredMutex = false;
+
+            try
+            {
                 try
                 {
-                    if (_engine != null && _mutexDepth.Value == 0)
-                    {
-                        try
-                        {
-                            _engine.Dispose();
-                        }
-                        catch (Exception ex)
-                        {
-                            disposeException = ex;
-                        }
-                        finally
-                        {
-                            _engine = null;
-                        }
-                    }
+                    _mutex.WaitOne();
+                    acquiredMutex = true;
                 }
-                finally
+                catch (AbandonedMutexException)
                 {
-                    if (_mutexDepth.Value > 0)
-                    {
-                        try
-                        {
-                            _mutexDepth.Value = 0;
-                            _mutex.ReleaseMutex();
-                        }
-                        catch
-                        {
-                        }
-                    }
-
-                    _mutexDepth.Dispose();
-                    _mutex.Dispose();
+                    acquiredMutex = true;
                 }
 
-                if (disposeException != null)
+                if (_engine != null)
                 {
-                    ExceptionDispatchInfo.Capture(disposeException).Throw();
+                    try
+                    {
+                        _engine.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        disposeException = ex;
+                    }
+                    finally
+                    {
+                        _engine = null;
+                    }
                 }
+            }
+            finally
+            {
+                if (acquiredMutex)
+                {
+                    try
+                    {
+                        _mutex.ReleaseMutex();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                _mutexDepth.Dispose();
+                _mutex.Dispose();
+            }
+
+            if (disposeException != null)
+            {
+                ExceptionDispatchInfo.Capture(disposeException).Throw();
             }
         }
 
