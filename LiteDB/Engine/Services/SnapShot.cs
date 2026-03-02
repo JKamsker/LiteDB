@@ -257,7 +257,7 @@ namespace LiteDB.Engine
             var logger = _plugins?.Logger ?? NullLogger.Instance;
             var behaviorText = behavior == PluginMissingBehavior.AllowIfSafe
                 ? "continuing per policy 'AllowIfSafe'"
-                : "vector operations will be refused until the plugin is installed";
+                : $"continuing per policy '{behavior}'";
             var message = $"Plugin '{pluginId}' is not loaded but plugin-owned assets were detected in collection '{_collectionName}'. {behaviorText}.";
             logger.Write(LogLevel.Warning, message);
         }
