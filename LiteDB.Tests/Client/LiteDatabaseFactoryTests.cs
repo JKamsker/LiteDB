@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using LiteDB;
+using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Tests.Utils;
 using Xunit;
@@ -12,6 +14,60 @@ namespace LiteDB.Tests.Client
 {
     public class LiteDatabaseFactoryTests
     {
+        private sealed class TrackingDisposable : IDisposable
+        {
+            private int _disposeCount;
+
+            public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+            public void Dispose()
+            {
+                Interlocked.Increment(ref _disposeCount);
+            }
+        }
+
+        private sealed class TestPluginHostEngine : ILiteEngine, IPluginHost
+        {
+            private int _disposeCount;
+
+            public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+            public bool ThrowOnSetPluginContext { get; set; }
+
+            public void Dispose()
+            {
+                Interlocked.Increment(ref _disposeCount);
+            }
+
+            void IPluginHost.SetPluginContext(ILitePluginContext context)
+            {
+                if (this.ThrowOnSetPluginContext)
+                {
+                    throw new InvalidOperationException("Test engine failure in SetPluginContext.");
+                }
+            }
+
+            public int Checkpoint() => throw new NotSupportedException();
+            public long Rebuild(RebuildOptions options) => throw new NotSupportedException();
+            public bool BeginTrans() => throw new NotSupportedException();
+            public bool Commit() => throw new NotSupportedException();
+            public bool Rollback() => throw new NotSupportedException();
+            public IBsonDataReader Query(string collection, Query query) => throw new NotSupportedException();
+            public int Insert(string collection, System.Collections.Generic.IEnumerable<BsonDocument> docs, BsonAutoId autoId) => throw new NotSupportedException();
+            public int Update(string collection, System.Collections.Generic.IEnumerable<BsonDocument> docs) => throw new NotSupportedException();
+            public int UpdateMany(string collection, BsonExpression transform, BsonExpression predicate) => throw new NotSupportedException();
+            public int Upsert(string collection, System.Collections.Generic.IEnumerable<BsonDocument> docs, BsonAutoId autoId) => throw new NotSupportedException();
+            public int Delete(string collection, System.Collections.Generic.IEnumerable<BsonValue> ids) => throw new NotSupportedException();
+            public int DeleteMany(string collection, BsonExpression predicate) => throw new NotSupportedException();
+            public bool DropCollection(string name) => throw new NotSupportedException();
+            public bool RenameCollection(string name, string newName) => throw new NotSupportedException();
+            public bool EnsureIndex(string collection, string name, BsonExpression expression, bool unique) => throw new NotSupportedException();
+            public bool EnsureCustomIndex(string collection, string name, string strategyKind, BsonExpression expression, BsonDocument options) => throw new NotSupportedException();
+            public bool DropIndex(string collection, string name) => throw new NotSupportedException();
+            public BsonValue Pragma(string name) => throw new NotSupportedException();
+            public bool Pragma(string name, BsonValue value) => throw new NotSupportedException();
+        }
+
         [Fact]
         public void BuildFactory_should_share_engine_across_handles()
         {
@@ -150,6 +206,84 @@ namespace LiteDB.Tests.Client
             }
 
             factory.Dispose();
+        }
+
+        [Fact]
+        public async Task CreateDatabase_rollback_should_run_cleanup_path_when_disposed_concurrently()
+        {
+            var engine = new TestPluginHostEngine();
+            var ownedResources = new TrackingDisposable();
+            var pluginContext = new DefaultPluginContext(new ConnectionString(), null, null);
+
+            using var factory = new LiteDatabaseFactory(
+                engine,
+                ownsEngine: true,
+                mapper: BsonMapper.Global,
+                pluginContext: pluginContext,
+                plugins: Array.Empty<ILitePlugin>(),
+                ownedResources: ownedResources);
+
+            using var entered = new ManualResetEventSlim(false);
+            using var allowContinue = new ManualResetEventSlim(false);
+
+            factory.AfterRefCountIncrementForTesting = () =>
+            {
+                entered.Set();
+                allowContinue.Wait();
+            };
+
+            Exception exception = null;
+
+            var task = Task.Run(() =>
+            {
+                try
+                {
+                    factory.CreateDatabase();
+                }
+                catch (Exception ex)
+                {
+                    exception = ex;
+                }
+            });
+
+            entered.Wait();
+
+            factory.Dispose();
+
+            allowContinue.Set();
+
+            await task;
+
+            exception.Should().BeOfType<ObjectDisposedException>();
+            engine.DisposeCount.Should().Be(1);
+            ownedResources.DisposeCount.Should().Be(1);
+        }
+
+        [Fact]
+        public void CreateDatabase_should_release_lease_when_handle_constructor_throws()
+        {
+            var engine = new TestPluginHostEngine();
+            var ownedResources = new TrackingDisposable();
+            var pluginContext = new DefaultPluginContext(new ConnectionString(), null, null);
+
+            using var factory = new LiteDatabaseFactory(
+                engine,
+                ownsEngine: true,
+                mapper: BsonMapper.Global,
+                pluginContext: pluginContext,
+                plugins: Array.Empty<ILitePlugin>(),
+                ownedResources: ownedResources);
+
+            engine.ThrowOnSetPluginContext = true;
+
+            Action act = () => factory.CreateDatabase();
+
+            act.Should().Throw<InvalidOperationException>();
+
+            factory.Dispose();
+
+            engine.DisposeCount.Should().Be(1);
+            ownedResources.DisposeCount.Should().Be(1);
         }
 
     }

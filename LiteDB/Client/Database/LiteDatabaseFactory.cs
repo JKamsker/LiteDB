@@ -39,6 +39,8 @@ namespace LiteDB
         private int _refCount;
         private int _disposed;
 
+        internal Action AfterRefCountIncrementForTesting { get; set; }
+
         internal LiteDatabaseFactory(
             ILiteEngine engine,
             bool ownsEngine,
@@ -96,20 +98,34 @@ namespace LiteDB
         {
             Interlocked.Increment(ref _refCount);
 
+            this.AfterRefCountIncrementForTesting?.Invoke();
+
+            var lease = new Lease(this);
+
             if (Volatile.Read(ref _disposed) != 0)
             {
-                Interlocked.Decrement(ref _refCount);
+                lease.Dispose();
                 throw new ObjectDisposedException(nameof(LiteDatabaseFactory));
             }
 
-            var database = new LiteDatabase(
-                _engine,
-                disposeOnClose: false,
-                mapper: _mapper,
-                pluginContext: _pluginContext,
-                initializePlugins: false,
-                plugins: null,
-                engineLease: new Lease(this));
+            LiteDatabase database;
+
+            try
+            {
+                database = new LiteDatabase(
+                    _engine,
+                    disposeOnClose: false,
+                    mapper: _mapper,
+                    pluginContext: _pluginContext,
+                    initializePlugins: false,
+                    plugins: null,
+                    engineLease: lease);
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
 
             try
             {
