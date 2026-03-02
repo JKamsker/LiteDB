@@ -54,6 +54,11 @@ namespace LiteDB
         public static int BUFFER_WRITABLE = -1;
 
         /// <summary>
+        /// Define ShareCounter buffer as being evicted from the readable cache.
+        /// </summary>
+        public static int BUFFER_EVICTING = -2;
+
+        /// <summary>
         /// Define index name max length
         /// </summary>
         public static int INDEX_NAME_MAX_LENGTH = 32;

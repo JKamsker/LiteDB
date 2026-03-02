@@ -58,15 +58,28 @@ namespace LiteDB.Engine
             // get dict key based on position/origin
             var key = this.GetReadableKey(position, origin);
 
-            PageBuffer page;
-
-            while (_readable.TryGetValue(key, out page) == false)
+            while (true)
             {
+                if (_readable.TryGetValue(key, out var page))
+                {
+                    if (TryPinReadable(page))
+                    {
+                        // update LRU
+                        Interlocked.Exchange(ref page.Timestamp, DateTime.UtcNow.Ticks);
+                        return page;
+                    }
+
+                    continue;
+                }
+
                 // get new page from _free pages (or extend)
                 var newPage = this.GetFreePage();
 
                 newPage.Position = position;
                 newPage.Origin = origin;
+
+                // pin immediately so eviction cannot reclaim this page while the factory is populating it
+                newPage.ShareCounter = 1;
 
                 try
                 {
@@ -79,32 +92,48 @@ namespace LiteDB.Engine
                     newPage.ShareCounter = 0;
                     newPage.Position = long.MaxValue;
                     newPage.Origin = FileOrigin.None;
-                    newPage.Timestamp = DateTime.UtcNow.Ticks;
+                    Volatile.Write(ref newPage.Timestamp, DateTime.UtcNow.Ticks);
                     _free.Enqueue(newPage);
                     throw;
                 }
 
                 if (_readable.TryAdd(key, newPage))
                 {
-                    page = newPage;
-                    break;
+                    // update LRU
+                    Interlocked.Exchange(ref newPage.Timestamp, DateTime.UtcNow.Ticks);
+                    return newPage;
                 }
 
                 // lost the race - return page to free list and try again
                 newPage.ShareCounter = 0;
                 newPage.Position = long.MaxValue;
                 newPage.Origin = FileOrigin.None;
-                newPage.Timestamp = DateTime.UtcNow.Ticks;
+                Volatile.Write(ref newPage.Timestamp, DateTime.UtcNow.Ticks);
                 _free.Enqueue(newPage);
             }
+        }
 
-            // update LRU
-            Interlocked.Exchange(ref page.Timestamp, DateTime.UtcNow.Ticks);
+        private static bool TryPinReadable(PageBuffer page)
+        {
+            while (true)
+            {
+                var counter = Volatile.Read(ref page.ShareCounter);
 
-            // increment share counter
-            Interlocked.Increment(ref page.ShareCounter);
+                if (counter == BUFFER_EVICTING)
+                {
+                    return false;
+                }
 
-            return page;
+                if (counter < 0)
+                {
+                    return false;
+                }
+
+                if (Interlocked.CompareExchange(ref page.ShareCounter, counter + 1, counter) == counter)
+                {
+                    return true;
+                }
+            }
         }
 
         /// <summary>
@@ -140,13 +169,15 @@ namespace LiteDB.Engine
 
             // write pages always contains a new buffer array
             var writable = this.NewPage(position, origin);
+            PageBuffer readable = null;
+            var pinnedReadable = false;
 
             try
             {
                 // if requested page already in cache, just copy buffer and avoid load from stream
-                if (_readable.TryGetValue(key, out var clean))
+                if (_readable.TryGetValue(key, out readable) && (pinnedReadable = TryPinReadable(readable)))
                 {
-                    Buffer.BlockCopy(clean.Array, clean.Offset, writable.Array, writable.Offset, PAGE_SIZE);
+                    Buffer.BlockCopy(readable.Array, readable.Offset, writable.Array, writable.Offset, PAGE_SIZE);
                 }
                 else
                 {
@@ -159,6 +190,13 @@ namespace LiteDB.Engine
             {
                 this.DiscardPage(writable);
                 throw;
+            }
+            finally
+            {
+                if (pinnedReadable)
+                {
+                    readable.Release();
+                }
             }
         }
 
@@ -184,7 +222,7 @@ namespace LiteDB.Engine
             page.ShareCounter = BUFFER_WRITABLE;
 
             // Timestamp = 0 means this page was never used (do not clear)
-            if (page.Timestamp > 0)
+            if (Volatile.Read(ref page.Timestamp) > 0)
             {
                 page.Clear();
             }
@@ -192,7 +230,7 @@ namespace LiteDB.Engine
             DEBUG(page.All(0), "new page must be full zero empty before return");
 
             page.Origin = origin;
-            page.Timestamp = DateTime.UtcNow.Ticks;
+            Volatile.Write(ref page.Timestamp, DateTime.UtcNow.Ticks);
 
             return page;
         }
@@ -342,43 +380,55 @@ namespace LiteDB.Engine
                 // sort by timestamp used (set as free oldest first)
                 var readables = _readable
                     .Where(x => x.Value.ShareCounter == 0)
-                    .OrderBy(x => x.Value.Timestamp)
+                    .OrderBy(x => Volatile.Read(ref x.Value.Timestamp))
                     .Select(x => x.Key)
                     .Take(segmentSize)
                     .ToArray();
 
+                var reclaimed = 0;
+
                 // move pages from readable list to free list
                 foreach (var key in readables)
                 {
-                    var removed = _readable.TryRemove(key, out var page);
-
-                    ENSURE(removed, "page should be in readable list before moving to free list");
-
-                    // if removed page was changed between make array and now, must add back to readable list
-                    if (page.ShareCounter > 0)
+                    if (_readable.TryGetValue(key, out var page) == false)
                     {
-                        // but wait: between last "remove" and now, another thread can added this page
-                        if (!_readable.TryAdd(key, page))
-                        {
-                            // this is a terrible situation, to avoid memory corruption I will throw expcetion for now
-                            throw new LiteException(0, "MemoryCache: removed in-use memory page. This situation has no way to fix (yet). Throwing exception to avoid database corruption. No other thread can read/write from database now.");
-                        }
+                        continue;
                     }
-                    else
+
+                    if (Interlocked.CompareExchange(ref page.ShareCounter, BUFFER_EVICTING, 0) != 0)
                     {
-                        ENSURE(page.ShareCounter == 0, "page should not be in use by anyone");
-
-                        // clean controls
-                        page.Position = long.MaxValue;
-                        page.Origin = FileOrigin.None;
-
-                        _free.Enqueue(page);
+                        continue;
                     }
+
+                    if (_readable.TryRemove(key, out page) == false)
+                    {
+                        Interlocked.CompareExchange(ref page.ShareCounter, 0, BUFFER_EVICTING);
+                        continue;
+                    }
+
+                    reclaimed++;
+
+                    // restore free-list invariants
+                    page.ShareCounter = 0;
+                    page.Position = long.MaxValue;
+                    page.Origin = FileOrigin.None;
+                    Volatile.Write(ref page.Timestamp, DateTime.UtcNow.Ticks);
+
+                    _free.Enqueue(page);
                 }
 
-                LOG($"re-using cache pages (flushing {_free.Count} pages)", "CACHE");
+                if (reclaimed > 0)
+                {
+                    LOG($"re-using cache pages (flushing {_free.Count} pages)", "CACHE");
+                }
+                else
+                {
+                    // If pages were claimed between the first scan and now, fall back to allocating a new segment.
+                    emptyShareCounter = 0;
+                }
             }
-            else
+
+            if (emptyShareCounter <= segmentSize)
             {
                 // create big linear array in heap memory (LOH => 85Kb)
                 var buffer = new byte[PAGE_SIZE * segmentSize];
