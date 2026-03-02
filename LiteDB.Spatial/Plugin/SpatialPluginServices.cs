@@ -18,22 +18,43 @@ namespace LiteDB.Spatial.Plugin
 {
     internal sealed class SpatialPluginServices
     {
+        private sealed class SpatialDatabaseHost
+        {
+            public SpatialDatabaseHost(BaseLiteDB.LiteDatabase database)
+            {
+                Database = database ?? throw new ArgumentNullException(nameof(database));
+                MetadataStore = new SpatialMetadataStore((BaseLiteDB.ILiteDatabase)database);
+            }
+
+            public BaseLiteDB.LiteDatabase Database { get; }
+
+            public SpatialMetadataStore MetadataStore { get; }
+        }
+
         private readonly ConcurrentDictionary<string, SpatialCollectionDescriptor> _descriptorsByCollection = new ConcurrentDictionary<string, SpatialCollectionDescriptor>(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, string> _geometryFieldsByIndex = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<Type, SpatialLinqResolver> _resolverCache = new ConcurrentDictionary<Type, SpatialLinqResolver>();
-        private readonly SpatialMetadataStore _metadataStore;
+        private SpatialDatabaseHost _host;
         private static readonly Regex IndexNameSanitizer = new Regex(@"[^a-z0-9]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public SpatialPluginServices(BaseLiteDB.LiteDatabase database, LiteDbPlugins.ILitePluginContext context)
         {
-            Database = database ?? throw new ArgumentNullException(nameof(database));
+            _host = new SpatialDatabaseHost(database);
             Context = context ?? throw new ArgumentNullException(nameof(context));
-            _metadataStore = new SpatialMetadataStore((BaseLiteDB.ILiteDatabase)database);
         }
 
-        public BaseLiteDB.LiteDatabase Database { get; }
+        public BaseLiteDB.LiteDatabase Database => _host.Database;
 
         public LiteDbPlugins.ILitePluginContext Context { get; }
+
+        private SpatialMetadataStore Metadata => _host.MetadataStore;
+
+        public void UpdateDatabase(BaseLiteDB.LiteDatabase database)
+        {
+            if (database == null) throw new ArgumentNullException(nameof(database));
+
+            System.Threading.Volatile.Write(ref _host, new SpatialDatabaseHost(database));
+        }
 
         public SpatialLinqResolver GetOrCreateResolver(Type declaringType)
         {
@@ -191,7 +212,7 @@ namespace LiteDB.Spatial.Plugin
                 {
                     GeographicEngine.EngineName => SpatialInitializer.EnsureGeographic(
                         Database,
-                        _metadataStore,
+                        Metadata,
                         context.CollectionName,
                         descriptor.GeometryFieldName,
                         descriptor.Options,
@@ -226,7 +247,7 @@ namespace LiteDB.Spatial.Plugin
 
             return SpatialInitializer.EnsureCartesian2D(
                 Database,
-                _metadataStore,
+                Metadata,
                 context.CollectionName,
                 descriptor.GeometryFieldName,
                 domain.Value,
@@ -243,7 +264,7 @@ namespace LiteDB.Spatial.Plugin
 
             return SpatialInitializer.EnsureCartesian3D(
                 Database,
-                _metadataStore,
+                Metadata,
                 context.CollectionName,
                 descriptor.GeometryFieldName,
                 domain.Value,
@@ -265,7 +286,7 @@ namespace LiteDB.Spatial.Plugin
                 return cached.GeometryFieldName.Equals(geometryField, StringComparison.OrdinalIgnoreCase);
             }
 
-            if (_metadataStore.TryGetDescriptor(collection, out var persisted))
+            if (Metadata.TryGetDescriptor(collection, out var persisted))
             {
                 descriptor = persisted;
                 _descriptorsByCollection[collection] = persisted!;
@@ -293,7 +314,7 @@ namespace LiteDB.Spatial.Plugin
                         continue;
                     }
 
-                    if (_metadataStore.TryGetDescriptor(collectionName, out var descriptor))
+                    if (Metadata.TryGetDescriptor(collectionName, out var descriptor))
                     {
                         _descriptorsByCollection[collectionName] = descriptor;
                     }
@@ -311,7 +332,7 @@ namespace LiteDB.Spatial.Plugin
             }
 
             _descriptorsByCollection[descriptor.CollectionName] = descriptor;
-            _metadataStore.SaveDescriptor(descriptor.CollectionName, descriptor);
+            Metadata.SaveDescriptor(descriptor.CollectionName, descriptor);
         }
 
         public bool TryGetGeometryFieldByIndex(string indexName, out string? field)
@@ -334,7 +355,7 @@ namespace LiteDB.Spatial.Plugin
                 return true;
             }
 
-            if (_metadataStore.TryGetDescriptor(collectionName, out var persisted))
+            if (Metadata.TryGetDescriptor(collectionName, out var persisted))
             {
                 descriptor = persisted;
                 _descriptorsByCollection[collectionName] = persisted!;
@@ -344,7 +365,7 @@ namespace LiteDB.Spatial.Plugin
             return false;
         }
 
-        internal SpatialMetadataStore MetadataStore => _metadataStore;
+        internal SpatialMetadataStore MetadataStore => _host.MetadataStore;
 
         private bool TryCreateDescriptor(LiteDbPlugins.EnsureIndexContext context, string geometryField, out SpatialCollectionDescriptor? descriptor)
         {
@@ -444,7 +465,7 @@ namespace LiteDB.Spatial.Plugin
                         var distanceMode = options?.DistanceMode ?? GeographicDistanceMode.Haversine;
                         return SpatialInitializer.EnsureGeographic(
                             Database,
-                            _metadataStore,
+                            Metadata,
                             context.CollectionName,
                             geometryField,
                             effectiveOptions,
@@ -460,7 +481,7 @@ namespace LiteDB.Spatial.Plugin
 
                         return SpatialInitializer.EnsureCartesian2D(
                             Database,
-                            _metadataStore,
+                            Metadata,
                             context.CollectionName,
                             geometryField,
                             domain,
@@ -476,7 +497,7 @@ namespace LiteDB.Spatial.Plugin
 
                         return SpatialInitializer.EnsureCartesian3D(
                             Database,
-                            _metadataStore,
+                            Metadata,
                             context.CollectionName,
                             geometryField,
                             domain,
@@ -585,7 +606,7 @@ namespace LiteDB.Spatial.Plugin
                 return null;
             }
 
-            if (_metadataStore.TryGetDescriptor(collectionName, out var persisted))
+            if (Metadata.TryGetDescriptor(collectionName, out var persisted))
             {
                 return persisted;
             }
