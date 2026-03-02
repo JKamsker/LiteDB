@@ -239,6 +239,14 @@ namespace LiteDB.Vector.Query
                     continue;
                 }
 
+                if (metadataBag != null)
+                {
+                    if (!metadataBag.TryGet<byte?>(VectorQueryMetadata.MetricKey, out var storedMetric) || !storedMetric.HasValue)
+                    {
+                        metadataBag.Set(VectorQueryMetadata.MetricKey, resolvedMetric);
+                    }
+                }
+
                 var effectiveMaxDistance = VectorEnsure.NormalizeMaxDistance(maxDistance, resolvedMetric, maxDistanceNormalized);
 
                 var vectorIndex = new VectorIndexQuery(index.Name, snapshot, index, metadata, target, effectiveMaxDistance, limit, collation);

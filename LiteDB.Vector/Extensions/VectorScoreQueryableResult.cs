@@ -14,13 +14,11 @@ namespace LiteDB.Vector
     internal sealed class VectorScoreQueryableResult<T> : ILiteQueryableResult<VectorMatch<T>>
     {
         private readonly ILiteQueryableResult<T> _source;
-        private readonly VectorScoreContext<T> _context;
         private readonly VectorScoreKind _kind;
 
-        private VectorScoreQueryableResult(ILiteQueryableResult<T> source, VectorScoreContext<T> context, VectorScoreKind kind)
+        private VectorScoreQueryableResult(ILiteQueryableResult<T> source, VectorScoreKind kind)
         {
             _source = source;
-            _context = context;
             _kind = kind;
         }
 
@@ -31,32 +29,31 @@ namespace LiteDB.Vector
                 throw new ArgumentNullException(nameof(source));
             }
 
-            var context = VectorScoreContext<T>.Create(source);
-            return new VectorScoreQueryableResult<T>(source, context, kind);
+            return new VectorScoreQueryableResult<T>(source, kind);
         }
 
         public ILiteQueryableResult<VectorMatch<T>> Limit(int limit)
         {
             var limited = _source.Limit(limit);
-            return new VectorScoreQueryableResult<T>(limited, VectorScoreContext<T>.Create(limited), _kind);
+            return new VectorScoreQueryableResult<T>(limited, _kind);
         }
 
         public ILiteQueryableResult<VectorMatch<T>> Skip(int offset)
         {
             var skipped = _source.Skip(offset);
-            return new VectorScoreQueryableResult<T>(skipped, VectorScoreContext<T>.Create(skipped), _kind);
+            return new VectorScoreQueryableResult<T>(skipped, _kind);
         }
 
         public ILiteQueryableResult<VectorMatch<T>> Offset(int offset)
         {
             var offseted = _source.Offset(offset);
-            return new VectorScoreQueryableResult<T>(offseted, VectorScoreContext<T>.Create(offseted), _kind);
+            return new VectorScoreQueryableResult<T>(offseted, _kind);
         }
 
         public ILiteQueryableResult<VectorMatch<T>> ForUpdate()
         {
             var updated = _source.ForUpdate();
-            return new VectorScoreQueryableResult<T>(updated, VectorScoreContext<T>.Create(updated), _kind);
+            return new VectorScoreQueryableResult<T>(updated, _kind);
         }
 
         public BsonDocument GetPlan() => _source.GetPlan();
@@ -130,26 +127,40 @@ namespace LiteDB.Vector
 
         private IEnumerable<VectorMatch<T>> EnumerateMatches()
         {
+            using var enumerator = _source.ToEnumerable().GetEnumerator();
+
+            var hasItem = enumerator.MoveNext();
+
+            var context = VectorScoreContext<T>.Create(_source);
+
+            if (!hasItem)
+            {
+                yield break;
+            }
+
             var buffer = new List<(VectorMatch<T> Match, BsonValue Id)>();
 
-            foreach (var item in _source.ToEnumerable())
+            do
             {
-                if (!VectorScoreFactory.TryCreateMatch(item, _context, _kind, out var match, out var id))
+                var item = enumerator.Current;
+
+                if (!VectorScoreFactory.TryCreateMatch(item, context, _kind, out var match, out var id))
                 {
                     continue;
                 }
 
-                if (!_context.ShouldInclude(match))
+                if (!context.ShouldInclude(match))
                 {
                     continue;
                 }
 
                 buffer.Add((match, id));
             }
+            while (enumerator.MoveNext());
 
             IEnumerable<(VectorMatch<T> Match, BsonValue Id)> ordered;
 
-            if (_kind == VectorScoreKind.Similarity && _context.SupportsSimilarity)
+            if (_kind == VectorScoreKind.Similarity && context.SupportsSimilarity)
             {
                 ordered = buffer
                     .OrderByDescending(x => x.Match.Similarity ?? double.MinValue)

@@ -179,6 +179,34 @@ namespace LiteDB.Vector.Tests
             similarityOnEuclidean.Should().Throw<LiteException>();
         }
 
+        [Fact]
+        public void WithVectorScore_Should_UseInferredIndexMetric_WhenMetricOmitted()
+        {
+            using var db = CreateDatabase();
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            collection.EnsureIndex(x => x.Embedding, new VectorIndexOptions(2, VectorDistanceMetric.Euclidean));
+
+            collection.InsertBulk(new[]
+            {
+                new VectorDocument { Id = 1, Embedding = new[] { 2f, 0f } },
+                new VectorDocument { Id = 2, Embedding = new[] { 1f, 0f } },
+                new VectorDocument { Id = 3, Embedding = new[] { 0f, 2f } }
+            });
+
+            var target = new[] { 1f, 0f };
+
+            var matches = collection
+                .Query()
+                .Nearest(x => x.Embedding, target, k: 2)
+                .WithVectorScore()
+                .ToList();
+
+            matches.Select(x => x.Document.Id).Should().Equal(2, 1);
+            matches[0].Distance.Should().BeApproximately(0d, 1e-6);
+            matches[1].Distance.Should().BeApproximately(1d, 1e-6);
+        }
+
         private static LiteDatabase CreateDatabase()
         {
             return new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
