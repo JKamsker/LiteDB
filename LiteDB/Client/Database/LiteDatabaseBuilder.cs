@@ -361,6 +361,83 @@ namespace LiteDB
             }
         }
 
+        public ILiteDatabaseFactory BuildFactory()
+        {
+            this.EnsureNotBuilt();
+
+            if (_dataSourceKind == DataSourceKind.Stream)
+            {
+                throw new InvalidOperationException("BuildFactory() is not supported for UseStream(...).");
+            }
+
+            var mapper = _options.Mapper ?? BsonMapper.Global;
+            var services = _options.Services ?? NullServiceProvider.Instance;
+            var logger = _options.Logger ?? NullLogger.Instance;
+            var missingPluginBehavior = _options.MissingPluginBehavior;
+            var validatePluginsOnOpen = _options.ValidatePluginsOnOpen;
+
+            ILiteEngine engine;
+            bool ownsEngine;
+            ConnectionString contextConnectionString;
+
+            if (_dataSourceKind == DataSourceKind.ConnectionString)
+            {
+                contextConnectionString = _connectionString ?? throw new InvalidOperationException("Connection string must be configured before BuildFactory().");
+                engine = contextConnectionString.CreateEngine(_engineSettingsAction);
+                ownsEngine = true;
+            }
+            else if (_dataSourceKind == DataSourceKind.Engine)
+            {
+                engine = _engine;
+                ownsEngine = _ownsEngine;
+                contextConnectionString = _contextConnectionString ?? new ConnectionString();
+            }
+            else
+            {
+                throw new InvalidOperationException("A data source must be configured before BuildFactory().");
+            }
+
+            DisposableCollection ownedResources = null;
+
+            try
+            {
+                var (plugins, ownedPlugins) = this.CreatePluginInstances(services, logger);
+                ownedResources = ownedPlugins;
+
+                var pluginContext = new DefaultPluginContext(contextConnectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
+
+                var factory = new LiteDatabaseFactory(
+                    engine,
+                    ownsEngine,
+                    mapper,
+                    pluginContext,
+                    plugins,
+                    ownedResources);
+
+                _built = true;
+
+                return factory;
+            }
+            catch
+            {
+                ownedResources?.Dispose();
+
+                if (ownsEngine)
+                {
+                    try
+                    {
+                        engine?.Dispose();
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
+                }
+
+                throw;
+            }
+        }
+
         private (List<ILitePlugin> Plugins, DisposableCollection OwnedResources) CreatePluginInstances(IServiceProvider services, ILogger logger)
         {
             if (services == null) throw new ArgumentNullException(nameof(services));
