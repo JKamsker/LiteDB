@@ -524,7 +524,7 @@ namespace LiteDB.Engine
                 metadataDocument != null &&
                 !string.IsNullOrWhiteSpace(indexKind))
             {
-                var registration = costModels.FirstOrDefault(r => string.Equals(r.IndexKind, indexKind, StringComparison.Ordinal));
+                var registration = costModels.FirstOrDefault(r => string.Equals(r.IndexKind, indexKind, StringComparison.OrdinalIgnoreCase));
 
                 if (registration != null)
                 {
