@@ -93,11 +93,6 @@ namespace LiteDB.Plugins
 
         private static string BuildMessage(string pluginId, string operation)
         {
-            if (string.Equals(pluginId, "LiteDB.Vector", StringComparison.Ordinal))
-            {
-                return $"Vector index support requires the LiteDB.Vector plugin. Install the LiteDB.Vector package and register VectorSearchPlugin.Instance (for example, new LiteDatabase(connectionString, plugins: new[] {{ VectorSearchPlugin.Instance }})) before performing '{operation}'.";
-            }
-
             var hasPluginId = !string.IsNullOrWhiteSpace(pluginId);
             var subject = hasPluginId ? $"Plugin '{pluginId}'" : "A plugin";
             return $"{subject} is required to perform '{operation}'. Install and register the plugin to continue.";

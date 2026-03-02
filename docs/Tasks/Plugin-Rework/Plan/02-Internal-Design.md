@@ -91,9 +91,9 @@ Implementation approach:
 - [ ] Do not treat a "loaded pluginId descriptor" as sufficient for write safety: any `IndexType != 0` index requires an installed `IIndexStrategy` for its persisted `IndexType` (`_plugins?.Indexes?.GetByType(index.IndexType)`), especially for write/DDL paths.
 - [ ] Warning/warn-once cache: scope by database identity + pluginId (or `<unknown>:type:{indexType}` when pluginId is unknown). Use `ConditionalWeakTable` keyed by engine instance, or scope to `DefaultPluginContext` (which has the right lifetime) rather than a static dictionary. `$plugins` and validation-on-open must not populate this cache.
 - [ ] When `pluginId` is unknown (for example, `IndexType != 0` but metadata is missing/corrupt), include `indexType` in diagnostics.
-- [ ] Core warning text must be plugin-agnostic. Remove the hard-coded `"LiteDB.Vector"` message from `DefaultPluginDiagnosticPolicy`.
-- [ ] Plugin metadata entries must be treated as diagnostics-only: legacy/corrupt entries must not prevent opening read snapshots on unaffected collections, and must not bypass host-controlled enforcement decisions.
-- [ ] Required code change: `CollectionPage` metadata parsing must not throw on legacy/corrupt metadata markers; it must record per-entry parse errors for diagnostics (`errors[]`) and continue.
+- [x] Core warning text must be plugin-agnostic. Remove the hard-coded `"LiteDB.Vector"` message from `DefaultPluginDiagnosticPolicy`.
+- [x] Plugin metadata entries must be treated as diagnostics-only: legacy/corrupt entries must not prevent opening read snapshots on unaffected collections, and must not bypass host-controlled enforcement decisions.
+- [x] Required code change: `CollectionPage` metadata parsing must not throw on legacy/corrupt metadata markers; it must record per-entry parse errors for diagnostics (`errors[]`) and continue.
 - [ ] Add defensive guard in `DropCollection`: if `strategy == null && index.IndexType != 0`, throw `PLUGIN_REQUIRED` (belt-and-suspenders; should never be reached if snapshot-level refusal works correctly).
 - [ ] Note: `ForUpdate` queries open `LockMode.Write` snapshots (see `QueryExecutor.cs` line 91). The snapshot-level enforcement correctly catches these. Test plan must include a `ForUpdate` test case.
 

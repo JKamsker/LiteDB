@@ -103,28 +103,33 @@ namespace LiteDB.Engine
 
                 for (var i = 0; i < metadataCount; i++)
                 {
-                    var name = r.ReadCString();
-                    var marker = r.ReadByte();
-
-                    if ((marker & 0x80) == 0)
+                    try
                     {
-                        throw new LiteException(
-                            LiteException.PLUGIN_REQUIRED,
-                            $"Plugin metadata entry '{name}' was stored using a legacy format. Install the owning plugin and rerun the operation.");
+                        var name = r.ReadCString();
+                        var marker = r.ReadByte();
+
+                        if ((marker & 0x80) == 0)
+                        {
+                            break;
+                        }
+
+                        var pluginIdLength = marker & 0x7F;
+
+                        if (pluginIdLength == 0)
+                        {
+                            break;
+                        }
+
+                        var pluginId = r.ReadString(pluginIdLength);
+                        var payloadLength = r.ReadUInt16();
+                        var payload = payloadLength > 0 ? r.ReadBytes(payloadLength) : Array.Empty<byte>();
+
+                        _pluginIndexes[name] = new PluginIndexMetadataEntry(pluginId, null, payload);
                     }
-
-                    var pluginIdLength = marker & 0x7F;
-
-                    if (pluginIdLength == 0)
+                    catch
                     {
-                        throw new LiteException(0, "Plugin metadata entries must include a plugin identifier.");
+                        break;
                     }
-
-                    var pluginId = r.ReadString(pluginIdLength);
-                    var payloadLength = r.ReadUInt16();
-                    var payload = r.ReadBytes(payloadLength);
-
-                    _pluginIndexes[name] = new PluginIndexMetadataEntry(pluginId, null, payload);
                 }
             }
         }
