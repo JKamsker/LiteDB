@@ -64,38 +64,44 @@ namespace LiteDB.Vector
         }
 
         /// <summary>
-        /// Computes cosine similarity between two vectors. Throws when a non-cosine metric is requested.
+        /// Computes similarity between two vectors. Throws when a metric that does not expose similarity is requested.
         /// </summary>
         /// <param name="left">Expression value representing the first vector.</param>
         /// <param name="right">Expression value representing the second vector.</param>
-        /// <returns>The cosine similarity in the range [-1, 1], or <see cref="BsonValue.Null"/> when the inputs are invalid.</returns>
+        /// <returns>The similarity value, or <see cref="BsonValue.Null"/> when the inputs are invalid.</returns>
         public static BsonValue VectorSimilarity(BsonValue left, BsonValue right)
         {
             return VectorSimilarity(left, right, metric: null);
         }
 
         /// <summary>
-        /// Computes cosine similarity between two vectors using the provided metric override.
+        /// Computes similarity between two vectors using the provided metric override.
         /// </summary>
         /// <param name="left">Expression value representing the first vector.</param>
         /// <param name="right">Expression value representing the second vector.</param>
-        /// <param name="metric">Optional metric override. Only cosine is supported; other metrics raise <see cref="LiteException"/>.</param>
-        /// <returns>The cosine similarity in the range [-1, 1], or <see cref="BsonValue.Null"/> when the inputs are invalid.</returns>
+        /// <param name="metric">Optional metric override. Cosine and dot product are supported; other metrics raise <see cref="LiteException"/>.</param>
+        /// <returns>The similarity value, or <see cref="BsonValue.Null"/> when the inputs are invalid.</returns>
         public static BsonValue VectorSimilarity(BsonValue left, BsonValue right, VectorDistanceMetric? metric)
         {
             var resolvedMetric = metric ?? VectorDistanceMetric.Cosine;
 
-            if (resolvedMetric != VectorDistanceMetric.Cosine)
+            if (resolvedMetric != VectorDistanceMetric.Cosine &&
+                resolvedMetric != VectorDistanceMetric.DotProduct)
             {
                 throw VectorErrors.MetricDoesNotSupportSimilarity(resolvedMetric);
             }
 
-            if (!TryComputeDistance(left, right, resolvedMetric, out var distance))
+            if (!TryExtractVector(left, out var leftVector) || !TryExtractVector(right, out var rightVector))
             {
                 return BsonValue.Null;
             }
 
-            var similarity = 1d - distance;
+            if (leftVector.Length == 0 || rightVector.Length == 0 || leftVector.Length != rightVector.Length)
+            {
+                return BsonValue.Null;
+            }
+
+            VectorIndexService.ComputeDistance(leftVector, rightVector, resolvedMetric, out var similarity);
 
             return (double.IsNaN(similarity) || double.IsInfinity(similarity))
                 ? BsonValue.Null

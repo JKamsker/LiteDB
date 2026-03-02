@@ -74,6 +74,18 @@ namespace LiteDB.Vector.Tests
         }
 
         [Fact]
+        public void VectorExpressions_ProjectSimilarity_SupportsDotProduct()
+        {
+            using var db = CreateDatabase();
+            var similarityProjection = CreateExpression(db, "VECTOR_SIM($.Embedding, [1.0, 0.0], 'DotProduct')");
+            var doc = new BsonDocument { ["Embedding"] = new BsonArray { 2.0, 3.0 } };
+
+            var similarity = similarityProjection.ExecuteScalar(doc);
+            similarity.IsDouble.Should().BeTrue();
+            similarity.AsDouble.Should().BeApproximately(2.0, 1e-6);
+        }
+
+        [Fact]
         public void VectorExpressions_InvalidInput_YieldsNull()
         {
             using var db = CreateDatabase();
