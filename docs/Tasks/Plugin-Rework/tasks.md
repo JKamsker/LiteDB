@@ -26,7 +26,7 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 
 - [x] Implement `LiteDatabaseBuilder` + `Build()`.
 - [x] Enforce builder validation rules (single-use; mutually exclusive data source).
-- [ ] Define plugin registration semantics (dedupe, ownership, disposal).
+- [x] Define plugin registration semantics (dedupe, ownership, disposal).
 
 ## Phase 3 — Factory
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using FluentAssertions;
 using LiteDB;
 using LiteDB.Plugins;
@@ -61,6 +62,60 @@ namespace LiteDB.Tests.Client
             act.Should().Throw<InvalidOperationException>();
         }
 
+        [Fact]
+        public void UsePlugin_factory_should_dispose_owned_instances()
+        {
+            DisposableTrackingPlugin first = null;
+            DisposableTrackingPlugin duplicate = null;
+            var logger = new CapturingLogger();
+
+            using (var db = new LiteDatabaseBuilder()
+                .WithLogger(logger)
+                .UseInMemory()
+                .UsePlugin(() =>
+                {
+                    first = new DisposableTrackingPlugin();
+                    return first;
+                })
+                .UsePlugin(() =>
+                {
+                    duplicate = new DisposableTrackingPlugin();
+                    return duplicate;
+                })
+                .Build())
+            {
+                first.Should().NotBeNull();
+                duplicate.Should().NotBeNull();
+
+                first.Initialized.Should().BeTrue();
+                first.Disposed.Should().BeFalse();
+
+                duplicate.Initialized.Should().BeFalse();
+                duplicate.Disposed.Should().BeTrue();
+
+                logger.Entries.Should().ContainSingle(x => x.Level == LogLevel.Warning && x.Message.Contains("registered multiple times", StringComparison.Ordinal));
+            }
+
+            first.Disposed.Should().BeTrue();
+        }
+
+        [Fact]
+        public void UsePlugin_instance_should_not_be_disposed_by_database()
+        {
+            var plugin = new DisposableTrackingPlugin();
+
+            using (var db = new LiteDatabaseBuilder()
+                .UseInMemory()
+                .UsePlugin(plugin)
+                .Build())
+            {
+                plugin.Initialized.Should().BeTrue();
+                plugin.Disposed.Should().BeFalse();
+            }
+
+            plugin.Disposed.Should().BeFalse();
+        }
+
         private sealed class TrackingPlugin : ILitePlugin
         {
             public int InitializeCount { get; private set; }
@@ -68,6 +123,33 @@ namespace LiteDB.Tests.Client
             public void Initialize(LiteDatabase database, ILitePluginContext context)
             {
                 InitializeCount++;
+            }
+        }
+
+        private sealed class DisposableTrackingPlugin : ILitePlugin, IDisposable
+        {
+            public bool Initialized { get; private set; }
+
+            public bool Disposed { get; private set; }
+
+            public void Initialize(LiteDatabase database, ILitePluginContext context)
+            {
+                Initialized = true;
+            }
+
+            public void Dispose()
+            {
+                Disposed = true;
+            }
+        }
+
+        private sealed class CapturingLogger : ILogger
+        {
+            public List<(LogLevel Level, string Message)> Entries { get; } = new List<(LogLevel, string)>();
+
+            public void Write(LogLevel level, string message, Exception exception = null)
+            {
+                Entries.Add((level, message));
             }
         }
     }

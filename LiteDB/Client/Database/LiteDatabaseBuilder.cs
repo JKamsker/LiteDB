@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using LiteDB.Engine;
 using LiteDB.Plugins;
 using static LiteDB.Constants;
@@ -13,6 +14,63 @@ namespace LiteDB
     /// </summary>
     public sealed class LiteDatabaseBuilder
     {
+        private sealed class PluginRegistration
+        {
+            public PluginRegistration(Type pluginType, Func<IServiceProvider, ILitePlugin> factory, bool ownsInstance)
+            {
+                PluginType = pluginType;
+                Factory = factory ?? throw new ArgumentNullException(nameof(factory));
+                OwnsInstance = ownsInstance;
+            }
+
+            public Type PluginType { get; }
+
+            public Func<IServiceProvider, ILitePlugin> Factory { get; }
+
+            public bool OwnsInstance { get; }
+        }
+
+        private sealed class DisposableCollection : IDisposable
+        {
+            private readonly List<IDisposable> _items = new List<IDisposable>();
+            private int _disposed;
+
+            public void Add(IDisposable item)
+            {
+                if (item == null) return;
+
+                if (Volatile.Read(ref _disposed) != 0)
+                {
+                    item.Dispose();
+                    return;
+                }
+
+                _items.Add(item);
+            }
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                {
+                    return;
+                }
+
+                foreach (var item in _items)
+                {
+                    try
+                    {
+                        item.Dispose();
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
+                }
+
+                _items.Clear();
+            }
+        }
+
         private enum DataSourceKind
         {
             None = 0,
@@ -21,7 +79,7 @@ namespace LiteDB
             Engine = 3
         }
 
-        private readonly List<ILitePlugin> _plugins = new List<ILitePlugin>();
+        private readonly List<PluginRegistration> _pluginRegistrations = new List<PluginRegistration>();
         private readonly LiteDatabaseOptions _options = new LiteDatabaseOptions();
 
         private DataSourceKind _dataSourceKind;
@@ -38,7 +96,39 @@ namespace LiteDB
         {
             if (plugin == null) throw new ArgumentNullException(nameof(plugin));
 
-            _plugins.Add(plugin);
+            _pluginRegistrations.Add(new PluginRegistration(plugin.GetType(), _ => plugin, ownsInstance: false));
+            return this;
+        }
+
+        public LiteDatabaseBuilder UsePlugin<TPlugin>()
+            where TPlugin : ILitePlugin, new()
+        {
+            _pluginRegistrations.Add(new PluginRegistration(typeof(TPlugin), _ => new TPlugin(), ownsInstance: true));
+            return this;
+        }
+
+        public LiteDatabaseBuilder UsePlugin(Func<ILitePlugin> pluginFactory)
+        {
+            if (pluginFactory == null) throw new ArgumentNullException(nameof(pluginFactory));
+
+            _pluginRegistrations.Add(new PluginRegistration(pluginType: null, _ => pluginFactory(), ownsInstance: true));
+            return this;
+        }
+
+        public LiteDatabaseBuilder UsePlugin(Func<IServiceProvider, ILitePlugin> pluginFactory)
+        {
+            if (pluginFactory == null) throw new ArgumentNullException(nameof(pluginFactory));
+
+            _pluginRegistrations.Add(new PluginRegistration(pluginType: null, pluginFactory, ownsInstance: true));
+            return this;
+        }
+
+        public LiteDatabaseBuilder UsePlugin<TPlugin>(Func<IServiceProvider, TPlugin> pluginFactory)
+            where TPlugin : ILitePlugin
+        {
+            if (pluginFactory == null) throw new ArgumentNullException(nameof(pluginFactory));
+
+            _pluginRegistrations.Add(new PluginRegistration(typeof(TPlugin), sp => pluginFactory(sp), ownsInstance: true));
             return this;
         }
 
@@ -50,7 +140,7 @@ namespace LiteDB
             {
                 if (plugin != null)
                 {
-                    _plugins.Add(plugin);
+                    this.UsePlugin(plugin);
                 }
             }
 
@@ -185,18 +275,13 @@ namespace LiteDB
             this.EnsureNotBuilt();
 
             var mapper = _options.Mapper ?? BsonMapper.Global;
-            var services = _options.Services;
-            var logger = _options.Logger;
+            var services = _options.Services ?? NullServiceProvider.Instance;
+            var logger = _options.Logger ?? NullLogger.Instance;
             var missingPluginBehavior = _options.MissingPluginBehavior;
             var validatePluginsOnOpen = _options.ValidatePluginsOnOpen;
 
-            var plugins = new List<ILitePlugin>();
-            if (_options.Plugins != null)
-            {
-                plugins.AddRange(_options.Plugins.Where(x => x != null));
-            }
-
-            plugins.AddRange(_plugins);
+            var ownedResources = default(DisposableCollection);
+            var plugins = default(List<ILitePlugin>);
 
             ILiteEngine engine;
             bool disposeOnClose;
@@ -249,20 +334,100 @@ namespace LiteDB
                 throw new InvalidOperationException("A data source must be configured before Build().");
             }
 
-            var pluginContext = new DefaultPluginContext(contextConnectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
+            try
+            {
+                (plugins, ownedResources) = this.CreatePluginInstances(services, logger);
 
-            var database = new LiteDatabase(
-                engine,
-                disposeOnClose,
-                mapper,
-                pluginContext,
-                initializePlugins: true,
-                plugins: plugins,
-                checkpointOverride: checkpointOverride);
+                var pluginContext = new DefaultPluginContext(contextConnectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
 
-            _built = true;
+                var database = new LiteDatabase(
+                    engine,
+                    disposeOnClose,
+                    mapper,
+                    pluginContext,
+                    initializePlugins: true,
+                    plugins: plugins,
+                    ownedResources: ownedResources,
+                    checkpointOverride: checkpointOverride);
 
-            return database;
+                _built = true;
+
+                return database;
+            }
+            catch
+            {
+                ownedResources?.Dispose();
+                throw;
+            }
+        }
+
+        private (List<ILitePlugin> Plugins, DisposableCollection OwnedResources) CreatePluginInstances(IServiceProvider services, ILogger logger)
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+            if (logger == null) throw new ArgumentNullException(nameof(logger));
+
+            var ownedResources = new DisposableCollection();
+            var plugins = new List<ILitePlugin>();
+            var seen = new HashSet<Type>();
+
+            var registrations = new List<PluginRegistration>();
+
+            if (_options.Plugins != null)
+            {
+                foreach (var plugin in _options.Plugins)
+                {
+                    if (plugin != null)
+                    {
+                        registrations.Add(new PluginRegistration(plugin.GetType(), _ => plugin, ownsInstance: false));
+                    }
+                }
+            }
+
+            registrations.AddRange(_pluginRegistrations);
+
+            foreach (var registration in registrations)
+            {
+                if (registration == null)
+                {
+                    continue;
+                }
+
+                if (registration.PluginType != null && seen.Contains(registration.PluginType))
+                {
+                    logger.Write(LogLevel.Warning, $"Plugin '{registration.PluginType.FullName}' was registered multiple times. Using first instance and ignoring subsequent registrations.");
+                    continue;
+                }
+
+                var plugin = registration.Factory(services);
+                if (plugin == null)
+                {
+                    continue;
+                }
+
+                var pluginType = plugin.GetType();
+
+                if (seen.Contains(pluginType))
+                {
+                    logger.Write(LogLevel.Warning, $"Plugin '{pluginType.FullName}' was registered multiple times. Using first instance and ignoring subsequent registrations.");
+
+                    if (registration.OwnsInstance && plugin is IDisposable disposable)
+                    {
+                        disposable.Dispose();
+                    }
+
+                    continue;
+                }
+
+                seen.Add(pluginType);
+                plugins.Add(plugin);
+
+                if (registration.OwnsInstance && plugin is IDisposable ownedDisposable)
+                {
+                    ownedResources.Add(ownedDisposable);
+                }
+            }
+
+            return (plugins, ownedResources);
         }
 
         private void EnsureNotBuilt()
