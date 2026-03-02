@@ -74,36 +74,73 @@ namespace LiteDB.Engine
             _disk = disk;
             _plugins = plugins;
 
-            // enter in lock mode according initial mode
-            if (mode == LockMode.Write)
+            var lockEntered = false;
+
+            try
             {
-                _locker.EnterLock(_collectionName);
-            }
-
-            // get lastest read version from wal-index
-            _readVersion = _walIndex.CurrentReadVersion;
-
-            var srv = new CollectionService(_header, _disk, this, _transPages);
-
-            // read collection (create if new - load virtual too)
-            srv.Get(_collectionName, addIfNotExists, ref _collectionPage);
-
-            // clear local pages (will clear _collectionPage link reference)
-            if (_collectionPage != null)
-            {
-                // local pages contains only data/index pages
-                _localPages.Remove(_collectionPage.PageID);
-
-                try
+                // enter in lock mode according initial mode
+                if (mode == LockMode.Write)
                 {
+                    _locker.EnterLock(_collectionName);
+                    lockEntered = true;
+                }
+
+                // get lastest read version from wal-index
+                _readVersion = _walIndex.CurrentReadVersion;
+
+                var srv = new CollectionService(_header, _disk, this, _transPages);
+
+                // read collection (create if new - load virtual too)
+                srv.Get(_collectionName, addIfNotExists, ref _collectionPage);
+
+                // clear local pages (will clear _collectionPage link reference)
+                if (_collectionPage != null)
+                {
+                    // local pages contains only data/index pages
+                    _localPages.Remove(_collectionPage.PageID);
+
                     this.EvaluatePluginAssets();
                 }
-                catch
+            }
+            catch
+            {
+                this.CleanupFailedSnapshot();
+
+                if (mode == LockMode.Write)
                 {
-                    this.CleanupFailedSnapshot();
-                    this.Dispose();
-                    throw;
+                    if (lockEntered)
+                    {
+                        try
+                        {
+                            this.Dispose();
+                        }
+                        catch
+                        {
+                            try
+                            {
+                                _locker.ExitLock(_collectionName);
+                            }
+                            catch
+                            {
+                            }
+
+                            _disposed = true;
+                        }
+                    }
                 }
+                else
+                {
+                    try
+                    {
+                        this.Dispose();
+                    }
+                    catch
+                    {
+                        _disposed = true;
+                    }
+                }
+
+                throw;
             }
         }
 
@@ -433,7 +470,7 @@ namespace LiteDB.Engine
             }
         }
 
-        private static void ReleaseBuffer(PageBuffer buffer)
+        private void ReleaseBuffer(PageBuffer buffer)
         {
             if (buffer == null)
             {
@@ -446,7 +483,20 @@ namespace LiteDB.Engine
             }
             else if (buffer.ShareCounter == BUFFER_WRITABLE)
             {
-                buffer.ShareCounter = 0;
+                try
+                {
+                    if (_disk == null)
+                    {
+                        buffer.ShareCounter = 0;
+                        return;
+                    }
+
+                    _disk.DiscardCleanPages(new[] { buffer });
+                }
+                catch
+                {
+                    buffer.ShareCounter = 0;
+                }
             }
         }
 

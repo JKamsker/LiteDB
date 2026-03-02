@@ -51,10 +51,35 @@ namespace LiteDB.Engine
                 _cache.GetReadablePage(position, origin, (pos, buf) => this.ReadStream(stream, pos, buf));
 
 #if DEBUG || TESTING
-            _state.SimulateDiskReadFail?.Invoke(page);
+            try
+            {
+                _state.SimulateDiskReadFail?.Invoke(page);
+            }
+            catch
+            {
+                ReleasePage(page);
+                throw;
+            }
 #endif
 
             return page;
+        }
+
+        private void ReleasePage(PageBuffer page)
+        {
+            if (page == null)
+            {
+                return;
+            }
+
+            if (page.ShareCounter > 0)
+            {
+                page.Release();
+            }
+            else if (page.ShareCounter == BUFFER_WRITABLE)
+            {
+                _cache.DiscardPage(page);
+            }
         }
 
         /// <summary>
