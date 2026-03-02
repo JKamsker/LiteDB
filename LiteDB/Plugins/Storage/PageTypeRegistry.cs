@@ -47,12 +47,20 @@ namespace LiteDB.Plugins.Storage
             {
                 if (_byCode.TryGetValue(registration.NumericCode, out var existingByCode))
                 {
-                    throw new InvalidOperationException($"Page type code 0x{registration.NumericCode:X2} is already registered by plugin '{existingByCode.PluginId}'.");
+                    ReservedCodeRanges.EnsureUnique(
+                        conflictDetected: true,
+                        identifierDescription: $"Page type code 0x{registration.NumericCode:X2}",
+                        existingPluginId: existingByCode.PluginId,
+                        incomingPluginId: registration.PluginId);
                 }
 
                 if (_byName.TryGetValue(registration.PageType, out var existingByName))
                 {
-                    throw new InvalidOperationException($"Page type '{registration.PageType}' is already registered by plugin '{existingByName.PluginId}'.");
+                    ReservedCodeRanges.EnsureUnique(
+                        conflictDetected: true,
+                        identifierDescription: $"Page type '{registration.PageType}'",
+                        existingPluginId: existingByName.PluginId,
+                        incomingPluginId: registration.PluginId);
                 }
 
                 var compositeKey = CreateCompositeKey(registration.PluginId, registration.PageType);

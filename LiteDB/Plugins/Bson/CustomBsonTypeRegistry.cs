@@ -45,14 +45,22 @@ namespace LiteDB.Plugins.Bson
             {
                 if (_typesByCode.TryGetValue(descriptor.TypeCode, out var existingByCode))
                 {
-                    throw new InvalidOperationException($"BSON type code 0x{descriptor.TypeCode:X2} is already registered by plugin '{existingByCode.PluginId}'.");
+                    ReservedCodeRanges.EnsureUnique(
+                        conflictDetected: true,
+                        identifierDescription: $"BSON type code 0x{descriptor.TypeCode:X2}",
+                        existingPluginId: existingByCode.PluginId,
+                        incomingPluginId: descriptor.PluginId);
                 }
 
                 if (!string.IsNullOrWhiteSpace(descriptor.Name))
                 {
                     if (_typesByName.TryGetValue(descriptor.Name, out var existingByName))
                     {
-                        throw new InvalidOperationException($"BSON type '{descriptor.Name}' is already registered by plugin '{existingByName.PluginId}'.");
+                        ReservedCodeRanges.EnsureUnique(
+                            conflictDetected: true,
+                            identifierDescription: $"BSON type '{descriptor.Name}'",
+                            existingPluginId: existingByName.PluginId,
+                            incomingPluginId: descriptor.PluginId);
                     }
 
                     _typesByName[descriptor.Name] = descriptor;
@@ -64,7 +72,11 @@ namespace LiteDB.Plugins.Bson
                     {
                         if (_aliases.ContainsKey(alias))
                         {
-                            throw new InvalidOperationException($"BSON type alias 0x{alias:X2} is already registered by plugin '{_aliases[alias].PluginId}'.");
+                            ReservedCodeRanges.EnsureUnique(
+                                conflictDetected: true,
+                                identifierDescription: $"BSON type alias 0x{alias:X2}",
+                                existingPluginId: _aliases[alias].PluginId,
+                                incomingPluginId: descriptor.PluginId);
                         }
 
                         _aliases[alias] = descriptor;
