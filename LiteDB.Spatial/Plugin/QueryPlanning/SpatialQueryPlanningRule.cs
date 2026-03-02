@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using LiteDB.Spatial;
 using BaseLiteDB = LiteDbBase::LiteDB;
 using LiteDbEngine = LiteDbBase::LiteDB.Engine;
@@ -122,8 +123,24 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                 return false;
             }
 
-            indexExpression = "$." + options.IndexFieldName;
-            index = new SpatialMultiRangeIndex(options.IndexFieldName, plan.IndexRanges);
+            var indexFieldExpression = BaseLiteDB.BsonExpression.Create(options.IndexFieldName).Source;
+            if (string.IsNullOrWhiteSpace(indexFieldExpression))
+            {
+                return false;
+            }
+
+            if (!TryResolveIndexName(context, indexFieldExpression, out var persistedIndexName))
+            {
+                persistedIndexName = SanitizeIndexName(indexFieldExpression);
+            }
+
+            if (string.IsNullOrWhiteSpace(persistedIndexName))
+            {
+                return false;
+            }
+
+            indexExpression = indexFieldExpression;
+            index = new SpatialMultiRangeIndex(persistedIndexName, plan.IndexRanges);
 
             var filters = new List<BaseLiteDB.BsonExpression>();
             if (plan.CoveringBounds.HasValue)
@@ -141,6 +158,52 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
             }
 
             return true;
+        }
+
+        private static bool TryResolveIndexName(LiteDbPlugins.QueryPlanningContext context, string indexExpression, out string indexName)
+        {
+            indexName = string.Empty;
+
+            var indexes = context?.Snapshot?.CollectionPage?.GetCollectionIndexes();
+            if (indexes == null)
+            {
+                return false;
+            }
+
+            var matched = indexes.FirstOrDefault(candidate =>
+                candidate != null
+                && candidate.IndexType == 0
+                && string.Equals(candidate.Expression, indexExpression, StringComparison.Ordinal));
+
+            if (matched == null || string.IsNullOrWhiteSpace(matched.Name))
+            {
+                return false;
+            }
+
+            indexName = matched.Name;
+            return true;
+        }
+
+        private static string SanitizeIndexName(string indexExpression)
+        {
+            if (string.IsNullOrWhiteSpace(indexExpression))
+            {
+                return string.Empty;
+            }
+
+            var builder = new StringBuilder(indexExpression.Length);
+
+            foreach (var ch in indexExpression)
+            {
+                if ((ch >= 'a' && ch <= 'z') ||
+                    (ch >= 'A' && ch <= 'Z') ||
+                    (ch >= '0' && ch <= '9'))
+                {
+                    builder.Append(ch);
+                }
+            }
+
+            return builder.ToString();
         }
 
         private static ISpatialQueryPlan? BuildNear2DPlan(SpatialCollectionDescriptor descriptor, SpatialPredicate predicate)

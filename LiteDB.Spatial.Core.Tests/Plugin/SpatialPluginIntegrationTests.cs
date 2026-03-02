@@ -90,6 +90,8 @@ public sealed class SpatialPluginIntegrationTests
             .WhereNear(x => x.Location, new GeoPoint(0, 0), 1_000)
             .GetPlan();
 
+        plan["index"]["name"].AsString.Should().Be("idx");
+        plan["index"]["expr"].AsString.Should().Be("$._idx");
         plan["index"]["mode"].AsString.Should().Contain("SpatialMultiRangeIndex");
     }
 
