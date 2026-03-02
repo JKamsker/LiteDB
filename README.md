@@ -188,12 +188,12 @@ LiteDB 6.0+ keeps vector search fully optional by moving every vector API, BSON 
    using var db = new LiteDatabase(connectionString, options: options);
    ```
 
-3. Call the vector extension helpers from `LiteDB.Vector` (`LiteCollectionVectorExtensions.EnsureIndex`, `DropIndex`, etc.). Vector APIs are not available from the base assembly anymore and will throw a `LiteException (LITE2002)` if the plugin is missing.
+3. Call the vector extension helpers from `LiteDB.Vector` (`LiteCollectionVectorExtensions.EnsureIndex`, `DropIndex`, etc.). Vector APIs are not available from the base assembly anymore and will throw a `LiteException (LITE2002 / PLUGIN_REQUIRED)` if the plugin is missing.
 
 ### Compatibility notes and breaking changes
 
 - Databases created without vector data behave exactly as before; LiteDB simply omits the plugin-specific hooks.
-- If LiteDB opens a file that contains vector-owned indexes and the plugin is **not** registered, behavior is controlled by `PluginMissingBehavior` (default strict): affected collections/indexes throw `LITE2002 VectorCompatibility.PluginRequired` when accessed; warnings are emitted only in non-strict modes. Non-vector collections remain usable.
+- If LiteDB opens a file that contains vector-owned indexes and the plugin is **not** registered, behavior is controlled by `PluginMissingBehavior` (default strict): affected collections/indexes throw `LiteException (LITE2002 / PLUGIN_REQUIRED)` when accessed; warnings are emitted only in non-strict modes. Non-vector collections remain usable.
 - Prerelease vector builds (before LiteDB.Vector shipped) wrote metadata formats the GA plugin does not read. Migrate those databases by exporting/importing documents or by using the final prerelease build to drop the legacy vector indexes before upgrading; otherwise GA releases will continue to emit `LITE2002`.
 - See `docs/vector-plugin-isolation.md` for the full migration checklist, compatibility matrix, and CI guidance.
 

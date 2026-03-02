@@ -1,7 +1,7 @@
 # Plugin Context Isolation Plan (Remove LiteDatabaseServices.Default reliance)
 
 ## Goal
-Ensure every `LiteDatabase` instance uses its own plugin context (registries for BSON types, page factories, index metadata, query operators, etc.), so two databases can load plugins with overlapping code spaces without conflicts. Eliminate reliance on the singleton `LiteDatabaseServices.Default` except for legacy/no-plugin fallback paths.
+Ensure every `LiteDatabase` instance uses its own plugin context (registries for BSON types, page factories, index metadata, query operators, etc.), so two databases can load plugins with overlapping code spaces without conflicts. Keep `LiteDatabaseServices.Default` deleted and use `PluginContextFallbacks.Context` only for explicit legacy/no-DB helpers.
 
 ## Current Status
 - `LiteDatabaseServices.Default` was removed from the codebase; only a minimal fallback lives in `PluginContextFallbacks` for truly legacy/no-DB helpers.
@@ -14,7 +14,7 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
 ## Remaining Issues
 - Keep an eye on any straggling doc/spec references to `LiteDatabaseServices.Default`.
 - Ensure new plugin work continues to thread per-db contexts; avoid accidental reintroduction of globals.
-- Update `specs/001-vector-plugin-extraction/progress.md` to log the removal of `LiteDatabaseServices.Default` and the `PluginContextFallbacks` replacement.
+
 
 ## Desired Behavior
 - Each `LiteDatabase` instance passes its own `ILitePluginContext` to all serialization, query, and storage operations.
@@ -30,7 +30,7 @@ Ensure every `LiteDatabase` instance uses its own plugin context (registries for
    - Ensure future plugin registrations (BSON types, page factories, query operators, cost models) stay scoped to `ILitePluginContext` passed into `Initialize`.
 
 3) **Diagnostics**
-   - Continue to surface deterministic missing-plugin `LiteException` with serializable diagnostics (JSON string) across all TFMs.
+   - Continue to surface deterministic missing-plugin `LiteException` with diagnostics stored under `Exception.Data["PluginDiagnostics"]` as a cloned `BsonDocument` across all TFMs.
 
 4) **Tests & tooling**
    - Add/maintain isolation regression tests: two databases with overlapping plugin IDs must not see each other’s registrations.

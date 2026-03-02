@@ -7,7 +7,7 @@ LiteDB now exposes a formal plugin surface so that feature packs (vector search,
 - A `LiteDatabase` is constructed with an optional `IEnumerable<ILitePlugin>`; each distinct plugin type receives a single `Initialize` call with a per-database `ILitePluginContext` (`LiteDB/Client/Database/LiteDatabase.cs:43`, `LiteDB/Client/Database/LiteDatabase.cs:174`).
 - The context materializes the extension registries and exposes shared services such as dependency injection and logging (`LiteDB/Plugins/DefaultPluginContext.cs:9`).
 - After all plugins run, the database hands the context to internal engine components via `IPluginHost.SetPluginContext`, so low-level operations can query plugin registries during inserts, updates, query planning, etc. (`LiteDB/Client/Database/LiteDatabase.cs:196`, `LiteDB/Engine/LiteEngine.cs:41`).
-- The same context is surfaced back to application code through `LiteDatabase.Services`, giving callers readonly access to the registries and helpers (`LiteDB/Client/Database/LiteDatabaseServices.cs:19`).
+- The same context is surfaced back to application code through `LiteDatabase.Services`, giving callers runtime access to inspect the registries and helpers. Registration APIs remain on the interfaces but become immutable once initialization completes (`DefaultPluginContext.Freeze`) and will throw on mutation (`LiteDB/Client/Database/LiteDatabaseServices.cs:19`).
 
 > **Idempotency:** The initializer guards against duplicate registration by tracking plugin types; use plugin-level state or the supplied service provider if you need cross-call coordination (`LiteDB/Client/Database/LiteDatabase.cs:176`).
 
@@ -83,6 +83,7 @@ Use `legacyAliases` when migrating existing on-disk BSON encodings to a new plug
 - Storage extensions register page constructors via `context.RegisterPageFactory(new PageFactoryRegistration(...))` (`LiteDB/Plugins/Storage/IPageTypeRegistry.cs`).
 - Each registration declares a logical `pageType` and compatibility range so the engine can validate formats before `FileReaderV8` and `SnapShot` materialize pages (`LiteDB/Engine/Pages/PageFactoryRegistry.cs`, `LiteDB/Engine/FileReader/FileReaderV8.cs:52`).
 - Page factories are invoked when decoding pages with plugin-reserved numeric codes. If a page type is not registered, decoding fails with `PLUGIN_REQUIRED` when the page is accessed.
+- Page type codes are reserved for plugins at `>= 0x80` (core page codes occupy the lower range).
 
 ```csharp
 context.RegisterPageFactory(new PageFactoryRegistration(
