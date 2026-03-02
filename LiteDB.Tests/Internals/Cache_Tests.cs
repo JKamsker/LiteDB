@@ -138,6 +138,33 @@ namespace LiteDB.Internals
         }
 
         [Fact]
+        public void Cache_ReadablePage_FactoryException_DoesNotLeakPages()
+        {
+            var m = new MemoryCache(new int[] { 1 });
+            var initialFreePages = m.FreePages;
+
+            m.Invoking(cache => cache.GetReadablePage(0, FileOrigin.Data, (_, __) => throw new InvalidOperationException("boom")))
+                .Should()
+                .Throw<InvalidOperationException>();
+
+            m.FreePages.Should().Be(initialFreePages);
+            m.GetPages().Should().BeEmpty();
+        }
+
+        [Fact]
+        public void Cache_WritablePage_FactoryException_DoesNotLeakPages()
+        {
+            var m = new MemoryCache(new int[] { 1 });
+            var initialFreePages = m.FreePages;
+
+            m.Invoking(cache => cache.GetWritablePage(0, FileOrigin.Data, (_, __) => throw new InvalidOperationException("boom")))
+                .Should()
+                .Throw<InvalidOperationException>();
+
+            m.FreePages.Should().Be(initialFreePages);
+        }
+
+        [Fact]
         public void Cache_UniqueIDNumbering()
         {
             // Test case when second segment size is smaller than first

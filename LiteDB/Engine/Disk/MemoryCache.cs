@@ -58,8 +58,7 @@ namespace LiteDB.Engine
             // get dict key based on position/origin
             var key = this.GetReadableKey(position, origin);
 
-            // try get from _readble dict or create new
-            var page = _readable.GetOrAdd(key, (k) =>
+            if (_readable.TryGetValue(key, out var page) == false)
             {
                 // get new page from _free pages (or extend)
                 var newPage = this.GetFreePage();
@@ -67,11 +66,32 @@ namespace LiteDB.Engine
                 newPage.Position = position;
                 newPage.Origin = origin;
 
-                // load page content with disk stream
-                factory(position, newPage);
+                try
+                {
+                    // load page content with disk stream
+                    factory(position, newPage);
+                }
+                catch
+                {
+                    newPage.Position = long.MaxValue;
+                    newPage.Origin = FileOrigin.None;
+                    _free.Enqueue(newPage);
+                    throw;
+                }
 
-                return newPage;
-            });
+                if (_readable.TryAdd(key, newPage))
+                {
+                    page = newPage;
+                }
+                else
+                {
+                    newPage.Position = long.MaxValue;
+                    newPage.Origin = FileOrigin.None;
+                    _free.Enqueue(newPage);
+
+                    page = _readable[key];
+                }
+            }
 
             // update LRU
             Interlocked.Exchange(ref page.Timestamp, DateTime.UtcNow.Ticks);
@@ -116,17 +136,25 @@ namespace LiteDB.Engine
             // write pages always contains a new buffer array
             var writable = this.NewPage(position, origin);
 
-            // if requested page already in cache, just copy buffer and avoid load from stream
-            if (_readable.TryGetValue(key, out var clean))
+            try
             {
-                Buffer.BlockCopy(clean.Array, clean.Offset, writable.Array, writable.Offset, PAGE_SIZE);
-            }
-            else
-            {
-                factory(position, writable);
-            }
+                // if requested page already in cache, just copy buffer and avoid load from stream
+                if (_readable.TryGetValue(key, out var clean))
+                {
+                    Buffer.BlockCopy(clean.Array, clean.Offset, writable.Array, writable.Offset, PAGE_SIZE);
+                }
+                else
+                {
+                    factory(position, writable);
+                }
 
-            return writable;
+                return writable;
+            }
+            catch
+            {
+                this.DiscardPage(writable);
+                throw;
+            }
         }
 
         /// <summary>

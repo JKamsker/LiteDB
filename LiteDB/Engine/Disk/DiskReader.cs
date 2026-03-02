@@ -92,7 +92,21 @@ namespace LiteDB.Engine
 
             stream.Position = position;
 
-            stream.Read(buffer.Array, buffer.Offset, buffer.Count);
+            var remaining = buffer.Count;
+            var offset = buffer.Offset;
+
+            while (remaining > 0)
+            {
+                var read = stream.Read(buffer.Array, offset, remaining);
+
+                if (read <= 0)
+                {
+                    throw new EndOfStreamException("Unexpected end of stream while reading page buffer.");
+                }
+
+                offset += read;
+                remaining -= read;
+            }
 
             DEBUG(buffer.All(0) == false, "check if are not reading out of file length");
         }
