@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using LiteDB.Spatial;
 using LiteDB.Spatial.Plugin.Linq;
 using LiteDB.Spatial.Plugin.QueryPlanning;
@@ -34,6 +35,7 @@ namespace LiteDB.Spatial.Plugin
         private readonly ConcurrentDictionary<string, SpatialCollectionDescriptor> _descriptorsByCollection = new ConcurrentDictionary<string, SpatialCollectionDescriptor>(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, string> _geometryFieldsByIndex = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<Type, SpatialLinqResolver> _resolverCache = new ConcurrentDictionary<Type, SpatialLinqResolver>();
+        private int _descriptorScanRan;
         private SpatialDatabaseHost _host;
         private static readonly Regex IndexNameSanitizer = new Regex(@"[^a-z0-9]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -304,7 +306,7 @@ namespace LiteDB.Spatial.Plugin
 
         public IEnumerable<SpatialCollectionDescriptor> GetDescriptors()
         {
-            if (_descriptorsByCollection.Count == 0)
+            if (Interlocked.CompareExchange(ref _descriptorScanRan, 1, 0) == 0)
             {
                 var metadataCollection = Database.GetCollection(SpatialMetadataStore.MetadataCollectionName);
                 foreach (var document in metadataCollection.FindAll())

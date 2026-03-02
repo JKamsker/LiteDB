@@ -10,13 +10,16 @@ namespace LiteDB.Spatial.Plugin
     internal static class SpatialPluginRegistry
     {
         private static readonly ConditionalWeakTable<BaseLiteDB.LiteDatabase, SpatialPluginServices> _services = new ConditionalWeakTable<BaseLiteDB.LiteDatabase, SpatialPluginServices>();
+        private static readonly ConditionalWeakTable<LiteDbPlugins.ILitePluginContext, SpatialPluginServices> _servicesByContext = new ConditionalWeakTable<LiteDbPlugins.ILitePluginContext, SpatialPluginServices>();
 
         public static SpatialPluginServices Attach(BaseLiteDB.LiteDatabase database, LiteDbPlugins.ILitePluginContext context)
         {
             if (database == null) throw new ArgumentNullException(nameof(database));
             if (context == null) throw new ArgumentNullException(nameof(context));
 
-            return _services.GetValue(database, _ => new SpatialPluginServices(database, context));
+            var services = _servicesByContext.GetValue(context, _ => new SpatialPluginServices(database, context));
+
+            return _services.GetValue(database, _ => services);
         }
 
         public static bool TryGetServices(BaseLiteDB.LiteDatabase database, out SpatialPluginServices services)

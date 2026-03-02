@@ -15,7 +15,6 @@ namespace LiteDB.Spatial.Plugin
     public sealed class SpatialPlugin : LiteDbPlugins.ILitePlugin, LiteDbPlugins.ILiteDatabaseHandleLifecycle
     {
         private const string LogPrefix = "[SpatialPlugin]";
-        private SpatialPluginServices _services;
 
         public void Initialize(BaseLiteDB.LiteDatabase database, LiteDbPlugins.ILitePluginContext context)
         {
@@ -23,7 +22,6 @@ namespace LiteDB.Spatial.Plugin
             if (context == null) throw new ArgumentNullException(nameof(context));
 
             var services = SpatialPluginRegistry.Attach(database, context);
-            _services = services;
 
             RegisterExpressionFunctions(context.Expressions);
 
@@ -36,14 +34,16 @@ namespace LiteDB.Spatial.Plugin
 
         public void OnHandleCreated(BaseLiteDB.ILiteDatabase database)
         {
-            if (_services == null)
+            if (database is not BaseLiteDB.LiteDatabase liteDatabase)
             {
                 return;
             }
 
-            if (database is BaseLiteDB.LiteDatabase liteDatabase)
+            var context = liteDatabase.Services?.Context;
+
+            if (context != null)
             {
-                SpatialPluginRegistry.AttachExisting(liteDatabase, _services);
+                SpatialPluginRegistry.Attach(liteDatabase, context);
             }
         }
 
