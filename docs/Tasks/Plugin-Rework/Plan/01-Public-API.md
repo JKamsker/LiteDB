@@ -9,35 +9,35 @@ Proposed surface (fluent, returns this):
 
 Plugin registration (store factories internally):
 
-- [ ] `UsePlugin(ILitePlugin plugin)` -- reuses the same instance; caller retains ownership (not disposed by builder/database/factory)
-- [ ] `UsePlugin<TPlugin>() where TPlugin : ILitePlugin, new()` (no DI; convenience only)
-- [ ] `UsePlugin(Func<ILitePlugin> pluginFactory)` -- factory-created instances are disposed by the owning database/factory if they implement `IDisposable`
-- [ ] `UsePlugin(Func<IServiceProvider, ILitePlugin> pluginFactory)` (DI-friendly; receives the provider set via `WithServices(...)`, otherwise an empty provider)
-- [ ] `UsePlugin<TPlugin>(Func<IServiceProvider, TPlugin> pluginFactory) where TPlugin : ILitePlugin` (typed factory; avoids constructing then discarding duplicates when de-duping by CLR type)
-- [ ] `UsePlugins(IEnumerable<ILitePlugin> plugins)` / `UsePlugins(params ILitePlugin[] plugins)`
+- [x] `UsePlugin(ILitePlugin plugin)` -- reuses the same instance; caller retains ownership (not disposed by builder/database/factory)
+- [x] `UsePlugin<TPlugin>() where TPlugin : ILitePlugin, new()` (no DI; convenience only)
+- [x] `UsePlugin(Func<ILitePlugin> pluginFactory)` -- factory-created instances are disposed by the owning database/factory if they implement `IDisposable`
+- [x] `UsePlugin(Func<IServiceProvider, ILitePlugin> pluginFactory)` (DI-friendly; receives the provider set via `WithServices(...)`, otherwise an empty provider)
+- [x] `UsePlugin<TPlugin>(Func<IServiceProvider, TPlugin> pluginFactory) where TPlugin : ILitePlugin` (typed factory; avoids constructing then discarding duplicates when de-duping by CLR type)
+- [x] `UsePlugins(IEnumerable<ILitePlugin> plugins)` / `UsePlugins(params ILitePlugin[] plugins)`
 
 Plugin lifetime notes:
 
-- [ ] `UsePlugin(...)` calls append; registration order matters.
-- [ ] `UsePlugin(ILitePlugin plugin)` reuses the same instance; the builder/database/factory does NOT dispose it. Caller owns lifetime.
-- [ ] `UsePlugin(Func<...>)` factories: the created instance IS disposed by the database/factory when the owning scope ends (if it implements `IDisposable`).
-- [ ] Plugin initialization is de-duped by plugin CLR type (first registered instance wins), mirroring existing `LiteDatabase` constructor behavior. **Duplicate registrations of the same CLR type log a warning** rather than being silently ignored.
+- [x] `UsePlugin(...)` calls append; registration order matters.
+- [x] `UsePlugin(ILitePlugin plugin)` reuses the same instance; the builder/database/factory does NOT dispose it. Caller owns lifetime.
+- [x] `UsePlugin(Func<...>)` factories: the created instance IS disposed by the database/factory when the owning scope ends (if it implements `IDisposable`).
+- [x] Plugin initialization is de-duped by plugin CLR type (first registered instance wins), mirroring existing `LiteDatabase` constructor behavior. **Duplicate registrations of the same CLR type log a warning** rather than being silently ignored.
   - Note: warning-on-duplicates is a builder/factory diagnostic; existing constructors can remain silent for compatibility.
-- [ ] Plugin factories are invoked:
-  - [ ] `Build()`: once per `Build()` call
-  - [ ] `BuildFactory()`: once per factory (when the shared engine/context is created)
-- [ ] In factory mode, the plugin instance produced by a factory is effectively a singleton for the lifetime of the factory/engine pair; plugin state must be thread-safe.
-- [ ] In factory mode, plugin factories run once per factory; avoid scoped-service assumptions unless the host builds factories per scope.
+- [x] Plugin factories are invoked:
+  - [x] `Build()`: once per `Build()` call
+  - [x] `BuildFactory()`: once per factory (when the shared engine/context is created)
+- [x] In factory mode, the plugin instance produced by a factory is effectively a singleton for the lifetime of the factory/engine pair; plugin state must be thread-safe.
+- [x] In factory mode, plugin factories run once per factory; avoid scoped-service assumptions unless the host builds factories per scope.
 
 Data source (mutually exclusive; **second call throws `InvalidOperationException`**, not "last call wins"):
 
-- [ ] `UseFile(string filename)` (sets `ConnectionString.Filename` directly; no string concatenation)
-- [ ] `UseConnectionString(string connectionString)`
-- [ ] `UseConnectionString(ConnectionString connectionString)`
-- [ ] `UseInMemory()` (shorthand for `UseConnectionString(":memory:")`)
-- [ ] `UseTemp()` (shorthand for `UseConnectionString(":temp:")`)
-- [ ] `UseStream(Stream dataStream, Stream logStream = null)` (mirrors existing ctor semantics)
-- [ ] `UseEngine(ILiteEngine engine, bool ownsEngine = true)`
+- [x] `UseFile(string filename)` (sets `ConnectionString.Filename` directly; no string concatenation)
+- [x] `UseConnectionString(string connectionString)`
+- [x] `UseConnectionString(ConnectionString connectionString)`
+- [x] `UseInMemory()` (shorthand for `UseConnectionString(":memory:")`)
+- [x] `UseTemp()` (shorthand for `UseConnectionString(":temp:")`)
+- [x] `UseStream(Stream dataStream, Stream logStream = null)` (mirrors existing ctor semantics)
+- [x] `UseEngine(ILiteEngine engine, bool ownsEngine = true)`
   - Ownership: when `ownsEngine=true`, the created database/factory owns the engine and disposes it (for `Build()`: when the returned `LiteDatabase` is disposed; for `BuildFactory()`: when the last lease is released). When false, the host owns engine disposal.
   - Note: when `UseEngine(...)` is chosen, `BuildFactory()` reuses the provided engine directly (ref-counted handles).
   - Note: plugin registrations only affect storage/query behavior when the supplied engine honors `IPluginHost.SetPluginContext` (as `LiteEngine`/`SharedEngine` do).
@@ -45,22 +45,22 @@ Data source (mutually exclusive; **second call throws `InvalidOperationException
 
 Configuration:
 
-- [ ] `WithMapper(BsonMapper mapper)`
-- [ ] `WithServices(IServiceProvider services)`
-- [ ] `WithLogger(ILogger logger)`
-- [ ] `WithContextConnectionString(ConnectionString connectionString)` (used to supply a real connection string to the plugin context when `UseEngine(...)` is selected; copy at build time, do not retain a mutable reference)
-- [ ] `WithPassword(string password)` (applies to connection-string/engine settings where relevant)
-- [ ] `AsReadOnly()` (connection string `ReadOnly` / engine settings)
-- [ ] `WithConnectionType(ConnectionType type)` (maps to `ConnectionString.Connection` / `connection=` key; Direct vs `ConnectionType.Shared` mutex mode)
-- [ ] `ConfigureEngine(Action<EngineSettings> configure)` (passed into `ConnectionString.CreateEngine`)
-- [ ] `WithMissingPluginBehavior(PluginMissingBehavior behavior)` (host-controlled, see below)
-- [ ] `ValidatePluginsOnOpen(bool enabled = true)` (opt-in; defaults to disabled unless explicitly enabled, preserving legacy behavior)
-- [ ] `ConfigureOptions(Action<LiteDatabaseOptions> configure)` (escape hatch for future options; applied in call order/last-call-wins)
+- [x] `WithMapper(BsonMapper mapper)`
+- [x] `WithServices(IServiceProvider services)`
+- [x] `WithLogger(ILogger logger)`
+- [x] `WithContextConnectionString(ConnectionString connectionString)` (used to supply a real connection string to the plugin context when `UseEngine(...)` is selected; copy at build time, do not retain a mutable reference)
+- [x] `WithPassword(string password)` (applies to connection-string/engine settings where relevant)
+- [x] `AsReadOnly()` (connection string `ReadOnly` / engine settings)
+- [x] `WithConnectionType(ConnectionType type)` (maps to `ConnectionString.Connection` / `connection=` key; Direct vs `ConnectionType.Shared` mutex mode)
+- [x] `ConfigureEngine(Action<EngineSettings> configure)` (passed into `ConnectionString.CreateEngine`)
+- [x] `WithMissingPluginBehavior(PluginMissingBehavior behavior)` (host-controlled, see below)
+- [x] `ValidatePluginsOnOpen(bool enabled = true)` (opt-in; defaults to disabled unless explicitly enabled, preserving legacy behavior)
+- [x] `ConfigureOptions(Action<LiteDatabaseOptions> configure)` (escape hatch for future options; applied in call order/last-call-wins)
 
 Build:
 
-- [ ] `ILiteDatabase Build()` -- creates a single database
-- [ ] `ILiteDatabaseFactory BuildFactory()` -- creates a shared-engine factory (always reuses engine; ref-counted handles)
+- [x] `ILiteDatabase Build()` -- creates a single database
+- [x] `ILiteDatabaseFactory BuildFactory()` -- creates a shared-engine factory (always reuses engine; ref-counted handles)
 
 Builder is single-use: calling `Build()` or `BuildFactory()` more than once throws `InvalidOperationException`.
 
@@ -68,13 +68,13 @@ Builder is NOT thread-safe (same convention as `IHostBuilder`, `DbContextOptions
 
 Notes:
 
-- [ ] All `With*` / `Configure*` calls are applied in call order (last call wins).
-- [ ] `BuildFactory()` is not supported for `UseStream(Stream ...)` (throws; stream lifetime/ownership and checkpoint override semantics are hard to make safe across ref-counted handles). If needed, use `UseEngine(...)` with a pre-created engine, or add a future `UseStreamFactory(...)` overload.
-- [ ] `UseInMemory()` + `BuildFactory()` returns many handles to the same in-memory database.
-- [ ] Builder validates incompatible combinations at build time:
-  - [ ] `UseEngine(...)` + `WithConnectionType(...)` → throws
-  - [ ] `UseStream(...)` + `BuildFactory()` → throws
-  - [ ] `WithContextConnectionString(...)` without `UseEngine(...)` → throws
+- [x] All `With*` / `Configure*` calls are applied in call order (last call wins).
+- [x] `BuildFactory()` is not supported for `UseStream(Stream ...)` (throws; stream lifetime/ownership and checkpoint override semantics are hard to make safe across ref-counted handles). If needed, use `UseEngine(...)` with a pre-created engine, or add a future `UseStreamFactory(...)` overload.
+- [x] `UseInMemory()` + `BuildFactory()` returns many handles to the same in-memory database.
+- [x] Builder validates incompatible combinations at build time:
+  - [x] `UseEngine(...)` + `WithConnectionType(...)` → throws
+  - [x] `UseStream(...)` + `BuildFactory()` → throws
+  - [x] `WithContextConnectionString(...)` without `UseEngine(...)` → throws
   - Note: `UseFile(...)` + `BuildFactory()` + `ConnectionType.Direct` (the default) is safe and recommended. The factory creates ONE engine (exclusive file access) with multiple in-process handles -- no corruption risk. `ConnectionType.Shared` is only needed when *multiple processes* access the same file, not for in-process handle sharing.
 
 ## 2) ILiteDatabaseFactory + LiteDatabaseFactory (new)
@@ -96,19 +96,19 @@ public interface ILiteDatabaseFactory : IDisposable
 
 Disposal + concurrency contract:
 
-- [ ] `CreateDatabase()` must be thread-safe.
-- [ ] After factory disposal, `CreateDatabase()` throws `ObjectDisposedException`.
-- [ ] Disposing the factory must not invalidate existing handles; they remain usable until disposed.
-- [ ] `CreateDatabase()` uses `Interlocked.Increment` for refcount, then checks disposed state; if disposed, decrements and throws.
+- [x] `CreateDatabase()` must be thread-safe.
+- [x] After factory disposal, `CreateDatabase()` throws `ObjectDisposedException`.
+- [x] Disposing the factory must not invalidate existing handles; they remain usable until disposed.
+- [x] `CreateDatabase()` uses `Interlocked.Increment` for refcount, then checks disposed state; if disposed, decrements and throws.
 
 Factory behavior (always shared-engine):
 
-- [ ] Factory owns one engine instance (or one `ILiteEngine` wrapper, e.g. `SharedEngine`), one plugin context instance.
-- [ ] Initializes plugins exactly once for that context/engine pair.
-- [ ] Returns ref-counted `LiteDatabase` handles that share engine/context and do not re-initialize plugins (handles are leases, not isolated "sessions"; they share engine state and per-thread transactions).
-- [ ] The reused engine is disposed when the last reference is released (factory disposed + all handles disposed).
-- [ ] The internal "plugin host" used for initialization must not own a reference (does not count toward refcount).
-- [ ] Handle disposal uses `Interlocked.CompareExchange` to ensure idempotency (double-dispose is safe, never underflows refcount).
+- [x] Factory owns one engine instance (or one `ILiteEngine` wrapper, e.g. `SharedEngine`), one plugin context instance.
+- [x] Initializes plugins exactly once for that context/engine pair.
+- [x] Returns ref-counted `LiteDatabase` handles that share engine/context and do not re-initialize plugins (handles are leases, not isolated "sessions"; they share engine state and per-thread transactions).
+- [x] The reused engine is disposed when the last reference is released (factory disposed + all handles disposed).
+- [x] The internal "plugin host" used for initialization must not own a reference (does not count toward refcount).
+- [x] Handle disposal uses `Interlocked.CompareExchange` to ensure idempotency (double-dispose is safe, never underflows refcount).
 
 Important: `ILitePlugin.Initialize` receives a `LiteDatabase` instance. See Intention.md for the resolution plan (option a: change signature, or option b: add per-handle hook).
 
@@ -118,8 +118,8 @@ File: `LiteDB/Client/Database/LiteDatabaseOptions.cs` (modify)
 
 Add:
 
-- [ ] `public PluginMissingBehavior MissingPluginBehavior { get; set; } = PluginMissingBehavior.RefuseDatabase;`
-- [ ] `public bool? ValidatePluginsOnOpen { get; set; } = null;`
+- [x] `public PluginMissingBehavior MissingPluginBehavior { get; set; } = PluginMissingBehavior.RefuseDatabase;`
+- [x] `public bool? ValidatePluginsOnOpen { get; set; } = null;`
   - When `null` (default), the effective value is `false` (legacy behavior; do not fail-fast on open unless explicitly enabled).
   - When explicitly set to `true` or `false`, that value is used regardless of `MissingPluginBehavior`.
   - The builder should leave this `null` unless `ValidatePluginsOnOpen(...)` is called.
@@ -128,10 +128,10 @@ Existing constructors + `LiteDatabaseOptions` should honor the new fields; the b
 
 Precedence:
 
-- [ ] `LiteDatabaseOptions.MissingPluginBehavior` is the enforcement source of truth (host-controlled).
-- [ ] `IPluginDiagnosticPolicy.MissingBehavior` is **deprecated** (marked `[Obsolete]`). It is ignored for enforcement. Plugin diagnostic policies can still customize exception messages via `CreateMissingPluginException`, but cannot influence the enforcement decision.
-- [ ] Compatibility note: any consumer/plugin relying on `IPluginDiagnosticPolicy.MissingBehavior != RefuseDatabase` to relax enforcement must now set `LiteDatabaseOptions.MissingPluginBehavior` explicitly.
-- [ ] The host-controlled `MissingPluginBehavior` must propagate from `LiteDatabaseOptions` → `DefaultPluginContext` (or a new field on `ILitePluginContext`) → `Snapshot` constructor. This is a new plumbing path that does not exist today.
+- [x] `LiteDatabaseOptions.MissingPluginBehavior` is the enforcement source of truth (host-controlled).
+- [x] `IPluginDiagnosticPolicy.MissingBehavior` is **deprecated** (marked `[Obsolete]`). It is ignored for enforcement. Plugin diagnostic policies can still customize exception messages via `CreateMissingPluginException`, but cannot influence the enforcement decision.
+- [x] Compatibility note: any consumer/plugin relying on `IPluginDiagnosticPolicy.MissingBehavior != RefuseDatabase` to relax enforcement must now set `LiteDatabaseOptions.MissingPluginBehavior` explicitly.
+- [x] The host-controlled `MissingPluginBehavior` must propagate from `LiteDatabaseOptions` → `DefaultPluginContext` (or a new field on `ILitePluginContext`) → `Snapshot` constructor. This is a new plumbing path that does not exist today.
 
 PluginMissingBehavior enum:
 
@@ -161,9 +161,9 @@ Validation: `DropOrphanedPluginIndexes=true` with `IncludeErrorReport=false` thr
 
 ## 5) Diagnostic policy cleanup
 
-- [ ] Remove hard-coded `"LiteDB.Vector"` message from `DefaultPluginDiagnosticPolicy` (core must be plugin-agnostic).
-- [ ] Mark `IPluginDiagnosticPolicy.MissingBehavior` as `[Obsolete("Use LiteDatabaseOptions.MissingPluginBehavior instead. This property is ignored for enforcement.")]`.
-- [ ] Plugin packages that want to provide plugin-specific guidance should do so via `CreateMissingPluginException` message customization, not via `MissingBehavior`.
+- [x] Remove hard-coded `"LiteDB.Vector"` message from `DefaultPluginDiagnosticPolicy` (core must be plugin-agnostic).
+- [x] Mark `IPluginDiagnosticPolicy.MissingBehavior` as `[Obsolete("Use LiteDatabaseOptions.MissingPluginBehavior instead. This property is ignored for enforcement.")]`.
+- [x] Plugin packages that want to provide plugin-specific guidance should do so via `CreateMissingPluginException` message customization, not via `MissingBehavior`.
 
 ## 6) LinqResolverFactory delegate constraint
 
@@ -173,8 +173,8 @@ The `LinqResolverFactory` delegate (`ILitePlugin.cs` line 198) accepts `LiteData
 
 The host-controlled `MissingPluginBehavior` must flow from `LiteDatabaseOptions` into the `Snapshot` constructor where enforcement occurs. Three options (choose one during implementation):
 
-- [ ] (a) Add `MissingPluginBehavior` to `ILitePluginContext` (breaking change for implementors of the interface)
-- [ ] (b) Add `MissingPluginBehavior` to `DefaultPluginContext` only, cast in `Snapshot` (fragile)
-- [ ] (c) Pass `MissingPluginBehavior` separately to `Snapshot` via the engine/transaction path (cleanest; no interface change)
+- [x] (a) Add `MissingPluginBehavior` to `ILitePluginContext` (breaking change for implementors of the interface)
+- [x] (b) Add `MissingPluginBehavior` to `DefaultPluginContext` only, cast in `Snapshot` (fragile)
+- [x] (c) Pass `MissingPluginBehavior` separately to `Snapshot` via the engine/transaction path (cleanest; no interface change)
 
 Option (c) is preferred: the `MissingPluginBehavior` can be stored on `LiteEngine` alongside `_plugins` and threaded into `TransactionMonitor` → `Transaction` → `Snapshot`.
