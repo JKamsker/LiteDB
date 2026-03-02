@@ -81,6 +81,24 @@ namespace LiteDB.Tests.Client
         }
 
         [Fact]
+        public void Factory_handles_should_refuse_rebuild()
+        {
+            using var factory = new LiteDatabaseBuilder()
+                .UseInMemory()
+                .BuildFactory();
+
+            using var handle1 = (LiteDatabase)factory.CreateDatabase();
+            using var handle2 = factory.CreateDatabase();
+
+            Action act = () => handle1.Rebuild();
+
+            act.Should().Throw<InvalidOperationException>();
+
+            handle2.GetCollection<BsonDocument>("docs").Insert(new BsonDocument { ["_id"] = 1 });
+            handle2.GetCollection<BsonDocument>("docs").Count().Should().Be(1);
+        }
+
+        [Fact]
         public async Task CreateDatabase_should_be_race_safe_with_dispose()
         {
             var factory = new LiteDatabaseBuilder()

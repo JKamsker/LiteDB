@@ -34,7 +34,7 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 - [x] Ref-counted handle/lease model (idempotent dispose; thread-safe `CreateDatabase()`).
 - [x] Resolve `ILitePlugin.Initialize` factory-mode contract (signature change vs per-handle hook).
 - [x] Freeze plugin context registries after initialization in all modes.
-- [ ] Refuse or re-scope `Rebuild()` in factory mode (exclusive access requirement).
+- [x] Refuse or re-scope `Rebuild()` in factory mode (exclusive access requirement).
 
 ## Tests / Verification
 

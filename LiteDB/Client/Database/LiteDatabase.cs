@@ -544,6 +544,11 @@ namespace LiteDB
         /// </summary>
         public long Rebuild(RebuildOptions options = null)
         {
+            if (_engineLease != null)
+            {
+                throw new InvalidOperationException("Rebuild is not supported for databases created by a factory. Rebuild requires exclusive access to the engine.");
+            }
+
             return _engine.Rebuild(options ?? new RebuildOptions());
         }
 
