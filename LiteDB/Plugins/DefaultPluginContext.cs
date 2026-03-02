@@ -320,8 +320,37 @@ namespace LiteDB.Plugins
 
             lock (_sync)
             {
+                if (_descriptors.TryGetValue(descriptor.PluginId, out var existing))
+                {
+                    if (existing.Version == descriptor.Version &&
+                        ReservedKeysMatch(existing.ReservedKeys, descriptor.ReservedKeys))
+                    {
+                        return;
+                    }
+
+                    throw new InvalidOperationException($"Query metadata descriptor for plugin '{descriptor.PluginId}' is already registered and cannot be replaced.");
+                }
+
                 _descriptors[descriptor.PluginId] = descriptor;
             }
+        }
+
+        private static bool ReservedKeysMatch(IReadOnlyCollection<string> left, IReadOnlyCollection<string> right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            left ??= Array.Empty<string>();
+            right ??= Array.Empty<string>();
+
+            if (left.Count != right.Count)
+            {
+                return false;
+            }
+
+            return new HashSet<string>(left, StringComparer.Ordinal).SetEquals(right);
         }
 
         public bool TryGetDescriptor(string pluginId, out QueryMetadataDescriptor descriptor)

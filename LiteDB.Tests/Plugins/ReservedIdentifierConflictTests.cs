@@ -73,6 +73,32 @@ namespace LiteDB.Tests.Plugins
         }
 
         [Fact]
+        public void QueryMetadataRegistryShouldRejectDuplicatePluginIds()
+        {
+            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+
+            context.RegisterQueryMetadata("ThirdParty.Plugin", version: 1, reservedKeys: new[] { "key1" });
+
+            Action act = () => context.RegisterQueryMetadata("ThirdParty.Plugin", version: 2, reservedKeys: new[] { "key1", "key2" });
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*ThirdParty.Plugin*");
+        }
+
+        [Fact]
+        public void QueryMetadataRegistryShouldAllowIdempotentRegistration()
+        {
+            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+
+            context.RegisterQueryMetadata("ThirdParty.Plugin", version: 1, reservedKeys: new[] { "key1" });
+
+            Action act = () => context.RegisterQueryMetadata("ThirdParty.Plugin", version: 1, reservedKeys: new[] { "key1" });
+
+            act.Should().NotThrow();
+        }
+
+        [Fact]
         public void IndexMetadataRegistryShouldRejectVectorReservedKindsFromOtherPlugins()
         {
             var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
