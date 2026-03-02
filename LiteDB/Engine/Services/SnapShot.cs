@@ -315,20 +315,30 @@ namespace LiteDB.Engine
                 return;
             }
 
-            // release all data/index pages
-            this.Clear();
-
-            _disposed = true;
-
-            // release collection page (in read mode)
-            if (_mode == LockMode.Read && _collectionPage != null)
+            try
             {
-                _collectionPage.Buffer.Release();
+                // release all data/index pages
+                this.Clear();
+
+                // release collection page (in read mode)
+                if (_mode == LockMode.Read && _collectionPage != null)
+                {
+                    _collectionPage.Buffer.Release();
+                }
             }
-
-            if(_mode == LockMode.Write)
+            finally
             {
-                _locker.ExitLock(_collectionName);
+                try
+                {
+                    if (_mode == LockMode.Write)
+                    {
+                        _locker.ExitLock(_collectionName);
+                    }
+                }
+                finally
+                {
+                    _disposed = true;
+                }
             }
         }
 
