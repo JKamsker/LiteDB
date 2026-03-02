@@ -43,6 +43,11 @@ namespace LiteDB.Plugins.Bson
 
             lock (_sync)
             {
+                if (_aliases.TryGetValue(descriptor.TypeCode, out var existingByAlias))
+                {
+                    throw new InvalidOperationException($"BSON type code 0x{descriptor.TypeCode:X2} is already registered as a legacy alias by plugin '{existingByAlias.PluginId}' and cannot be claimed by '{descriptor.PluginId}'.");
+                }
+
                 if (_typesByCode.TryGetValue(descriptor.TypeCode, out var existingByCode))
                 {
                     ReservedCodeRanges.EnsureUnique(

@@ -57,6 +57,22 @@ namespace LiteDB.Tests.Plugins
         }
 
         [Fact]
+        public void CustomBsonRegistryShouldRejectTypeCodesThatOverlapAliases()
+        {
+            var registry = new CustomBsonTypeRegistry();
+            var descriptor = CreateBsonDescriptor("Plugin.A", typeCode: 0x80, legacyAliases: new[] { (byte)0x81 });
+            var conflicting = CreateBsonDescriptor("Plugin.B", typeCode: 0x81);
+
+            registry.Register(descriptor);
+
+            Action act = () => registry.Register(conflicting);
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*Plugin.A*Plugin.B*");
+        }
+
+        [Fact]
         public void IndexMetadataRegistryShouldRejectVectorReservedKindsFromOtherPlugins()
         {
             var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);

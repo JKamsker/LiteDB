@@ -62,9 +62,14 @@ namespace LiteDB.Plugins.Bson
                 throw new ArgumentOutOfRangeException(nameof(typeCode), "Plugin-reserved BSON type codes must be >= 128.");
             }
 
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentException("Type name must be provided.", nameof(name));
+            }
+
             PluginId = pluginId;
             TypeCode = typeCode;
-            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Name = name;
             CalculateSize = calculateSize ?? throw new ArgumentNullException(nameof(calculateSize));
             Serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
             Deserializer = deserializer ?? throw new ArgumentNullException(nameof(deserializer));
