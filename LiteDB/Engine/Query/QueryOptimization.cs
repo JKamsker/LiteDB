@@ -84,7 +84,7 @@ namespace LiteDB.Engine
                 // do not accept source * in WHERE
                 if (predicate.UseSource)
                 {
-                    throw new LiteException(0, $"WHERE filter can not use `*` expression in `{predicate.Source}");
+                    throw new LiteException(0, $"WHERE filter can not use `*` expression in `{predicate.Source}`");
                 }
 
                 // add expression in where list breaking AND statments
@@ -216,7 +216,30 @@ namespace LiteDB.Engine
 
                 var planningContext = new QueryPlanningContext(_snapshot, _query, terms, _queryPlan, pluginContext);
 
-                if (!rule.TryRewrite(planningContext))
+                bool matched;
+
+                try
+                {
+                    matched = rule.TryRewrite(planningContext);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException && ex is not StackOverflowException && ex is not AccessViolationException)
+                {
+                    try
+                    {
+                        pluginContext?.Logger?.Write(
+                            LogLevel.Error,
+                            $"Query planning rule '{rule.GetType().FullName}' failed. Skipping rule and continuing evaluation.",
+                            ex);
+                    }
+                    catch
+                    {
+                        // Best-effort logging.
+                    }
+
+                    continue;
+                }
+
+                if (!matched)
                 {
                     continue;
                 }
@@ -520,13 +543,12 @@ namespace LiteDB.Engine
 
             var pluginContext = _snapshot?.Plugins;
             var costModels = pluginContext?.QueryCostModels?.Registered;
-            var metadataDocument = planningContext.SelectedPluginMetadata;
             var indexKind = planningContext.SelectedPluginIndexKind;
 
             if (costModels != null &&
-                metadataDocument != null &&
                 !string.IsNullOrWhiteSpace(indexKind))
             {
+                var metadataDocument = planningContext.SelectedPluginMetadata ?? new BsonDocument();
                 var registration = costModels.FirstOrDefault(r => string.Equals(r.IndexKind, indexKind, StringComparison.OrdinalIgnoreCase));
 
                 if (registration != null)
@@ -560,7 +582,10 @@ namespace LiteDB.Engine
             }
 
             var collectionPage = _snapshot.CollectionPage;
-            var index = collectionPage?.GetCollectionIndex(_queryPlan.Index.Name) ?? collectionPage?.PK;
+            var indexName = _queryPlan.Index?.Name;
+            var index = !string.IsNullOrWhiteSpace(indexName)
+                ? collectionPage?.GetCollectionIndex(indexName)
+                : null;
 
             if (index == null)
             {

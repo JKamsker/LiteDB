@@ -213,6 +213,14 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface IQueryPlanningRule
     {
+        /// <summary>
+        /// Attempts to rewrite the query plan by selecting an index implementation.
+        /// </summary>
+        /// <param name="context">Planning context describing the query being optimized.</param>
+        /// <returns>
+        /// True when the rule has selected an index via <see cref="QueryPlanningContext.UseIndex"/> and wants to stop rule evaluation.
+        /// Returning false indicates that the rule did not apply and evaluation should continue.
+        /// </returns>
         bool TryRewrite(QueryPlanningContext context);
     }
 
@@ -221,8 +229,19 @@ namespace LiteDB.Plugins
     /// </summary>
     public interface IQueryPlannerRegistry
     {
+        /// <summary>
+        /// Adds a query planning rule to the optimization pipeline.
+        /// </summary>
+        /// <param name="rule">The rule instance to register.</param>
+        /// <param name="order">
+        /// Sort key controlling evaluation order. Lower values run first; rules with the same order run in the order they were registered.
+        /// The first rule that returns true after calling <see cref="QueryPlanningContext.UseIndex"/> is selected and later rules are not evaluated.
+        /// </param>
         void AddRule(IQueryPlanningRule rule, int order = 0);
 
+        /// <summary>
+        /// Gets the currently registered rules in evaluation order.
+        /// </summary>
         IEnumerable<IQueryPlanningRule> Rules { get; }
     }
 

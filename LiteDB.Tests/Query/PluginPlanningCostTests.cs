@@ -28,6 +28,7 @@ namespace LiteDB.Tests.QueryTest
 
             plugin.CapturedCostContext.Should().NotBeNull();
             ReferenceEquals(plugin.CapturedCostContext.Query, plugin.ConsumedTerm).Should().BeTrue();
+            plugin.CapturedCostContext.IndexMetadata.Count.Should().Be(0);
             plugin.CapturedCostContext.EstimatedDocumentCount.Should().BeGreaterThan(0);
 
             plan["index"]["cost"].AsInt32.Should().Be(123);
@@ -52,6 +53,27 @@ namespace LiteDB.Tests.QueryTest
 
             plan["index"]["name"].AsString.Should().Be("name_idx");
             plan["index"]["cost"].AsInt32.Should().Be(10);
+        }
+
+        [Fact]
+        public void Plugin_planner_cost_fallback_should_not_fallback_to_pk_when_selected_index_is_missing()
+        {
+            var plugin = new MissingIndexFallbackTestPlugin();
+
+            using var db = new LiteDatabase(":memory:", plugins: new[] { plugin });
+            var collection = db.GetCollection<TestDocument>("docs");
+
+            collection.Insert(new TestDocument { Id = 1, Name = "Alice" });
+            collection.EnsureIndex("name_idx", x => x.Name).Should().BeTrue();
+
+            var predicate = Query.EQ("Name", "Alice", db.Services.ExpressionRegistry);
+
+            var plan = collection.Query()
+                .Where(predicate)
+                .GetPlan();
+
+            plan["index"]["name"].AsString.Should().Be("missing_idx");
+            plan["index"]["cost"].AsInt32.Should().Be(-1);
         }
 
         private sealed class TestDocument
@@ -95,7 +117,9 @@ namespace LiteDB.Tests.QueryTest
 
                 public bool TryRewrite(QueryPlanningContext context)
                 {
-                    var index = context.Snapshot.CollectionPage.GetCollectionIndex("name_idx");
+                    var snapshot = context.SnapshotContext as Snapshot;
+                    var collection = snapshot?.CollectionPage;
+                    var index = collection?.GetCollectionIndex("name_idx");
 
                     if (index == null)
                     {
@@ -124,7 +148,7 @@ namespace LiteDB.Tests.QueryTest
                             continue;
                         }
 
-                        var value = term.Right.ExecuteScalar(context.Snapshot.Collation);
+                        var value = term.Right.ExecuteScalar(snapshot.Collation);
 
                         _plugin.ConsumedTerm = term;
 
@@ -133,8 +157,7 @@ namespace LiteDB.Tests.QueryTest
                             index.Expression,
                             consumedTerms: new[] { term },
                             pluginId: PluginId,
-                            pluginIndexKind: IndexKind,
-                            pluginMetadata: new BsonDocument { ["version"] = 1 });
+                            pluginIndexKind: IndexKind);
 
                         return true;
                     }
@@ -155,7 +178,9 @@ namespace LiteDB.Tests.QueryTest
             {
                 public bool TryRewrite(QueryPlanningContext context)
                 {
-                    var index = context.Snapshot.CollectionPage.GetCollectionIndex("name_idx");
+                    var snapshot = context.SnapshotContext as Snapshot;
+                    var collection = snapshot?.CollectionPage;
+                    var index = collection?.GetCollectionIndex("name_idx");
 
                     if (index == null)
                     {
@@ -184,7 +209,7 @@ namespace LiteDB.Tests.QueryTest
                             continue;
                         }
 
-                        var value = term.Right.ExecuteScalar(context.Snapshot.Collation);
+                        var value = term.Right.ExecuteScalar(snapshot.Collation);
 
                         context.UseIndex(
                             new IndexEquals(index.Name, value),
@@ -198,6 +223,57 @@ namespace LiteDB.Tests.QueryTest
                 }
             }
         }
+
+        private sealed class MissingIndexFallbackTestPlugin : ILitePlugin
+        {
+            public void Initialize(LiteDatabase database, ILitePluginContext context)
+            {
+                context.QueryPlanner.AddRule(new PlannerRule(), order: 0);
+            }
+
+            private sealed class PlannerRule : IQueryPlanningRule
+            {
+                public bool TryRewrite(QueryPlanningContext context)
+                {
+                    var snapshot = context.SnapshotContext as Snapshot;
+                    var indexExpression = snapshot?.CollectionPage?.GetCollectionIndex("name_idx")?.Expression ?? "$.Name";
+                    var collation = snapshot?.Collation;
+
+                    if (collation == null)
+                    {
+                        return false;
+                    }
+
+                    foreach (var term in context.Terms)
+                    {
+                        if (term == null || !term.IsPredicate)
+                        {
+                            continue;
+                        }
+
+                        if (term.Left == null || term.Right == null)
+                        {
+                            continue;
+                        }
+
+                        if (!term.Right.IsValue)
+                        {
+                            continue;
+                        }
+
+                        var value = term.Right.ExecuteScalar(collation);
+
+                        context.UseIndex(
+                            new IndexEquals("missing_idx", value),
+                            indexExpression,
+                            consumedTerms: Array.Empty<BsonExpression>());
+
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+        }
     }
 }
-

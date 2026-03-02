@@ -25,21 +25,30 @@ namespace LiteDB.Plugins
             QueryPlan plan,
             ILitePluginContext pluginContext)
         {
-            Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+            SnapshotContext = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             Query = query ?? throw new ArgumentNullException(nameof(query));
             Terms = terms ?? throw new ArgumentNullException(nameof(terms));
             Plan = plan ?? throw new ArgumentNullException(nameof(plan));
             _pluginContext = pluginContext;
         }
 
-        internal Snapshot Snapshot { get; }
+        /// <summary>
+        /// Gets an opaque snapshot context object associated with the query being optimized.
+        /// </summary>
+        /// <remarks>
+        /// This value is engine-specific and should be treated as an opaque handle by third-party plugins.
+        /// </remarks>
+        public object SnapshotContext { get; }
 
         /// <summary>
         /// Gets the query definition being optimized.
         /// </summary>
         public LiteDbQuery Query { get; }
 
-        internal IReadOnlyList<BsonExpression> Terms { get; }
+        /// <summary>
+        /// Gets the set of WHERE terms derived from the query predicate (split by AND).
+        /// </summary>
+        public IReadOnlyList<BsonExpression> Terms { get; }
 
         internal QueryPlan Plan { get; }
 
@@ -142,8 +151,11 @@ namespace LiteDB.Plugins
         /// <param name="indexCost">Optional pre-computed index cost.</param>
         /// <param name="additionalFilters">Optional residual filters to append after index traversal.</param>
         /// <param name="replaceFilters">When true, replaces all automatically derived filters with <paramref name="additionalFilters"/>.</param>
-        internal void UseIndex(
-            EngineIndex index,
+        /// <param name="pluginId">Optional identifier of the plugin that owns the selected index.</param>
+        /// <param name="pluginIndexKind">Optional index-kind identifier used for plugin cost models and metadata resolution.</param>
+        /// <param name="pluginMetadata">Optional plugin metadata associated with the selected index.</param>
+        public void UseIndex(
+            object index,
             string indexExpression,
             IEnumerable<BsonExpression> consumedTerms = null,
             bool isIndexKeyOnly = false,
@@ -157,7 +169,14 @@ namespace LiteDB.Plugins
             if (index == null) throw new ArgumentNullException(nameof(index));
             if (string.IsNullOrWhiteSpace(indexExpression)) throw new ArgumentNullException(nameof(indexExpression));
 
-            _selectedIndex = index;
+            var selectedIndex = index as EngineIndex;
+
+            if (selectedIndex == null)
+            {
+                throw new ArgumentException("Index must be an engine index instance.", nameof(index));
+            }
+
+            _selectedIndex = selectedIndex;
             _selectedIndexExpression = indexExpression;
             _selectedIndexCost = indexCost;
             _selectedIsIndexKeyOnly = isIndexKeyOnly;
@@ -166,13 +185,25 @@ namespace LiteDB.Plugins
             _consumedTerms.Clear();
             if (consumedTerms != null)
             {
-                _consumedTerms.AddRange(consumedTerms);
+                foreach (var term in consumedTerms)
+                {
+                    if (term != null)
+                    {
+                        _consumedTerms.Add(term);
+                    }
+                }
             }
 
             _additionalFilters.Clear();
             if (additionalFilters != null)
             {
-                _additionalFilters.AddRange(additionalFilters);
+                foreach (var filter in additionalFilters)
+                {
+                    if (filter != null)
+                    {
+                        _additionalFilters.Add(filter);
+                    }
+                }
             }
 
             _selectedPluginId = pluginId;

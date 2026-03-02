@@ -25,7 +25,7 @@ namespace LiteDB.Vector.Query
                 throw new ArgumentNullException(nameof(context));
             }
 
-            var snapshot = context.Snapshot;
+            var snapshot = context.SnapshotContext as Snapshot;
             var collection = snapshot?.CollectionPage;
 
             if (snapshot == null || collection == null)

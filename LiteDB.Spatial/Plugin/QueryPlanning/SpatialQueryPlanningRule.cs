@@ -27,7 +27,8 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
         {
             if (context == null) throw new ArgumentNullException(nameof(context));
 
-            var collection = context.Snapshot?.CollectionName;
+            var snapshot = context.SnapshotContext as LiteDbEngine.Snapshot;
+            var collection = snapshot?.CollectionName;
             if (string.IsNullOrWhiteSpace(collection))
             {
                 return false;
@@ -164,7 +165,8 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
         {
             indexName = string.Empty;
 
-            var indexes = context?.Snapshot?.CollectionPage?.GetCollectionIndexes();
+            var snapshot = context?.SnapshotContext as LiteDbEngine.Snapshot;
+            var indexes = snapshot?.CollectionPage?.GetCollectionIndexes();
             if (indexes == null)
             {
                 return false;
