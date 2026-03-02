@@ -232,17 +232,24 @@ namespace LiteDB.Engine
                             using (var r = new BufferReader(docBytes, false, _plugins))
                             {
                                 var docResult = r.ReadDocument();
+                                if (docResult.Fail)
+                                {
+                                    this.HandleError(docResult.Exception, pageInfo);
+
+                                    if (docResult.Exception is LiteException exception && exception.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                                    {
+                                        throw exception;
+                                    }
+
+                                    continue;
+                                }
+
                                 var id = docResult.Value["_id"];
 
                                 ENSURE(!(id == BsonValue.Null || id == BsonValue.MinValue || id == BsonValue.MaxValue), "Invalid _id value: {0}", id);
                                 ENSURE(uniqueIDs.Contains(id) == false, "Duplicated _id value: {0}", id);
 
                                 uniqueIDs.Add(id);
-
-                                if (docResult.Fail)
-                                {
-                                    this.HandleError(docResult.Exception, pageInfo);
-                                }
 
                                 doc = docResult.Value;
                             }

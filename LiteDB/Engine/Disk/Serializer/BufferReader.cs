@@ -555,7 +555,9 @@ namespace LiteDB.Engine
                 return descriptor.Deserializer(this);
             }
 
-            throw new NotSupportedException($"BSON type 0x{typeCode:X2} is not supported. Ensure the appropriate plugin is installed.");
+            throw new LiteException(
+                LiteException.PLUGIN_REQUIRED,
+                $"BSON type 0x{typeCode:X2} requires a plugin. Install and register the required plugin before reading documents that contain this BSON type.");
         }
     }
 }
