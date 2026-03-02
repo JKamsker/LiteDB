@@ -291,7 +291,15 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                     return false;
                 }
 
-                var source = expression.Source.Trim();
+                var parameters = expression.Parameters ?? new BaseLiteDB.BsonDocument();
+
+                var source = TrimOuterParentheses(expression.Source.Trim());
+
+                if (TryUnwrapBooleanEquals(source, parameters, out var unwrapped))
+                {
+                    source = TrimOuterParentheses(unwrapped);
+                }
+
                 var openParen = source.IndexOf('(');
                 if (openParen <= 0 || !source.EndsWith(")", StringComparison.Ordinal))
                 {
@@ -311,8 +319,6 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                 {
                     return false;
                 }
-
-                var parameters = expression.Parameters ?? new BaseLiteDB.BsonDocument();
 
                 if (function == "SPATIAL_NEAR" && arguments.Count >= 3)
                 {
@@ -460,6 +466,95 @@ namespace LiteDB.Spatial.Plugin.QueryPlanning
                 }
 
                 return trimmed;
+            }
+
+            private static string TrimOuterParentheses(string source)
+            {
+                if (string.IsNullOrWhiteSpace(source))
+                {
+                    return source ?? string.Empty;
+                }
+
+                source = source.Trim();
+
+                while (source.Length >= 2 && source[0] == '(' && source[source.Length - 1] == ')')
+                {
+                    var depth = 0;
+                    var wraps = true;
+
+                    for (var i = 0; i < source.Length; i++)
+                    {
+                        var ch = source[i];
+
+                        if (ch == '(')
+                        {
+                            depth++;
+                        }
+                        else if (ch == ')')
+                        {
+                            depth--;
+
+                            if (depth == 0 && i < source.Length - 1)
+                            {
+                                wraps = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!wraps || depth != 0)
+                    {
+                        break;
+                    }
+
+                    source = source.Substring(1, source.Length - 2).Trim();
+                }
+
+                return source;
+            }
+
+            private static bool TryUnwrapBooleanEquals(string source, BaseLiteDB.BsonDocument parameters, out string unwrapped)
+            {
+                unwrapped = source;
+
+                if (string.IsNullOrWhiteSpace(source))
+                {
+                    return false;
+                }
+
+                var index = source.LastIndexOf('=');
+                if (index <= 0)
+                {
+                    return false;
+                }
+
+                var previous = source[index - 1];
+                if (previous == '!' || previous == '<' || previous == '>')
+                {
+                    return false;
+                }
+
+                var left = source.Substring(0, index).Trim();
+                var rightToken = source.Substring(index + 1).Trim();
+
+                if (rightToken.Equals("true", StringComparison.OrdinalIgnoreCase))
+                {
+                    unwrapped = left;
+                    return true;
+                }
+
+                if (rightToken.StartsWith("@", StringComparison.Ordinal))
+                {
+                    var resolved = ResolveArgument(rightToken, parameters);
+
+                    if (resolved.IsBoolean && resolved.AsBoolean)
+                    {
+                        unwrapped = left;
+                        return true;
+                    }
+                }
+
+                return false;
             }
         }
     }
