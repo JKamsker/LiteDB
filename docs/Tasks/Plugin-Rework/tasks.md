@@ -47,4 +47,4 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 - [x] Cover rebuild salvage option + strict recovery behavior.
 - [x] Fix `ValidatePluginsOnOpenTests` failures on `net481` (`PluginDiagnostics` should remain a `BsonDocument`).
 - [x] Fix failing `LiteDB.Vector.Tests` test(s) on `net8.0`.
-- [ ] Run: `dotnet test LiteDB.sln --settings tests.runsettings`.
+- [x] Run: `dotnet test LiteDB.sln --settings tests.runsettings`.
