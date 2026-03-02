@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using LiteDB.Utils.Extensions;
@@ -34,7 +35,7 @@ namespace LiteDB.Engine
         private readonly string _collectionName;
         private readonly CollectionPage _collectionPage;
         private readonly ILitePluginContext _plugins;
-        private static readonly ConcurrentDictionary<string, byte> _missingPluginWarnings = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+        private static readonly ConditionalWeakTable<ILitePluginContext, ConcurrentDictionary<string, byte>> _missingPluginWarnings = new ConditionalWeakTable<ILitePluginContext, ConcurrentDictionary<string, byte>>();
 
         // local page cache - contains only pages about this collection (but do not contains CollectionPage - use this.CollectionPage)
         private readonly Dictionary<uint, BasePage> _localPages = new Dictionary<uint, BasePage>();
@@ -242,14 +243,16 @@ namespace LiteDB.Engine
 
         private void LogMissingPluginWarning(string pluginId, PluginMissingBehavior behavior)
         {
-            var key = pluginId;
-
-            if (_plugins is DefaultPluginContext defaultContext)
+            if (string.IsNullOrWhiteSpace(pluginId))
             {
-                key = $"{defaultContext.WarningScopeKey}:{pluginId}";
+                pluginId = "<unknown>";
             }
 
-            if (!_missingPluginWarnings.TryAdd(key, 1))
+            var warningCache = _plugins == null
+                ? null
+                : _missingPluginWarnings.GetValue(_plugins, _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
+
+            if (warningCache != null && !warningCache.TryAdd(pluginId, 1))
             {
                 return;
             }

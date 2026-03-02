@@ -11,10 +11,9 @@ namespace LiteDB.Plugins
 {
     internal sealed class DefaultPluginContext : ILitePluginContext, IPluginContextFreezeState
     {
-        internal string WarningScopeKey { get; } = Guid.NewGuid().ToString("N");
-
         private int _frozen;
         private int _validationOnOpenRan;
+        private int _validationOnOpenEngineInstanceId;
         private BsonDocument _validationOnOpenDiagnostics;
         private IPluginDiagnosticPolicy _diagnosticPolicy;
 
@@ -87,11 +86,14 @@ namespace LiteDB.Plugins
 
         internal bool ValidationOnOpenRan => Volatile.Read(ref _validationOnOpenRan) != 0;
 
+        internal int ValidationOnOpenEngineInstanceId => Volatile.Read(ref _validationOnOpenEngineInstanceId);
+
         internal BsonDocument ValidationOnOpenDiagnostics => Volatile.Read(ref _validationOnOpenDiagnostics);
 
-        internal void RecordValidationOnOpen(BsonDocument diagnostics)
+        internal void RecordValidationOnOpen(BsonDocument diagnostics, int engineInstanceId)
         {
             Volatile.Write(ref _validationOnOpenDiagnostics, CloneDiagnostics(diagnostics));
+            Volatile.Write(ref _validationOnOpenEngineInstanceId, engineInstanceId);
             Interlocked.Exchange(ref _validationOnOpenRan, 1);
         }
 

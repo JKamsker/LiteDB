@@ -19,6 +19,9 @@ namespace LiteDB.Engine
     /// </summary>
     public partial class LiteEngine : ILiteEngine, IPluginHost
     {
+        private static int _engineInstanceIdSeed;
+        private readonly int _engineInstanceId = Interlocked.Increment(ref _engineInstanceIdSeed);
+
         #region Services instances
 
         private LockService _locker;
@@ -60,7 +63,8 @@ namespace LiteDB.Engine
                 throw new ArgumentNullException(nameof(context));
             }
 
-            if (context.ValidationOnOpenRan)
+            if (context.ValidationOnOpenRan &&
+                context.ValidationOnOpenEngineInstanceId == _engineInstanceId)
             {
                 if (context.MissingPluginBehavior != PluginMissingBehavior.RefuseDatabase)
                 {
@@ -80,6 +84,8 @@ namespace LiteDB.Engine
                 {
                     return;
                 }
+
+                var previousPolicy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
 
                 string previousPluginId = null;
 
@@ -104,8 +110,6 @@ namespace LiteDB.Engine
                     }
                 }
 
-                var previousPolicy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
-
                 throw previousPolicy.CreateMissingPluginException(previousPluginId, "OpenDatabase", previousDiagnostics);
             }
 
@@ -123,7 +127,7 @@ namespace LiteDB.Engine
                 ["missingCount"] = missing.Length
             };
 
-            context.RecordValidationOnOpen(diagnostics);
+            context.RecordValidationOnOpen(diagnostics, _engineInstanceId);
 
             if (missing.Length == 0)
             {
