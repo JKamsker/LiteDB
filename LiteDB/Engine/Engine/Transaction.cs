@@ -94,15 +94,26 @@ namespace LiteDB.Engine
             }
             catch (Exception ex)
             {
-                if (_state.Handle(ex))
+                var shouldHandle = _state.Handle(ex);
+
+                if (shouldHandle && (isNew || transaction.ExplicitTransaction))
                 {
                     try
                     {
                         transaction.Rollback();
                     }
-                    finally
+                    catch (Exception rollbackEx)
+                    {
+                        _state.Handle(rollbackEx);
+                    }
+
+                    try
                     {
                         _monitor.ReleaseTransaction(transaction);
+                    }
+                    catch (Exception releaseEx)
+                    {
+                        _state.Handle(releaseEx);
                     }
                 }
 
@@ -128,15 +139,35 @@ namespace LiteDB.Engine
         private void CommitAndReleaseTransaction(TransactionService transaction)
         {
             var committed = false;
+            Exception commitException = null;
 
             try
             {
                 transaction.Commit();
                 committed = true;
             }
+            catch (Exception ex)
+            {
+                commitException = ex;
+                throw;
+            }
             finally
             {
-                _monitor.ReleaseTransaction(transaction);
+                try
+                {
+                    _monitor.ReleaseTransaction(transaction);
+                }
+                catch (Exception releaseEx)
+                {
+                    if (commitException != null)
+                    {
+                        _state.Handle(releaseEx);
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
             }
 
             // try checkpoint when finish transaction and log file are bigger than checkpoint pragma value (in pages)
