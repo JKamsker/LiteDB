@@ -712,23 +712,8 @@ namespace LiteDB.Vector.Query
             }
 
             var trimmed = source.Trim();
-            var lastSegment = trimmed.Split('.').LastOrDefault() ?? trimmed;
 
-            if (byte.TryParse(lastSegment, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numeric) &&
-                Enum.IsDefined(typeof(VectorDistanceMetric), numeric))
-            {
-                metric = numeric;
-                return true;
-            }
-
-            if (lastSegment.Length > 0 &&
-                (char.IsDigit(lastSegment[0]) || lastSegment[0] == '+' || lastSegment[0] == '-'))
-            {
-                return false;
-            }
-
-            if (Enum.TryParse<VectorDistanceMetric>(lastSegment, true, out var parsed) &&
-                Enum.IsDefined(typeof(VectorDistanceMetric), parsed))
+            if (VectorMetricParser.TryParseString(trimmed, out var parsed))
             {
                 metric = (byte)parsed;
                 return true;
@@ -746,38 +731,7 @@ namespace LiteDB.Vector.Query
                 return false;
             }
 
-            if (value.IsNumber)
-            {
-                int numeric;
-
-                try
-                {
-                    numeric = value.AsInt32;
-                }
-                catch
-                {
-                    return false;
-                }
-
-                if (numeric < byte.MinValue || numeric > byte.MaxValue)
-                {
-                    return false;
-                }
-
-                var numericByte = (byte)numeric;
-
-                if (Enum.IsDefined(typeof(VectorDistanceMetric), numericByte))
-                {
-                    metric = numericByte;
-                    return true;
-                }
-
-                return false;
-            }
-
-            if (value.IsString &&
-                Enum.TryParse<VectorDistanceMetric>(value.AsString, true, out var parsed) &&
-                Enum.IsDefined(typeof(VectorDistanceMetric), parsed))
+            if (VectorMetricParser.TryParse(value, out var parsed))
             {
                 metric = (byte)parsed;
                 return true;

@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Plugins;
@@ -198,17 +197,10 @@ namespace LiteDB.Vector
                 return null;
             }
 
-            if (Enum.TryParse<VectorDistanceMetric>(value, true, out var parsed))
+            if (VectorMetricParser.TryParseString(value, out var parsed))
             {
                 logger.Write(LogLevel.Information, $"Using '{parsed}' as the default vector distance metric from the connection string.");
                 return parsed;
-            }
-
-            if (byte.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numeric) && Enum.IsDefined(typeof(VectorDistanceMetric), numeric))
-            {
-                var metric = (VectorDistanceMetric)numeric;
-                logger.Write(LogLevel.Information, $"Using '{metric}' as the default vector distance metric from the connection string.");
-                return metric;
             }
 
             logger.Write(LogLevel.Warning, $"Unrecognized vector.metric value '{value}'. Falling back to explicit index configuration.");

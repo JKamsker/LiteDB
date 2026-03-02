@@ -3,6 +3,7 @@ using System.Linq;
 using LiteDB;
 using LiteDB.Vector.Document;
 using LiteDB.Vector.Engine;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector
 {
@@ -232,32 +233,7 @@ namespace LiteDB.Vector
 
         private static bool TryResolveMetric(BsonValue metric, out VectorDistanceMetric? parsedMetric)
         {
-            parsedMetric = null;
-
-            if (metric == null || metric.IsNull)
-            {
-                return true;
-            }
-
-            if (metric.IsNumber)
-            {
-                var value = metric.AsInt32;
-                if (value >= byte.MinValue && value <= byte.MaxValue && Enum.IsDefined(typeof(VectorDistanceMetric), (byte)value))
-                {
-                    parsedMetric = (VectorDistanceMetric)(byte)value;
-                    return true;
-                }
-
-                return false;
-            }
-
-            if (metric.IsString && Enum.TryParse<VectorDistanceMetric>(metric.AsString, true, out var parsed))
-            {
-                parsedMetric = parsed;
-                return true;
-            }
-
-            return false;
+            return VectorMetricParser.TryParseOptional(metric, out parsedMetric);
         }
     }
 }

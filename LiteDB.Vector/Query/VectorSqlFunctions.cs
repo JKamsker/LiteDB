@@ -2,6 +2,7 @@ using System;
 using LiteDB;
 using LiteDB.Plugins.Query;
 using LiteDB.Vector.Engine;
+using LiteDB.Vector.Utils;
 
 namespace LiteDB.Vector.Query
 {
@@ -86,19 +87,7 @@ namespace LiteDB.Vector.Query
                 return null;
             }
 
-            if (candidate.IsNumber)
-            {
-                var numeric = candidate.AsInt32;
-
-                if (Enum.IsDefined(typeof(VectorDistanceMetric), numeric))
-                {
-                    return (VectorDistanceMetric)numeric;
-                }
-
-                return null;
-            }
-
-            if (candidate.IsString && Enum.TryParse<VectorDistanceMetric>(candidate.AsString, true, out var parsed))
+            if (VectorMetricParser.TryParse(candidate, out var parsed))
             {
                 return parsed;
             }

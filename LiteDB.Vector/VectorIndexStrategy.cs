@@ -312,29 +312,7 @@ namespace LiteDB.Vector
                     throw new LiteException(0, "Vector index options must include a 'metric' value when no default is configured.");
                 }
             }
-            else if (metricValue.IsNumber)
-            {
-                var raw = metricValue.AsInt32;
-
-                if (raw < byte.MinValue || raw > byte.MaxValue)
-                {
-                    throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
-                }
-
-                var candidate = (VectorDistanceMetric)(byte)raw;
-
-                if (!Enum.IsDefined(typeof(VectorDistanceMetric), candidate))
-                {
-                    throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
-                }
-
-                metric = candidate;
-            }
-            else if (metricValue.IsString && Enum.TryParse<VectorDistanceMetric>(metricValue.AsString, true, out var parsedMetric))
-            {
-                metric = parsedMetric;
-            }
-            else
+            else if (!VectorMetricParser.TryParse(metricValue, out metric))
             {
                 throw new LiteException(0, "Vector index 'metric' option must be numeric or one of 'euclidean', 'cosine', or 'dotproduct'.");
             }

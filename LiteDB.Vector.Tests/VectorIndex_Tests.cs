@@ -826,6 +826,38 @@ namespace LiteDB.Vector.Tests.Querying
             results.Select(x => x.Id).Should().Equal(new[] { 2, 3, 1 });
         }
 
+        [Theory]
+        [InlineData("0.1", VectorDistanceMetric.Cosine)]
+        [InlineData("256.1", VectorDistanceMetric.Cosine)]
+        [InlineData("1.0", VectorDistanceMetric.Euclidean)]
+        public void VectorDist_NonIntegralMetricLiterals_Should_Not_Use_VectorIndex(string metricLiteral, VectorDistanceMetric indexMetric)
+        {
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            collection.Insert(new[]
+            {
+                new VectorDocument { Id = 1, Embedding = new[] { 1f, 0f } },
+                new VectorDocument { Id = 2, Embedding = new[] { 0f, 1f } },
+                new VectorDocument { Id = 3, Embedding = new[] { 0.5f, 0.5f } }
+            });
+
+            collection.EnsureIndex(
+                "embedding_idx",
+                CreateExpression(db, "$.Embedding"),
+                new VectorIndexOptions(2, indexMetric));
+
+            var distanceExpr = CreateExpression(db, $"VECTOR_DIST($.Embedding, [0.0, 0.0], {metricLiteral})");
+
+            var query = collection.Query()
+                .OrderBy(distanceExpr, LiteDB.Query.Ascending)
+                .Limit(3);
+
+            var plan = query.GetPlan();
+
+            plan["index"]["mode"].AsString.Should().NotBe("VECTOR INDEX SEARCH");
+        }
+
         [Fact]
         public void VectorDist_MetricLiteralOverflow_Should_Not_Throw_DuringPlanning()
         {
