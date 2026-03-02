@@ -21,6 +21,8 @@ namespace LiteDB
         private readonly BsonMapper _mapper;
         private readonly bool _disposeOnClose;
         private readonly int? _checkpointOverride;
+        private readonly IDisposable _engineLease;
+        private readonly IDisposable _ownedResources;
         private readonly DefaultPluginContext _pluginContext;
 
         /// <summary>
@@ -237,6 +239,37 @@ namespace LiteDB
             this.InitializePluginsWithCleanup(resolvedPlugins);
         }
 
+        internal LiteDatabase(
+            ILiteEngine engine,
+            bool disposeOnClose,
+            BsonMapper mapper,
+            DefaultPluginContext pluginContext,
+            bool initializePlugins,
+            IEnumerable<ILitePlugin> plugins,
+            IDisposable ownedResources = null,
+            IDisposable engineLease = null,
+            int? checkpointOverride = null)
+        {
+            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            _disposeOnClose = disposeOnClose;
+            _mapper = mapper ?? BsonMapper.Global;
+            _pluginContext = pluginContext ?? throw new ArgumentNullException(nameof(pluginContext));
+            _ownedResources = ownedResources;
+            _engineLease = engineLease;
+            _checkpointOverride = checkpointOverride;
+
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            if (initializePlugins)
+            {
+                this.InitializePluginsWithCleanup(plugins, ownedResources);
+            }
+            else if (_engine is IPluginHost host)
+            {
+                host.SetPluginContext(_pluginContext);
+            }
+        }
+
         #endregion
 
         #region Collections
@@ -321,7 +354,7 @@ namespace LiteDB
             }
         }
 
-        private void InitializePluginsWithCleanup(IEnumerable<ILitePlugin> plugins)
+        private void InitializePluginsWithCleanup(IEnumerable<ILitePlugin> plugins, IDisposable ownedResources = null)
         {
             try
             {
@@ -340,6 +373,8 @@ namespace LiteDB
                         // Best-effort cleanup.
                     }
                 }
+
+                ownedResources?.Dispose();
 
                 throw;
             }
@@ -594,14 +629,23 @@ namespace LiteDB
 
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing && _disposeOnClose)
+            if (disposing)
             {
-                if (_checkpointOverride.HasValue)
+                if (_engineLease != null)
                 {
-                    _engine.Pragma(Pragmas.CHECKPOINT, _checkpointOverride.Value);
+                    _engineLease.Dispose();
+                }
+                else if (_disposeOnClose)
+                {
+                    if (_checkpointOverride.HasValue)
+                    {
+                        _engine.Pragma(Pragmas.CHECKPOINT, _checkpointOverride.Value);
+                    }
+
+                    _engine.Dispose();
                 }
 
-                _engine.Dispose();
+                _ownedResources?.Dispose();
             }
         }
     }

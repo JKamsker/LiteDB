@@ -24,7 +24,7 @@ Use this file as the “single pane of glass” checklist. The detailed design a
 
 ## Phase 2 — Builder
 
-- [ ] Implement `LiteDatabaseBuilder` + `Build()`.
+- [x] Implement `LiteDatabaseBuilder` + `Build()`.
 - [ ] Enforce builder validation rules (single-use; mutually exclusive data source).
 - [ ] Define plugin registration semantics (dedupe, ownership, disposal).
 
