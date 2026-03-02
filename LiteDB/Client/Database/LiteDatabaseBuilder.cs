@@ -350,6 +350,16 @@ namespace LiteDB
                     ownedResources: ownedResources,
                     checkpointOverride: checkpointOverride);
 
+                try
+                {
+                    this.NotifyHandleCreated(database, plugins);
+                }
+                catch
+                {
+                    database.Dispose();
+                    throw;
+                }
+
                 _built = true;
 
                 return database;
@@ -358,6 +368,20 @@ namespace LiteDB
             {
                 ownedResources?.Dispose();
                 throw;
+            }
+        }
+
+        private void NotifyHandleCreated(ILiteDatabase database, IEnumerable<ILitePlugin> plugins)
+        {
+            if (database == null) throw new ArgumentNullException(nameof(database));
+            if (plugins == null) return;
+
+            foreach (var plugin in plugins)
+            {
+                if (plugin is ILiteDatabaseHandleLifecycle lifecycle)
+                {
+                    lifecycle.OnHandleCreated(database);
+                }
             }
         }
 

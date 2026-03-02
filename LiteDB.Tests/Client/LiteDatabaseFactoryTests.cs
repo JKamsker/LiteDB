@@ -50,6 +50,23 @@ namespace LiteDB.Tests.Client
         }
 
         [Fact]
+        public void Factory_should_invoke_handle_lifecycle_hooks_per_handle()
+        {
+            var plugin = new HandleLifecyclePlugin();
+
+            using var factory = new LiteDatabaseBuilder()
+                .UseInMemory()
+                .UsePlugin(plugin)
+                .BuildFactory();
+
+            using var handle1 = factory.CreateDatabase();
+            using var handle2 = factory.CreateDatabase();
+
+            plugin.InitializeCount.Should().Be(1);
+            plugin.HandleCreatedCount.Should().Be(2);
+        }
+
+        [Fact]
         public async Task CreateDatabase_should_be_race_safe_with_dispose()
         {
             var factory = new LiteDatabaseBuilder()
@@ -95,6 +112,23 @@ namespace LiteDB.Tests.Client
             public void Initialize(LiteDatabase database, ILitePluginContext context)
             {
                 InitializeCount++;
+            }
+        }
+
+        private sealed class HandleLifecyclePlugin : ILitePlugin, ILiteDatabaseHandleLifecycle
+        {
+            public int InitializeCount { get; private set; }
+
+            public int HandleCreatedCount { get; private set; }
+
+            public void Initialize(LiteDatabase database, ILitePluginContext context)
+            {
+                InitializeCount++;
+            }
+
+            public void OnHandleCreated(ILiteDatabase database)
+            {
+                HandleCreatedCount++;
             }
         }
     }

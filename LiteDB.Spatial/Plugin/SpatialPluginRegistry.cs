@@ -29,5 +29,13 @@ namespace LiteDB.Spatial.Plugin
 
             return _services.TryGetValue(database, out services);
         }
+
+        public static SpatialPluginServices AttachExisting(BaseLiteDB.LiteDatabase database, SpatialPluginServices services)
+        {
+            if (database == null) throw new ArgumentNullException(nameof(database));
+            if (services == null) throw new ArgumentNullException(nameof(services));
+
+            return _services.GetValue(database, _ => services);
+        }
     }
 }

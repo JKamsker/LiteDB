@@ -22,6 +22,14 @@ namespace LiteDB.Plugins
     }
 
     /// <summary>
+    /// Optional hook invoked when a user-facing database handle is created.
+    /// </summary>
+    public interface ILiteDatabaseHandleLifecycle
+    {
+        void OnHandleCreated(ILiteDatabase database);
+    }
+
+    /// <summary>
     /// Provides services and registries that plugins can interact with.
     /// </summary>
     public interface ILitePluginContext

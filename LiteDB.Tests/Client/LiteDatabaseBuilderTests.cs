@@ -116,6 +116,20 @@ namespace LiteDB.Tests.Client
             plugin.Disposed.Should().BeFalse();
         }
 
+        [Fact]
+        public void Build_should_invoke_handle_lifecycle_hooks()
+        {
+            var plugin = new HandleLifecyclePlugin();
+
+            using var db = new LiteDatabaseBuilder()
+                .UseInMemory()
+                .UsePlugin(plugin)
+                .Build();
+
+            plugin.InitializeCount.Should().Be(1);
+            plugin.HandleCreatedCount.Should().Be(1);
+        }
+
         private sealed class TrackingPlugin : ILitePlugin
         {
             public int InitializeCount { get; private set; }
@@ -150,6 +164,23 @@ namespace LiteDB.Tests.Client
             public void Write(LogLevel level, string message, Exception exception = null)
             {
                 Entries.Add((level, message));
+            }
+        }
+
+        private sealed class HandleLifecyclePlugin : ILitePlugin, ILiteDatabaseHandleLifecycle
+        {
+            public int InitializeCount { get; private set; }
+
+            public int HandleCreatedCount { get; private set; }
+
+            public void Initialize(LiteDatabase database, ILitePluginContext context)
+            {
+                InitializeCount++;
+            }
+
+            public void OnHandleCreated(ILiteDatabase database)
+            {
+                HandleCreatedCount++;
             }
         }
     }

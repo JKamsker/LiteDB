@@ -102,7 +102,7 @@ namespace LiteDB
                 throw new ObjectDisposedException(nameof(LiteDatabaseFactory));
             }
 
-            return new LiteDatabase(
+            var database = new LiteDatabase(
                 _engine,
                 disposeOnClose: false,
                 mapper: _mapper,
@@ -110,6 +110,18 @@ namespace LiteDB
                 initializePlugins: false,
                 plugins: null,
                 engineLease: new Lease(this));
+
+            try
+            {
+                this.NotifyHandleCreated(database);
+            }
+            catch
+            {
+                database.Dispose();
+                throw;
+            }
+
+            return database;
         }
 
         public void Dispose()
@@ -150,6 +162,18 @@ namespace LiteDB
                 // Best-effort cleanup.
             }
         }
+
+        private void NotifyHandleCreated(ILiteDatabase database)
+        {
+            if (database == null) throw new ArgumentNullException(nameof(database));
+
+            foreach (var plugin in _plugins)
+            {
+                if (plugin is ILiteDatabaseHandleLifecycle lifecycle)
+                {
+                    lifecycle.OnHandleCreated(database);
+                }
+            }
+        }
     }
 }
-
