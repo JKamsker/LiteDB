@@ -39,6 +39,7 @@ namespace LiteDB
         public const int INDEX_ALREADY_EXIST = 135;
         public const int INVALID_UPDATE_FIELD = 136;
         public const int ENGINE_DISPOSED = 137;
+        public const int DATABASE_READ_ONLY = 138;
 
         public const int INVALID_FORMAT = 200;
         public const int DOCUMENT_MAX_DEPTH = 201;
@@ -107,6 +108,11 @@ namespace LiteDB
         internal static LiteException DatabaseShutdown()
         {
             return new LiteException(DATABASE_SHUTDOWN, "Database is in shutdown process.");
+        }
+
+        internal static LiteException DatabaseReadOnly()
+        {
+            return new LiteException(DATABASE_READ_ONLY, "Database is opened in read-only mode and cannot be modified.");
         }
 
         internal static LiteException InvalidDatabase()

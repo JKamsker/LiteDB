@@ -15,6 +15,7 @@ namespace LiteDB.Engine
     {
         private readonly MemoryCache _cache;
         private readonly EngineState _state;
+        private readonly bool _readOnly;
 
         private IStreamFactory _dataFactory;
         private readonly IStreamFactory _logFactory;
@@ -35,6 +36,7 @@ namespace LiteDB.Engine
         {
             _cache = new MemoryCache(memorySegmentSizes);
             _state = state;
+            _readOnly = settings?.ReadOnly ?? false;
 
 
             // get new stream factory based on settings
@@ -166,6 +168,8 @@ namespace LiteDB.Engine
         /// </summary>
         public int WriteLogDisk(IEnumerable<PageBuffer> pages)
         {
+            this.EnsureWriteEnabled();
+
             var count = 0;
             var stream = _writer.Value;
 
@@ -193,11 +197,11 @@ namespace LiteDB.Engine
                     // mark this page as readable and get cached paged to enqueue
                     var readable = _cache.MoveToReadable(page);
 
-                    // set log stream position to page
-                    stream.Position = position;
-
                     try
                     {
+                        // set log stream position to page
+                        stream.Position = position;
+
 #if DEBUG || TESTING
                         _state.SimulateDiskWriteFail?.Invoke(readable);
 #endif
@@ -245,6 +249,11 @@ namespace LiteDB.Engine
         /// </summary>
         internal void MarkAsInvalidState()
         {
+            if (_readOnly)
+            {
+                return;
+            }
+
             FileHelper.TryExec(60, () =>
             {
                 using (var stream = _dataFactory.GetStream(true, true))
@@ -317,6 +326,8 @@ namespace LiteDB.Engine
         /// </summary>
         public void WriteDataDisk(IEnumerable<PageBuffer> pages)
         {
+            this.EnsureWriteEnabled();
+
             var stream = _dataPool.Writer.Value;
             var dataLength = Volatile.Read(ref _dataLength);
 
@@ -341,6 +352,8 @@ namespace LiteDB.Engine
         /// </summary>
         public void SetLength(long length, FileOrigin origin)
         {
+            this.EnsureWriteEnabled();
+
             var writer = origin == FileOrigin.Log ? _logPool.Writer.Value : _dataPool.Writer.Value;
 
             if (origin == FileOrigin.Log)
@@ -367,6 +380,14 @@ namespace LiteDB.Engine
         }
 
         #endregion
+
+        private void EnsureWriteEnabled()
+        {
+            if (_readOnly)
+            {
+                throw LiteException.DatabaseReadOnly();
+            }
+        }
 
         public void Dispose()
         {
