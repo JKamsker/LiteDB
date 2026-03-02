@@ -16,6 +16,7 @@ namespace LiteDB.Plugins
         private int _frozen;
         private int _validationOnOpenRan;
         private BsonDocument _validationOnOpenDiagnostics;
+        private IPluginDiagnosticPolicy _diagnosticPolicy;
 
         public DefaultPluginContext(ConnectionString connectionString, IServiceProvider services, ILogger logger)
             : this(connectionString, services, logger, PluginMissingBehavior.RefuseDatabase, null)
@@ -52,7 +53,11 @@ namespace LiteDB.Plugins
 
         public IQueryMetadataAccessor QueryMetadata { get; }
 
-        public IPluginDiagnosticPolicy DiagnosticPolicy { get; private set; }
+        public IPluginDiagnosticPolicy DiagnosticPolicy
+        {
+            get => Volatile.Read(ref _diagnosticPolicy);
+            private set => Volatile.Write(ref _diagnosticPolicy, value);
+        }
 
         public ISqlFunctionRegistry SqlFunctions { get; }
 
@@ -334,6 +339,11 @@ namespace LiteDB.Plugins
 
             lock (_sync)
             {
+                if (_descriptors.TryGetValue(descriptor.IndexKind, out var existing))
+                {
+                    throw new InvalidOperationException($"Index metadata descriptor '{descriptor.IndexKind}' is already registered by plugin '{existing.PluginId}'.");
+                }
+
                 _descriptors[descriptor.IndexKind] = descriptor;
             }
         }
@@ -575,8 +585,18 @@ namespace LiteDB.Plugins
 
             lock (_sync)
             {
-                _strategies[strategy.Kind] = strategy;
-                _strategiesByType[strategy.IndexTypeCode] = strategy;
+                if (_strategies.TryGetValue(strategy.Kind, out var existingKind))
+                {
+                    throw new InvalidOperationException($"Index strategy kind '{strategy.Kind}' is already registered with type code {existingKind.IndexTypeCode}.");
+                }
+
+                if (_strategiesByType.TryGetValue(strategy.IndexTypeCode, out var existingType))
+                {
+                    throw new InvalidOperationException($"Index strategy type code {strategy.IndexTypeCode} is already registered by kind '{existingType.Kind}'.");
+                }
+
+                _strategies.Add(strategy.Kind, strategy);
+                _strategiesByType.Add(strategy.IndexTypeCode, strategy);
             }
         }
     }
