@@ -15,6 +15,7 @@ namespace LiteDB
         private readonly Mutex _mutex;
         private LiteEngine _engine;
         private bool _transactionRunning = false;
+        private int _transactionOwnerThreadId = 0;
         private ILitePluginContext _plugins;
         private readonly ThreadLocal<int> _mutexDepth = new ThreadLocal<int>(() => 0);
         private int _disposeState;
@@ -147,6 +148,7 @@ namespace LiteDB
                 if (_engine.BeginTrans())
                 {
                     _transactionRunning = true;
+                    Volatile.Write(ref _transactionOwnerThreadId, Environment.CurrentManagedThreadId);
                     return true;
                 }
 
@@ -164,7 +166,17 @@ namespace LiteDB
 
         public bool Commit()
         {
-            if (_engine == null) return false;
+            if (!_transactionRunning)
+            {
+                return QueryDatabase(() => _engine.Commit());
+            }
+
+            if (_engine == null)
+            {
+                return false;
+            }
+
+            EnsureTransactionOwnerThread();
 
             try
             {
@@ -173,13 +185,24 @@ namespace LiteDB
             finally
             {
                 _transactionRunning = false;
+                Volatile.Write(ref _transactionOwnerThreadId, 0);
                 CloseDatabase();
             }
         }
 
         public bool Rollback()
         {
-            if (_engine == null) return false;
+            if (!_transactionRunning)
+            {
+                return QueryDatabase(() => _engine.Rollback());
+            }
+
+            if (_engine == null)
+            {
+                return false;
+            }
+
+            EnsureTransactionOwnerThread();
 
             try
             {
@@ -188,6 +211,7 @@ namespace LiteDB
             finally
             {
                 _transactionRunning = false;
+                Volatile.Write(ref _transactionOwnerThreadId, 0);
                 CloseDatabase();
             }
         }
@@ -409,6 +433,16 @@ namespace LiteDB
             finally
             {
                 CloseDatabase();
+            }
+        }
+
+        private void EnsureTransactionOwnerThread()
+        {
+            var ownerThreadId = Volatile.Read(ref _transactionOwnerThreadId);
+
+            if (ownerThreadId != 0 && ownerThreadId != Environment.CurrentManagedThreadId)
+            {
+                throw new InvalidOperationException("SharedEngine transactions must be committed or rolled back on the same thread that began the transaction.");
             }
         }
     }
