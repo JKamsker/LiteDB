@@ -259,11 +259,35 @@ namespace LiteDB.Engine
                 using (var stream = _dataFactory.GetStream(true, true))
                 {
                     var buffer = _bufferPool.Rent(PAGE_SIZE);
-                    stream.Read(buffer, 0, PAGE_SIZE);
-                    buffer[HeaderPage.P_INVALID_DATAFILE_STATE] = 1;
-                    stream.Position = 0;
-                    stream.Write(buffer, 0, PAGE_SIZE);
-                    _bufferPool.Return(buffer, true);
+
+                    try
+                    {
+                        stream.Position = 0;
+
+                        var bytesRead = 0;
+
+                        while (bytesRead < PAGE_SIZE)
+                        {
+                            var read = stream.Read(buffer, bytesRead, PAGE_SIZE - bytesRead);
+
+                            if (read == 0)
+                            {
+                                return;
+                            }
+
+                            bytesRead += read;
+                        }
+
+                        buffer[HeaderPage.P_INVALID_DATAFILE_STATE] = 1;
+
+                        stream.Position = 0;
+                        stream.Write(buffer, 0, PAGE_SIZE);
+                        stream.FlushToDisk();
+                    }
+                    finally
+                    {
+                        _bufferPool.Return(buffer, true);
+                    }
                 }
             });
         }
