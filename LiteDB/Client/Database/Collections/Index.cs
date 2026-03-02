@@ -53,6 +53,11 @@ namespace LiteDB
 
                     if (interceptor.TryHandleEnsureIndex(ensureContext))
                     {
+                        if (!ensureContext.DefaultExecuted && !ensureContext.Result.HasValue)
+                        {
+                            throw new InvalidOperationException($"EnsureIndex interceptor '{interceptor.GetType().FullName}' returned true without setting a result or executing the default handler.");
+                        }
+
                         break;
                     }
 
