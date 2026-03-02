@@ -568,6 +568,11 @@ namespace LiteDB.Plugins
 
             _freezeState.EnsureNotFrozen();
 
+            if (strategy.IndexTypeCode == 0)
+            {
+                throw new InvalidOperationException("IndexTypeCode 0 is reserved for core indexes and cannot be registered by plugins.");
+            }
+
             lock (_sync)
             {
                 _strategies[strategy.Kind] = strategy;
