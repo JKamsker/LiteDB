@@ -121,7 +121,7 @@ Key constraints:
 - In factory mode, plugins must be initialized exactly once per plugin context/engine pair.
 - **`ILitePlugin.Initialize` contract**: The current signature `Initialize(LiteDatabase, ILitePluginContext)` is problematic because the Spatial plugin (and potentially others) captures the `LiteDatabase` reference for ongoing I/O. This is incompatible with factory mode where the initialization database is an internal host, not the returned handles. **Resolution options (choose one during implementation)**:
   - (a) Change signature to `Initialize(ILitePluginContext context)` -- removes the temptation to capture; requires updating existing plugins (breaking change).
-  - (b) Add a per-handle hook `ILitePlugin.OnHandleCreated(ILiteDatabase handle)` -- allows plugins to bind to each handle; more pragmatic for existing plugins.
+  - (b) Add a per-handle hook `ILiteDatabaseHandleLifecycle.OnHandleCreated(ILiteDatabase handle)` -- allows plugins to bind to each handle; more pragmatic for existing plugins.
   - (c) Keep current signature + document the constraint + add runtime validation that the passed instance is not stored (impractical to enforce).
   Option (a) is preferred if breaking changes are acceptable in this iteration; option (b) is the pragmatic alternative.
 - Plugin `Initialize(...)` must not perform I/O (no opening snapshots, creating collections, or reads/writes); it must only register descriptors/operators/rules into the context. Existing violations (SpatialPlugin.Initialize calls `SpatialPluginRegistry.Attach` which stores the database) must be fixed.

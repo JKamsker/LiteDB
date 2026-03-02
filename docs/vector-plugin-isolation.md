@@ -71,11 +71,7 @@ Prerelease builds created vector metadata formats that GA releases refuse to loa
 
 ## Quickstart verification (2025-11-17)
 
-We validated the public quickstart with a temporary console application that references the in-repo `LiteDB` and `LiteDB.Vector` projects. The sample registers the plugin via `LiteDatabaseOptions` (`new LiteDatabase(connectionString, options: options)`), matching the public guidance. If you recreate the validation app under `artifacts_temp/vector-quickstart`, run it with:
-
-```bash
-dotnet run --project artifacts_temp/vector-quickstart/VectorQuickstart.csproj
-```
+We validated the public quickstart with a temporary console application that references the in-repo `LiteDB` and `LiteDB.Vector` projects. The sample registers the plugin via `LiteDatabaseOptions` (`new LiteDatabase(connectionString, options: options)`), matching the public guidance. The console project itself is not checked in, but the captured output is preserved in `artifacts_temp/vector-quickstart/run.log`.
 
 Command output (trimmed to the quickstart steps):
 
@@ -87,7 +83,7 @@ Command output (trimmed to the quickstart steps):
 | 4 | Open the cleaned database without the plugin and perform a normal insert | `docs_after_insert=4 (previous=3)` — non-vector operations continue to work |
 | 5 | Export the documents with the plugin, create a new database, reinsert them, and recreate the vector index | `exported=4` / `imported=4 index_recreated=True` — matches the recommended export/import migration path |
 
-Artifacts for each run land in `run-output/` under the repository root. These steps confirm the installation guidance, the missing-plugin diagnostic, and both migration paths documented above: drop & recreate (Steps 3–4) and export/import (Step 5).
+These steps confirm the installation guidance, the missing-plugin diagnostic, and both migration paths documented above: drop & recreate (Steps 3–4) and export/import (Step 5).
 
 ### Behavior without the plugin
 - LiteDB opens the database; access to vector collections/indexes is controlled by host policy (`PluginMissingBehavior`, default strict).

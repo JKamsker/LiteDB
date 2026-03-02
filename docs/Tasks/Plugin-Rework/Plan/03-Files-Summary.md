@@ -16,7 +16,7 @@ Note: the initial design called for a dedicated `IPluginValidationState` interfa
 - [x] `LiteDB/Client/Database/LiteDatabaseOptions.cs` (add `MissingPluginBehavior`, `ValidatePluginsOnOpen`)
 - [x] `LiteDB/Client/Shared/SharedEngine.cs` (exception safety for `SetPluginContext`: dispose/null engine on failure; `_transactionRunning` thread-safety under factory sharing)
 - [x] `LiteDB/Plugins/DefaultPluginContext.cs` (store validation flags; host policy propagation; `Freeze()` method; `DiagnosticPolicy` setter frozen-check)
-- [x] `LiteDB/Plugins/ILitePlugin.cs` (resolve `Initialize` signature -- option a: `Initialize(ILitePluginContext)` or option b: add `OnHandleCreated`)
+- [x] `LiteDB/Plugins/ILitePlugin.cs` (resolve `Initialize` signature -- option a: `Initialize(ILitePluginContext)` or option b: add `ILiteDatabaseHandleLifecycle.OnHandleCreated`)
 - [x] `LiteDB/Plugins/PluginDiagnosticPolicy.cs` (remove hard-coded Vector message; deprecate `MissingBehavior` property)
 - [x] `LiteDB/Engine/Services/SnapShot.cs` (write-mode refusal under `AllowIfSafe`; scan `IndexType != 0` in `EvaluatePluginAssets`; db-scoped warn cache; `DropCollection` defensive guard)
 - [x] `LiteDB/Engine/Query/QueryOptimization.cs` (filter `IndexType == 0` in `ChooseIndex` -- **existing bug fix**)
