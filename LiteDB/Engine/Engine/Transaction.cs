@@ -172,6 +172,7 @@ namespace LiteDB.Engine
 
             // try checkpoint when finish transaction and log file are bigger than checkpoint pragma value (in pages)
             if (committed &&
+                _settings.ReadOnly == false &&
                 _header.Pragmas.Checkpoint > 0 &&
                 _disk.GetFileLength(FileOrigin.Log) >= (_header.Pragmas.Checkpoint * PAGE_SIZE))
             {

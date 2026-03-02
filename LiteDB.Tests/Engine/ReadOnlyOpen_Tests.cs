@@ -72,6 +72,53 @@ namespace LiteDB.Tests.Engine
             act.Should().Throw<NotSupportedException>();
         }
 
+        [Fact]
+        public void ReadOnly_open_with_pending_wal_should_not_attempt_checkpoint()
+        {
+            using var file = new TempFile();
+
+            var logFile = GetSidecarFile(file.Filename, "-log");
+            var tmpFile = GetSidecarFile(file.Filename, "-tmp");
+
+            try
+            {
+                using var writer = new LiteDatabase(file.Filename);
+                writer.Pragma(Pragmas.CHECKPOINT, 1);
+
+                var writerCollection = writer.GetCollection<BsonDocument>("docs");
+
+                var cursor = writerCollection.FindAll().GetEnumerator();
+
+                try
+                {
+                    cursor.MoveNext();
+
+                    writerCollection.Insert(new BsonDocument { ["_id"] = 1, ["payload"] = new byte[4096] });
+
+                    File.Exists(logFile).Should().BeTrue("the writer should have produced a WAL sidecar file");
+
+                    using var reader = new LiteDatabase(new ConnectionString
+                    {
+                        Filename = file.Filename,
+                        ReadOnly = true
+                    });
+
+                    Action act = () => reader.GetCollection<BsonDocument>("docs").FindById(1);
+
+                    act.Should().NotThrow("read-only reads must not attempt checkpointing pending WAL data");
+                }
+                finally
+                {
+                    cursor.Dispose();
+                }
+            }
+            finally
+            {
+                TryDelete(logFile);
+                TryDelete(tmpFile);
+            }
+        }
+
         private static void MarkDatabaseAsInvalid(string filename)
         {
             using var stream = new FileStream(filename, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
@@ -86,6 +133,28 @@ namespace LiteDB.Tests.Engine
             stream.Position = HeaderPage.P_INVALID_DATAFILE_STATE;
             return stream.ReadByte();
         }
+
+        private static string GetSidecarFile(string filename, string suffix)
+        {
+            var extension = Path.GetExtension(filename);
+            var baseName = Path.GetFileNameWithoutExtension(filename);
+            var folder = Path.GetDirectoryName(filename);
+
+            return Path.Combine(folder, baseName + suffix + extension);
+        }
+
+        private static void TryDelete(string filename)
+        {
+            try
+            {
+                if (File.Exists(filename))
+                {
+                    File.Delete(filename);
+                }
+            }
+            catch
+            {
+            }
+        }
     }
 }
-
