@@ -41,7 +41,7 @@
 
 - [X] T009 Verify IIndexStrategy interface provides all necessary hooks: EnsureIndex, DropIndex, OnDocumentUpsert, OnDocumentDelete at `LiteDB/Plugins/IIndexStrategy.cs`
 - [X] T010 Verify ILitePlugin interface and plugin context at `LiteDB/Plugins/ILitePlugin.cs` and `LiteDB/Plugins/DefaultPluginContext.cs`
-- [X] T011 Verify core structures remain in LiteDB: BsonVector at `LiteDB/Document/BsonVector.cs`, VectorIndexMetadata at `LiteDB/Engine/Structures/VectorIndexMetadata.cs`, VectorIndexNode at `LiteDB/Engine/Structures/VectorIndexNode.cs`, VectorIndexPage at `LiteDB/Engine/Pages/VectorIndexPage.cs`
+- [X] T011 Verify vector structures are owned by LiteDB.Vector: BsonVector at `LiteDB.Vector/Document/BsonVector.cs`, VectorIndexMetadata at `LiteDB.Vector/Engine/Structures/VectorIndexMetadata.cs`, VectorIndexNode at `LiteDB.Vector/Engine/Structures/VectorIndexNode.cs`, VectorIndexPage at `LiteDB.Vector/Engine/Pages/VectorIndexPage.cs`
 
 **Checkpoint**: Foundation verified - user story implementation can now begin
 

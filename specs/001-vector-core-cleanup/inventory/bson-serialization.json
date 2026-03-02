@@ -4,17 +4,17 @@
     "files": [
         "LiteDB/Document/BsonType.cs",
         "LiteDB/Document/BsonValue.cs",
-        "LiteDB/Document/BsonVector.cs",
         "LiteDB/Document/Json/JsonWriter.cs",
         "LiteDB/Utils/Extensions/BufferSliceExtensions.cs",
-        "LiteDB/Engine/Disk/Serializer/BufferReader.cs",
-        "LiteDB/Engine/Disk/Serializer/BufferWriter.cs"
+        "LiteDB/Plugins/Bson/CustomBsonTypeDescriptor.cs",
+        "LiteDB/Plugins/Bson/CustomBsonTypeRegistry.cs"
     ],
-    "scopeSummary": "Adds BsonType.Vector, conversion helpers, JSON serialization, and binary encoding for float arrays",
-    "decisionId": "requires-infrastructure",
-    "requiredGapIds": [
-        "gap-bson-serialization"
+    "scopeSummary": "Provides plugin-managed BSON type registration so vector BSON encodings are owned by LiteDB.Vector via reserved type codes.",
+    "decisionId": "move-to-plugin-short",
+    "requiredGapIds": [],
+    "verificationStepIds": [
+        "verify-search-post-migration",
+        "verify-build-release"
     ],
-    "verificationStepIds": [],
-    "notes": "Blocked until plugin-managed BSON type registration exists; decision now tracks infrastructure dependency."
+    "notes": "Vector BSON handlers now live in LiteDB.Vector and register through the core BSON type registry; the core no longer defines a dedicated BsonType.Vector enum member."
 }

@@ -50,20 +50,18 @@ Located in `c:\Users\Jonas\repos\private\JKamsker\LiteDB\LiteDB\`:
 - `Client/Vector/VectorIndexOptions.cs` - Index configuration class
 - `Client/Vector/VectorDistanceMetric.cs` - Distance metric enum
 
-#### Code That MUST REMAIN in Core
-These are fundamental database structures and cannot be moved:
+#### Vector File-Format Structures (Owned by LiteDB.Vector)
+These types participate in the database file format, but are now implemented and registered by `LiteDB.Vector` via the plugin infrastructure:
 
-**Core Data Structures** (stays in core - part of database format):
-- `Engine/Structures/VectorIndexMetadata.cs` - Persisted metadata structure (14 bytes per index)
-- `Engine/Structures/VectorIndexNode.cs` - HNSW graph node structure
-- `Engine/Pages/VectorIndexPage.cs` - Page type for vector index storage
-- `Document/BsonVector.cs` - Vector data type support
+**Plugin-owned structures (part of the file format)**:
+- `LiteDB.Vector/Engine/Structures/VectorIndexMetadata.cs` - Persisted metadata structure (per index)
+- `LiteDB.Vector/Engine/Structures/VectorIndexNode.cs` - HNSW graph node structure
+- `LiteDB.Vector/Engine/Pages/VectorIndexPage.cs` - Plugin page type for vector index storage
+- `LiteDB.Vector/Document/BsonVector.cs` - Vector BSON value type (plugin-owned type code)
 
-**Rationale for keeping in core**:
-- These define the database file format and page types
-- Removing them would break backward compatibility with existing databases
-- They are referenced by the engine's page management system
-- PageType.VectorIndex enum value is part of core page type enumeration
+**Rationale**:
+- The on-disk identifiers (reserved BSON type codes + page type codes) remain stable for compatibility.
+- Core resolves plugin pages/values through the per-database registries and fails deterministically with `PLUGIN_REQUIRED` when a plugin-owned identifier is encountered without the plugin installed.
 
 ### Plugin Registration Pattern
 
