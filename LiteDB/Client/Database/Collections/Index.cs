@@ -17,7 +17,7 @@ namespace LiteDB
         /// <param name="unique">If is a unique index</param>
         public bool EnsureIndex(string name, BsonExpression expression, bool unique = false)
         {
-            if (string.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
 
             var pluginContext = _database?.Services?.Context;
