@@ -82,7 +82,12 @@ namespace LiteDB.Engine
                     missingCountValue.IsInt32 == false ||
                     missingCountValue.AsInt32 <= 0)
                 {
-                    return;
+                    if (previousDiagnostics.TryGetValue("scanErrorCount", out var scanErrorCountValue) == false ||
+                        scanErrorCountValue.IsInt32 == false ||
+                        scanErrorCountValue.AsInt32 <= 0)
+                    {
+                        return;
+                    }
                 }
 
                 var previousPolicy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
@@ -110,7 +115,9 @@ namespace LiteDB.Engine
                     }
                 }
 
-                throw previousPolicy.CreateMissingPluginException(previousPluginId, "OpenDatabase", previousDiagnostics);
+                var previousDiagnosticsClone = DefaultPluginContext.CloneDiagnostics(previousDiagnostics);
+
+                throw previousPolicy.CreateMissingPluginException(previousPluginId, "OpenDatabase", previousDiagnosticsClone);
             }
 
             var scanner = new PluginRequirementScanner(_header, _disk, _walIndex, _plugins);
@@ -118,22 +125,50 @@ namespace LiteDB.Engine
 
             var missing = requirements.Where(x => x.StrategyAvailable == false).ToArray();
 
+            var scanErrorCount = 0;
+
+            foreach (var requirement in requirements)
+            {
+                if (requirement?.Errors == null)
+                {
+                    continue;
+                }
+
+                foreach (var error in requirement.Errors)
+                {
+                    if (error == null)
+                    {
+                        continue;
+                    }
+
+                    if (error.TryGetValue("kind", out var kindValue) &&
+                        kindValue.IsString &&
+                        string.Equals(kindValue.AsString, "scan-error", StringComparison.Ordinal))
+                    {
+                        scanErrorCount++;
+                    }
+                }
+            }
+
+            var hasValidationFailures = missing.Length > 0 || scanErrorCount > 0;
+
             var diagnostics = new BsonDocument
             {
-                ["event"] = missing.Length == 0
+                ["event"] = hasValidationFailures == false
                     ? "plugin.validation_on_open_succeeded"
                     : "plugin.validation_on_open_failed",
-                ["missingCount"] = missing.Length
+                ["missingCount"] = missing.Length,
+                ["scanErrorCount"] = scanErrorCount
             };
 
-            if (missing.Length > 0)
+            if (hasValidationFailures)
             {
                 diagnostics["requirements"] = new BsonArray(requirements.Select(x => x.ToDocument()));
             }
 
             context.RecordValidationOnOpen(diagnostics, _engineInstanceId);
 
-            if (missing.Length == 0)
+            if (hasValidationFailures == false)
             {
                 return;
             }

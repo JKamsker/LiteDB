@@ -125,24 +125,58 @@ namespace LiteDB.Plugins
             {
                 var doc = new BsonDocument();
 
-                foreach (var element in value.AsDocument)
+                var sourceDocument = value.AsDocument;
+
+                if (sourceDocument != null)
                 {
-                    doc[element.Key] = CloneBsonValue(element.Value);
+                    foreach (var element in sourceDocument)
+                    {
+                        doc[element.Key] = CloneBsonValue(element.Value);
+                    }
+
+                    return doc;
                 }
 
-                return doc;
+                if (value.RawValue is IDictionary<string, BsonValue> rawDocument)
+                {
+                    foreach (var element in rawDocument)
+                    {
+                        doc[element.Key] = CloneBsonValue(element.Value);
+                    }
+
+                    return doc;
+                }
+
+                return value;
             }
 
             if (value.IsArray)
             {
                 var arr = new BsonArray();
 
-                foreach (var item in value.AsArray)
+                var sourceArray = value.AsArray;
+
+                if (sourceArray != null)
                 {
-                    arr.Add(CloneBsonValue(item));
+                    foreach (var item in sourceArray)
+                    {
+                        arr.Add(CloneBsonValue(item));
+                    }
+
+                    return arr;
                 }
 
-                return arr;
+                if (value.RawValue is IList<BsonValue> rawArray)
+                {
+                    foreach (var item in rawArray)
+                    {
+                        arr.Add(CloneBsonValue(item));
+                    }
+
+                    return arr;
+                }
+
+                return value;
             }
 
             if (value.IsBinary)

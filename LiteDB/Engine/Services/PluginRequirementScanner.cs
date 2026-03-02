@@ -86,6 +86,7 @@ namespace LiteDB.Engine
                             ["collection"] = collection.Key ?? string.Empty,
                             ["indexName"] = entry.Key ?? string.Empty,
                             ["pluginId"] = pluginId ?? "<unknown>",
+                            ["kind"] = "orphan-metadata",
                             ["message"] = "Orphan plugin metadata entry was found without a matching index."
                         });
                     }
@@ -170,6 +171,7 @@ namespace LiteDB.Engine
                     scan.Errors.Add(new BsonDocument
                     {
                         ["collection"] = collectionName ?? string.Empty,
+                        ["kind"] = "scan-error",
                         ["message"] = "Collection page buffer was blank."
                     });
 
@@ -181,6 +183,7 @@ namespace LiteDB.Engine
                     scan.Errors.Add(new BsonDocument
                     {
                         ["collection"] = collectionName ?? string.Empty,
+                        ["kind"] = "scan-error",
                         ["message"] = "Collection page was not a collection page."
                     });
 
@@ -224,6 +227,7 @@ namespace LiteDB.Engine
                             scan.Errors.Add(new BsonDocument
                             {
                                 ["collection"] = collectionName ?? string.Empty,
+                                ["kind"] = "scan-error",
                                 ["message"] = error ?? "Plugin metadata entry could not be parsed."
                             });
 
@@ -242,6 +246,7 @@ namespace LiteDB.Engine
                 scan.Errors.Add(new BsonDocument
                 {
                     ["collection"] = collectionName ?? string.Empty,
+                    ["kind"] = "scan-error",
                     ["message"] = ex.Message
                 });
             }
@@ -424,7 +429,7 @@ namespace LiteDB.Engine
                     ["requiredIndexTypes"] = new BsonArray(_requiredIndexTypes.OrderBy(x => x).Select(x => new BsonValue((int)x))),
                     ["loaded"] = Loaded,
                     ["strategyAvailable"] = StrategyAvailable,
-                    ["errors"] = new BsonArray(_errors.Select(x => new BsonValue((object)x)))
+                    ["errors"] = new BsonArray(_errors.Select(x => (BsonValue)x))
                 };
 
                 return doc;
