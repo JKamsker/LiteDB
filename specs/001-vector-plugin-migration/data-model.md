@@ -8,22 +8,22 @@
 
 This document defines the data model and relationships for the vector search plugin migration. The model separates core database structures (which remain in LiteDB) from plugin-specific implementations (which move to LiteDB.Vector).
 
-## Core Domain (Remains in LiteDB)
+## Plugin Domain (Lives in LiteDB.Vector)
 
 ### BsonVector
-**Location**: `LiteDB/Document/BsonVector.cs`  
+**Location**: `LiteDB.Vector/Document/BsonVector.cs`  
 **Purpose**: Fundamental BSON data type for vector storage  
 **Responsibility**: Serialization/deserialization of vector arrays
 
 ```csharp
-public class BsonVector : BsonValue
+public sealed class BsonVector : LiteDB.BsonValue
 {
-    public float[] Values { get; }
-    public int Length { get; }
-    
-    // Serialization methods
     public BsonVector(float[] values)
-    public override BsonType Type => BsonType.Vector
+        : base((LiteDB.BsonType)VectorBsonConstants.TypeCode, values)
+    {
+    }
+
+    public float[] Values => (float[])this.RawValue;
 }
 ```
 
@@ -40,7 +40,7 @@ public class BsonVector : BsonValue
 ---
 
 ### VectorIndexMetadata
-**Location**: `LiteDB/Engine/Structures/VectorIndexMetadata.cs`  
+**Location**: `LiteDB.Vector/Engine/Structures/VectorIndexMetadata.cs`  
 **Purpose**: Persisted configuration for a vector index  
 **Responsibility**: Store index settings in collection page
 
@@ -79,7 +79,7 @@ internal class VectorIndexMetadata
 ---
 
 ### VectorIndexNode
-**Location**: `LiteDB/Engine/Structures/VectorIndexNode.cs`  
+**Location**: `LiteDB.Vector/Engine/Structures/VectorIndexNode.cs`  
 **Purpose**: HNSW graph node in the vector search structure  
 **Responsibility**: Store vector and neighbor connections
 
@@ -128,7 +128,7 @@ internal class VectorIndexNode
 ---
 
 ### VectorIndexPage
-**Location**: `LiteDB/Engine/Pages/VectorIndexPage.cs`  
+**Location**: `LiteDB.Vector/Engine/Pages/VectorIndexPage.cs`  
 **Purpose**: Database page containing VectorIndexNode instances  
 **Responsibility**: Page-level node storage and retrieval
 
@@ -136,8 +136,10 @@ internal class VectorIndexNode
 internal class VectorIndexPage : BasePage
 {
     public VectorIndexPage(PageBuffer buffer, uint pageID)
-        : base(buffer, pageID, PageType.VectorIndex)
-    
+        : base(buffer, pageID, (PageType)VectorPlugin.PageTypeCode)
+    {
+    }
+     
     // Node management
     public VectorIndexNode GetNode(byte index)
     public VectorIndexNode InsertNode(PageAddress dataBlock, float[] vector, 
@@ -158,7 +160,7 @@ internal class VectorIndexPage : BasePage
 - Part of database file format
 
 **Invariants**:
-- PageType must be VectorIndex
+- PageType must match the vector plugin page type code
 - Node count ≤ 255 (byte index)
 - Total page size ≤ PAGE_SIZE
 
@@ -646,16 +648,17 @@ public readonly record struct VectorMatch<T>(
 ## Migration Impact
 
 ### Core Library Changes
-**What stays**:
-- All page types and structures (VectorIndexMetadata, VectorIndexNode, VectorIndexPage)
-- BsonVector data type
-- PageType.VectorIndex enumeration value
-- Plugin infrastructure (ILitePlugin, IIndexStrategy, etc.)
+**What stays (in LiteDB)**:
+- Plugin infrastructure (ILitePlugin, registries, interceptors, etc.)
+- Core page types (Empty/Header/Collection/Index/Data) and the plugin page factory plumbing
+- Reserved identifier enforcement for built-in plugins
 
-**What is removed**:
-- `Engine/Services/VectorIndexService.cs` (moves to plugin)
-- `Engine/Query/IndexQuery/VectorIndexQuery.cs` (moves to plugin)
-- `Client/Vector/*` extension methods (move to plugin)
+**What moved to LiteDB.Vector**:
+- Vector page types and structures (VectorIndexMetadata, VectorIndexNode, VectorIndexPage)
+- BsonVector data type + BSON serialization handlers
+- `Engine/Services/VectorIndexService.cs` (moved to plugin)
+- `Engine/Query/IndexQuery/VectorIndexQuery.cs` (moved to plugin)
+- `Client/Vector/*` extension methods (moved to plugin)
 
 ### Plugin Package Structure
 ```
