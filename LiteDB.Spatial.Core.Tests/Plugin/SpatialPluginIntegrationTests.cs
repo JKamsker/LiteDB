@@ -96,6 +96,43 @@ public sealed class SpatialPluginIntegrationTests
     }
 
     [Fact]
+    public void WhereNear_StringPredicate_UsesSpatialPlanningRule()
+    {
+        using var database = CreateDatabase();
+        var collection = database.GetCollection<GeoDocument>("points");
+
+        collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
+        collection.Insert(new GeoDocument { Id = 2, Location = new GeoPoint(1, 1) });
+        Spatial.UseGeographic(collection, x => x.Location);
+
+        var plan = collection.Query()
+            .WhereNear("Location", new GeoPoint(0, 0), 1_000)
+            .GetPlan();
+
+        plan["index"]["mode"].AsString.Should().Contain("SpatialMultiRangeIndex");
+    }
+
+    [Fact]
+    public void WhereWithinBox_BsonExpressionPredicate_UsesSpatialPlanningRule()
+    {
+        using var database = CreateDatabase();
+        var collection = database.GetCollection<GeoDocument>("points");
+
+        collection.Insert(new GeoDocument { Id = 1, Location = new GeoPoint(0, 0) });
+        collection.Insert(new GeoDocument { Id = 2, Location = new GeoPoint(5, 5) });
+        Spatial.UseGeographic(collection, x => x.Location);
+
+        var queryable = collection.Query();
+        var expressionRegistry = ((BaseLiteDB.LiteQueryable<GeoDocument>)queryable).ExpressionRegistry;
+
+        var plan = queryable
+            .WhereWithinBox(BaseLiteDB.BsonExpression.Create("$.Location", expressionRegistry), BoundingBox.From2D(-1, -1, 1, 1))
+            .GetPlan();
+
+        plan["index"]["mode"].AsString.Should().Contain("SpatialMultiRangeIndex");
+    }
+
+    [Fact]
     public void LogDiagnostics_ThrowsWhenPluginMissing()
     {
         using var database = new BaseLiteDB.LiteDatabase(new MemoryStream());

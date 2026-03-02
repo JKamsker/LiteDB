@@ -437,7 +437,7 @@ namespace LiteDB.Spatial
                 ["2"] = CreateDistanceModeValue(distanceMode)
             };
 
-            return BaseLiteDB.BsonExpression.Create($"SPATIAL_NEAR({geometryReference}, @0, @1, @2)", parameters, registry);
+            return BaseLiteDB.BsonExpression.Create($"(SPATIAL_NEAR({geometryReference}, @0, @1, @2) = true)", parameters, registry);
         }
 
         private static BaseLiteDB.BsonExpression CreateInBoxExpression(string geometryReference, BaseLiteDB.BsonValue boundingBox, BaseLiteDB.Plugins.IExpressionRegistry registry)
@@ -454,7 +454,7 @@ namespace LiteDB.Spatial
                 ["0"] = boundingBox ?? BaseLiteDB.BsonValue.Null
             };
 
-            return BaseLiteDB.BsonExpression.Create($"SPATIAL_IN_BOX({geometryReference}, @0)", parameters, registry);
+            return BaseLiteDB.BsonExpression.Create($"(SPATIAL_IN_BOX({geometryReference}, @0) = true)", parameters, registry);
         }
 
         private static string BuildFieldReference(string geometryField)
