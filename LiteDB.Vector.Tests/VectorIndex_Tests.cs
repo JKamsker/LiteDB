@@ -195,7 +195,7 @@ namespace LiteDB.Vector.Tests.Querying
                     }
 
                     var cosineSimilarity = candidateVector.DotProduct(targetVector) / (candidateNorm * targetNorm);
-                    return (1d - cosineSimilarity, double.NaN);
+                    return (1d - cosineSimilarity, cosineSimilarity);
 
                 case VectorDistanceMetric.Euclidean:
                     return ((candidateVector - targetVector).L2Norm(), double.NaN);

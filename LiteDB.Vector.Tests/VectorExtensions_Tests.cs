@@ -180,6 +180,34 @@ namespace LiteDB.Vector.Tests
         }
 
         [Fact]
+        public void WithVectorScore_Similarity_ComputesCosineSimilarity()
+        {
+            using var db = CreateDatabase();
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            collection.EnsureIndex(x => x.Embedding, new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
+
+            collection.InsertBulk(new[]
+            {
+                new VectorDocument { Id = 1, Embedding = new[] { 1f, 0f } },
+                new VectorDocument { Id = 2, Embedding = new[] { 0.75f, 0.25f } },
+                new VectorDocument { Id = 3, Embedding = new[] { 0f, 1f } }
+            });
+
+            var target = new[] { 1f, 0f };
+
+            var matches = collection
+                .Query()
+                .Nearest(x => x.Embedding, target, k: 2, metric: VectorDistanceMetric.Cosine)
+                .WithVectorScore(VectorScoreKind.Similarity)
+                .ToList();
+
+            matches.Select(match => match.Document.Id).Should().Equal(1, 2);
+            matches[0].Similarity.Should().BeApproximately(1d, 1e-6);
+            matches[1].Similarity.Should().BeApproximately(0.948683298, 1e-6);
+        }
+
+        [Fact]
         public void WithVectorScore_Should_UseInferredIndexMetric_WhenMetricOmitted()
         {
             using var db = CreateDatabase();

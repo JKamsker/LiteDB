@@ -206,7 +206,14 @@ namespace LiteDB.Vector.Engine
             switch (metric)
             {
                 case VectorDistanceMetric.Cosine:
-                    return ComputeCosineDistance(candidate, target);
+                    var cosineDistance = ComputeCosineDistance(candidate, target);
+
+                    if (!double.IsNaN(cosineDistance))
+                    {
+                        similarity = 1d - cosineDistance;
+                    }
+
+                    return cosineDistance;
                 case VectorDistanceMetric.Euclidean:
                     return ComputeEuclideanDistance(candidate, target);
                 case VectorDistanceMetric.DotProduct:
