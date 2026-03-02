@@ -1,7 +1,6 @@
 using System;
 using System.Linq.Expressions;
 using System.Text.RegularExpressions;
-using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Plugins.Indexing;
 using LiteDB.Vector.Utils;
@@ -170,7 +169,7 @@ namespace LiteDB.Vector
 
             var ensureContext = new EnsureIndexContext(
                 database,
-                collection.Engine as LiteEngine,
+                collection.Engine,
                 typeof(T),
                 collection.Name,
                 name,
