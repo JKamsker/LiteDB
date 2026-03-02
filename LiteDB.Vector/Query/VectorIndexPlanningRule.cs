@@ -713,7 +713,14 @@ namespace LiteDB.Vector.Query
                 return true;
             }
 
-            if (Enum.TryParse<VectorDistanceMetric>(lastSegment, true, out var parsed))
+            if (lastSegment.Length > 0 &&
+                (char.IsDigit(lastSegment[0]) || lastSegment[0] == '+' || lastSegment[0] == '-'))
+            {
+                return false;
+            }
+
+            if (Enum.TryParse<VectorDistanceMetric>(lastSegment, true, out var parsed) &&
+                Enum.IsDefined(typeof(VectorDistanceMetric), parsed))
             {
                 metric = (byte)parsed;
                 return true;

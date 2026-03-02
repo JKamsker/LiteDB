@@ -827,6 +827,35 @@ namespace LiteDB.Vector.Tests.Querying
         }
 
         [Fact]
+        public void VectorDist_MetricLiteralOverflow_Should_Not_Throw_DuringPlanning()
+        {
+            using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
+            var collection = db.GetCollection<VectorDocument>("vectors");
+
+            collection.Insert(new[]
+            {
+                new VectorDocument { Id = 1, Embedding = new[] { 1f, 0f } },
+                new VectorDocument { Id = 2, Embedding = new[] { 0f, 1f } },
+                new VectorDocument { Id = 3, Embedding = new[] { 0.5f, 0.5f } }
+            });
+
+            collection.EnsureIndex(
+                "embedding_idx",
+                CreateExpression(db, "$.Embedding"),
+                new VectorIndexOptions(2, VectorDistanceMetric.Cosine));
+
+            var distanceExpr = CreateExpression(db, "VECTOR_DIST($.Embedding, [0.0, 0.0], '999999999999999999999999999999999999999999999999')");
+
+            var query = collection.Query()
+                .OrderBy(distanceExpr, LiteDB.Query.Ascending)
+                .Limit(3);
+
+            var plan = query.GetPlan();
+
+            plan["index"]["mode"].AsString.Should().NotBe("VECTOR INDEX SEARCH");
+        }
+
+        [Fact]
         public void WhereNear_DotProduct_AllowsNegativeSimilarityThresholds()
         {
             using var db = new LiteDatabase(":memory:", plugins: new[] { VectorSearchPlugin.Instance });
