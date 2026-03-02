@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using FluentAssertions;
 using LiteDB;
+using LiteDB.Engine;
 using LiteDB.Plugins;
 using LiteDB.Tests.Utils;
 using Xunit;
@@ -158,6 +159,68 @@ namespace LiteDB.Tests.Client
                 .Build();
 
             Action act = () => db.Services.ExpressionRegistry.RegisterKeyword("AFTER_INIT");
+
+            act.Should().Throw<InvalidOperationException>();
+        }
+
+        [Fact]
+        public void WithPassword_should_configure_encryption_for_connection_strings()
+        {
+            using var file = new TempFile();
+
+            using (var db = new LiteDatabaseBuilder()
+                .UseFile(file.Filename)
+                .WithPassword("secret")
+                .Build())
+            {
+                db.GetCollection<BsonDocument>("docs").Insert(new BsonDocument { ["_id"] = 1 });
+            }
+
+            using (var reopened = new LiteDatabase($"Filename={file.Filename};password=secret"))
+            {
+                reopened.GetCollection<BsonDocument>("docs").Count().Should().Be(1);
+            }
+
+            Action wrongPassword = () =>
+            {
+                using var db = new LiteDatabase($"Filename={file.Filename};password=wrong");
+                db.GetCollection<BsonDocument>("docs").Count();
+            };
+
+            wrongPassword.Should().Throw<LiteException>();
+        }
+
+        [Fact]
+        public void AsReadOnly_should_prevent_writes()
+        {
+            using var file = new TempFile();
+
+            using (var db = new LiteDatabaseBuilder()
+                .UseFile(file.Filename)
+                .Build())
+            {
+                db.GetCollection<BsonDocument>("docs").Insert(new BsonDocument { ["_id"] = 1 });
+            }
+
+            using var readOnly = new LiteDatabaseBuilder()
+                .UseFile(file.Filename)
+                .AsReadOnly()
+                .Build();
+
+            Action write = () => readOnly.GetCollection<BsonDocument>("docs").Insert(new BsonDocument { ["_id"] = 2 });
+
+            write.Should().Throw<LiteException>();
+        }
+
+        [Fact]
+        public void WithConnectionType_should_throw_when_used_with_UseEngine()
+        {
+            using var engine = new LiteEngine(new EngineSettings { Filename = ":memory:" });
+
+            var builder = new LiteDatabaseBuilder()
+                .WithConnectionType(ConnectionType.Shared);
+
+            Action act = () => builder.UseEngine(engine, ownsEngine: false);
 
             act.Should().Throw<InvalidOperationException>();
         }

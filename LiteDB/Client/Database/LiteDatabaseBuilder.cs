@@ -90,6 +90,12 @@ namespace LiteDB
         private bool _ownsEngine;
         private ConnectionString _contextConnectionString;
         private Action<EngineSettings> _engineSettingsAction;
+        private string _pendingPassword;
+        private bool _pendingPasswordSet;
+        private bool _pendingReadOnly;
+        private bool _pendingReadOnlySet;
+        private ConnectionType _pendingConnectionType;
+        private bool _pendingConnectionTypeSet;
         private bool _built;
 
         public LiteDatabaseBuilder UsePlugin(ILitePlugin plugin)
@@ -176,6 +182,7 @@ namespace LiteDB
 
             _dataSourceKind = DataSourceKind.ConnectionString;
             _connectionString = CopyConnectionString(connectionString);
+            ApplyPendingConnectionStringOverrides(_connectionString);
 
             return this;
         }
@@ -196,6 +203,11 @@ namespace LiteDB
 
             this.EnsureDataSourceNotSet();
 
+            if (_pendingConnectionTypeSet)
+            {
+                throw new InvalidOperationException("WithConnectionType(...) is not supported for stream-based databases.");
+            }
+
             _dataSourceKind = DataSourceKind.Stream;
             _dataStream = dataStream;
             _logStream = logStream;
@@ -209,9 +221,17 @@ namespace LiteDB
 
             this.EnsureDataSourceNotSet();
 
+            if (_pendingConnectionTypeSet)
+            {
+                throw new InvalidOperationException("UseEngine(...) cannot be combined with WithConnectionType(...).");
+            }
+
             _dataSourceKind = DataSourceKind.Engine;
             _engine = engine;
             _ownsEngine = ownsEngine;
+
+            _contextConnectionString ??= new ConnectionString();
+            ApplyPendingConnectionStringOverrides(_contextConnectionString);
 
             return this;
         }
@@ -234,6 +254,66 @@ namespace LiteDB
             return this;
         }
 
+        public LiteDatabaseBuilder WithPassword(string password)
+        {
+            if (password == null) throw new ArgumentNullException(nameof(password));
+
+            _pendingPassword = password;
+            _pendingPasswordSet = true;
+
+            _engineSettingsAction += settings => settings.Password = password;
+
+            if (_dataSourceKind == DataSourceKind.ConnectionString && _connectionString != null)
+            {
+                _connectionString.Password = password;
+            }
+            else if (_dataSourceKind == DataSourceKind.Engine)
+            {
+                _contextConnectionString ??= new ConnectionString();
+                _contextConnectionString.Password = password;
+            }
+
+            return this;
+        }
+
+        public LiteDatabaseBuilder AsReadOnly()
+        {
+            _pendingReadOnly = true;
+            _pendingReadOnlySet = true;
+
+            _engineSettingsAction += settings => settings.ReadOnly = true;
+
+            if (_dataSourceKind == DataSourceKind.ConnectionString && _connectionString != null)
+            {
+                _connectionString.ReadOnly = true;
+            }
+            else if (_dataSourceKind == DataSourceKind.Engine)
+            {
+                _contextConnectionString ??= new ConnectionString();
+                _contextConnectionString.ReadOnly = true;
+            }
+
+            return this;
+        }
+
+        public LiteDatabaseBuilder WithConnectionType(ConnectionType type)
+        {
+            _pendingConnectionType = type;
+            _pendingConnectionTypeSet = true;
+
+            if (_dataSourceKind == DataSourceKind.Engine)
+            {
+                throw new InvalidOperationException("WithConnectionType(...) is not supported for UseEngine(...).");
+            }
+
+            if (_dataSourceKind == DataSourceKind.ConnectionString && _connectionString != null)
+            {
+                _connectionString.Connection = type;
+            }
+
+            return this;
+        }
+
         public LiteDatabaseBuilder WithMissingPluginBehavior(PluginMissingBehavior behavior)
         {
             _options.MissingPluginBehavior = behavior;
@@ -250,7 +330,9 @@ namespace LiteDB
         {
             if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
 
-            _contextConnectionString = CopyConnectionString(connectionString);
+            var copy = CopyConnectionString(connectionString);
+            ApplyPendingConnectionStringOverrides(copy);
+            _contextConnectionString = copy;
             return this;
         }
 
@@ -575,6 +657,29 @@ namespace LiteDB
                 AutoRebuild = source.AutoRebuild,
                 Collation = source.Collation
             };
+        }
+
+        private void ApplyPendingConnectionStringOverrides(ConnectionString connectionString)
+        {
+            if (connectionString == null)
+            {
+                return;
+            }
+
+            if (_pendingPasswordSet)
+            {
+                connectionString.Password = _pendingPassword;
+            }
+
+            if (_pendingReadOnlySet)
+            {
+                connectionString.ReadOnly = _pendingReadOnly;
+            }
+
+            if (_pendingConnectionTypeSet)
+            {
+                connectionString.Connection = _pendingConnectionType;
+            }
         }
     }
 }
