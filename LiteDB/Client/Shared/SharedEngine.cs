@@ -14,7 +14,6 @@ namespace LiteDB
         private readonly EngineSettings _settings;
         private readonly Mutex _mutex;
         private LiteEngine _engine;
-        private bool _transactionRunning = false;
         private int _transactionOwnerThreadId = 0;
         private ILitePluginContext _plugins;
         private readonly ThreadLocal<int> _mutexDepth = new ThreadLocal<int>(() => 0);
@@ -67,7 +66,7 @@ namespace LiteDB
             _mutexDepth.Value = depth + 1;
 
             // Don't create a new engine while a transaction is running.
-            if (!_transactionRunning && _engine == null)
+            if (Volatile.Read(ref _transactionOwnerThreadId) == 0 && _engine == null)
             {
                 try
                 {
@@ -119,7 +118,7 @@ namespace LiteDB
             // Don't dispose the engine while a transaction is running.
             LiteEngine engineToDispose = null;
 
-            if (!_transactionRunning && _engine != null)
+            if (Volatile.Read(ref _transactionOwnerThreadId) == 0 && _engine != null)
             {
                 // If no transaction pending, dispose the engine.
                 engineToDispose = _engine;
@@ -147,7 +146,6 @@ namespace LiteDB
             {
                 if (_engine.BeginTrans())
                 {
-                    _transactionRunning = true;
                     Volatile.Write(ref _transactionOwnerThreadId, Environment.CurrentManagedThreadId);
                     return true;
                 }
@@ -166,7 +164,7 @@ namespace LiteDB
 
         public bool Commit()
         {
-            if (!_transactionRunning)
+            if (Volatile.Read(ref _transactionOwnerThreadId) == 0)
             {
                 return QueryDatabase(() => _engine.Commit());
             }
@@ -184,7 +182,6 @@ namespace LiteDB
             }
             finally
             {
-                _transactionRunning = false;
                 Volatile.Write(ref _transactionOwnerThreadId, 0);
                 CloseDatabase();
             }
@@ -192,7 +189,7 @@ namespace LiteDB
 
         public bool Rollback()
         {
-            if (!_transactionRunning)
+            if (Volatile.Read(ref _transactionOwnerThreadId) == 0)
             {
                 return QueryDatabase(() => _engine.Rollback());
             }
@@ -210,7 +207,6 @@ namespace LiteDB
             }
             finally
             {
-                _transactionRunning = false;
                 Volatile.Write(ref _transactionOwnerThreadId, 0);
                 CloseDatabase();
             }

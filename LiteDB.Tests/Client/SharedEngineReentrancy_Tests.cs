@@ -370,5 +370,100 @@ namespace LiteDB.Tests.Client
                 shared.Dispose();
             }
         }
+
+        [Fact]
+        public void SharedEngine_Rollback_should_throw_when_called_from_wrong_thread()
+        {
+            using var file = new TempFile();
+
+            var shared = new SharedEngine(new EngineSettings { Filename = file.Filename });
+
+            try
+            {
+                using var transStarted = new ManualResetEventSlim(false);
+                using var allowRollback = new ManualResetEventSlim(false);
+                using var done = new ManualResetEventSlim(false);
+
+                Exception beginException = null;
+                Exception rollbackException = null;
+
+                var txThread = new Thread(() =>
+                {
+                    try
+                    {
+                        shared.BeginTrans().Should().BeTrue();
+                        transStarted.Set();
+
+                        allowRollback.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+
+                        shared.Rollback().Should().BeTrue();
+                    }
+                    catch (Exception ex)
+                    {
+                        if (beginException == null)
+                        {
+                            beginException = ex;
+                        }
+                        else
+                        {
+                            rollbackException = ex;
+                        }
+                    }
+                    finally
+                    {
+                        done.Set();
+                    }
+                });
+
+                txThread.Start();
+
+                transStarted.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+                beginException.Should().BeNull();
+
+                shared.Invoking(x => x.Rollback())
+                    .Should()
+                    .Throw<InvalidOperationException>();
+
+                allowRollback.Set();
+
+                done.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+                rollbackException.Should().BeNull();
+
+                var mutexField = typeof(SharedEngine).GetField("_mutex", BindingFlags.Instance | BindingFlags.NonPublic);
+                mutexField.Should().NotBeNull();
+
+                var mutex = (Mutex)mutexField.GetValue(shared);
+                mutex.Should().NotBeNull();
+
+                var acquired = false;
+                Exception error = null;
+
+                var checkThread = new Thread(() =>
+                {
+                    try
+                    {
+                        acquired = mutex.WaitOne(0);
+                        if (acquired)
+                        {
+                            mutex.ReleaseMutex();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        error = ex;
+                    }
+                });
+
+                checkThread.Start();
+                checkThread.Join(TimeSpan.FromSeconds(5)).Should().BeTrue();
+
+                error.Should().BeNull();
+                acquired.Should().BeTrue();
+            }
+            finally
+            {
+                shared.Dispose();
+            }
+        }
     }
 }
