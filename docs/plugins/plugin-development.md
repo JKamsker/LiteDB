@@ -110,7 +110,26 @@ When a page type is registered, `LiteDatabaseServices` swaps the default fallbac
 
 - `EnsureIndexContext` carries the entity type, mapper, database, engine, and helper methods (`LiteDB/Plugins/EnsureIndexContext.cs:20`).
 - Plugins can use `EnsureIndexContext.ExecuteDefault(...)` to delegate to core behavior and then override the final result via `SetResult(...)`.
-- There is no separate “interceptor registry” API: interception is coordinated via plugin-owned index strategies and/or custom index strategy descriptors.
+- Register interceptors via `context.EnsureIndexInterceptors.Add(...)` and implement `IEnsureIndexInterceptor` (`LiteDB/Plugins/ILitePlugin.cs:181`). Interceptors run before `LiteCollection<T>.EnsureIndex(...)` invokes the default engine path.
+
+```csharp
+context.EnsureIndexInterceptors.Add(new SampleEnsureIndexInterceptor(), order: 100);
+
+private sealed class SampleEnsureIndexInterceptor : IEnsureIndexInterceptor
+{
+    public bool TryHandleEnsureIndex(EnsureIndexContext context)
+    {
+        if (!IsSampleIndex(context.Expression))
+        {
+            return false;
+        }
+
+        var created = context.ExecuteDefault();
+        context.SetResult(created);
+        return true;
+    }
+}
+```
 
 ## Expressions & Tokenization Pipeline
 
