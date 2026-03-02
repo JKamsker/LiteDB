@@ -21,7 +21,7 @@ namespace LiteDB.Spatial;
 /// </summary>
 public static class Spatial
 {
-    private static readonly ConditionalWeakTable<BaseLiteEngine.ILiteEngine, SpatialDatabaseContext> _contexts = new();
+    private static readonly ConditionalWeakTable<BaseLiteDB.LiteDatabase, SpatialDatabaseContext> _contexts = new();
     private static readonly ConcurrentDictionary<BaseLiteDB.BsonMapper, bool> _registeredMappers = new();
 
     /// <summary>
@@ -463,10 +463,10 @@ public static class Spatial
 
     private static SpatialDatabaseContext GetContext<T>(BaseLiteDB.LiteCollection<T> collection)
     {
-        var engineField = typeof(BaseLiteDB.LiteCollection<T>).GetField("_engine", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        if (engineField == null)
+        var databaseField = typeof(BaseLiteDB.LiteCollection<T>).GetField("_database", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (databaseField == null)
         {
-            throw new InvalidOperationException("Unable to locate LiteCollection engine field.");
+            throw new InvalidOperationException("Unable to locate LiteCollection database field.");
         }
 
         var mapperField = typeof(BaseLiteDB.LiteCollection<T>).GetField("_mapper", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -475,12 +475,12 @@ public static class Spatial
             throw new InvalidOperationException("Unable to locate LiteCollection mapper field.");
         }
 
-        var engine = (BaseLiteEngine.ILiteEngine)engineField.GetValue(collection)!;
+        var database = (BaseLiteDB.LiteDatabase)databaseField.GetValue(collection)!;
         var mapper = (BaseLiteDB.BsonMapper)mapperField.GetValue(collection)!;
 
         EnsureMapperRegistration(mapper);
 
-        return _contexts.GetValue(engine, _ => new SpatialDatabaseContext(engine, mapper));
+        return _contexts.GetValue(database, _ => new SpatialDatabaseContext(database));
     }
 
     private static void EnsureMapperRegistration(BaseLiteDB.BsonMapper mapper)
@@ -920,10 +920,10 @@ public static class Spatial
     {
         private readonly BaseLiteDB.ILiteDatabase _database;
 
-        public SpatialDatabaseContext(BaseLiteEngine.ILiteEngine engine, BaseLiteDB.BsonMapper mapper)
+        public SpatialDatabaseContext(BaseLiteDB.LiteDatabase database)
         {
-            _database = new BaseLiteDB.LiteDatabase(engine, mapper, disposeOnClose: false);
-            Metadata = new SpatialMetadataStore(_database);
+            _database = database ?? throw new ArgumentNullException(nameof(database));
+            Metadata = new SpatialMetadataStore(database);
         }
 
         public SpatialMetadataStore Metadata { get; }
