@@ -9,6 +9,7 @@ namespace LiteDB.Plugins
     {
         public const string VectorPluginId = "LiteDB.Vector";
         public const string VectorStrategyKind = "vector";
+        public const string VectorIndexKindPrefix = "vector.";
         public const string VectorIndexKind = "vector.hnsw";
         public const byte VectorBsonStart = 0x90;
         public const byte VectorBsonEnd = 0x9F;
@@ -39,6 +40,20 @@ namespace LiteDB.Plugins
             }
 
             if (string.Equals(value, reservedValue, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(pluginId, owner, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"{identifierKind} '{value}' is reserved for plugin '{owner}'. '{pluginId}' cannot claim it.");
+            }
+        }
+
+        public static void EnsurePluginOwnsReservedPrefix(string pluginId, string value, string reservedPrefix, string owner, string identifierKind)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            if (value.StartsWith(reservedPrefix, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(pluginId, owner, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException($"{identifierKind} '{value}' is reserved for plugin '{owner}'. '{pluginId}' cannot claim it.");

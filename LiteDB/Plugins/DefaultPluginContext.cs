@@ -462,10 +462,10 @@ namespace LiteDB.Plugins
 
             _freezeState.EnsureNotFrozen();
 
-            ReservedCodeRanges.EnsurePluginOwnsReservedIdentifier(
+            ReservedCodeRanges.EnsurePluginOwnsReservedPrefix(
                 descriptor.PluginId,
                 descriptor.IndexKind,
-                ReservedCodeRanges.VectorIndexKind,
+                ReservedCodeRanges.VectorIndexKindPrefix,
                 ReservedCodeRanges.VectorPluginId,
                 "Index kind");
 

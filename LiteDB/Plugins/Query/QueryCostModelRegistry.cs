@@ -33,10 +33,10 @@ namespace LiteDB.Plugins.Query
 
             _freezeState?.EnsureNotFrozen();
 
-            ReservedCodeRanges.EnsurePluginOwnsReservedIdentifier(
+            ReservedCodeRanges.EnsurePluginOwnsReservedPrefix(
                 registration.PluginId,
                 registration.IndexKind,
-                ReservedCodeRanges.VectorIndexKind,
+                ReservedCodeRanges.VectorIndexKindPrefix,
                 ReservedCodeRanges.VectorPluginId,
                 "Index kind");
 

@@ -116,12 +116,45 @@ namespace LiteDB.Tests.Plugins
         }
 
         [Fact]
+        public void IndexMetadataRegistryShouldRejectVectorReservedPrefixesFromOtherPlugins()
+        {
+            var context = new DefaultPluginContext(new ConnectionString(), NullServiceProvider.Instance, NullLogger.Instance);
+            var descriptor = new PluginIndexMetadataDescriptor(
+                pluginId: "ThirdParty.Plugin",
+                indexKind: "vector.ivf",
+                serialize: _ => Array.Empty<byte>(),
+                deserialize: _ => new BsonDocument());
+
+            Action act = () => context.IndexMetadata.Register(descriptor);
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*LiteDB.Vector*");
+        }
+
+        [Fact]
         public void QueryCostModelRegistryShouldRejectVectorReservedKindsFromOtherPlugins()
         {
             var registry = new QueryCostModelRegistry();
             var registration = new QueryCostModelRegistration(
                 pluginId: "ThirdParty.Plugin",
                 indexKind: ReservedCodeRanges.VectorIndexKind,
+                calculateCost: _ => 1d);
+
+            Action act = () => registry.Register(registration);
+
+            act.Should()
+                .Throw<InvalidOperationException>()
+                .WithMessage("*LiteDB.Vector*");
+        }
+
+        [Fact]
+        public void QueryCostModelRegistryShouldRejectVectorReservedPrefixesFromOtherPlugins()
+        {
+            var registry = new QueryCostModelRegistry();
+            var registration = new QueryCostModelRegistration(
+                pluginId: "ThirdParty.Plugin",
+                indexKind: "vector.ivf",
                 calculateCost: _ => 1d);
 
             Action act = () => registry.Register(registration);
