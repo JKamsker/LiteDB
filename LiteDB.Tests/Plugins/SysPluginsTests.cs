@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using FluentAssertions;
 using LiteDB.Engine;
 using LiteDB.Plugins;
@@ -52,6 +53,102 @@ namespace LiteDB.Tests.Plugins
             vectorRow["indexCount"].AsInt32.Should().Be(1);
             vectorRow["collections"].AsArray.Select(x => x.AsString).Should().Contain("docs");
             vectorRow["errors"].AsArray.Count.Should().Be(0);
+        }
+
+        [Fact]
+        public void SysPlugins_should_not_duplicate_collection_scan_errors_for_multiple_plugin_indexes()
+        {
+            using var file = new TempFile();
+
+            using (var pluginDatabase = new LiteDatabase(file.Filename, plugins: new[] { VectorSearchPlugin.Instance }))
+            {
+                var collection = pluginDatabase.GetCollection<TestDocument>("docs");
+                collection.Insert(new TestDocument { Id = 1, Embedding = new[] { 0.1f, 0.2f, 0.3f } });
+                collection.EnsureIndex("embedding_idx1", x => x.Embedding, new VectorIndexOptions(3)).Should().BeTrue();
+                collection.EnsureIndex("embedding_idx2", x => x.Embedding, new VectorIndexOptions(3)).Should().BeTrue();
+            }
+
+            using var engine = new LiteEngine(new EngineSettings { Filename = file.Filename });
+
+            var injected = 0;
+
+            engine.SimulateDiskReadFail = buffer =>
+            {
+                if (buffer == null)
+                {
+                    return;
+                }
+
+                if (buffer.ReadByte(BasePage.P_PAGE_TYPE) != (byte)PageType.Collection)
+                {
+                    return;
+                }
+
+                if (Interlocked.Exchange(ref injected, 1) != 0)
+                {
+                    return;
+                }
+
+                var area = buffer.Slice(Constants.PAGE_HEADER_SIZE, Constants.PAGE_SIZE - Constants.PAGE_HEADER_SIZE);
+
+                using (var reader = new BufferReader(new[] { area }, false))
+                {
+                    for (var i = 0; i < Constants.PAGE_FREE_LIST_SLOTS; i++)
+                    {
+                        reader.ReadUInt32();
+                    }
+
+                    reader.Skip(CollectionPage.P_INDEXES - Constants.PAGE_HEADER_SIZE - reader.Position);
+
+                    var indexCount = reader.ReadByte();
+
+                    for (var i = 0; i < indexCount; i++)
+                    {
+                        reader.ReadByte(); // slot
+                        reader.ReadByte(); // indexType
+                        reader.ReadCString(); // name
+
+                        reader.ReadCString(); // expression
+                        reader.ReadBoolean(); // unique
+                        reader.ReadPageAddress(); // head
+                        reader.ReadPageAddress(); // tail
+                        reader.ReadByte(); // reserved
+                        reader.ReadUInt32(); // free index page list
+                    }
+
+                    if (reader.IsEOF)
+                    {
+                        return;
+                    }
+
+                    var metadataCount = reader.ReadByte();
+
+                    if (metadataCount == 0)
+                    {
+                        return;
+                    }
+
+                    reader.ReadCString(); // indexName
+
+                    var markerOffset = Constants.PAGE_HEADER_SIZE + reader.Position;
+
+                    // Clear the marker bit to force TryReadPluginMetadataEntry() into the legacy-format error path.
+                    buffer[markerOffset] = (byte)(buffer[markerOffset] & 0x7F);
+                }
+            };
+
+            using var vanillaDatabase = new LiteDatabase(engine, new LiteDatabaseOptions
+            {
+                MissingPluginBehavior = PluginMissingBehavior.AllowIfSafe
+            });
+
+            var plugins = vanillaDatabase.GetCollection("$plugins")
+                .FindAll()
+                .ToArray();
+
+            var row = plugins.Single(x => x["indexCount"].AsInt32 == 2);
+
+            row["errors"].AsArray.Count.Should().Be(1);
         }
 
         private static void ClearMissingPluginWarnings()

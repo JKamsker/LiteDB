@@ -91,8 +91,65 @@ namespace LiteDB.Plugins
 
         internal void RecordValidationOnOpen(BsonDocument diagnostics)
         {
-            Volatile.Write(ref _validationOnOpenDiagnostics, diagnostics);
+            Volatile.Write(ref _validationOnOpenDiagnostics, CloneDiagnostics(diagnostics));
             Interlocked.Exchange(ref _validationOnOpenRan, 1);
+        }
+
+        internal static BsonDocument CloneDiagnostics(BsonDocument diagnostics)
+        {
+            if (diagnostics == null)
+            {
+                return null;
+            }
+
+            var clone = new BsonDocument();
+
+            foreach (var element in diagnostics)
+            {
+                clone[element.Key] = CloneBsonValue(element.Value);
+            }
+
+            return clone;
+        }
+
+        private static BsonValue CloneBsonValue(BsonValue value)
+        {
+            if (value == null)
+            {
+                return null;
+            }
+
+            if (value.IsDocument)
+            {
+                var doc = new BsonDocument();
+
+                foreach (var element in value.AsDocument)
+                {
+                    doc[element.Key] = CloneBsonValue(element.Value);
+                }
+
+                return doc;
+            }
+
+            if (value.IsArray)
+            {
+                var arr = new BsonArray();
+
+                foreach (var item in value.AsArray)
+                {
+                    arr.Add(CloneBsonValue(item));
+                }
+
+                return arr;
+            }
+
+            if (value.IsBinary)
+            {
+                var bytes = value.AsBinary;
+                return bytes == null ? BsonValue.Null : new BsonValue((byte[])bytes.Clone());
+            }
+
+            return value;
         }
 
         public void RegisterQueryMetadata(string pluginId, int version, IReadOnlyCollection<string> reservedKeys)

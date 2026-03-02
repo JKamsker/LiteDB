@@ -34,10 +34,8 @@ namespace LiteDB.Engine
                 {
                     var scan = ScanCollection(reader, collection.Key, collection.Value, readVersion, transactionPages);
 
-                    if (scan.PluginOwnedIndexes.Count == 0)
-                    {
-                        continue;
-                    }
+                    var touchedKeys = new HashSet<string>(StringComparer.Ordinal);
+                    var pluginIndexNames = new HashSet<string>(scan.PluginOwnedIndexes.Select(x => x.Name), StringComparer.Ordinal);
 
                     foreach (var index in scan.PluginOwnedIndexes)
                     {
@@ -46,6 +44,8 @@ namespace LiteDB.Engine
                         var key = !string.IsNullOrWhiteSpace(pluginId)
                             ? pluginId
                             : $"type:{index.IndexType}";
+
+                        touchedKeys.Add(key);
 
                         if (!requirements.TryGetValue(key, out var requirement))
                         {
@@ -58,10 +58,61 @@ namespace LiteDB.Engine
                         requirement.AddCollection(collection.Key);
                         requirement.IndexCount++;
                         requirement.AddIndexType(index.IndexType);
+                    }
 
-                        foreach (var error in scan.Errors)
+                    foreach (var entry in scan.PluginIdsByIndexName)
+                    {
+                        if (pluginIndexNames.Contains(entry.Key))
                         {
-                            requirement.AddError(error);
+                            continue;
+                        }
+
+                        var pluginId = entry.Value;
+                        var key = !string.IsNullOrWhiteSpace(pluginId) ? pluginId : "orphan-metadata";
+
+                        touchedKeys.Add(key);
+
+                        if (!requirements.TryGetValue(key, out var requirement))
+                        {
+                            requirement = new PluginRequirementRow(
+                                key,
+                                pluginId ?? "<unknown>");
+                            requirements.Add(key, requirement);
+                        }
+
+                        requirement.AddCollection(collection.Key);
+                        requirement.AddError(new BsonDocument
+                        {
+                            ["collection"] = collection.Key ?? string.Empty,
+                            ["indexName"] = entry.Key ?? string.Empty,
+                            ["pluginId"] = pluginId ?? "<unknown>",
+                            ["message"] = "Orphan plugin metadata entry was found without a matching index."
+                        });
+                    }
+
+                    if (scan.Errors.Count > 0)
+                    {
+                        if (touchedKeys.Count == 0)
+                        {
+                            touchedKeys.Add("scan-errors");
+                        }
+
+                        foreach (var key in touchedKeys)
+                        {
+                            if (!requirements.TryGetValue(key, out var requirement))
+                            {
+                                requirement = new PluginRequirementRow(
+                                    key,
+                                    "<unknown>");
+                                requirements.Add(key, requirement);
+                            }
+
+                            requirement.AddCollection(collection.Key);
+
+                            foreach (var error in scan.Errors)
+                            {
+                                requirement.AddError(error);
+                            }
                         }
                     }
                 }
@@ -290,6 +341,7 @@ namespace LiteDB.Engine
             private readonly HashSet<string> _collections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             private readonly HashSet<byte> _requiredIndexTypes = new HashSet<byte>();
             private readonly List<BsonDocument> _errors = new List<BsonDocument>();
+            private readonly HashSet<string> _errorFingerprints = new HashSet<string>(StringComparer.Ordinal);
 
             public PluginRequirementRow(string key, string pluginId)
             {
@@ -328,8 +380,37 @@ namespace LiteDB.Engine
             {
                 if (error != null)
                 {
-                    _errors.Add(error);
+                    if (_errorFingerprints.Add(GetErrorFingerprint(error)))
+                    {
+                        _errors.Add(error);
+                    }
                 }
+            }
+
+            private static string GetErrorFingerprint(BsonDocument error)
+            {
+                if (error == null)
+                {
+                    return string.Empty;
+                }
+
+                var collection = error.TryGetValue("collection", out var collectionValue) && collectionValue.IsString
+                    ? collectionValue.AsString ?? string.Empty
+                    : string.Empty;
+
+                var indexName = error.TryGetValue("indexName", out var indexValue) && indexValue.IsString
+                    ? indexValue.AsString ?? string.Empty
+                    : string.Empty;
+
+                var pluginId = error.TryGetValue("pluginId", out var pluginValue) && pluginValue.IsString
+                    ? pluginValue.AsString ?? string.Empty
+                    : string.Empty;
+
+                var message = error.TryGetValue("message", out var messageValue) && messageValue.IsString
+                    ? messageValue.AsString ?? string.Empty
+                    : error.ToString();
+
+                return string.Concat(collection, "\u001F", indexName, "\u001F", pluginId, "\u001F", message);
             }
 
             public BsonDocument ToDocument()
