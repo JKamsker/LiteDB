@@ -215,7 +215,7 @@ public class BsonVector_Tests
         var left = new BsonArray { 1.0, 0.0 };
         var right = new BsonVector(new float[] { 1.0f, 0.0f });
 
-        var result = BsonExpressionMethods.VECTOR_SIM(left, right);
+        var result = VectorExpressionMethods.VectorSim(left, right);
 
         Assert.NotNull(result);
         Assert.True(result.IsDouble);
@@ -228,7 +228,7 @@ public class BsonVector_Tests
         var left = new BsonArray { 1.0, 0.0 };
         var right = new BsonVector(new float[] { 0.0f, 1.0f });
 
-        var result = BsonExpressionMethods.VECTOR_SIM(left, right);
+        var result = VectorExpressionMethods.VectorSim(left, right);
 
         Assert.NotNull(result);
         Assert.True(result.IsDouble);
@@ -241,7 +241,7 @@ public class BsonVector_Tests
         var left = new BsonArray { "a", "b" };
         var right = new BsonVector(new float[] { 1.0f, 0.0f });
 
-        var result = BsonExpressionMethods.VECTOR_SIM(left, right);
+        var result = VectorExpressionMethods.VectorSim(left, right);
 
         Assert.True(result.IsNull);
     }
@@ -252,7 +252,7 @@ public class BsonVector_Tests
         var left = new BsonArray { 1.0, 2.0, 3.0 };
         var right = new BsonVector(new float[] { 1.0f, 2.0f });
 
-        var result = BsonExpressionMethods.VECTOR_SIM(left, right);
+        var result = VectorExpressionMethods.VectorSim(left, right);
 
         Assert.True(result.IsNull);
     }

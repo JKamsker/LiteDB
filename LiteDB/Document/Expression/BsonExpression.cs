@@ -438,10 +438,15 @@ namespace LiteDB
         /// <summary>
         /// Load all static methods from BsonExpressionFunctions class. Use a dictionary using name + parameter count
         /// </summary>
-        private static readonly Dictionary<string, MethodInfo> _functions =
-            typeof(BsonExpressionFunctions).GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .ToDictionary(m => m.Name.ToUpperInvariant() + "~" + m.GetParameters()
-            .Skip(5).Count());
+        private static readonly ConcurrentDictionary<string, MethodInfo> _functions = new ConcurrentDictionary<string, MethodInfo>(StringComparer.OrdinalIgnoreCase);
+
+        static BsonExpression()
+        {
+            foreach (var method in typeof(BsonExpressionFunctions).GetMethods(BindingFlags.Public | BindingFlags.Static))
+            {
+                RegisterFunction(method.Name, method);
+            }
+        }
 
         /// <summary>
         /// Get expression function with same name and same parameter - return null if not found
@@ -451,6 +456,17 @@ namespace LiteDB
             var key = name.ToUpperInvariant() + "~" + parameterCount;
 
             return _functions.GetOrDefault(key);
+        }
+
+        internal static void RegisterFunction(string name, MethodInfo method)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
+            if (method == null) throw new ArgumentNullException(nameof(method));
+
+            var parameterCount = method.GetParameters().Skip(5).Count();
+            var key = name.ToUpperInvariant() + "~" + parameterCount;
+
+            _functions[key] = method;
         }
 
         #endregion
