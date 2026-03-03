@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,7 +9,9 @@ namespace LiteDB
 {
     public partial class LiteFileStream<TFileId> : Stream
     {
-        private Dictionary<int, long> _chunkLengths = new Dictionary<int, long>();
+        private readonly Dictionary<int, long> _chunkLengths = new Dictionary<int, long>();
+        private readonly BsonDocument _chunkIdFilter;
+
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (_mode != FileAccess.Read) throw new NotSupportedException();
@@ -19,41 +22,105 @@ namespace LiteDB
 
             var bytesLeft = count;
 
-            while (_currentChunkData != null && bytesLeft > 0)
+            while (_currentChunkData.Length > 0 && bytesLeft > 0)
             {
-                var bytesToCopy = Math.Min(bytesLeft, _currentChunkData.Length - _positionInChunk);
+                var chunkSpan = _currentChunkData.Span;
+                if (_positionInChunk >= chunkSpan.Length)
+                {
+                    this.LoadChunkIntoState(_currentChunkIndex + 1);
+                    continue;
+                }
 
-                Buffer.BlockCopy(_currentChunkData, _positionInChunk, buffer, offset, bytesToCopy);
+                var bytesAvailable = chunkSpan.Length - _positionInChunk;
+                var bytesToCopy = Math.Min(bytesLeft, bytesAvailable);
+
+                chunkSpan.Slice(_positionInChunk, bytesToCopy)
+                    .CopyTo(new Span<byte>(buffer, offset, bytesToCopy));
 
                 _positionInChunk += bytesToCopy;
                 bytesLeft -= bytesToCopy;
                 offset += bytesToCopy;
                 _streamPosition += bytesToCopy;
 
-                if (_positionInChunk >= _currentChunkData.Length)
+                if (_positionInChunk >= chunkSpan.Length)
                 {
-                    _positionInChunk = 0;
-
-                    _currentChunkData = this.GetChunkData(++_currentChunkIndex);
+                    this.LoadChunkIntoState(_currentChunkIndex + 1);
                 }
             }
 
             return count - bytesLeft;
         }
 
-        private byte[] GetChunkData(int index)
+        private ReadOnlyMemory<byte> FetchChunk(int index, out IMemoryOwner<byte> owner)
         {
-            // check if there is no more chunks in this file
-            var chunk = _chunks
-                .FindOne("_id = { f: @0, n: @1 }", _fileId, index);
-
-            // if chunk is null there is no more chunks
-            byte[] result = chunk?["data"].AsBinary;
-            if (result != null)
+            if (_chunkIdFilter == null)
             {
-                _chunkLengths[index] = result.Length;
+                owner = null;
+                return ReadOnlyMemory<byte>.Empty;
             }
-            return result;
+
+            _chunkIdFilter["n"] = index;
+
+            var chunk = _chunks.FindById(_chunkIdFilter);
+
+            if (chunk == null)
+            {
+                owner = null;
+                return ReadOnlyMemory<byte>.Empty;
+            }
+
+            var value = chunk["data"];
+            var memory = value.AsBinaryMemory;
+            owner = value.DetachBinaryOwner();
+
+            return memory;
+        }
+
+        private void LoadChunkIntoState(int index)
+        {
+            this.DisposeCurrentChunkOwner();
+
+            if (index < 0)
+            {
+                _currentChunkData = ReadOnlyMemory<byte>.Empty;
+                _currentChunkIndex = index;
+                _positionInChunk = 0;
+                return;
+            }
+
+            var memory = this.FetchChunk(index, out var owner);
+
+            _currentChunkData = memory;
+            _currentChunkOwner = owner;
+            _currentChunkIndex = index;
+            _positionInChunk = 0;
+
+            if (!memory.IsEmpty)
+            {
+                _chunkLengths[index] = memory.Length;
+            }
+        }
+
+        private long GetChunkLength(int index)
+        {
+            if (_chunkLengths.TryGetValue(index, out var length))
+            {
+                return length;
+            }
+
+            var memory = this.FetchChunk(index, out var owner);
+
+            try
+            {
+                length = memory.Length;
+                _chunkLengths[index] = length;
+            }
+            finally
+            {
+                owner?.Dispose();
+            }
+
+            return length;
         }
 
         private void SetReadStreamPosition(long newPosition)
@@ -62,39 +129,49 @@ namespace LiteDB
             {
                 throw new ArgumentOutOfRangeException();
             }
+
             if (newPosition >= Length)
             {
                 _streamPosition = Length;
+                _positionInChunk = 0;
+                _currentChunkIndex = _file.Chunks;
+                this.DisposeCurrentChunkOwner();
+                _currentChunkData = ReadOnlyMemory<byte>.Empty;
                 return;
             }
+
             _streamPosition = newPosition;
 
-            // calculate new chunk position
-            long seekStreamPosition = 0;
-            int loadedChunk = _currentChunkIndex;
-            int newChunkIndex = 0;
-            while (seekStreamPosition <= _streamPosition)
+            long remaining = newPosition;
+            int index = 0;
+
+            while (true)
             {
-                if (_chunkLengths.TryGetValue(newChunkIndex, out long length))
+                var chunkLength = this.GetChunkLength(index);
+
+                if (chunkLength == 0)
                 {
-                    seekStreamPosition += length;
+                    this.DisposeCurrentChunkOwner();
+                    _currentChunkData = ReadOnlyMemory<byte>.Empty;
+                    _positionInChunk = 0;
+                    _currentChunkIndex = index;
+                    return;
                 }
-                else
+
+                if (remaining < chunkLength)
                 {
-                    loadedChunk = newChunkIndex;
-                    _currentChunkData = GetChunkData(newChunkIndex);
-                    seekStreamPosition += _currentChunkData.Length;
+                    if (_currentChunkIndex != index || _currentChunkData.Length == 0)
+                    {
+                        this.LoadChunkIntoState(index);
+                    }
+
+                    _positionInChunk = (int)remaining;
+                    _currentChunkIndex = index;
+                    return;
                 }
-                newChunkIndex++;
-            }
-            
-            newChunkIndex--;
-            seekStreamPosition -= _chunkLengths[newChunkIndex];
-            _positionInChunk = (int)(_streamPosition - seekStreamPosition);
-            _currentChunkIndex = newChunkIndex;
-            if (loadedChunk != _currentChunkIndex)
-            {
-                _currentChunkData = GetChunkData(_currentChunkIndex);
+
+                remaining -= chunkLength;
+                index++;
             }
         }
     }

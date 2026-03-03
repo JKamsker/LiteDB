@@ -124,6 +124,31 @@ namespace LiteDB.Engine
             return bufferPosition;
         }
 
+        public void Read(Span<byte> destination)
+        {
+            var bufferPosition = 0;
+
+            while (bufferPosition < destination.Length)
+            {
+                var bytesLeft = _current.Count - _currentPosition;
+                var bytesToCopy = Math.Min(destination.Length - bufferPosition, bytesLeft);
+
+                if (bytesToCopy > 0)
+                {
+                    new ReadOnlySpan<byte>(_current.Array, _current.Offset + _currentPosition, bytesToCopy)
+                        .CopyTo(destination.Slice(bufferPosition, bytesToCopy));
+                }
+
+                bufferPosition += bytesToCopy;
+
+                this.MoveForward(bytesToCopy);
+
+                if (_isEOF) break;
+            }
+
+            ENSURE(destination.Length == bufferPosition, "current value must fit inside defined buffer");
+        }
+
         /// <summary>
         /// Skip bytes (same as Read but with no array copy)
         /// </summary>
@@ -331,6 +356,28 @@ namespace LiteDB.Engine
             return buffer;
         }
 
+        private BsonValue ReadBinaryValue(int count)
+        {
+            if (count == 0)
+            {
+                return new BsonValue(Array.Empty<byte>());
+            }
+
+            var owner = MemoryPool<byte>.Shared.Rent(count);
+
+            try
+            {
+                var span = owner.Memory.Span.Slice(0, count);
+                this.Read(span);
+                return new BsonValue(owner, count);
+            }
+            catch
+            {
+                owner.Dispose();
+                throw;
+            }
+        }
+
         /// <summary>
         /// Read single IndexKey (BsonValue) from buffer. Use +1 length only for string/binary
         /// </summary>
@@ -495,12 +542,17 @@ namespace LiteDB.Engine
             {
                 var length = this.ReadInt32();
                 var subType = this.ReadByte();
+                if (subType == 0x00)
+                {
+                    return this.ReadBinaryValue(length);
+                }
+
                 var bytes = this.ReadBytes(length);
 
                 switch (subType)
                 {
-                    case 0x00: return bytes;
                     case 0x04: return new Guid(bytes);
+                    default: return bytes;
                 }
             }
             else if (type == 0x07) // ObjectId
