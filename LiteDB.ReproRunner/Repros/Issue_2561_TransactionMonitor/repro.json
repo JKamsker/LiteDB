@@ -9,5 +9,5 @@
   "sharedDatabaseKey": "issue2561",
   "args": [],
   "tags": ["transaction", "monitor", "finalizer"],
-  "state": "red"
+  "state": "green"
 }
