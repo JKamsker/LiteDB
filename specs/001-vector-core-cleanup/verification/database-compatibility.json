@@ -1,0 +1,8 @@
+{
+    "id": "verify-existing-database-compatibility",
+    "category": "Compatibility",
+    "command": "dotnet test LiteDB.Tests -c Release --filter \"Category=VectorBackCompat\"",
+    "expectedOutcome": "Backwards-compatibility test suite passes, confirming legacy databases with vector indexes remain readable and upgradeable post-migration.",
+    "phase": "PostMigration",
+    "notes": "Coordinate with LiteDB.Tests maintainers to tag or add VectorBackCompat scenarios that cover database open, query, and rebuild flows."
+}

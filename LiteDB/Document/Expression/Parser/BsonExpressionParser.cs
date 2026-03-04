@@ -8,6 +8,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -23,62 +25,146 @@ namespace LiteDB
 
         private static MethodInfo M(string s) => typeof(BsonExpressionOperators).GetMethod(s);
 
-        /// <summary>
-        /// Operation definition by methods with defined expression type (operators are in precedence order)
-        /// </summary>
-        private static readonly Dictionary<string, Tuple<string, MethodInfo, BsonExpressionType>> _operators = new Dictionary<string, Tuple<string, MethodInfo, BsonExpressionType>>
+        private sealed class OperatorDefinition
         {
-            // arithmetic
-            ["%"] = Tuple.Create("%", M("MOD"), BsonExpressionType.Modulo),
-            ["/"] = Tuple.Create("/", M("DIVIDE"), BsonExpressionType.Divide),
-            ["*"] = Tuple.Create("*", M("MULTIPLY"), BsonExpressionType.Multiply),
-            ["+"] = Tuple.Create("+", M("ADD"), BsonExpressionType.Add),
-            ["-"] = Tuple.Create("-", M("MINUS"), BsonExpressionType.Subtract),
+            public OperatorDefinition(string key, string source, MethodInfo method, BsonExpressionType type, int precedence)
+            {
+                this.Key = key.ToUpperInvariant();
+                this.Source = source;
+                this.Method = method;
+                this.Type = type;
+                this.Precedence = precedence;
+                this.RequiresCollation = method?.GetParameters().FirstOrDefault()?.ParameterType == typeof(Collation);
+                this.IsCustom = false;
+            }
 
-            // vector similarity operator returns the cosine distance between two vectors
-            ["VECTOR_SIM"] = Tuple.Create(" VECTOR_SIM ", M("VECTOR_SIM"), BsonExpressionType.VectorSim),
+            public OperatorDefinition(BinaryOperatorRegistration registration)
+            {
+                if (registration == null) throw new ArgumentNullException(nameof(registration));
 
-            // predicate
-            ["LIKE"] = Tuple.Create(" LIKE ", M("LIKE"), BsonExpressionType.Like),
-            ["BETWEEN"] = Tuple.Create(" BETWEEN ", M("BETWEEN"), BsonExpressionType.Between),
-            ["IN"] = Tuple.Create(" IN ", M("IN"), BsonExpressionType.In),
+                this.Key = registration.Token.ToUpperInvariant();
+                this.Source = registration.Source;
+                this.Type = registration.ExpressionType;
+                this.Precedence = (int)registration.Precedence;
+                this.Delegate = registration.Implementation;
+                this.RequiresCollation = false;
+                this.IsCustom = true;
+            }
 
-            [">"] = Tuple.Create(">", M("GT"), BsonExpressionType.GreaterThan),
-            [">="] = Tuple.Create(">=", M("GTE"), BsonExpressionType.GreaterThanOrEqual),
-            ["<"] = Tuple.Create("<", M("LT"), BsonExpressionType.LessThan),
-            ["<="] = Tuple.Create("<=", M("LTE"), BsonExpressionType.LessThanOrEqual),
+            public OperatorDefinition(QueryOperatorRegistration registration)
+            {
+                if (registration == null) throw new ArgumentNullException(nameof(registration));
 
-            ["!="] = Tuple.Create("!=", M("NEQ"), BsonExpressionType.NotEqual),
-            ["="] = Tuple.Create("=", M("EQ"), BsonExpressionType.Equal),
+                this.Key = registration.OperatorName.ToUpperInvariant();
+                this.Source = $" {this.Key} ";
+                this.Type = registration.ExpressionType;
+                this.Precedence = (int)registration.Precedence;
+                this.QueryOperator = registration;
+                this.RequiresCollation = false;
+                this.IsCustom = true;
+            }
 
-            ["ANY LIKE"] = Tuple.Create(" ANY LIKE ", M("LIKE_ANY"), BsonExpressionType.Like),
-            ["ANY BETWEEN"] = Tuple.Create(" ANY BETWEEN ", M("BETWEEN_ANY"), BsonExpressionType.Between),
-            ["ANY IN"] = Tuple.Create(" ANY IN ", M("IN_ANY"), BsonExpressionType.In),
+            public string Key { get; }
 
-            ["ANY >"] = Tuple.Create(" ANY>", M("GT_ANY"), BsonExpressionType.GreaterThan),
-            ["ANY >="] = Tuple.Create(" ANY>=", M("GTE_ANY"), BsonExpressionType.GreaterThanOrEqual),
-            ["ANY <"] = Tuple.Create(" ANY<", M("LT_ANY"), BsonExpressionType.LessThan),
-            ["ANY <="] = Tuple.Create(" ANY<=", M("LTE_ANY"), BsonExpressionType.LessThanOrEqual),
+            public string Source { get; }
 
-            ["ANY !="] = Tuple.Create(" ANY!=", M("NEQ_ANY"), BsonExpressionType.NotEqual),
-            ["ANY ="] = Tuple.Create(" ANY=", M("EQ_ANY"), BsonExpressionType.Equal),
+            public MethodInfo Method { get; }
 
-            ["ALL LIKE"] = Tuple.Create(" ALL LIKE ", M("LIKE_ALL"), BsonExpressionType.Like),
-            ["ALL BETWEEN"] = Tuple.Create(" ALL BETWEEN ", M("BETWEEN_ALL"), BsonExpressionType.Between),
-            ["ALL IN"] = Tuple.Create(" ALL IN ", M("IN_ALL"), BsonExpressionType.In),
+            public BsonBinaryOperator Delegate { get; }
 
-            ["ALL >"] = Tuple.Create(" ALL>", M("GT_ALL"), BsonExpressionType.GreaterThan),
-            ["ALL >="] = Tuple.Create(" ALL>=", M("GTE_ALL"), BsonExpressionType.GreaterThanOrEqual),
-            ["ALL <"] = Tuple.Create(" ALL<", M("LT_ALL"), BsonExpressionType.LessThan),
-            ["ALL <="] = Tuple.Create(" ALL<=", M("LTE_ALL"), BsonExpressionType.LessThanOrEqual),
+            public QueryOperatorRegistration QueryOperator { get; }
 
-            ["ALL !="] = Tuple.Create(" ALL!=", M("NEQ_ALL"), BsonExpressionType.NotEqual),
-            ["ALL ="] = Tuple.Create(" ALL=", M("EQ_ALL"), BsonExpressionType.Equal),
+            public BsonExpressionType Type { get; }
 
-            // logic (will use Expression.AndAlso|OrElse)
-            ["AND"] = Tuple.Create(" AND ", (MethodInfo)null, BsonExpressionType.And),
-            ["OR"] = Tuple.Create(" OR ", (MethodInfo)null, BsonExpressionType.Or),
+            public int Precedence { get; }
+
+            public bool RequiresCollation { get; }
+
+            public bool IsCustom { get; }
+        }
+
+        private static readonly List<OperatorDefinition> _builtInOperators = new List<OperatorDefinition>
+        {
+            new OperatorDefinition("%", "%", M("MOD"), BsonExpressionType.Modulo, (int)BinaryOperatorPrecedence.Multiplicative),
+            new OperatorDefinition("/", "/", M("DIVIDE"), BsonExpressionType.Divide, (int)BinaryOperatorPrecedence.Multiplicative),
+            new OperatorDefinition("*", "*", M("MULTIPLY"), BsonExpressionType.Multiply, (int)BinaryOperatorPrecedence.Multiplicative),
+            new OperatorDefinition("+", "+", M("ADD"), BsonExpressionType.Add, (int)BinaryOperatorPrecedence.Additive),
+            new OperatorDefinition("-", "-", M("MINUS"), BsonExpressionType.Subtract, (int)BinaryOperatorPrecedence.Additive),
+
+            new OperatorDefinition("LIKE", " LIKE ", M("LIKE"), BsonExpressionType.Like, (int)BinaryOperatorPrecedence.Comparison),
+            new OperatorDefinition("BETWEEN", " BETWEEN ", M("BETWEEN"), BsonExpressionType.Between, (int)BinaryOperatorPrecedence.Comparison),
+            new OperatorDefinition("IN", " IN ", M("IN"), BsonExpressionType.In, (int)BinaryOperatorPrecedence.Comparison),
+
+            new OperatorDefinition(">", ">", M("GT"), BsonExpressionType.GreaterThan, (int)BinaryOperatorPrecedence.Comparison),
+            new OperatorDefinition(">=", ">=", M("GTE"), BsonExpressionType.GreaterThanOrEqual, (int)BinaryOperatorPrecedence.Comparison),
+            new OperatorDefinition("<", "<", M("LT"), BsonExpressionType.LessThan, (int)BinaryOperatorPrecedence.Comparison),
+            new OperatorDefinition("<=", "<=", M("LTE"), BsonExpressionType.LessThanOrEqual, (int)BinaryOperatorPrecedence.Comparison),
+
+            new OperatorDefinition("!=", "!=", M("NEQ"), BsonExpressionType.NotEqual, (int)BinaryOperatorPrecedence.Comparison),
+            new OperatorDefinition("=", "=", M("EQ"), BsonExpressionType.Equal, (int)BinaryOperatorPrecedence.Comparison),
+
+            new OperatorDefinition("ANY LIKE", " ANY LIKE ", M("LIKE_ANY"), BsonExpressionType.Like, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ANY BETWEEN", " ANY BETWEEN ", M("BETWEEN_ANY"), BsonExpressionType.Between, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ANY IN", " ANY IN ", M("IN_ANY"), BsonExpressionType.In, (int)BinaryOperatorPrecedence.Quantifier),
+
+            new OperatorDefinition("ANY >", " ANY>", M("GT_ANY"), BsonExpressionType.GreaterThan, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ANY >=", " ANY>=", M("GTE_ANY"), BsonExpressionType.GreaterThanOrEqual, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ANY <", " ANY<", M("LT_ANY"), BsonExpressionType.LessThan, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ANY <=", " ANY<=", M("LTE_ANY"), BsonExpressionType.LessThanOrEqual, (int)BinaryOperatorPrecedence.Quantifier),
+
+            new OperatorDefinition("ANY !=", " ANY!=", M("NEQ_ANY"), BsonExpressionType.NotEqual, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ANY =", " ANY=", M("EQ_ANY"), BsonExpressionType.Equal, (int)BinaryOperatorPrecedence.Quantifier),
+
+            new OperatorDefinition("ALL LIKE", " ALL LIKE ", M("LIKE_ALL"), BsonExpressionType.Like, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ALL BETWEEN", " ALL BETWEEN ", M("BETWEEN_ALL"), BsonExpressionType.Between, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ALL IN", " ALL IN ", M("IN_ALL"), BsonExpressionType.In, (int)BinaryOperatorPrecedence.Quantifier),
+
+            new OperatorDefinition("ALL >", " ALL>", M("GT_ALL"), BsonExpressionType.GreaterThan, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ALL >=", " ALL>=", M("GTE_ALL"), BsonExpressionType.GreaterThanOrEqual, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ALL <", " ALL<", M("LT_ALL"), BsonExpressionType.LessThan, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ALL <=", " ALL<=", M("LTE_ALL"), BsonExpressionType.LessThanOrEqual, (int)BinaryOperatorPrecedence.Quantifier),
+
+            new OperatorDefinition("ALL !=", " ALL!=", M("NEQ_ALL"), BsonExpressionType.NotEqual, (int)BinaryOperatorPrecedence.Quantifier),
+            new OperatorDefinition("ALL =", " ALL=", M("EQ_ALL"), BsonExpressionType.Equal, (int)BinaryOperatorPrecedence.Quantifier),
+
+            new OperatorDefinition("AND", " AND ", null, BsonExpressionType.And, (int)BinaryOperatorPrecedence.LogicalAnd),
+            new OperatorDefinition("OR", " OR ", null, BsonExpressionType.Or, (int)BinaryOperatorPrecedence.LogicalOr)
         };
+
+        private static List<OperatorDefinition> GetOperatorTable(IExpressionRegistry registry, IQueryOperatorRegistry queryOperators)
+        {
+            var table = new List<OperatorDefinition>(_builtInOperators);
+
+            if (registry != null)
+            {
+                foreach (var registration in registry.Operators)
+                {
+                    table.Add(new OperatorDefinition(registration));
+                }
+            }
+
+            if (queryOperators != null)
+            {
+                foreach (var registration in queryOperators.Registered)
+                {
+                    table.Add(new OperatorDefinition(registration));
+                }
+            }
+
+            table.Sort((left, right) =>
+            {
+                var comparison = left.Precedence.CompareTo(right.Precedence);
+
+                if (comparison != 0)
+                {
+                    return comparison;
+                }
+
+                return string.Compare(left.Key, right.Key, StringComparison.Ordinal);
+            });
+
+            return table;
+        }
 
         private static readonly MethodInfo _parameterPathMethod = M("PARAMETER_PATH");
         private static readonly MethodInfo _memberPathMethod = M("MEMBER_PATH");
@@ -128,79 +214,116 @@ namespace LiteDB
             }
 
             var order = 0;
+            var operatorTable = GetOperatorTable(context.Registry, context.QueryOperators);
 
             // now, process operator in correct order
             while (values.Count >= 2)
             {
-                var op = _operators.ElementAt(order);
-                var n = ops.IndexOf(op.Key);
+                if (order >= operatorTable.Count)
+                {
+                    throw new LiteException(0, "Invalid expression - missing operator evaluation path.");
+                }
+
+                var definition = operatorTable[order];
+                var n = ops.IndexOf(definition.Key);
 
                 if (n == -1)
                 {
                     order++;
+                    continue;
+                }
+
+                // get left/right values to execute operator
+                var left = values.ElementAt(n);
+                var right = values.ElementAt(n + 1);
+
+                // test left/right scalar
+                var isLeftEnum = definition.Key.StartsWith("ALL", StringComparison.OrdinalIgnoreCase) || definition.Key.StartsWith("ANY", StringComparison.OrdinalIgnoreCase);
+
+                if (isLeftEnum && left.IsScalar) left = ConvertToEnumerable(left);
+                if (!isLeftEnum && !left.IsScalar) throw new LiteException(0, $"Left expression `{left.Source}` returns more than one result. Try use ANY or ALL before operant.");
+                if (!isLeftEnum && !right.IsScalar) throw new LiteException(0, $"Left expression `{right.Source}` must return a single value");
+                if (right.IsScalar == false) throw new LiteException(0, $"Right expression `{right.Source}` must return a single value");
+
+                BsonExpression result;
+
+                // when operation is AND/OR, use AndAlso|OrElse
+                if (definition.QueryOperator != null)
+                {
+                    var custom = definition.QueryOperator.Parser(new[] { left, right });
+
+                    if (custom == null)
+                    {
+                        throw new LiteException(0, $"Operator `{definition.Key}` returned no expression.");
+                    }
+
+                    if (string.IsNullOrEmpty(custom.CustomExpressionName))
+                    {
+                        custom.CustomExpressionName = definition.Key;
+                    }
+
+                    result = custom;
+                }
+                else if (definition.Type == BsonExpressionType.And || definition.Type == BsonExpressionType.Or)
+                {
+                    result = CreateLogicExpression(definition.Type, left, right);
+
+                    if (definition.IsCustom && string.IsNullOrEmpty(result.CustomExpressionName))
+                    {
+                        result.CustomExpressionName = definition.Key;
+                    }
                 }
                 else
                 {
-                    // get left/right values to execute operator
-                    var left = values.ElementAt(n);
-                    var right = values.ElementAt(n + 1);
+                    // method call parameters
+                    var args = new List<Expression>();
 
-                    var src = op.Value.Item1;
-                    var method = op.Value.Item2;
-                    var type = op.Value.Item3;
-
-                    // test left/right scalar
-                    var isLeftEnum = op.Key.StartsWith("ALL") || op.Key.StartsWith("ANY");
-
-                    if (isLeftEnum && left.IsScalar) left = ConvertToEnumerable(left);
-                    //if (isLeftEnum && left.IsScalar) throw new LiteException(0, $"Left expression `{left.Source}` must return multiples values");
-                    if (!isLeftEnum && !left.IsScalar) throw new LiteException(0, $"Left expression `{left.Source}` returns more than one result. Try use ANY or ALL before operant.");
-                    if (!isLeftEnum && !right.IsScalar) throw new LiteException(0, $"Left expression `{right.Source}` must return a single value");
-                    if (right.IsScalar == false) throw new LiteException(0, $"Right expression `{right.Source}` must return a single value");
-
-                    BsonExpression result;
-
-                    // when operation is AND/OR, use AndAlso|OrElse
-                    if (type == BsonExpressionType.And || type == BsonExpressionType.Or)
+                    if (definition.RequiresCollation)
                     {
-                        result = CreateLogicExpression(type, left, right);
+                        args.Add(context.Collation);
+                    }
+
+                    args.Add(left.Expression);
+                    args.Add(right.Expression);
+
+                    Expression call;
+
+                    if (definition.Method != null)
+                    {
+                        call = Expression.Call(definition.Method, args.ToArray());
+                    }
+                    else if (definition.Delegate != null)
+                    {
+                        call = Expression.Invoke(Expression.Constant(definition.Delegate), args.ToArray());
                     }
                     else
                     {
-                        // method call parameters
-                        var args = new List<Expression>();
-
-                        if (method?.GetParameters().FirstOrDefault()?.ParameterType == typeof(Collation))
-                        {
-                            args.Add(context.Collation);
-                        }
-
-                        args.Add(left.Expression);
-                        args.Add(right.Expression);
-
-                        // process result in a single value
-                        result = new BsonExpression
-                        {
-                            Type = type,
-                            Parameters = parameters,
-                            IsImmutable = left.IsImmutable && right.IsImmutable,
-                            UseSource = left.UseSource || right.UseSource,
-                            IsScalar = true,
-                            Fields = new HashSet<string>(StringComparer.OrdinalIgnoreCase).AddRange(left.Fields).AddRange(right.Fields),
-                            Expression = Expression.Call(method, args.ToArray()),
-                            Left = left,
-                            Right = right,
-                            Source = left.Source + src + right.Source
-                        };
+                        throw new LiteException(0, $"Operator `{definition.Key}` has no associated implementation.");
                     }
 
-                    // remove left+right and insert result
-                    values.Insert(n, result);
-                    values.RemoveRange(n + 1, 2);
-
-                    // remove operation
-                    ops.RemoveAt(n);
+                    // process result in a single value
+                    result = new BsonExpression
+                    {
+                        Type = definition.Type,
+                        Parameters = parameters,
+                        IsImmutable = left.IsImmutable && right.IsImmutable,
+                        UseSource = left.UseSource || right.UseSource,
+                        IsScalar = true,
+                        Fields = new HashSet<string>(StringComparer.OrdinalIgnoreCase).AddRange(left.Fields).AddRange(right.Fields),
+                        Expression = call,
+                        Left = left,
+                        Right = right,
+                        Source = left.Source + definition.Source + right.Source,
+                        CustomExpressionName = definition.IsCustom ? definition.Key : null
+                    };
                 }
+
+                // remove left+right and insert result
+                values.Insert(n, result);
+                values.RemoveRange(n + 1, 2);
+
+                // remove operation
+                ops.RemoveAt(n);
             }
 
             return values.Single();
@@ -723,7 +846,7 @@ namespace LiteDB
             {
                 tokenizer.ReadToken(); // consume .
 
-                var pathExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Source);
+                var pathExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Source, context.Registry, context.QueryOperators, context);
 
                 if (pathExpr == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1056,7 +1179,7 @@ namespace LiteDB
             {
                 tokenizer.ReadToken(); // consume .
 
-                var mapExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Current);
+                var mapExpr = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Single, parameters, DocumentScope.Current, context.Registry, context.QueryOperators, context);
 
                 if (mapExpr == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1132,7 +1255,7 @@ namespace LiteDB
                 else
                 {
                     // inner expression
-                    inner = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters, DocumentScope.Current);
+                    inner = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters, DocumentScope.Current, context.Registry, context.QueryOperators, context);
 
                     if (inner == null) throw LiteException.UnexpectedToken(tokenizer.Current);
 
@@ -1180,9 +1303,18 @@ namespace LiteDB
                 case "MAP": return ParseFunction(token, BsonExpressionType.Map, tokenizer, context, parameters, scope);
                 case "FILTER": return ParseFunction(token, BsonExpressionType.Filter, tokenizer, context, parameters, scope);
                 case "SORT": return ParseFunction(token, BsonExpressionType.Sort, tokenizer, context, parameters, scope);
-                case "VECTOR_SIM":
-                    return ParseFunction(token, BsonExpressionType.VectorSim, tokenizer, context, parameters, scope,
-                        convertScalarLeftToEnumerable: false, isScalarResult: true);
+            }
+
+            var registry = context.Registry;
+
+            if (registry != null)
+            {
+                var registration = registry.Functions.FirstOrDefault(f => f.Name.Equals(token, StringComparison.OrdinalIgnoreCase));
+
+                if (registration != null)
+                {
+                    return ParseFunction(token, registration.ExpressionType, tokenizer, context, parameters, scope, registration.ConvertScalarLeftToEnumerable, registration.IsScalarResult, registration);
+                }
             }
 
             return null;
@@ -1192,8 +1324,14 @@ namespace LiteDB
         /// Parse expression functions, like MAP, FILTER or SORT.
         /// MAP(items[*] => @.Name)
         /// </summary>
-        private static BsonExpression ParseFunction(string functionName, BsonExpressionType type, Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, bool convertScalarLeftToEnumerable = true, bool isScalarResult = false)
+        private static BsonExpression ParseFunction(string functionName, BsonExpressionType type, Tokenizer tokenizer, ExpressionContext context, BsonDocument parameters, DocumentScope scope, bool convertScalarLeftToEnumerable = true, bool isScalarResult = false, ExpressionFunctionRegistration registration = null)
         {
+            if (registration != null)
+            {
+                convertScalarLeftToEnumerable = registration.ConvertScalarLeftToEnumerable;
+                isScalarResult = registration.IsScalarResult;
+            }
+
             // check if next token are ( otherwise returns null (is not a function)
             if (tokenizer.LookAhead().Type != TokenType.OpenParenthesis) return null;
 
@@ -1228,7 +1366,7 @@ namespace LiteDB
                 tokenizer.ReadToken().Expect(TokenType.Greater);
 
                 var right = BsonExpression.ParseAndCompile(tokenizer, BsonExpressionParserMode.Full, parameters,
-                    left.Type == BsonExpressionType.Source ? DocumentScope.Source : DocumentScope.Current);
+                    left.Type == BsonExpressionType.Source ? DocumentScope.Source : DocumentScope.Current, context.Registry, context.QueryOperators, context);
 
                 src.Append("=>" + right.Source);
                 args.Add(Expression.Constant(right));
@@ -1267,7 +1405,32 @@ namespace LiteDB
             tokenizer.ReadToken().Expect(TokenType.CloseParenthesis);
             src.Append(")");
 
-            var method = BsonExpression.GetFunction(functionName, args.Count - 5);
+            var additionalArguments = args.Count - 5;
+
+            Expression call;
+
+            if (registration == null)
+            {
+                var method = BsonExpression.GetFunction(functionName, additionalArguments);
+                call = Expression.Call(method, args.ToArray());
+            }
+            else
+            {
+                if (additionalArguments != registration.AdditionalArgumentCount)
+                {
+                    var alternative = context.Registry.Functions
+                        .FirstOrDefault(f => f.Name.Equals(functionName, StringComparison.OrdinalIgnoreCase) && f.AdditionalArgumentCount == additionalArguments);
+
+                    if (alternative == null)
+                    {
+                        throw new LiteException(0, $"Function `{functionName}` expects {registration.AdditionalArgumentCount} additional arguments but received {additionalArguments}.");
+                    }
+
+                    registration = alternative;
+                }
+
+                call = Expression.Invoke(Expression.Constant(registration.Implementation), args.ToArray());
+            }
 
             return new BsonExpression
             {
@@ -1277,8 +1440,9 @@ namespace LiteDB
                 UseSource = useSource,
                 IsScalar = isScalarResult,
                 Fields = fields,
-                Expression = Expression.Call(method, args.ToArray()),
-                Source = src.ToString()
+                Expression = call,
+                Source = src.ToString(),
+                CustomExpressionName = registration != null ? functionName : null
             };
         }
 

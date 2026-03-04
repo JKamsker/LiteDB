@@ -15,7 +15,7 @@ namespace LiteDB
         {
             if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
-            var path = _mapper.GetExpression(keySelector);
+            var path = _mapper.GetExpression(keySelector, _expressions, _database, _linqResolvers);
 
             return this.Include(path);
         }
@@ -29,7 +29,7 @@ namespace LiteDB
             if (string.IsNullOrEmpty(keySelector)) throw new ArgumentNullException(nameof(keySelector));
 
             // cloning this collection and adding this include
-            var newcol = new LiteCollection<T>(_collection, _autoId, _engine, _mapper);
+            var newcol = new LiteCollection<T>(_collection, _autoId, _engine, _mapper, _expressions, _database, _linqResolvers);
 
             newcol._includes.AddRange(_includes);
             newcol._includes.Add(keySelector);

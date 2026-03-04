@@ -3,6 +3,10 @@ using System.Buffers;
 using System.Collections.Generic;
 using static LiteDB.Constants;
 
+using LiteDB;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Bson;
+
 namespace LiteDB.Engine
 {
     /// <summary>
@@ -11,6 +15,7 @@ namespace LiteDB.Engine
     internal partial class BufferWriter : IDisposable
     {
         private readonly IEnumerator<BufferSlice> _source;
+        private readonly ILitePluginContext _pluginContext;
 
         private BufferSlice _current;
         private int _currentPosition = 0; // position in _current
@@ -30,21 +35,23 @@ namespace LiteDB.Engine
         /// </summary>
         public bool IsEOF => _isEOF;
 
-        public BufferWriter(byte[] buffer)
-            : this(new BufferSlice(buffer, 0, buffer.Length))
+        public BufferWriter(byte[] buffer, ILitePluginContext pluginContext = null)
+            : this(new BufferSlice(buffer, 0, buffer.Length), pluginContext)
         {
         }
 
-        public BufferWriter(BufferSlice buffer)
+        public BufferWriter(BufferSlice buffer, ILitePluginContext pluginContext = null)
         {
             _source = null;
+            _pluginContext = pluginContext ?? PluginContextFallbacks.Context;
 
             _current = buffer;
         }
 
-        public BufferWriter(IEnumerable<BufferSlice> source)
+        public BufferWriter(IEnumerable<BufferSlice> source, ILitePluginContext pluginContext = null)
         {
             _source = source.GetEnumerator();
+            _pluginContext = pluginContext ?? PluginContextFallbacks.Context;
 
             _source.MoveNext();
             _current = _source.Current;
@@ -273,15 +280,17 @@ namespace LiteDB.Engine
             this.Write(address.Index);
         }
 
-        public void Write(float[] vector)
+        public void Write(float[] values)
         {
-            ENSURE(vector.Length <= ushort.MaxValue, "Vector length must fit into UInt16");
+            if (values == null) throw new ArgumentNullException(nameof(values));
 
-            this.Write((ushort)vector.Length);
+            ENSURE(values.Length <= ushort.MaxValue, "Float array length must fit into UInt16");
 
-            for (var i = 0; i < vector.Length; i++)
+            this.Write((ushort)values.Length);
+
+            for (var i = 0; i < values.Length; i++)
             {
-                this.Write(vector[i]);
+                this.Write(values[i]);
             }
         }
 
@@ -428,10 +437,11 @@ namespace LiteDB.Engine
                     this.Write((byte)0x7F);
                     this.WriteCString(key);
                     break;
-                case BsonType.Vector:
-                    this.Write((byte)0x64); // ✅ 0x64 = 100
-                    this.WriteCString(key);
-                    this.Write(value.AsVector); // ✅ This should exist
+                default:
+                    if (!this.TryWriteCustomElement(key, value))
+                    {
+                        throw new NotSupportedException($"BSON type '{value.Type}' is not supported. Ensure the appropriate plugin is installed.");
+                    }
                     break;
             }
         }
@@ -441,6 +451,21 @@ namespace LiteDB.Engine
         public void Dispose()
         {
             _source?.Dispose();
+        }
+
+        private bool TryWriteCustomElement(string key, BsonValue value)
+        {
+            var typeCode = unchecked((byte)value.Type);
+
+            if (!BsonTypeResolver.TryGet(_pluginContext, typeCode, out var descriptor))
+            {
+                return false;
+            }
+
+            this.Write(typeCode);
+            this.WriteCString(key);
+            descriptor.Serializer(this, value);
+            return true;
         }
     }
 }

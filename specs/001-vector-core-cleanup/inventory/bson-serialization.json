@@ -1,0 +1,20 @@
+{
+    "id": "bson-serialization-surface",
+    "area": "Serialization",
+    "files": [
+        "LiteDB/Document/BsonType.cs",
+        "LiteDB/Document/BsonValue.cs",
+        "LiteDB/Document/Json/JsonWriter.cs",
+        "LiteDB/Utils/Extensions/BufferSliceExtensions.cs",
+        "LiteDB/Plugins/Bson/CustomBsonTypeDescriptor.cs",
+        "LiteDB/Plugins/Bson/CustomBsonTypeRegistry.cs"
+    ],
+    "scopeSummary": "Provides plugin-managed BSON type registration so vector BSON encodings are owned by LiteDB.Vector via reserved type codes.",
+    "decisionId": "move-to-plugin-short",
+    "requiredGapIds": [],
+    "verificationStepIds": [
+        "verify-search-post-migration",
+        "verify-build-release"
+    ],
+    "notes": "Vector BSON handlers now live in LiteDB.Vector and register through the core BSON type registry; the core no longer defines a dedicated BsonType.Vector enum member."
+}

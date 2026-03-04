@@ -75,7 +75,14 @@ jobs:
         run: dotnet test LiteDB.sln --configuration Release --no-build --verbosity normal --settings tests.runsettings --logger "trx;LogFileName=TestResults.trx" --logger "console;verbosity=detailed"
 
       - name: Pack
-        run: dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+        run: |
+          set -euo pipefail
+          dotnet pack LiteDB/LiteDB.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial.Core/LiteDB.Spatial.Core.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial.Geographic/LiteDB.Spatial.Geographic.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial.Cartesian2D/LiteDB.Spatial.Cartesian2D.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial.Cartesian3D/LiteDB.Spatial.Cartesian3D.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
+          dotnet pack LiteDB.Spatial/LiteDB.Spatial.csproj --configuration Release --no-build -o artifacts /p:ContinuousIntegrationBuild=true
 
       # if delete all nuget packages which are named ``0.0.0-detached.nupkg`` (leftover from detached builds)
       - name: Clean up detached packages

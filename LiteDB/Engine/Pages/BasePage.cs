@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
 {
-    internal enum PageType { Empty = 0, Header = 1, Collection = 2, Index = 3, Data = 4, VectorIndex = 5 }
+    internal enum PageType { Empty = 0, Header = 1, Collection = 2, Index = 3, Data = 4 }
 
     internal class BasePage
     {
@@ -731,15 +732,28 @@ namespace LiteDB.Engine
         /// <summary>
         /// Create new page instance based on buffer (READ)
         /// </summary>
-        public static T ReadPage<T>(PageBuffer buffer)
+        public static BasePage ReadPage(PageBuffer buffer, ILitePluginContext context = null)
+        {
+            return PageFactoryResolver.GetRegistry(context).Read(buffer);
+        }
+
+        /// <summary>
+        /// Create new page instance based on buffer (READ)
+        /// </summary>
+        public static T ReadPage<T>(PageBuffer buffer, ILitePluginContext context = null)
             where T : BasePage
         {
-            if (typeof(T) == typeof(BasePage)) return (T)(object)new BasePage(buffer);
-            if (typeof(T) == typeof(HeaderPage)) return (T)(object)new HeaderPage(buffer);
-            if (typeof(T) == typeof(CollectionPage)) return (T)(object)new CollectionPage(buffer);
-            if (typeof(T) == typeof(IndexPage)) return (T)(object)new IndexPage(buffer);
-            if (typeof(T) == typeof(VectorIndexPage)) return (T)(object)new VectorIndexPage(buffer);
-            if (typeof(T) == typeof(DataPage)) return (T)(object)new DataPage(buffer);
+            var page = ReadPage(buffer, context);
+
+            if (ShouldValidatePageType(typeof(T), out var expected) && page.PageType != expected)
+            {
+                throw new InvalidCastException();
+            }
+
+            if (page is T typed)
+            {
+                return typed;
+            }
 
             throw new InvalidCastException();
         }
@@ -747,15 +761,86 @@ namespace LiteDB.Engine
         /// <summary>
         /// Create new page instance with new PageID and passed buffer (NEW)
         /// </summary>
-        public static T CreatePage<T>(PageBuffer buffer, uint pageID)
+        public static BasePage CreatePage(PageType pageType, PageBuffer buffer, uint pageID, ILitePluginContext context = null)
+        {
+            return PageFactoryResolver.GetRegistry(context).Create(pageType, buffer, pageID);
+        }
+
+        /// <summary>
+        /// Create new page instance with new PageID and passed buffer (NEW)
+        /// </summary>
+        public static T CreatePage<T>(PageBuffer buffer, uint pageID, ILitePluginContext context = null)
             where T : BasePage
         {
-            if (typeof(T) == typeof(CollectionPage)) return (T)(object)new CollectionPage(buffer, pageID);
-            if (typeof(T) == typeof(IndexPage)) return (T)(object)new IndexPage(buffer, pageID);
-            if (typeof(T) == typeof(VectorIndexPage)) return (T)(object)new VectorIndexPage(buffer, pageID);
-            if (typeof(T) == typeof(DataPage)) return (T)(object)new DataPage(buffer, pageID);
+            if (!TryResolveCreatablePageType(typeof(T), out var pageType))
+            {
+                var registry = PageFactoryResolver.GetRegistry(context);
+
+                if (registry.TryCreatePluginPage(typeof(T), buffer, pageID, isNew: true, out var pluginPage) && pluginPage is T pluginTyped)
+                {
+                    return pluginTyped;
+                }
+
+                throw new InvalidCastException($"Unable to create page type '{typeof(T).FullName}' without a registered plugin factory.");
+            }
+
+            var page = CreatePage(pageType, buffer, pageID, context);
+
+            if (page is T typed)
+            {
+                return typed;
+            }
 
             throw new InvalidCastException();
+        }
+
+        private static bool ShouldValidatePageType(Type requestedType, out PageType pageType)
+        {
+            if (requestedType == typeof(BasePage))
+            {
+                pageType = default;
+                return false;
+            }
+
+            return TryResolveCreatablePageType(requestedType, out pageType) || TryResolveReadOnlyPageType(requestedType, out pageType);
+        }
+
+        private static bool TryResolveCreatablePageType(Type requestedType, out PageType pageType)
+        {
+            pageType = default;
+
+            if (requestedType == typeof(CollectionPage))
+            {
+                pageType = PageType.Collection;
+                return true;
+            }
+
+            if (requestedType == typeof(IndexPage))
+            {
+                pageType = PageType.Index;
+                return true;
+            }
+
+            if (requestedType == typeof(DataPage))
+            {
+                pageType = PageType.Data;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveReadOnlyPageType(Type requestedType, out PageType pageType)
+        {
+            pageType = default;
+
+            if (requestedType == typeof(HeaderPage))
+            {
+                pageType = PageType.Header;
+                return true;
+            }
+
+            return false;
         }
 
         #endregion

@@ -13,6 +13,27 @@ namespace LiteDB.Tests.Engine
     public class Rebuild_Tests
     {
         [Fact]
+        public void Rebuild_failure_should_leave_engine_usable()
+        {
+            using var file = new TempFile();
+            using var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename);
+
+            db.GetCollection<BsonDocument>("docs").Insert(new BsonDocument { ["_id"] = 1 });
+
+            Action act = () => db.Rebuild(new RebuildOptions
+            {
+                DropOrphanedPluginIndexes = true,
+                IncludeErrorReport = false
+            });
+
+            act.Should().Throw<ArgumentException>();
+
+            db.GetCollection<BsonDocument>("docs").Count().Should().Be(1);
+            db.GetCollection<BsonDocument>("docs").Insert(new BsonDocument { ["_id"] = 2 });
+            db.GetCollection<BsonDocument>("docs").Count().Should().Be(2);
+        }
+
+        [Fact]
         public void Rebuild_After_DropCollection()
         {
             using (var file = new TempFile())

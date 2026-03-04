@@ -1,19 +1,23 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using LiteDB.Client.Shared;
-using LiteDB.Vector;
 
 namespace LiteDB
 {
-    public class SharedEngine : ILiteEngine
+    public class SharedEngine : ILiteEngine, IPluginHost
     {
         private readonly EngineSettings _settings;
         private readonly Mutex _mutex;
         private LiteEngine _engine;
-        private bool _transactionRunning = false;
+        private int _transactionOwnerThreadId = 0;
+        private ILitePluginContext _plugins;
+        private readonly ThreadLocal<int> _mutexDepth = new ThreadLocal<int>(() => 0);
+        private int _disposeState;
 
         public SharedEngine(EngineSettings settings)
         {
@@ -39,33 +43,55 @@ namespace LiteDB
         /// <summary>
         /// Open database in safe mode
         /// </summary>
-        /// <returns>true if successfully opened; false if already open</returns>
-        private bool OpenDatabase()
+        private void OpenDatabase()
         {
-            try
+            if (Volatile.Read(ref _disposeState) != 0)
             {
-                // Acquire mutex for every call to open DB.
-                _mutex.WaitOne();
+                throw new ObjectDisposedException(nameof(SharedEngine));
             }
-            catch (AbandonedMutexException) { }
 
-            // Don't create a new engine while a transaction is running.
-            if (!_transactionRunning && _engine == null)
+            var depth = _mutexDepth.Value;
+
+            if (depth == 0)
             {
                 try
                 {
-                    _engine = new LiteEngine(_settings);
-                    return true;
+                    _mutex.WaitOne();
+                }
+                catch (AbandonedMutexException)
+                {
+                }
+            }
+
+            _mutexDepth.Value = depth + 1;
+
+            // Don't create a new engine while a transaction is running.
+            if (Volatile.Read(ref _transactionOwnerThreadId) == 0 && _engine == null)
+            {
+                try
+                {
+                    var engine = new LiteEngine(_settings);
+
+                    try
+                    {
+                        if (_plugins != null)
+                        {
+                            ((IPluginHost)engine).SetPluginContext(_plugins);
+                        }
+
+                        _engine = engine;
+                    }
+                    catch
+                    {
+                        engine.Dispose();
+                        throw;
+                    }
                 }
                 catch
                 {
-                    _mutex.ReleaseMutex();
+                    CloseDatabase();
                     throw;
                 }
-            }
-            else
-            {
-                return false;
             }
         }
 
@@ -74,16 +100,40 @@ namespace LiteDB
         /// </summary>
         private void CloseDatabase()
         {
+            var depth = _mutexDepth.Value;
+
+            if (depth <= 0)
+            {
+                return;
+            }
+
+            depth--;
+            _mutexDepth.Value = depth;
+
+            if (depth != 0)
+            {
+                return;
+            }
+
             // Don't dispose the engine while a transaction is running.
-            if (!_transactionRunning && _engine != null)
+            LiteEngine engineToDispose = null;
+
+            if (Volatile.Read(ref _transactionOwnerThreadId) == 0 && _engine != null)
             {
                 // If no transaction pending, dispose the engine.
-                _engine.Dispose();
+                engineToDispose = _engine;
                 _engine = null;
             }
 
-            // Release Mutex on every call to close DB.
-            _mutex.ReleaseMutex();
+            try
+            {
+                engineToDispose?.Dispose();
+            }
+            finally
+            {
+                // Release Mutex on every call to close DB.
+                _mutex.ReleaseMutex();
+            }
         }
 
         #region Transaction Operations
@@ -94,9 +144,16 @@ namespace LiteDB
 
             try
             {
-                _transactionRunning = _engine.BeginTrans();
+                if (_engine.BeginTrans())
+                {
+                    Volatile.Write(ref _transactionOwnerThreadId, Environment.CurrentManagedThreadId);
+                    return true;
+                }
 
-                return _transactionRunning;
+                // Reentrant BeginTrans() must not leak mutex depth when the engine reports an existing transaction.
+                CloseDatabase();
+
+                return false;
             }
             catch
             {
@@ -107,7 +164,17 @@ namespace LiteDB
 
         public bool Commit()
         {
-            if (_engine == null) return false;
+            if (Volatile.Read(ref _transactionOwnerThreadId) == 0)
+            {
+                return QueryDatabase(() => _engine.Commit());
+            }
+
+            if (_engine == null)
+            {
+                return false;
+            }
+
+            EnsureTransactionOwnerThread();
 
             try
             {
@@ -115,14 +182,24 @@ namespace LiteDB
             }
             finally
             {
-                _transactionRunning = false;
+                Volatile.Write(ref _transactionOwnerThreadId, 0);
                 CloseDatabase();
             }
         }
 
         public bool Rollback()
         {
-            if (_engine == null) return false;
+            if (Volatile.Read(ref _transactionOwnerThreadId) == 0)
+            {
+                return QueryDatabase(() => _engine.Rollback());
+            }
+
+            if (_engine == null)
+            {
+                return false;
+            }
+
+            EnsureTransactionOwnerThread();
 
             try
             {
@@ -130,7 +207,7 @@ namespace LiteDB
             }
             finally
             {
-                _transactionRunning = false;
+                Volatile.Write(ref _transactionOwnerThreadId, 0);
                 CloseDatabase();
             }
         }
@@ -141,17 +218,19 @@ namespace LiteDB
 
         public IBsonDataReader Query(string collection, Query query)
         {
-            bool opened = OpenDatabase();
+            OpenDatabase();
 
-            var reader = _engine.Query(collection, query);
-
-            return new SharedDataReader(reader, () =>
+            try
             {
-                if (opened)
-                {
-                    CloseDatabase();
-                }
-            });
+                var reader = _engine.Query(collection, query);
+
+                return new SharedDataReader(reader, () => CloseDatabase());
+            }
+            catch
+            {
+                CloseDatabase();
+                throw;
+            }
         }
 
         public BsonValue Pragma(string name)
@@ -165,6 +244,16 @@ namespace LiteDB
         }
 
         #endregion
+
+        void IPluginHost.SetPluginContext(ILitePluginContext context)
+        {
+            _plugins = context;
+
+            if (_engine != null)
+            {
+                ((IPluginHost)_engine).SetPluginContext(context);
+            }
+        }
 
         #region Write Operations
 
@@ -228,9 +317,9 @@ namespace LiteDB
             return QueryDatabase(() => _engine.EnsureIndex(collection, name, expression, unique));
         }
 
-        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options)
+        public bool EnsureCustomIndex(string collection, string name, string strategyKind, BsonExpression expression, BsonDocument options)
         {
-            return QueryDatabase(() => _engine.EnsureVectorIndex(collection, name, expression, options));
+            return QueryDatabase(() => _engine.EnsureCustomIndex(collection, name, strategyKind, expression, options));
         }
 
         #endregion
@@ -248,30 +337,108 @@ namespace LiteDB
 
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing)
+            if (!disposing)
             {
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref _disposeState, 1, 0) != 0)
+            {
+                return;
+            }
+
+            if (_mutexDepth.Value != 0)
+            {
+                Volatile.Write(ref _disposeState, 0);
+                throw new InvalidOperationException("SharedEngine cannot be disposed while it is in use on the current thread.");
+            }
+
+            Exception disposeException = null;
+            var acquiredMutex = false;
+            var finalize = false;
+
+            try
+            {
+                try
+                {
+                    if (_mutex.WaitOne(TimeSpan.FromMinutes(1)) == false)
+                    {
+                        Volatile.Write(ref _disposeState, 0);
+                        throw new TimeoutException("Timed out waiting to dispose SharedEngine while the shared mutex is held by another thread or process.");
+                    }
+
+                    acquiredMutex = true;
+                    finalize = true;
+                }
+                catch (AbandonedMutexException)
+                {
+                    acquiredMutex = true;
+                    finalize = true;
+                }
+
                 if (_engine != null)
                 {
-                    _engine.Dispose();
-                    _engine = null;
-                    _mutex.ReleaseMutex();
+                    try
+                    {
+                        _engine.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        disposeException = ex;
+                    }
+                    finally
+                    {
+                        _engine = null;
+                    }
                 }
+            }
+            finally
+            {
+                if (acquiredMutex)
+                {
+                    try
+                    {
+                        _mutex.ReleaseMutex();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                if (finalize)
+                {
+                    _mutexDepth.Dispose();
+                    _mutex.Dispose();
+                    Volatile.Write(ref _disposeState, 2);
+                }
+            }
+
+            if (disposeException != null)
+            {
+                ExceptionDispatchInfo.Capture(disposeException).Throw();
             }
         }
 
         private T QueryDatabase<T>(Func<T> Query)
         {
-            bool opened = OpenDatabase();
+            OpenDatabase();
             try
             {
                 return Query();
             }
             finally
             {
-                if (opened)
-                {
-                    CloseDatabase();
-                }
+                CloseDatabase();
+            }
+        }
+
+        private void EnsureTransactionOwnerThread()
+        {
+            var ownerThreadId = Volatile.Read(ref _transactionOwnerThreadId);
+
+            if (ownerThreadId != 0 && ownerThreadId != Environment.CurrentManagedThreadId)
+            {
+                throw new InvalidOperationException("SharedEngine transactions must be committed or rolled back on the same thread that began the transaction.");
             }
         }
     }

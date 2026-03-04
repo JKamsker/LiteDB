@@ -1,18 +1,22 @@
-﻿using System;
+using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
 using static LiteDB.Constants;
 
 namespace LiteDB
 {
     internal class LinqExpressionVisitor : ExpressionVisitor
     {
-        private static readonly Dictionary<Type, ITypeResolver> _resolver = new Dictionary<Type, ITypeResolver>
+        private static readonly Dictionary<Type, ITypeResolver> _builtInResolvers = new Dictionary<Type, ITypeResolver>
         {
             [typeof(BsonValue)] = new BsonValueResolver(),
             [typeof(BsonArray)] = new BsonValueResolver(),
@@ -34,6 +38,7 @@ namespace LiteDB
             [typeof(String)] = new StringResolver(),
             [typeof(Nullable)] = new NullableResolver()
         };
+        private static readonly ConditionalWeakTable<LiteDatabase, ResolverCache> _resolverCache = new ConditionalWeakTable<LiteDatabase, ResolverCache>();
 
         private readonly BsonMapper _mapper;
         private readonly Expression _expr;
@@ -42,14 +47,23 @@ namespace LiteDB
         private readonly BsonDocument _parameters = new BsonDocument();
         private int _paramIndex = 0;
         private Type _dbRefType = null;
+        private MemberMapper _dbRefAssignmentMember = null;
 
         private readonly StringBuilder _builder = new StringBuilder();
-        private readonly Stack<MemberExpression> _memberAccessNodes = new();
+        private readonly Stack<Expression> _nodes = new Stack<Expression>();
+        private readonly IExpressionRegistry _registry;
+        private readonly IQueryOperatorRegistry _queryOperators;
+        private readonly LiteDatabase _database;
+        private readonly ILinqResolverRegistry _linqResolvers;
 
-        public LinqExpressionVisitor(BsonMapper mapper, Expression expr)
+        public LinqExpressionVisitor(BsonMapper mapper, Expression expr, IExpressionRegistry registry = null, LiteDatabase database = null, ILinqResolverRegistry linqResolvers = null, IQueryOperatorRegistry queryOperators = null)
         {
             _mapper = mapper;
             _expr = expr;
+            _registry = registry ?? PluginContextFallbacks.Expressions;
+            _queryOperators = queryOperators ?? PluginContextFallbacks.QueryOperators;
+            _database = database;
+            _linqResolvers = linqResolvers ?? PluginContextFallbacks.LinqResolvers;
 
             if (expr is LambdaExpression lambda)
             {
@@ -65,20 +79,20 @@ namespace LiteDB
         {
             this.Visit(_expr);
 
-            ENSURE(_memberAccessNodes.Count == 0, "Member access node stack must be empty when finish expression resolve");
+            ENSURE(_nodes.Count == 0, "node stack must be empty when finish expression resolve");
 
             var expression = _builder.ToString();
 
             try
             {
-                var e = BsonExpression.Create(expression, _parameters);
+                var e = BsonExpression.Create(expression, _parameters, _registry, _queryOperators);
 
                 // if expression must return an predicate but expression result is Path/Parameter/Call add `= true`
                 if (predicate && (e.Type == BsonExpressionType.Path || e.Type == BsonExpressionType.Call || e.Type == BsonExpressionType.Parameter))
                 {
                     expression = "(" + expression + " = true)";
 
-                    e = BsonExpression.Create(expression, _parameters);
+                    e = BsonExpression.Create(expression, _parameters, _registry, _queryOperators);
                 }
 
                 return e;
@@ -136,7 +150,7 @@ namespace LiteDB
             var member = node.Member;
 
             // special types contains method access: string.Length, DateTime.Day, ...
-            if (TryGetResolver(member.DeclaringType, out var type))
+            if (this.TryGetResolver(member.DeclaringType, out var type))
             {
                 var pattern = type.ResolveMember(member);
 
@@ -149,18 +163,16 @@ namespace LiteDB
                 // for static member, Expression == null
                 if (node.Expression != null)
                 {
-                    _memberAccessNodes.Push(node);
+                    _nodes.Push(node);
 
                     base.Visit(node.Expression);
 
                     if (isParam)
                     {
-                        var name = this.ResolveMember(member, out _);
+                        var name = this.ResolveMember(member);
 
                         _builder.Append(name);
                     }
-
-                    _memberAccessNodes.Pop();
                 }
                 // static member is not parameter expression - compile and execute as constant
                 else
@@ -170,6 +182,12 @@ namespace LiteDB
                     base.Visit(Expression.Constant(value));
                 }
             }
+
+            if (_nodes.Count > 0)
+            {
+                _nodes.Pop();
+            }
+
 
             return node;
         }
@@ -207,7 +225,7 @@ namespace LiteDB
             }
 
             // if not found in resolver, try run method
-            var hasResolver = TryGetResolver(node.Method.DeclaringType, out var type);
+            var hasResolver = this.TryGetResolver(node.Method.DeclaringType, out var type);
 
             if (node.Method.DeclaringType == typeof(Enumerable) && node.Arguments.Count > 0)
             {
@@ -215,7 +233,7 @@ namespace LiteDB
 
                 if (first.IsGenericType && first.GetGenericTypeDefinition() == typeof(IGrouping<,>))
                 {
-                    type = _resolver[typeof(IGrouping<,>)];
+                    type = _builtInResolvers[typeof(IGrouping<,>)];
                     hasResolver = true;
                 }
             }
@@ -251,20 +269,25 @@ namespace LiteDB
         /// </summary>
         protected override Expression VisitConstant(ConstantExpression node)
         {
+            MemberExpression prevNode;
             var value = node.Value;
 
             // https://stackoverflow.com/a/29708655/3286260
-            foreach (var memberAccessNode in _memberAccessNodes)
+            while (_nodes.Count > 0 && (prevNode = _nodes.Peek() as MemberExpression) != null)
             {
-                if (memberAccessNode.Member is FieldInfo fieldInfo)
+                if (prevNode.Member is FieldInfo fieldInfo)
                 {
                     value = fieldInfo.GetValue(value);
                 }
-                else if (memberAccessNode.Member is PropertyInfo propertyInfo)
+                else if (prevNode.Member is PropertyInfo propertyInfo)
                 {
                     value = propertyInfo.GetValue(value);
                 }
+
+                _nodes.Pop();
             }
+
+            ENSURE(_nodes.Count == 0, "counter stack must be zero to eval all properties/field over object");
 
             var parameter = "p" + (_paramIndex++);
 
@@ -353,7 +376,46 @@ namespace LiteDB
         {
             if (node.Members == null)
             {
-                if (TryGetResolver(node.Type, out var type))
+                if (node.Type.IsGenericType && node.Type.GetGenericTypeDefinition() == typeof(BsonRefId<>))
+                {
+                    if (_dbRefAssignmentMember == null || _dbRefAssignmentMember.IsDbRef == false)
+                    {
+                        throw new NotSupportedException($"New instance are not supported for {node.Type} when convert to BsonExpression ({node.ToString()}).");
+                    }
+
+                    if (_dbRefAssignmentMember.DbRefCollectionName.IsNullOrWhiteSpace())
+                    {
+                        throw new NotSupportedException("DbRef collection name must be provided when using BsonRefId<T>.");
+                    }
+
+                    var referenceType = node.Type.GetGenericArguments()[0];
+
+                    var declaredReferenceType = _dbRefAssignmentMember.IsEnumerable ?
+                        _dbRefAssignmentMember.UnderlyingType :
+                        _dbRefAssignmentMember.DataType;
+
+                    if (declaredReferenceType == null)
+                    {
+                        declaredReferenceType = referenceType;
+                    }
+
+                    _builder.Append("{ $id: ");
+                    this.Visit(node.Arguments[0]);
+                    _builder.Append(", $ref: ");
+                    base.Visit(Expression.Constant(_dbRefAssignmentMember.DbRefCollectionName));
+
+                    if (declaredReferenceType != referenceType)
+                    {
+                        _builder.Append(", $type: ");
+                        base.Visit(Expression.Constant(_mapper.SerializeTypeName(referenceType)));
+                    }
+
+                    _builder.Append(" }");
+
+                    return node;
+                }
+
+                if (this.TryGetResolver(node.Type, out var type))
                 {
                     var pattern = type.ResolveCtor(node.Constructor);
 
@@ -406,9 +468,16 @@ namespace LiteDB
                 _builder.Append(member.Substring(1));
                 _builder.Append(":");
 
-                if (!TryVisitDbRefIdExpression(bind.Expression, memberMapper))
+                var previousDbRefAssignmentMember = _dbRefAssignmentMember;
+                _dbRefAssignmentMember = memberMapper?.IsDbRef == true ? memberMapper : null;
+
+                try
                 {
                     this.Visit(bind.Expression);
+                }
+                finally
+                {
+                    _dbRefAssignmentMember = previousDbRefAssignmentMember;
                 }
             }
 
@@ -428,6 +497,32 @@ namespace LiteDB
             {
                 _builder.Append(i > 0 ? ", " : "");
                 this.Visit(node.Expressions[i]);
+            }
+
+            _builder.Append(" ]");
+
+            return node;
+        }
+
+        /// <summary>
+        /// Visit :: x => `new List&lt;int&gt; { 1, 2, 3 }`
+        /// </summary>
+        protected override Expression VisitListInit(ListInitExpression node)
+        {
+            _builder.Append("[ ");
+
+            for (var i = 0; i < node.Initializers.Count; i++)
+            {
+                _builder.Append(i > 0 ? ", " : "");
+
+                var initializer = node.Initializers[i];
+
+                if (initializer.Arguments.Count != 1)
+                {
+                    throw new NotSupportedException($"List initializer is not supported when convert to BsonExpression ({node.ToString()}).");
+                }
+
+                this.Visit(initializer.Arguments[0]);
             }
 
             _builder.Append(" ]");
@@ -522,7 +617,7 @@ namespace LiteDB
         /// </summary>
         private void ResolvePattern(string pattern, Expression obj, IList<Expression> args)
         {
-            var tokenizer = new Tokenizer(pattern);
+            var tokenizer = new Tokenizer(pattern, _registry, _queryOperators);
 
             // lets use tokenizer to parse this method pattern
             while (!tokenizer.EOF)
@@ -577,7 +672,7 @@ namespace LiteDB
                 if (met.Object.NodeType != ExpressionType.Parameter) throw new NotSupportedException("Any/All requires simple parameter on left side. Eg: `x.Customers.Select(c => c.Name).Any(n => n.StartsWith('J'))`");
 
                 // if not found in resolver, try run method
-                if (!TryGetResolver(met.Method.DeclaringType, out var type))
+                if (!this.TryGetResolver(met.Method.DeclaringType, out var type))
                 {
                     throw new NotSupportedException($"Method {met.Method.Name} not available to convert to BsonExpression inside Any/All call.");
                 }
@@ -626,6 +721,11 @@ namespace LiteDB
         /// <summary>
         /// Returns document field name for some type member
         /// </summary>
+        private string ResolveMember(MemberInfo member)
+        {
+            return this.ResolveMember(member, out _);
+        }
+
         private string ResolveMember(MemberInfo member, out MemberMapper memberMapper)
         {
             var name = member.Name;
@@ -640,12 +740,14 @@ namespace LiteDB
             // get mapped field from entity
             var field = entity.Members.FirstOrDefault(x => x.MemberName == name);
 
-            memberMapper = field ?? throw new NotSupportedException($"Member {name} not found on BsonMapper for type {member.DeclaringType}.");
+            if (field == null) throw new NotSupportedException($"Member {name} not found on BsonMapper for type {member.DeclaringType}.");
 
             // define if this field are DbRef (child will need check parent)
             _dbRefType = field.IsDbRef ? field.UnderlyingType : null;
 
             // if parent call is DbRef and are calling _id field, rename to $id
+            memberMapper = field;
+
             return "." + (isParentDbRef && field.FieldName == "_id" ? "$id" : field.FieldName);
         }
 
@@ -740,130 +842,15 @@ namespace LiteDB
         }
 
         /// <summary>
-        /// Tries to visit `new BsonRefId&lt;T&gt;(id)` within a member init expression.
-        /// This is only resolved for properties marked as DbRef.
-        /// </summary>
-        private bool TryVisitDbRefIdExpression(Expression node, MemberMapper memberMapper, bool isInList = false)
-        {
-            if (!memberMapper.IsDbRef)
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(memberMapper.DbRefCollectionName))
-            {
-                throw new NotSupportedException($"BsonRefId<T> requires a DbRef collection name. Member '{memberMapper.MemberName}' is missing it (use [BsonRef] or Entity<T>().DbRef(...)).");
-            }
-
-            switch (node)
-            {
-                // Implicit convert from BsonRefId<T> to T
-                case UnaryExpression { NodeType: ExpressionType.Convert, Method: { Name: "op_Implicit" }, Operand: var operand }:
-                    return TryVisitDbRefIdExpression(operand, memberMapper, isInList);
-
-                // The actual new BsonRefId<T>
-                case NewExpression { Members: null, Type.IsConstructedGenericType: true } expr
-                    when expr.Type.GetGenericTypeDefinition() == typeof(BsonRefId<>):
-
-                    var typeOfRef = expr.Type.GetGenericArguments()[0];
-
-                    // Type of ref must be assignable to property or if within a list assignable to the list type.
-                    if (memberMapper.DataType.IsAssignableFrom(typeOfRef) || isInList && memberMapper.UnderlyingType.IsAssignableFrom(typeOfRef))
-                    {
-                        ResolveDbRefId(expr, memberMapper);
-                        return true;
-                    }
-
-                    return false;
-
-                // new T[] { new BsonRefId<T>, ... }
-                case NewArrayExpression expr
-                    when !isInList && expr.Type.IsArray && memberMapper.UnderlyingType.IsAssignableFrom(expr.Type.GetElementType()):
-
-                    _builder.Append("[ ");
-
-                    for (var i = 0; i < expr.Expressions.Count; i++)
-                    {
-                        if (i > 0)
-                        {
-                            _builder.Append(", ");
-                        }
-
-                        if (!TryVisitDbRefIdExpression(expr.Expressions[i], memberMapper, true))
-                        {
-                            throw new NotSupportedException($"Expression {expr} not supported for BsonRefId<T>.");
-                        }
-                    }
-
-                    _builder.Append(" ]");
-                    return true;
-
-                // new List<T> { new BsonRefId<T>, ... }
-                case ListInitExpression { Type: { IsConstructedGenericType: true, GenericTypeArguments.Length: 1 } } expr
-                    when !isInList && expr.Type.GetGenericTypeDefinition() == typeof(List<>) && memberMapper.UnderlyingType.IsAssignableFrom(expr.Type.GetGenericArguments()[0]):
-
-                    _builder.Append("[ ");
-
-                    for (var i = 0; i < expr.Initializers.Count; i++)
-                    {
-                        if (i > 0)
-                        {
-                            _builder.Append(", ");
-                        }
-
-                        var initializer = expr.Initializers[i];
-
-                        if (initializer.Arguments.Count != 1 || initializer.AddMethod.Name != "Add")
-                        {
-                            throw new NotSupportedException($"List initializers {initializer.AddMethod.Name} not supported when convert to BsonExpression ({node}).");
-                        }
-
-                        if (!TryVisitDbRefIdExpression(initializer.Arguments[0], memberMapper, true))
-                        {
-                            throw new NotSupportedException($"Expression {expr} not supported for BsonRefId<T>.");
-                        }
-                    }
-
-                    _builder.Append(" ]");
-                    return true;
-
-                default:
-                    return false;
-            }
-        }
-
-        /// <summary>
-        /// Resolves and writes `new BsonRefId&lt;T&gt;(id)` into the _builder.
-        /// </summary>
-        private void ResolveDbRefId(NewExpression node, MemberMapper memberMapper)
-        {
-            if (string.IsNullOrWhiteSpace(memberMapper.DbRefCollectionName))
-            {
-                throw new NotSupportedException($"BsonRefId<T> requires a DbRef collection name. Member '{memberMapper.MemberName}' is missing it (use [BsonRef] or Entity<T>().DbRef(...)).");
-            }
-
-            _builder.Append("{ $id:");
-
-            ResolvePattern("@0", null, node.Arguments);
-
-            _builder.Append(", $ref: ");
-            Visit(Expression.Constant(memberMapper.DbRefCollectionName));
-
-            var refType = node.Type.GetGenericArguments()[0];
-            if (refType != memberMapper.UnderlyingType)
-            {
-                _builder.Append(", $type: ");
-                Visit(Expression.Constant(_mapper.SerializeTypeName(refType)));
-            }
-
-            _builder.Append(" }");
-        }
-
-        /// <summary>
         /// Try find a Type Resolver for declaring type
         /// </summary>
-        private static bool TryGetResolver(Type declaringType, out ITypeResolver typeResolver)
+        private bool TryGetResolver(Type declaringType, out ITypeResolver typeResolver)
         {
+            if (this.TryGetPluginResolver(declaringType, out typeResolver))
+            {
+                return true;
+            }
+
             // get method declaring type - if is from any kind of list, read as Enumerable
             var isGrouping = declaringType?.IsGenericType == true && declaringType.GetGenericTypeDefinition() == typeof(IGrouping<,>);
             var isCollection = Reflection.IsCollection(declaringType);
@@ -877,7 +864,54 @@ namespace LiteDB
                 isNullable ? typeof(Nullable) :
                 declaringType;
 
-            return _resolver.TryGetValue(type, out typeResolver);
+            if (this.TryGetPluginResolver(type, out typeResolver))
+            {
+                return true;
+            }
+
+            return _builtInResolvers.TryGetValue(type, out typeResolver);
+        }
+
+        private bool TryGetPluginResolver(Type targetType, out ITypeResolver resolver)
+        {
+            resolver = null;
+
+            if (targetType == null)
+            {
+                return false;
+            }
+
+            if (_linqResolvers == null || _database == null)
+            {
+                return false;
+            }
+
+            var cache = _resolverCache.GetValue(_database, static _ => new ResolverCache());
+
+            if (cache.Resolvers.TryGetValue(targetType, out resolver))
+            {
+                return true;
+            }
+
+            if (!_linqResolvers.TryGetFactory(targetType, out var factory))
+            {
+                return false;
+            }
+
+            resolver = factory(_database);
+
+            if (resolver == null)
+            {
+                throw new InvalidOperationException($"Resolver factory for type `{targetType.FullName}` returned null.");
+            }
+
+            cache.Resolvers[targetType] = resolver;
+            return true;
+        }
+
+        private sealed class ResolverCache
+        {
+            public ConcurrentDictionary<Type, ITypeResolver> Resolvers { get; } = new ConcurrentDictionary<Type, ITypeResolver>();
         }
 
         private bool IsSpanImplicitConversion(MethodInfo method)

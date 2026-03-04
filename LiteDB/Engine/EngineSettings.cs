@@ -84,15 +84,15 @@ namespace LiteDB.Engine
         {
             if (this.DataStream != null)
             {
-                return new StreamFactory(this.DataStream, this.Password);
+                return new StreamFactory(this.DataStream, this.Password, this.ReadOnly);
             }
             else if (this.Filename == ":memory:")
             {
-                return new StreamFactory(new MemoryStream(), this.Password);
+                return new StreamFactory(new MemoryStream(), this.Password, this.ReadOnly);
             }
             else if (this.Filename == ":temp:")
             {
-                return new StreamFactory(new TempStream(), this.Password);
+                return new StreamFactory(new TempStream(), this.Password, this.ReadOnly);
             }
             else if (!string.IsNullOrEmpty(this.Filename))
             {
@@ -109,15 +109,15 @@ namespace LiteDB.Engine
         {
             if (this.LogStream != null)
             {
-                return new StreamFactory(this.LogStream, this.Password);
+                return new StreamFactory(this.LogStream, this.Password, this.ReadOnly);
             }
             else if (this.Filename == ":memory:")
             {
-                return new StreamFactory(new MemoryStream(), this.Password);
+                return new StreamFactory(new MemoryStream(), this.Password, this.ReadOnly);
             }
             else if (this.Filename == ":temp:")
             {
-                return new StreamFactory(new TempStream(), this.Password);
+                return new StreamFactory(new TempStream(), this.Password, this.ReadOnly);
             }
             else if (!string.IsNullOrEmpty(this.Filename))
             {
@@ -126,7 +126,7 @@ namespace LiteDB.Engine
                 return new FileStreamFactory(logName, this.Password, this.ReadOnly, false);
             }
 
-            return new StreamFactory(new MemoryStream(), this.Password);
+            return new StreamFactory(new MemoryStream(), this.Password, this.ReadOnly);
         }
 
         /// <summary>

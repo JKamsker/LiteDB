@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using LiteDB.Vector;
 
 namespace LiteDB.Engine
 {
@@ -26,7 +25,7 @@ namespace LiteDB.Engine
         bool RenameCollection(string name, string newName);
 
         bool EnsureIndex(string collection, string name, BsonExpression expression, bool unique);
-        bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options);
+        bool EnsureCustomIndex(string collection, string name, string strategyKind, BsonExpression expression, BsonDocument options);
         bool DropIndex(string collection, string name);
 
         BsonValue Pragma(string name);

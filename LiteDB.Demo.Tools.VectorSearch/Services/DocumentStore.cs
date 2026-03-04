@@ -26,7 +26,7 @@ namespace LiteDB.Demo.Tools.VectorSearch.Services
             }
 
             var fullPath = Path.GetFullPath(databasePath);
-            _database = new LiteDatabase(fullPath);
+            _database = new LiteDatabase(fullPath, plugins: new[] { VectorSearchPlugin.Instance });
             _documents = _database.GetCollection<IndexedDocument>(DocumentCollectionName);
             _documents.EnsureIndex(x => x.Path, true);
 

@@ -1,0 +1,41 @@
+using System.IO;
+using System.Linq;
+using FluentAssertions;
+using LiteDB;
+using LiteDB.Vector;
+using LiteDB.Vector.Document;
+using LiteDB.Vector.Query;
+using Xunit;
+
+namespace LiteDB.Vector.Tests.Integration
+{
+    public class VectorRegistry_Tests
+    {
+        [Fact]
+        public void Plugin_Should_Expose_Extension_Point_Registrations()
+        {
+            using var db = new LiteDatabase(new MemoryStream(), plugins: new[] { VectorSearchPlugin.Instance });
+
+            var context = db.Services.Context;
+
+            context.QueryMetadata.TryGetDescriptor("LiteDB.Vector", out var metadataDescriptor).Should().BeTrue();
+            metadataDescriptor.Should().NotBeNull();
+            metadataDescriptor.Version.Should().Be(VectorQueryMetadata.Version);
+            metadataDescriptor.ReservedKeys.Should().BeEquivalentTo(VectorQueryMetadata.ReservedKeys);
+
+            context.PageFactories.TryGet("VectorIndex", out var pageFactory).Should().BeTrue();
+            pageFactory.Should().NotBeNull();
+            pageFactory.PluginId.Should().Be("LiteDB.Vector");
+            pageFactory.PageType.Should().Be("VectorIndex");
+            pageFactory.NumericCode.Should().Be(0xE0);
+
+            context.CustomIndexes.Registered.Should().NotBeEmpty();
+            var strategy = context.CustomIndexes.Registered.FirstOrDefault(x => x.StrategyId == "LiteDB.Vector");
+            strategy.Should().NotBeNull();
+            strategy.PluginId.Should().Be("LiteDB.Vector");
+            strategy.RequiredPageTypes.Should().Contain("VectorIndex");
+            strategy.RequiredBsonTypes.Should().Contain(VectorBsonConstants.TypeCode);
+        }
+    }
+}
+

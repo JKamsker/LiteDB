@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using LiteDB.Plugins.Query;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -12,6 +13,9 @@ namespace LiteDB
     /// </summary>
     public partial class Query
     {
+        private readonly Dictionary<string, QueryMetadataBag> _metadata = new Dictionary<string, QueryMetadataBag>(StringComparer.Ordinal);
+
+
         public BsonExpression Select { get; set; } = BsonExpression.Root;
 
         public List<BsonExpression> Includes { get; } = new List<BsonExpression>();
@@ -26,15 +30,81 @@ namespace LiteDB
         public int Limit { get; set; } = int.MaxValue;
         public bool ForUpdate { get; set; } = false;
 
-        public string VectorField { get; set; } = null;
-        public float[] VectorTarget { get; set; } = null;
-        public double VectorMaxDistance { get; set; } = double.MaxValue;
-        public bool HasVectorFilter => VectorField != null && VectorTarget != null;
 
         public string Into { get; set; }
         public BsonAutoId IntoAutoId { get; set; } = BsonAutoId.ObjectId;
 
         public bool ExplainPlan { get; set; }
+
+        public IEnumerable<string> RegisteredMetadata => _metadata.Keys;
+
+        public void AttachMetadata(QueryMetadataBag bag)
+        {
+            if (bag == null)
+            {
+                throw new ArgumentNullException(nameof(bag));
+            }
+
+            _metadata[bag.PluginId] = bag;
+        }
+
+        public bool TryGetMetadata(string pluginId, out QueryMetadataBag bag)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId))
+            {
+                bag = null;
+                return false;
+            }
+
+            return _metadata.TryGetValue(pluginId, out bag);
+        }
+
+        public QueryMetadataBag GetMetadata(string pluginId)
+        {
+            if (!TryGetMetadata(pluginId, out var bag))
+            {
+                throw new KeyNotFoundException($"No metadata bag has been attached for plugin '{pluginId}'.");
+            }
+
+            return bag;
+        }
+
+        public QueryMetadataBag GetOrCreateMetadata(string pluginId, Func<QueryMetadataBag> factory)
+        {
+            if (pluginId == null)
+            {
+                throw new ArgumentNullException(nameof(pluginId));
+            }
+
+            if (factory == null)
+            {
+                throw new ArgumentNullException(nameof(factory));
+            }
+
+            if (_metadata.TryGetValue(pluginId, out var existing))
+            {
+                return existing;
+            }
+
+            var bag = factory();
+            if (!string.Equals(bag?.PluginId, pluginId, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Metadata bag plugin id '{bag?.PluginId}' does not match requested plugin id '{pluginId}'.");
+            }
+
+            _metadata[pluginId] = bag;
+            return bag;
+        }
+
+        public bool RemoveMetadata(string pluginId)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId))
+            {
+                return false;
+            }
+
+            return _metadata.Remove(pluginId);
+        }
 
         /// <summary>
         /// [ EXPLAIN ]
@@ -108,33 +178,7 @@ namespace LiteDB
                 sb.AppendLine($"FOR UPDATE");
             }
 
-            if (this.HasVectorFilter)
-            {
-                var field = this.VectorField;
-
-                if (!string.IsNullOrEmpty(field))
-                {
-                    field = field.Trim();
-
-                    if (!field.StartsWith("$", StringComparison.Ordinal))
-                    {
-                        field = field.StartsWith(".", StringComparison.Ordinal)
-                            ? "$" + field
-                            : "$." + field;
-                    }
-                }
-
-                var vectorExpr = $"VECTOR_SIM({field}, [{string.Join(",", this.VectorTarget)}])";
-                if (this.Where.Count > 0)
-                {
-                    sb.AppendLine($"WHERE ({string.Join(" AND ", this.Where.Select(x => x.Source))}) AND {vectorExpr} <= {this.VectorMaxDistance}");
-                }
-                else
-                {
-                    sb.AppendLine($"WHERE {vectorExpr} <= {this.VectorMaxDistance}");
-                }
-            }
-            else if (this.Where.Count > 0)
+            if (this.Where.Count > 0)
             {
                 sb.AppendLine($"WHERE {string.Join(" AND ", this.Where.Select(x => x.Source))}");
             }

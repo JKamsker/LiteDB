@@ -9,6 +9,7 @@ using LiteDB;
 using LiteDB.Engine;
 using LiteDB.Tests.Utils;
 using LiteDB.Vector;
+using LiteDB.Vector.Engine;
 using Xunit;
 
 namespace LiteDB.Tests.Engine
@@ -23,6 +24,7 @@ namespace LiteDB.Tests.Engine
         }
 
         private const string VectorIndexName = "embedding_idx";
+        private static readonly PageType VectorPageType = (PageType)VectorPlugin.PageTypeCode;
 
         private static readonly FieldInfo EngineField = typeof(LiteDatabase).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly MethodInfo AutoTransactionMethod = typeof(LiteEngine).GetMethod("AutoTransaction", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -74,7 +76,7 @@ namespace LiteDB.Tests.Engine
 
             const ushort dimensions = 6;
 
-            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
+            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename, plugins: new[] { VectorSearchPlugin.Instance }))
             {
                 var collection = db.GetCollection("docs");
 
@@ -99,12 +101,12 @@ namespace LiteDB.Tests.Engine
             }
 
             var beforeCounts = CountPagesByType(file.Filename);
-            beforeCounts.TryGetValue(PageType.VectorIndex, out var vectorPagesBefore);
+            beforeCounts.TryGetValue(VectorPageType, out var vectorPagesBefore);
             vectorPagesBefore.Should().BeGreaterThan(0, "creating a vector index should allocate vector pages");
 
             var drop = () =>
             {
-                using var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename);
+                using var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename, plugins: new[] { VectorSearchPlugin.Instance });
                 db.DropCollection("docs");
                 db.Checkpoint();
             };
@@ -112,7 +114,7 @@ namespace LiteDB.Tests.Engine
             drop.Should().NotThrow();
 
             var afterCounts = CountPagesByType(file.Filename);
-            afterCounts.TryGetValue(PageType.VectorIndex, out var vectorPagesAfter);
+            afterCounts.TryGetValue(VectorPageType, out var vectorPagesAfter);
             vectorPagesAfter.Should().BeLessThan(vectorPagesBefore, "dropping the collection should reclaim vector pages");
         }
 
@@ -121,7 +123,7 @@ namespace LiteDB.Tests.Engine
         {
             using var file = new TempFile();
 
-            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
+            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename, plugins: new[] { VectorSearchPlugin.Instance }))
             {
                 var collection = db.GetCollection<VectorDocument>("vectors");
                 var options = new VectorIndexOptions(8, VectorDistanceMetric.Cosine);
@@ -145,7 +147,7 @@ namespace LiteDB.Tests.Engine
                 db.Checkpoint();
             }
 
-            using (var reopened = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
+            using (var reopened = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename, plugins: new[] { VectorSearchPlugin.Instance }))
             {
                 reopened.GetCollectionNames().Should().NotContain("vectors");
             }
@@ -162,7 +164,7 @@ namespace LiteDB.Tests.Engine
             var dimensions = (DataService.MAX_DATA_BYTES_PER_PAGE / sizeof(float)) + 64;
             dimensions.Should().BeLessThan(ushort.MaxValue);
 
-            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
+            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename, plugins: new[] { VectorSearchPlugin.Instance }))
             {
                 var collection = db.GetCollection<VectorDocument>("docs");
                 var documents = Enumerable.Range(1, 6)
@@ -188,14 +190,14 @@ namespace LiteDB.Tests.Engine
 
             Action drop = () =>
             {
-                using var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename);
+                using var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename, plugins: new[] { VectorSearchPlugin.Instance });
                 db.DropCollection("docs");
                 db.Checkpoint();
             };
 
             drop.Should().NotThrow();
 
-            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename))
+            using (var db = DatabaseFactory.Create(TestDatabaseType.Disk, file.Filename, plugins: new[] { VectorSearchPlugin.Instance }))
             {
                 var vectorPageTypes = GetPageTypes(db, vectorPages);
                 foreach (var kvp in vectorPageTypes)
@@ -230,7 +232,8 @@ namespace LiteDB.Tests.Engine
 
             using (var db = DatabaseFactory.Create(
                 TestDatabaseType.Disk,
-                $"Filename={file.Filename};Connection=Shared"))
+                $"Filename={file.Filename};Connection=Shared",
+                plugins: new[] { VectorSearchPlugin.Instance }))
             {
                 var collection = db.GetCollection<VectorDocument>("docs");
                 var options = new VectorIndexOptions(dimensions, VectorDistanceMetric.Cosine);
@@ -292,12 +295,14 @@ namespace LiteDB.Tests.Engine
             return ExecuteInTransaction(db, transaction =>
             {
                 var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
-                var metadata = snapshot.CollectionPage.GetVectorIndexMetadata(VectorIndexName);
+                var metadataBuffer = snapshot.CollectionPage.GetPluginIndexMetadata(VectorIndexName);
 
-                if (metadata == null)
+                if (metadataBuffer == null)
                 {
                     return default;
                 }
+
+                var metadata = VectorIndexMetadata.Wrap(metadataBuffer);
 
                 return selector(snapshot, metadata);
             });

@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using LiteDB.Engine;
+using LiteDB.Plugins;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -20,6 +21,16 @@ namespace LiteDB
         private readonly BsonMapper _mapper;
         private readonly bool _disposeOnClose;
         private readonly int? _checkpointOverride;
+        private readonly IDisposable _engineLease;
+        private readonly IDisposable _ownedResources;
+        private readonly DefaultPluginContext _pluginContext;
+        private readonly bool _disallowRebuild;
+        private int _disposed;
+
+        /// <summary>
+        /// Provides access to plugin services registered for this database instance.
+        /// </summary>
+        public LiteDatabaseServices Services { get; }
 
         /// <summary>
         /// Get current instance of BsonMapper used in this database instance (can be BsonMapper.Global)
@@ -33,21 +44,57 @@ namespace LiteDB
         /// <summary>
         /// Starts LiteDB database using a connection string for file system database
         /// </summary>
-        public LiteDatabase(string connectionString, BsonMapper mapper = null)
-            : this(new ConnectionString(connectionString), mapper)
+        public LiteDatabase(string connectionString, BsonMapper mapper = null, IEnumerable<ILitePlugin> plugins = null)
+            : this(new ConnectionString(connectionString), mapper, plugins)
         {
         }
 
         /// <summary>
         /// Starts LiteDB database using a connection string for file system database
         /// </summary>
-        public LiteDatabase(ConnectionString connectionString, BsonMapper mapper = null)
+        public LiteDatabase(ConnectionString connectionString, BsonMapper mapper = null, IEnumerable<ILitePlugin> plugins = null)
         {
             if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
 
             _engine = connectionString.CreateEngine();
-            _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
+
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(mapper, null, plugins);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(connectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using a connection string and explicit options.
+        /// </summary>
+        public LiteDatabase(string connectionString, LiteDatabaseOptions options)
+            : this(new ConnectionString(connectionString), options)
+        {
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using a connection string and explicit options.
+        /// </summary>
+        public LiteDatabase(ConnectionString connectionString, LiteDatabaseOptions options)
+        {
+            if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
+
+            _engine = connectionString.CreateEngine();
+            _disposeOnClose = true;
+
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(null, options, null);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(connectionString, services, logger, missingPluginBehavior, validatePluginsOnOpen);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
         }
 
         /// <summary>
@@ -56,7 +103,8 @@ namespace LiteDB
         /// <param name="stream">DataStream reference </param>
         /// <param name="mapper">BsonMapper mapper reference</param>
         /// <param name="logStream">LogStream reference </param>
-        public LiteDatabase(Stream stream, BsonMapper mapper = null, Stream logStream = null)
+        /// <param name="plugins">Optional plugins that will be initialized for this database instance.</param>
+        public LiteDatabase(Stream stream, BsonMapper mapper = null, Stream logStream = null, IEnumerable<ILitePlugin> plugins = null)
         {
             var settings = new EngineSettings
             {
@@ -65,8 +113,69 @@ namespace LiteDB
             };
 
             _engine = new LiteEngine(settings);
-            _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = true;
+
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(mapper, null, plugins);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
+
+            if (logStream == null && stream is not MemoryStream)
+            {
+                if (!stream.CanWrite)
+                {
+                    // Read-only streams cannot participate in eager checkpointing because the process
+                    // writes pages back to the underlying data stream immediately.
+                }
+                else
+                {
+                    // Without a dedicated log stream the WAL lives purely in memory; force
+                    // checkpointing to ensure commits reach the underlying data stream.
+                    var originalCheckpointSize = _engine.Pragma(Pragmas.CHECKPOINT);
+
+                    if (originalCheckpointSize != 1)
+                    {
+                        _engine.Pragma(Pragmas.CHECKPOINT, 1);
+                        _checkpointOverride = originalCheckpointSize;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using a stream and explicit options.
+        /// </summary>
+        public LiteDatabase(Stream stream, LiteDatabaseOptions options)
+            : this(stream, options, null)
+        {
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using a stream, log stream, and explicit options.
+        /// </summary>
+        public LiteDatabase(Stream stream, LiteDatabaseOptions options, Stream logStream)
+        {
+            var settings = new EngineSettings
+            {
+                DataStream = stream ?? throw new ArgumentNullException(nameof(stream)),
+                LogStream = logStream
+            };
+
+            _engine = new LiteEngine(settings);
+            _disposeOnClose = true;
+
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(null, options, null);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
 
             if (logStream == null && stream is not MemoryStream)
             {
@@ -93,11 +202,83 @@ namespace LiteDB
         /// <summary>
         /// Start LiteDB database using a pre-exiting engine. When LiteDatabase instance dispose engine instance will be disposed too
         /// </summary>
-        public LiteDatabase(ILiteEngine engine, BsonMapper mapper = null, bool disposeOnClose = true)
+        /// <param name="engine">Existing engine instance.</param>
+        /// <param name="mapper">Optional mapper reference.</param>
+        /// <param name="disposeOnClose">Indicates whether the database should dispose the engine when closed.</param>
+        /// <param name="plugins">Optional plugins that will be initialized for this database instance.</param>
+        public LiteDatabase(ILiteEngine engine, BsonMapper mapper = null, bool disposeOnClose = true, IEnumerable<ILitePlugin> plugins = null)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
-            _mapper = mapper ?? BsonMapper.Global;
             _disposeOnClose = disposeOnClose;
+
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(mapper, null, plugins);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using an existing engine and explicit options.
+        /// </summary>
+        public LiteDatabase(ILiteEngine engine, LiteDatabaseOptions options)
+            : this(engine, options, true)
+        {
+        }
+
+        /// <summary>
+        /// Starts LiteDB database using an existing engine, options, and custom disposal semantics.
+        /// </summary>
+        public LiteDatabase(ILiteEngine engine, LiteDatabaseOptions options, bool disposeOnClose)
+        {
+            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            _disposeOnClose = disposeOnClose;
+
+            var (resolvedMapper, resolvedPlugins, services, logger, missingPluginBehavior, validatePluginsOnOpen) = ResolveConfiguration(null, options, null);
+
+            _mapper = resolvedMapper;
+            _pluginContext = new DefaultPluginContext(new ConnectionString(), services, logger, missingPluginBehavior, validatePluginsOnOpen);
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            this.InitializePluginsWithCleanup(resolvedPlugins);
+            _pluginContext.Freeze();
+        }
+
+        internal LiteDatabase(
+            ILiteEngine engine,
+            bool disposeOnClose,
+            BsonMapper mapper,
+            DefaultPluginContext pluginContext,
+            bool initializePlugins,
+            IEnumerable<ILitePlugin> plugins,
+            IDisposable ownedResources = null,
+            IDisposable engineLease = null,
+            int? checkpointOverride = null,
+            bool disallowRebuild = false)
+        {
+            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            _disposeOnClose = disposeOnClose;
+            _mapper = mapper ?? BsonMapper.Global;
+            _pluginContext = pluginContext ?? throw new ArgumentNullException(nameof(pluginContext));
+            _ownedResources = ownedResources;
+            _engineLease = engineLease;
+            _checkpointOverride = checkpointOverride;
+            _disallowRebuild = disallowRebuild || engineLease != null;
+
+            this.Services = new LiteDatabaseServices(_pluginContext);
+
+            if (initializePlugins)
+            {
+                this.InitializePluginsWithCleanup(plugins, ownedResources);
+                _pluginContext.Freeze();
+            }
+            else if (_engine is IPluginHost host)
+            {
+                host.SetPluginContext(_pluginContext);
+            }
         }
 
         #endregion
@@ -111,7 +292,7 @@ namespace LiteDB
         /// <param name="autoId">Define autoId data type (when object contains no id field)</param>
         public ILiteCollection<T> GetCollection<T>(string name, BsonAutoId autoId = BsonAutoId.ObjectId)
         {
-            return new LiteCollection<T>(name, autoId, _engine, _mapper);
+            return new LiteCollection<T>(name, autoId, _engine, _mapper, _pluginContext.Expressions, this, _pluginContext.LinqResolvers);
         }
 
         /// <summary>
@@ -139,10 +320,76 @@ namespace LiteDB
         {
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 
-            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper);
+            return new LiteCollection<BsonDocument>(name, autoId, _engine, _mapper, _pluginContext.Expressions, this, _pluginContext.LinqResolvers);
         }
 
         #endregion
+
+        private static (BsonMapper Mapper, IEnumerable<ILitePlugin> Plugins, IServiceProvider Services, ILogger Logger, PluginMissingBehavior MissingPluginBehavior, bool? ValidatePluginsOnOpen) ResolveConfiguration(BsonMapper mapperOverride, LiteDatabaseOptions options, IEnumerable<ILitePlugin> legacyPlugins)
+        {
+            var mapper = mapperOverride ?? options?.Mapper ?? BsonMapper.Global;
+            var plugins = options?.Plugins ?? legacyPlugins ?? Array.Empty<ILitePlugin>();
+            var services = options?.Services ?? NullServiceProvider.Instance;
+            var logger = options?.Logger ?? NullLogger.Instance;
+            var missingPluginBehavior = PluginPolicyResolver.NormalizeMissingPluginBehavior(options?.MissingPluginBehavior ?? PluginMissingBehavior.RefuseDatabase);
+            var validatePluginsOnOpen = options?.ValidatePluginsOnOpen;
+
+            return (mapper, plugins, services, logger, missingPluginBehavior, validatePluginsOnOpen);
+        }
+
+        private void InitializePlugins(IEnumerable<ILitePlugin> plugins)
+        {
+            var initialized = new HashSet<Type>();
+
+            if (plugins != null)
+            {
+                foreach (var plugin in plugins)
+                {
+                    if (plugin == null)
+                    {
+                        continue;
+                    }
+
+                    var type = plugin.GetType();
+
+                    if (initialized.Add(type))
+                    {
+                        plugin.Initialize(this, _pluginContext);
+                    }
+                }
+            }
+
+            if (_engine is IPluginHost host)
+            {
+                host.SetPluginContext(_pluginContext);
+            }
+        }
+
+        private void InitializePluginsWithCleanup(IEnumerable<ILitePlugin> plugins, IDisposable ownedResources = null)
+        {
+            try
+            {
+                this.InitializePlugins(plugins);
+            }
+            catch
+            {
+                if (_disposeOnClose)
+                {
+                    try
+                    {
+                        _engine.Dispose();
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
+                }
+
+                ownedResources?.Dispose();
+
+                throw;
+            }
+        }
 
         #region Transaction
 
@@ -246,7 +493,7 @@ namespace LiteDB
         {
             if (commandReader == null) throw new ArgumentNullException(nameof(commandReader));
 
-            var tokenizer = new Tokenizer(commandReader);
+            var tokenizer = new Tokenizer(commandReader, _pluginContext.Expressions, _pluginContext.QueryOperators);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 
@@ -260,7 +507,7 @@ namespace LiteDB
         {
             if (command == null) throw new ArgumentNullException(nameof(command));
 
-            var tokenizer = new Tokenizer(command);
+            var tokenizer = new Tokenizer(command, _pluginContext.Expressions, _pluginContext.QueryOperators);
             var sql = new SqlParser(_engine, tokenizer, parameters);
             var reader = sql.Execute();
 
@@ -301,6 +548,11 @@ namespace LiteDB
         /// </summary>
         public long Rebuild(RebuildOptions options = null)
         {
+            if (_engineLease != null || _disallowRebuild)
+            {
+                throw new InvalidOperationException("Rebuild requires exclusive engine access and is not supported for leased or shared database handles.");
+            }
+
             return _engine.Rebuild(options ?? new RebuildOptions());
         }
 
@@ -388,19 +640,110 @@ namespace LiteDB
 
         ~LiteDatabase()
         {
-            this.Dispose(false);
+            try
+            {
+                this.Dispose(false);
+            }
+            catch
+            {
+                // Never throw from finalizers.
+            }
         }
 
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing && _disposeOnClose)
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                try
+                {
+                    _engineLease?.Dispose();
+                }
+                catch
+                {
+                    // Best-effort cleanup.
+                }
+
+                try
+                {
+                    _ownedResources?.Dispose();
+                }
+                catch
+                {
+                    // Best-effort cleanup.
+                }
+
+                if (_engineLease == null && _disposeOnClose)
+                {
+                    if (_checkpointOverride.HasValue)
+                    {
+                        try
+                        {
+                            _engine.Pragma(Pragmas.CHECKPOINT, _checkpointOverride.Value);
+                        }
+                        catch
+                        {
+                            // Best-effort cleanup.
+                        }
+                    }
+
+                    try
+                    {
+                        _engine.Dispose();
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
+                }
+
+                return;
+            }
+
+            try
+            {
+                _ownedResources?.Dispose();
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+
+            try
+            {
+                _engineLease?.Dispose();
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+
+            if (_engineLease == null && _disposeOnClose)
             {
                 if (_checkpointOverride.HasValue)
                 {
-                    _engine.Pragma(Pragmas.CHECKPOINT, _checkpointOverride.Value);
+                    try
+                    {
+                        _engine.Pragma(Pragmas.CHECKPOINT, _checkpointOverride.Value);
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup.
+                    }
                 }
 
-                _engine.Dispose();
+                try
+                {
+                    _engine.Dispose();
+                }
+                catch
+                {
+                    // Best-effort cleanup.
+                }
             }
         }
     }

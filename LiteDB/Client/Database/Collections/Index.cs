@@ -1,10 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text.RegularExpressions;
-using LiteDB.Vector;
-using static LiteDB.Constants;
+using LiteDB.Engine;
 
 namespace LiteDB
 {
@@ -18,25 +17,65 @@ namespace LiteDB
         /// <param name="unique">If is a unique index</param>
         public bool EnsureIndex(string name, BsonExpression expression, bool unique = false)
         {
-            if (string.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
+
+            var pluginContext = _database?.Services?.Context;
+            var interceptorRegistry = pluginContext?.EnsureIndexInterceptors;
+
+            if (interceptorRegistry?.Count > 0)
+            {
+                var interceptors = interceptorRegistry.Interceptors;
+
+                bool DefaultHandler(string resolvedName, BsonExpression resolvedExpression, bool resolvedUnique)
+                {
+                    return _engine.EnsureIndex(_collection, resolvedName, resolvedExpression, resolvedUnique);
+                }
+
+                var ensureContext = new Plugins.EnsureIndexContext(
+                    _database,
+                    _engine,
+                    typeof(T),
+                    _collection,
+                    name,
+                    expression,
+                    unique,
+                    _mapper,
+                    pluginContext,
+                    DefaultHandler);
+
+                foreach (var interceptor in interceptors)
+                {
+                    if (interceptor == null)
+                    {
+                        continue;
+                    }
+
+                    if (interceptor.TryHandleEnsureIndex(ensureContext))
+                    {
+                        if (!ensureContext.DefaultExecuted && !ensureContext.Result.HasValue)
+                        {
+                            throw new InvalidOperationException($"EnsureIndex interceptor '{interceptor.GetType().FullName}' returned true without setting a result or executing the default handler.");
+                        }
+
+                        break;
+                    }
+
+                    if (ensureContext.DefaultExecuted || ensureContext.Result.HasValue)
+                    {
+                        break;
+                    }
+                }
+
+                if (!ensureContext.Result.HasValue)
+                {
+                    ensureContext.ExecuteDefault();
+                }
+
+                return ensureContext.Result.GetValueOrDefault();
+            }
 
             return _engine.EnsureIndex(_collection, name, expression, unique);
-        }
-
-        internal bool EnsureVectorIndex(string name, BsonExpression expression, VectorIndexOptions options)
-        {
-            if (string.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
-            if (expression == null) throw new ArgumentNullException(nameof(expression));
-            if (options == null) throw new ArgumentNullException(nameof(options));
-
-            return _engine.EnsureVectorIndex(_collection, name, expression, options);
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call LiteCollectionVectorExtensions.EnsureIndex instead.")]
-        public bool EnsureIndex(string name, BsonExpression expression, VectorIndexOptions options)
-        {
-            return this.EnsureVectorIndex(name, expression, options);
         }
 
         /// <summary>
@@ -53,22 +92,6 @@ namespace LiteDB
             return this.EnsureIndex(name, expression, unique);
         }
 
-        internal bool EnsureVectorIndex(BsonExpression expression, VectorIndexOptions options)
-        {
-            if (expression == null) throw new ArgumentNullException(nameof(expression));
-            if (options == null) throw new ArgumentNullException(nameof(options));
-
-            var name = Regex.Replace(expression.Source, @"[^a-z0-9]", "", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-            return this.EnsureVectorIndex(name, expression, options);
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call LiteCollectionVectorExtensions.EnsureIndex instead.")]
-        public bool EnsureIndex(BsonExpression expression, VectorIndexOptions options)
-        {
-            return this.EnsureVectorIndex(expression, options);
-        }
-
         /// <summary>
         /// Create a new permanent index in all documents inside this collections if index not exists already.
         /// </summary>
@@ -79,21 +102,6 @@ namespace LiteDB
             var expression = this.GetIndexExpression(keySelector);
 
             return this.EnsureIndex(expression, unique);
-        }
-
-        internal bool EnsureVectorIndex<K>(Expression<Func<T, K>> keySelector, VectorIndexOptions options)
-        {
-            if (options == null) throw new ArgumentNullException(nameof(options));
-
-            var expression = this.GetIndexExpression(keySelector, convertEnumerableToMultiKey: false);
-
-            return this.EnsureVectorIndex(expression, options);
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call LiteCollectionVectorExtensions.EnsureIndex instead.")]
-        public bool EnsureIndex<K>(Expression<Func<T, K>> keySelector, VectorIndexOptions options)
-        {
-            return this.EnsureVectorIndex(keySelector, options);
         }
 
         /// <summary>
@@ -109,27 +117,12 @@ namespace LiteDB
             return this.EnsureIndex(name, expression, unique);
         }
 
-        internal bool EnsureVectorIndex<K>(string name, Expression<Func<T, K>> keySelector, VectorIndexOptions options)
-        {
-            if (options == null) throw new ArgumentNullException(nameof(options));
-
-            var expression = this.GetIndexExpression(keySelector, convertEnumerableToMultiKey: false);
-
-            return this.EnsureVectorIndex(name, expression, options);
-        }
-
-        [Obsolete("Add `using LiteDB.Vector;` and call LiteCollectionVectorExtensions.EnsureIndex instead.")]
-        public bool EnsureIndex<K>(string name, Expression<Func<T, K>> keySelector, VectorIndexOptions options)
-        {
-            return this.EnsureVectorIndex(name, keySelector, options);
-        }
-
         /// <summary>
         /// Get index expression based on LINQ expression. Convert IEnumerable in MultiKey indexes
         /// </summary>
-        private BsonExpression GetIndexExpression<K>(Expression<Func<T, K>> keySelector, bool convertEnumerableToMultiKey = true)
+        internal BsonExpression GetIndexExpression<K>(Expression<Func<T, K>> keySelector, bool convertEnumerableToMultiKey = true)
         {
-            var expression = _mapper.GetIndexExpression(keySelector);
+            var expression = _mapper.GetIndexExpression(keySelector, _expressions, _database, _linqResolvers);
 
             if (convertEnumerableToMultiKey && typeof(K).IsEnumerable() && expression.IsScalar == true)
             {
@@ -156,5 +149,6 @@ namespace LiteDB
         {
             return _engine.DropIndex(_collection, name);
         }
+
     }
 }

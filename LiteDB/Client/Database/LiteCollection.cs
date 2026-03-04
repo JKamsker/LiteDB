@@ -1,4 +1,5 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
 using System.Collections.Generic;
 using static LiteDB.Constants;
@@ -9,11 +10,14 @@ namespace LiteDB
     {
         private readonly string _collection;
         private readonly ILiteEngine _engine;
+        private readonly LiteDatabase _database;
         private readonly List<BsonExpression> _includes;
         private readonly BsonMapper _mapper;
         private readonly EntityMapper _entity;
         private readonly MemberMapper _id;
         private readonly BsonAutoId _autoId;
+        private readonly IExpressionRegistry _expressions;
+        private readonly ILinqResolverRegistry _linqResolvers;
 
         /// <summary>
         /// Get collection name
@@ -30,12 +34,25 @@ namespace LiteDB
         /// </summary>
         public EntityMapper EntityMapper => _entity;
 
-        internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper)
+        internal ILiteEngine Engine => _engine;
+
+        internal LiteDatabase Database => _database;
+
+        internal BsonMapper Mapper => _mapper;
+
+        internal IExpressionRegistry Expressions => _expressions;
+
+        internal ILinqResolverRegistry LinqResolvers => _linqResolvers;
+
+        internal LiteCollection(string name, BsonAutoId autoId, ILiteEngine engine, BsonMapper mapper, IExpressionRegistry expressions, LiteDatabase database, ILinqResolverRegistry linqResolvers)
         {
             _collection = name ?? mapper.ResolveCollectionName(typeof(T));
             _engine = engine;
             _mapper = mapper;
             _includes = new List<BsonExpression>();
+            _expressions = expressions;
+            _database = database;
+            _linqResolvers = linqResolvers;
 
             // if strong typed collection, get _id member mapped (if exists)
             if (typeof(T) == typeof(BsonDocument))
@@ -64,6 +81,16 @@ namespace LiteDB
                     _autoId = autoId;
                 }
             }
+        }
+
+        private BsonExpression CreateExpression(string expression, BsonDocument parameters)
+        {
+            return BsonExpression.Create(expression, parameters, _expressions);
+        }
+
+        private BsonExpression CreateExpression(string expression, params BsonValue[] args)
+        {
+            return BsonExpression.Create(expression, _expressions, args ?? Array.Empty<BsonValue>());
         }
     }
 }

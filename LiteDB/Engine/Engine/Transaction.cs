@@ -63,11 +63,15 @@ namespace LiteDB.Engine
 
             if (transaction != null && transaction.State == TransactionState.Active)
             {
-                transaction.Rollback();
-
-                _monitor.ReleaseTransaction(transaction);
-
-                return true;
+                try
+                {
+                    transaction.Rollback();
+                    return true;
+                }
+                finally
+                {
+                    _monitor.ReleaseTransaction(transaction);
+                }
             }
 
             return false;
@@ -82,37 +86,94 @@ namespace LiteDB.Engine
 
             var transaction = _monitor.GetTransaction(true, false, out var isNew);
 
+            T result;
+
             try
             {
-                var result = fn(transaction);
-
-                // if this transaction was auto-created for this operation, commit & dispose now
-                if (isNew)
-                    this.CommitAndReleaseTransaction(transaction);
-
-                return result;
+                result = fn(transaction);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                if (_state.Handle(ex))
-                {
-                    transaction.Rollback();
+                var shouldHandle = _state.Handle(ex);
 
-                    _monitor.ReleaseTransaction(transaction);
+                if (shouldHandle && (isNew || transaction.ExplicitTransaction))
+                {
+                    try
+                    {
+                        transaction.Rollback();
+                    }
+                    catch (Exception rollbackEx)
+                    {
+                        _state.Handle(rollbackEx);
+                    }
+
+                    try
+                    {
+                        _monitor.ReleaseTransaction(transaction);
+                    }
+                    catch (Exception releaseEx)
+                    {
+                        _state.Handle(releaseEx);
+                    }
                 }
 
                 throw;
             }
+
+            if (isNew)
+            {
+                try
+                {
+                    this.CommitAndReleaseTransaction(transaction);
+                }
+                catch (Exception ex)
+                {
+                    _state.Handle(ex);
+                    throw;
+                }
+            }
+
+            return result;
         }
 
         private void CommitAndReleaseTransaction(TransactionService transaction)
         {
-            transaction.Commit();
+            var committed = false;
+            Exception commitException = null;
 
-            _monitor.ReleaseTransaction(transaction);
+            try
+            {
+                transaction.Commit();
+                committed = true;
+            }
+            catch (Exception ex)
+            {
+                commitException = ex;
+                throw;
+            }
+            finally
+            {
+                try
+                {
+                    _monitor.ReleaseTransaction(transaction);
+                }
+                catch (Exception releaseEx)
+                {
+                    if (commitException != null)
+                    {
+                        _state.Handle(releaseEx);
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
 
             // try checkpoint when finish transaction and log file are bigger than checkpoint pragma value (in pages)
-            if (_header.Pragmas.Checkpoint > 0 &&
+            if (committed &&
+                _settings.ReadOnly == false &&
+                _header.Pragmas.Checkpoint > 0 &&
                 _disk.GetFileLength(FileOrigin.Log) >= (_header.Pragmas.Checkpoint * PAGE_SIZE))
             {
                 _walIndex.TryCheckpoint();

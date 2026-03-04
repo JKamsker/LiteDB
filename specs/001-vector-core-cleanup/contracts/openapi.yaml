@@ -1,0 +1,282 @@
+openapi: 3.1.0
+info:
+  title: Vector Core Cleanup Planning API
+  version: 0.1.0
+  description: >
+    Contract that shapes how the vector cleanup inventory, migration decisions,
+    and plugin infrastructure gaps are exchanged between tooling (spec generation,
+    dashboards) and the LiteDB.Vector migration planners.
+servers:
+  - url: https://planner.litedb.dev/api
+    description: Placeholder host for planning automation
+paths:
+  /vector/components:
+    get:
+      summary: List all vector-related component records discovered in LiteDB/
+      tags: [VectorInventory]
+      parameters:
+        - in: query
+          name: area
+          required: false
+          schema:
+            $ref: '#/components/schemas/Area'
+          description: Optional filter by component area classification.
+        - in: query
+          name: decisionStatus
+          required: false
+          schema:
+            $ref: '#/components/schemas/DecisionStatus'
+          description: Filter by current migration decision status.
+      responses:
+        '200':
+          description: List of inventory records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VectorComponentRecord'
+  /vector/components/{componentId}:
+    get:
+      summary: Retrieve a single component record by identifier
+      tags: [VectorInventory]
+      parameters:
+        - $ref: '#/components/parameters/ComponentId'
+      responses:
+        '200':
+          description: Component details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorComponentRecord'
+        '404':
+          description: Component not found
+    patch:
+      summary: Update the migration decision linked to a component record
+      tags: [VectorInventory]
+      parameters:
+        - $ref: '#/components/parameters/ComponentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decisionId:
+                  type: string
+                  description: Identifier of the new migration decision to link.
+                notes:
+                  type: string
+                  description: Optional note explaining the decision change.
+              required: [decisionId]
+      responses:
+        '200':
+          description: Updated component record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorComponentRecord'
+        '400':
+          description: Validation error (e.g., invalid decision or missing prerequisite)
+  /vector/decisions:
+    get:
+      summary: List migration decisions and their prerequisite tracking
+      tags: [MigrationDecisions]
+      responses:
+        '200':
+          description: All migration decisions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MigrationDecision'
+    post:
+      summary: Create a new migration decision placeholder
+      tags: [MigrationDecisions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrationDecisionCreate'
+      responses:
+        '201':
+          description: Decision created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationDecision'
+        '409':
+          description: Decision identifier already exists
+  /vector/gaps:
+    get:
+      summary: Retrieve plugin infrastructure gaps blocking migration
+      tags: [PluginGaps]
+      responses:
+        '200':
+          description: All declared infrastructure gaps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PluginInfrastructureGap'
+  /vector/gaps/{gapId}/resolve:
+    post:
+      summary: Mark an infrastructure gap as resolved and capture the work item reference
+      tags: [PluginGaps]
+      parameters:
+        - $ref: '#/components/parameters/GapId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workItem:
+                  type: string
+                  description: Link to the tracking issue or PR that resolved the gap.
+              required: [workItem]
+      responses:
+        '200':
+          description: Gap updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginInfrastructureGap'
+        '409':
+          description: Gap already marked as resolved
+components:
+  parameters:
+    ComponentId:
+      name: componentId
+      in: path
+      required: true
+      description: Identifier of the vector component record.
+      schema:
+        type: string
+    GapId:
+      name: gapId
+      in: path
+      required: true
+      description: Identifier of the plugin infrastructure gap.
+      schema:
+        type: string
+  schemas:
+    Area:
+      type: string
+      enum: [PublicApi, QueryPlanning, Serialization, StorageEngine, ServiceInfrastructure]
+    DecisionStatus:
+      type: string
+      enum: [MoveToPlugin, NeedsInfrastructure, RemainInCore]
+    Impact:
+      type: string
+      enum: [Critical, High, Medium, Low]
+    VerificationPhase:
+      type: string
+      enum: [PreMigration, DuringMigration, PostMigration]
+    VectorComponentRecord:
+      type: object
+      required: [id, area, files, scopeSummary, decision, verification]
+      properties:
+        id:
+          type: string
+        area:
+          $ref: '#/components/schemas/Area'
+        files:
+          type: array
+          items:
+            type: string
+            description: Repository-relative path.
+          minItems: 1
+          uniqueItems: true
+        scopeSummary:
+          type: string
+        decision:
+          $ref: '#/components/schemas/MigrationDecision'
+        requiredGapIds:
+          type: array
+          items:
+            type: string
+          description: Identifiers of infrastructure gaps blocking migration.
+        notes:
+          type: string
+        verification:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerificationStep'
+    MigrationDecision:
+      type: object
+      required: [id, status, owners, prerequisites]
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/DecisionStatus'
+        owners:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        prerequisites:
+          type: array
+          items:
+            type: string
+        targetRelease:
+          type: string
+        justification:
+          type: string
+    MigrationDecisionCreate:
+      type: object
+      required: [id, status, owners]
+      properties:
+        id:
+          type: string
+        status:
+          $ref: '#/components/schemas/DecisionStatus'
+        owners:
+          type: array
+          items:
+            type: string
+        prerequisites:
+          type: array
+          items:
+            type: string
+        justification:
+          type: string
+    PluginInfrastructureGap:
+      type: object
+      required: [id, category, description, impact, status]
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+          enum: [QueryState, BsonSerialization, StoragePipeline, Indexing, Diagnostics]
+        description:
+          type: string
+        impact:
+          $ref: '#/components/schemas/Impact'
+        status:
+          type: string
+          enum: [Open, Resolved]
+        workItem:
+          type: string
+    VerificationStep:
+      type: object
+      required: [id, category, command, expectedOutcome, phase]
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+          enum: [Search, Build, Compatibility, Plugin, Regression]
+        command:
+          type: string
+        expectedOutcome:
+          type: string
+        phase:
+          $ref: '#/components/schemas/VerificationPhase'

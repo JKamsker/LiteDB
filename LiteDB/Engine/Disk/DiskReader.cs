@@ -51,10 +51,35 @@ namespace LiteDB.Engine
                 _cache.GetReadablePage(position, origin, (pos, buf) => this.ReadStream(stream, pos, buf));
 
 #if DEBUG || TESTING
-            _state.SimulateDiskReadFail?.Invoke(page);
+            try
+            {
+                _state.SimulateDiskReadFail?.Invoke(page);
+            }
+            catch
+            {
+                ReleasePage(page);
+                throw;
+            }
 #endif
 
             return page;
+        }
+
+        private void ReleasePage(PageBuffer page)
+        {
+            if (page == null)
+            {
+                return;
+            }
+
+            if (page.ShareCounter > 0)
+            {
+                page.Release();
+            }
+            else if (page.ShareCounter == BUFFER_WRITABLE)
+            {
+                _cache.DiscardPage(page);
+            }
         }
 
         /// <summary>
@@ -67,7 +92,21 @@ namespace LiteDB.Engine
 
             stream.Position = position;
 
-            stream.Read(buffer.Array, buffer.Offset, buffer.Count);
+            var remaining = buffer.Count;
+            var offset = buffer.Offset;
+
+            while (remaining > 0)
+            {
+                var read = stream.Read(buffer.Array, offset, remaining);
+
+                if (read <= 0)
+                {
+                    throw new EndOfStreamException("Unexpected end of stream while reading page buffer.");
+                }
+
+                offset += read;
+                remaining -= read;
+            }
 
             DEBUG(buffer.All(0) == false, "check if are not reading out of file length");
         }

@@ -1,6 +1,6 @@
 ﻿using LiteDB.Engine;
+using LiteDB.Plugins;
 using System;
-using System.Linq;
 using System.Text;
 using static LiteDB.Constants;
 
@@ -93,18 +93,6 @@ namespace LiteDB
             return new DateTime(ticks, DateTimeKind.Utc);
         }
 
-        public static float[] ReadVector(this BufferSlice buffer, int offset)
-        {
-            var count = buffer.ReadUInt16(offset); 
-            offset += 2; // move offset to first float
-            var vector = new float[count];
-            for (var i = 0; i < count; i++)
-            {
-                vector[i] = BitConverter.ToSingle(buffer.Array, buffer.Offset + offset + (i * 4));
-            }
-            return vector;
-        }
-
         public static PageAddress ReadPageAddress(this BufferSlice buffer, int offset)
         {
             return new PageAddress(buffer.ReadUInt32(offset), buffer[offset + 4]);
@@ -138,9 +126,12 @@ namespace LiteDB
         /// Read any BsonValue. Use 1 byte for data type, 1 byte for length (optional), 0-255 bytes to value. 
         /// For document or array, use BufferReader
         /// </summary>
-        public static BsonValue ReadIndexKey(this BufferSlice buffer, int offset)
+        public static BsonValue ReadIndexKey(this BufferSlice buffer, int offset, ILitePluginContext pluginContext = null)
         {
-            ExtendedLengthHelper.ReadLength(buffer[offset++], buffer[offset], out var type, out var len);
+            var context = ResolveContext(pluginContext);
+
+            var typeCode = buffer[offset++];
+            ExtendedLengthHelper.ReadLength(typeCode, buffer[offset], out var type, out var len);
 
             switch (type)
             {
@@ -156,13 +147,13 @@ namespace LiteDB
                     return buffer.ReadString(offset, len);
 
                 case BsonType.Document:
-                    using (var r = new BufferReader(buffer))
+                    using (var r = new BufferReader(buffer, pluginContext: context))
                     {
                         r.Skip(offset); // skip first byte for value.Type
                         return r.ReadDocument().GetValue();
                     }
                 case BsonType.Array:
-                    using (var r = new BufferReader(buffer))
+                    using (var r = new BufferReader(buffer, pluginContext: context))
                     {
                         r.Skip(offset); // skip first byte for value.Type
                         return r.ReadArray().GetValue();
@@ -179,9 +170,8 @@ namespace LiteDB
 
                 case BsonType.MinValue: return BsonValue.MinValue;
                 case BsonType.MaxValue: return BsonValue.MaxValue;
-                case BsonType.Vector: return buffer.ReadVector(offset);
-
-                default: throw new NotImplementedException();
+                default:
+                    return ReadCustomIndexKey(buffer, offset, typeCode, context);
             }
         }
 
@@ -259,17 +249,6 @@ namespace LiteDB
             buffer.Write(value.ToByteArray(), offset);
         }
 
-        public static void Write(this BufferSlice buffer, float[] value, int offset)
-        {
-            buffer.Write((ushort)value.Length, offset);
-            offset += 2;
-            foreach (var v in value)
-            {
-                BitConverter.GetBytes(v).CopyTo(buffer.Array, buffer.Offset + offset);
-                offset += 4;
-            }
-        }
-
         public static void Write(this BufferSlice buffer, ObjectId value, int offset)
         {
             value.ToByteArray(buffer.Array, buffer.Offset + offset);
@@ -289,9 +268,11 @@ namespace LiteDB
         /// Wrtie any BsonValue. Use 1 byte for data type, 1 byte for length (optional), 0-255 bytes to value. 
         /// For document or array, use BufferWriter
         /// </summary>
-        public static void WriteIndexKey(this BufferSlice buffer, BsonValue value, int offset)
+        public static void WriteIndexKey(this BufferSlice buffer, BsonValue value, int offset, ILitePluginContext pluginContext = null)
         {
             DEBUG(IndexNode.GetKeyLength(value, true) <= MAX_INDEX_KEY_LENGTH, $"index key must have less than {MAX_INDEX_KEY_LENGTH} bytes");
+
+            var context = ResolveContext(pluginContext);
 
             if (value.IsString)
             {
@@ -316,7 +297,8 @@ namespace LiteDB
             }
             else
             {
-                buffer[offset++] = (byte)value.Type;
+                var typeCode = (byte)value.Type;
+                buffer[offset++] = typeCode;
 
                 switch (value.Type)
                 {
@@ -331,14 +313,14 @@ namespace LiteDB
                     case BsonType.Decimal: buffer.Write(value.AsDecimal, offset); break;
 
                     case BsonType.Document:
-                        using (var w = new BufferWriter(buffer))
+                        using (var w = new BufferWriter(buffer, context))
                         {
                             w.Skip(offset); // skip offset from buffer
                             w.WriteDocument(value.AsDocument, true);
                         }
                         break;
                     case BsonType.Array:
-                        using (var w = new BufferWriter(buffer))
+                        using (var w = new BufferWriter(buffer, context))
                         {
                             w.Skip(offset); // skip offset from buffer
                             w.WriteArray(value.AsArray, true);
@@ -350,11 +332,40 @@ namespace LiteDB
 
                     case BsonType.Boolean: buffer[offset] = (value.AsBoolean) ? (byte)1 : (byte)0; break;
                     case BsonType.DateTime: buffer.Write(value.AsDateTime, offset); break;
-                    case BsonType.Vector: buffer.Write(value.AsVector, offset); break;
-
-                    default: throw new NotImplementedException();
+                    default:
+                        WriteCustomIndexKey(buffer, value, offset, context, typeCode);
+                        break;
                 }
             }
+        }
+
+        private static ILitePluginContext ResolveContext(ILitePluginContext pluginContext)
+        {
+            return pluginContext ?? PluginContextFallbacks.Context;
+        }
+
+        private static BsonValue ReadCustomIndexKey(BufferSlice buffer, int offset, byte typeCode, ILitePluginContext context)
+        {
+            if (BsonTypeResolver.TryGet(context, typeCode, out var descriptor))
+            {
+                using var reader = new BufferReader(buffer, pluginContext: context);
+                reader.Skip(offset);
+                return descriptor.Deserializer(reader);
+            }
+
+            throw new LiteException(0, $"BSON type 0x{typeCode:X2} is not supported. Install the required plugin to enable this BSON type.");
+        }
+
+        private static void WriteCustomIndexKey(BufferSlice buffer, BsonValue value, int offset, ILitePluginContext context, byte typeCode)
+        {
+            if (!BsonTypeResolver.TryGet(context, typeCode, out var descriptor))
+            {
+                throw new LiteException(0, $"BSON type 0x{typeCode:X2} is not supported. Install the required plugin to enable this BSON type.");
+            }
+
+            using var writer = new BufferWriter(buffer, context);
+            writer.Skip(offset);
+            descriptor.Serializer(writer, value);
         }
 
         #endregion

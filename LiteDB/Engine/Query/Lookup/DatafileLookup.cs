@@ -28,7 +28,7 @@ namespace LiteDB.Engine
 
         public virtual BsonDocument Load(PageAddress rawId)
         {
-            using (var reader = new BufferReader(_data.Read(rawId), _utcDate))
+            using (var reader = new BufferReader(_data.Read(rawId), _utcDate, _data.Plugins))
             {
                 var doc = reader.ReadDocument(_fields).GetValue();
 

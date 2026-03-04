@@ -7,6 +7,9 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LiteDB;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -46,11 +49,15 @@ namespace LiteDB.Engine
 
         private readonly EngineSettings _settings;
         private readonly IList<FileReaderError> _errors;
+        private readonly ILitePluginContext _plugins;
+        private readonly bool _allowOrphanedPluginIndexes;
 
-        public FileReaderV8(EngineSettings settings, IList<FileReaderError> errors)
+        public FileReaderV8(EngineSettings settings, IList<FileReaderError> errors, ILitePluginContext plugins = null, bool allowOrphanedPluginIndexes = false)
         {
             _settings = settings;
             _errors = errors;
+            _plugins = plugins;
+            _allowOrphanedPluginIndexes = allowOrphanedPluginIndexes;
         }
 
         /// <summary>
@@ -84,6 +91,10 @@ namespace LiteDB.Engine
                 this.LoadCollections();
 
                 this.LoadIndexes();
+            }
+            catch (LiteException ex) when (ex.ErrorCode == LiteException.PLUGIN_REQUIRED)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -128,6 +139,10 @@ namespace LiteDB.Engine
                 if (page.Fail)
                 {
                     this.HandleError(page.Exception, pageInfo);
+                    if (page.Exception is LiteException exception && exception.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                    {
+                        throw exception;
+                    }
                     continue;
                 }
 
@@ -214,9 +229,21 @@ namespace LiteDB.Engine
                             var docBytes = mem.ToArray();
 
                             // read all data array in bson document
-                            using (var r = new BufferReader(docBytes, false))
+                            using (var r = new BufferReader(docBytes, false, _plugins))
                             {
                                 var docResult = r.ReadDocument();
+                                if (docResult.Fail)
+                                {
+                                    this.HandleError(docResult.Exception, pageInfo);
+
+                                    if (docResult.Exception is LiteException exception && exception.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                                    {
+                                        throw exception;
+                                    }
+
+                                    continue;
+                                }
+
                                 var id = docResult.Value["_id"];
 
                                 ENSURE(!(id == BsonValue.Null || id == BsonValue.MinValue || id == BsonValue.MaxValue), "Invalid _id value: {0}", id);
@@ -224,16 +251,16 @@ namespace LiteDB.Engine
 
                                 uniqueIDs.Add(id);
 
-                                if (docResult.Fail)
-                                {
-                                    this.HandleError(docResult.Exception, pageInfo);
-                                }
-
                                 doc = docResult.Value;
                             }
                         }
                     }
                     // try/catch block per dataBlock extend=false
+                    catch (LiteException ex) when (ex.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                    {
+                        this.HandleError(ex, pageInfo);
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         this.HandleError(ex, pageInfo);
@@ -317,7 +344,7 @@ namespace LiteDB.Engine
 
             var area = header.Buffer.Slice(HeaderPage.P_COLLECTIONS, HeaderPage.COLLECTIONS_SIZE);
 
-            using (var r = new BufferReader(new[] { area }, false))
+            using (var r = new BufferReader(new[] { area }, false, _plugins))
             {
                 var result = r.ReadDocument();
 
@@ -343,6 +370,10 @@ namespace LiteDB.Engine
                 if (result.Fail)
                 {
                     this.HandleError(result.Exception, pageInfo);
+                    if (result.Exception is LiteException exception && exception.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                    {
+                        throw exception;
+                    }
                 }
             }
 
@@ -368,6 +399,10 @@ namespace LiteDB.Engine
                 if (result.Fail)
                 {
                     this.HandleError(result.Exception, pageInfo);
+                    if (result.Exception is LiteException exception && exception.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                    {
+                        throw exception;
+                    }
                     continue;
                 }
 
@@ -376,9 +411,80 @@ namespace LiteDB.Engine
                     var page = result.Value;
                     var collectionPage = new CollectionPage(page.Buffer);
 
+                    var rawPluginIndexes = collectionPage
+                        .GetPluginIndexes()
+                        .ToDictionary(x => x.Index.Name, x => (x.PluginId, x.Metadata), StringComparer.Ordinal);
+
+                    var metadataRegistry = _plugins?.IndexMetadata;
+                    Dictionary<string, PluginIndexMetadata> resolvedPluginIndexes = null;
+
+                    if (metadataRegistry != null && rawPluginIndexes.Count > 0)
+                    {
+                        resolvedPluginIndexes = collectionPage
+                            .GetPluginIndexes(metadataRegistry)
+                            .ToDictionary(x => x.Index.Name, x => x.Metadata, StringComparer.Ordinal);
+
+                        foreach (var raw in rawPluginIndexes)
+                        {
+                            if (!resolvedPluginIndexes.ContainsKey(raw.Key))
+                            {
+                                if (_allowOrphanedPluginIndexes == false)
+                                {
+                                    throw this.CreateMetadataSerializerException(raw.Value.PluginId, collection.Key, raw.Key);
+                                }
+                            }
+                        }
+                    }
+                    else if (metadataRegistry == null && rawPluginIndexes.Count > 0)
+                    {
+                        if (_allowOrphanedPluginIndexes == false)
+                        {
+                            var blocking = rawPluginIndexes.First();
+                            throw this.CreateMetadataSerializerException(blocking.Value.PluginId, collection.Key, blocking.Key);
+                        }
+                    }
+
                     foreach (var index in collectionPage.GetCollectionIndexes())
                     {
                         if (index.Name == "_id") continue;
+
+                        PluginIndexMetadata resolvedMetadata = null;
+
+                        if (resolvedPluginIndexes != null)
+                        {
+                            resolvedPluginIndexes.TryGetValue(index.Name, out resolvedMetadata);
+                        }
+
+                        BsonDocument pluginMetadataDocument = null;
+                        string pluginId = null;
+                        string pluginIndexKind = null;
+                        byte[] pluginMetadata = null;
+
+                        if (rawPluginIndexes.TryGetValue(index.Name, out var rawPluginIndex))
+                        {
+                            pluginId = rawPluginIndex.PluginId;
+                            pluginMetadata = rawPluginIndex.Metadata;
+                        }
+
+                        if (resolvedMetadata != null)
+                        {
+                            pluginId = resolvedMetadata.PluginId;
+                            pluginIndexKind = resolvedMetadata.IndexKind;
+                            pluginMetadata = resolvedMetadata.Payload;
+
+                            try
+                            {
+                                var descriptor = metadataRegistry.Get(pluginIndexKind);
+                                pluginMetadataDocument = descriptor.Deserialize(pluginMetadata) ?? new BsonDocument();
+                            }
+                            catch (Exception ex)
+                            {
+                                if (_allowOrphanedPluginIndexes == false)
+                                {
+                                    throw this.CreateMetadataDeserializationException(pluginId, collection.Key, index.Name, ex);
+                                }
+                            }
+                        }
 
                         var info = new IndexInfo
                         {
@@ -387,8 +493,13 @@ namespace LiteDB.Engine
                             Expression = index.Expression,
                             Unique = index.Unique,
                             IndexType = index.IndexType,
-                            VectorMetadata = index.IndexType == 1 ? collectionPage.GetVectorIndexMetadata(index.Name) : null
+                            PluginId = pluginId,
+                            PluginIndexKind = pluginIndexKind,
+                            PluginMetadata = pluginMetadata,
+                            PluginMetadataDocument = pluginMetadataDocument
                         };
+
+                        info.BindExpressionRegistry(index.Registry);
 
                         if (_indexes.TryGetValue(collection.Key, out var indexInfos))
                         {
@@ -400,11 +511,33 @@ namespace LiteDB.Engine
                         }
                     }
                 }
+                catch (LiteException ex) when (ex.ErrorCode == LiteException.PLUGIN_REQUIRED)
+                {
+                    this.HandleError(ex, pageInfo);
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     this.HandleError(ex, pageInfo);
                 }
             }
+        }
+
+        private LiteException CreateMetadataSerializerException(string pluginId, string collection, string indexName)
+        {
+            var owner = string.IsNullOrWhiteSpace(pluginId) ? "the owning plugin" : $"plugin '{pluginId}'";
+            return new LiteException(
+                LiteException.PLUGIN_REQUIRED,
+                $"Metadata serializer from {owner} is required to read index '{collection}.{indexName}'. Install and register the plugin before running rebuild.");
+        }
+
+        private LiteException CreateMetadataDeserializationException(string pluginId, string collection, string indexName, Exception inner)
+        {
+            var owner = string.IsNullOrWhiteSpace(pluginId) ? "the owning plugin" : $"plugin '{pluginId}'";
+            return new LiteException(
+                LiteException.PLUGIN_REQUIRED,
+                inner,
+                $"Metadata supplied by {owner} for index '{collection}.{indexName}' could not be deserialized. Install the correct plugin version and retry.");
         }
 
         /// <summary>
@@ -535,7 +668,9 @@ namespace LiteDB.Engine
 
                 ENSURE(read == PAGE_SIZE, "Page position {0} read only than {1} bytes (instead {2})", stream.Position, read, PAGE_SIZE);
 
-                var page = new BasePage(pageBuffer);
+                var page = BasePage.ReadPage(pageBuffer, _plugins);
+
+                pageInfo.PageType = page.PageType;
 
                 pageInfo.ColID = page.ColID;
 

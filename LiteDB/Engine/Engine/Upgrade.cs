@@ -26,20 +26,46 @@ namespace LiteDB.Engine
             const int bufferSize = 1024;
             var buffer = _bufferPool.Rent(bufferSize);
 
-            using (var stream = new FileStream(
-                _settings.Filename,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read, bufferSize))
+            try
             {
+                Array.Clear(buffer, 0, bufferSize);
 
+                using (var stream = new FileStream(
+                    filename,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize))
+                {
+                    stream.Position = 0;
 
-                stream.Position = 0;
-                stream.Read(buffer, 0, bufferSize);
+                    var bytesRead = 0;
 
-                if (FileReaderV7.IsVersion(buffer) == false) return;
+                    while (bytesRead < bufferSize)
+                    {
+                        var read = stream.Read(buffer, bytesRead, bufferSize - bytesRead);
+
+                        if (read == 0)
+                        {
+                            break;
+                        }
+
+                        bytesRead += read;
+                    }
+
+                    if (FileReaderV7.IsVersion(buffer) == false) return;
+                }
             }
-            _bufferPool.Return(buffer, true);
+            finally
+            {
+                _bufferPool.Return(buffer, true);
+            }
+
+            if (_settings.ReadOnly)
+            {
+                throw LiteException.DatabaseReadOnly();
+            }
+
             // run rebuild process
             this.Recovery(_settings.Collation);
         }

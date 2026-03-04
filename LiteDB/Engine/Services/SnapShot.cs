@@ -1,9 +1,14 @@
-﻿using System;
+using LiteDB;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
+using LiteDB.Utils.Extensions;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -11,7 +16,7 @@ namespace LiteDB.Engine
     /// <summary>
     /// Represent a single snapshot
     /// </summary>
-    internal class Snapshot : IDisposable
+    internal sealed class Snapshot : IDisposable
     {
         // instances from Engine
         private readonly HeaderPage _header;
@@ -29,6 +34,8 @@ namespace LiteDB.Engine
         private readonly LockMode _mode;
         private readonly string _collectionName;
         private readonly CollectionPage _collectionPage;
+        private readonly ILitePluginContext _plugins;
+        private static readonly ConditionalWeakTable<ILitePluginContext, ConcurrentDictionary<string, byte>> _missingPluginWarnings = new ConditionalWeakTable<ILitePluginContext, ConcurrentDictionary<string, byte>>();
 
         // local page cache - contains only pages about this collection (but do not contains CollectionPage - use this.CollectionPage)
         private readonly Dictionary<uint, BasePage> _localPages = new Dictionary<uint, BasePage>();
@@ -41,6 +48,9 @@ namespace LiteDB.Engine
         public CollectionPage CollectionPage => _collectionPage;
         public ICollection<BasePage> LocalPages => _localPages.Values;
         public int ReadVersion => _readVersion;
+        public ILitePluginContext Plugins => _plugins;
+        public Collation Collation => _header.Pragmas.Collation;
+        public uint MaxItemsCount => _disk.MAX_ITEMS_COUNT;
 
         public Snapshot(
             LockMode mode, 
@@ -52,7 +62,7 @@ namespace LiteDB.Engine
             WalIndexService walIndex, 
             DiskReader reader, 
             DiskService disk,
-            bool addIfNotExists)
+            bool addIfNotExists, ILitePluginContext plugins)
         {
             _mode = mode;
             _collectionName = collectionName;
@@ -63,27 +73,196 @@ namespace LiteDB.Engine
             _walIndex = walIndex;
             _reader = reader;
             _disk = disk;
+            _plugins = plugins;
 
-            // enter in lock mode according initial mode
-            if (mode == LockMode.Write)
+            var lockEntered = false;
+
+            try
             {
-                _locker.EnterLock(_collectionName);
+                // enter in lock mode according initial mode
+                if (mode == LockMode.Write)
+                {
+                    _locker.EnterLock(_collectionName);
+                    lockEntered = true;
+                }
+
+                // get lastest read version from wal-index
+                _readVersion = _walIndex.CurrentReadVersion;
+
+                var srv = new CollectionService(_header, _disk, this, _transPages);
+
+                // read collection (create if new - load virtual too)
+                srv.Get(_collectionName, addIfNotExists, ref _collectionPage);
+
+                // clear local pages (will clear _collectionPage link reference)
+                if (_collectionPage != null)
+                {
+                    // local pages contains only data/index pages
+                    _localPages.Remove(_collectionPage.PageID);
+
+                    this.EvaluatePluginAssets();
+                }
+            }
+            catch
+            {
+                this.CleanupFailedSnapshot();
+
+                if (mode == LockMode.Write)
+                {
+                    if (lockEntered)
+                    {
+                        try
+                        {
+                            this.Dispose();
+                        }
+                        catch
+                        {
+                            try
+                            {
+                                _locker.ExitLock(_collectionName);
+                            }
+                            catch
+                            {
+                            }
+
+                            _disposed = true;
+                        }
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        this.Dispose();
+                    }
+                    catch
+                    {
+                        _disposed = true;
+                    }
+                }
+
+                throw;
+            }
+        }
+
+        private void CleanupFailedSnapshot()
+        {
+            if (_mode != LockMode.Write || _disk == null)
+            {
+                return;
             }
 
-            // get lastest read version from wal-index
-            _readVersion = _walIndex.CurrentReadVersion;
-
-            var srv = new CollectionService(_header, _disk, this, _transPages);
-
-            // read collection (create if new - load virtual too)
-            srv.Get(_collectionName, addIfNotExists, ref _collectionPage);
-
-            // clear local pages (will clear _collectionPage link reference)
-            if (_collectionPage != null)
+            try
             {
-                // local pages contains only data/index pages
-                _localPages.Remove(_collectionPage.PageID);
+                _disk.DiscardDirtyPages(this
+                    .GetWritablePages(true, includeCollectionPage: true)
+                    .Select(x => x.Buffer)
+                    .Where(x => x.ShareCounter == BUFFER_WRITABLE));
+
+                _disk.DiscardCleanPages(this
+                    .GetWritablePages(false, includeCollectionPage: true)
+                    .Select(x => x.Buffer)
+                    .Where(x => x.ShareCounter == BUFFER_WRITABLE));
             }
+            catch
+            {
+                // Avoid masking the original exception.
+            }
+        }
+
+        private void EvaluatePluginAssets()
+        {
+            if (_collectionPage == null)
+            {
+                return;
+            }
+
+            var pluginIdsByIndex = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (var (index, pluginId, _) in _collectionPage.GetPluginIndexes())
+            {
+                if (index == null || string.IsNullOrWhiteSpace(index.Name) || string.IsNullOrWhiteSpace(pluginId))
+                {
+                    continue;
+                }
+
+                pluginIdsByIndex[index.Name] = pluginId;
+            }
+
+            foreach (var index in _collectionPage.GetCollectionIndexes())
+            {
+                if (index == null || index.IndexType == 0)
+                {
+                    continue;
+                }
+
+                if (this.HasIndexTypeSupport(index.IndexType))
+                {
+                    continue;
+                }
+
+                pluginIdsByIndex.TryGetValue(index.Name, out var pluginId);
+                this.HandleMissingPluginAsset(pluginId, index.Name, index.IndexType);
+            }
+        }
+
+        private bool HasIndexTypeSupport(byte indexType)
+        {
+            if (indexType == 0)
+            {
+                return true;
+            }
+
+            return _plugins?.Indexes?.GetByType(indexType) != null;
+        }
+
+        private void HandleMissingPluginAsset(string pluginId, string assetName, byte indexType)
+        {
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+            var behavior = PluginPolicyResolver.ResolveMissingPluginBehavior(_plugins);
+            var warningKey = !string.IsNullOrWhiteSpace(pluginId)
+                ? pluginId
+                : $"<unknown:{indexType}>";
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = "plugin.asset_detected",
+                ["pluginId"] = pluginId,
+                ["collection"] = _collectionName ?? string.Empty,
+                ["asset"] = assetName ?? string.Empty,
+                ["indexType"] = (int)indexType
+            };
+
+            if (behavior == PluginMissingBehavior.RefuseDatabase ||
+                (behavior == PluginMissingBehavior.AllowIfSafe && _mode == LockMode.Write))
+            {
+                throw policy.CreateMissingPluginException(pluginId, "OpenSnapshot", diagnostics);
+            }
+
+            this.LogMissingPluginWarning(warningKey, behavior);
+        }
+
+        private void LogMissingPluginWarning(string pluginId, PluginMissingBehavior behavior)
+        {
+            if (string.IsNullOrWhiteSpace(pluginId))
+            {
+                pluginId = "<unknown>";
+            }
+
+            var warningCache = _plugins == null
+                ? null
+                : _missingPluginWarnings.GetValue(_plugins, _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
+
+            if (warningCache != null && !warningCache.TryAdd(pluginId, 1))
+            {
+                return;
+            }
+
+            var logger = _plugins?.Logger ?? NullLogger.Instance;
+            var behaviorText = behavior == PluginMissingBehavior.AllowIfSafe
+                ? "continuing per policy 'AllowIfSafe'"
+                : $"continuing per policy '{behavior}'";
+            var message = $"Plugin '{pluginId}' is not loaded but plugin-owned assets were detected in collection '{_collectionName}'. {behaviorText}.";
+            logger.Write(LogLevel.Warning, message);
         }
 
         /// <summary>
@@ -139,20 +318,30 @@ namespace LiteDB.Engine
                 return;
             }
 
-            // release all data/index pages
-            this.Clear();
-
-            _disposed = true;
-
-            // release collection page (in read mode)
-            if (_mode == LockMode.Read && _collectionPage != null)
+            try
             {
-                _collectionPage.Buffer.Release();
+                // release all data/index pages
+                this.Clear();
+
+                // release collection page (in read mode)
+                if (_mode == LockMode.Read && _collectionPage != null)
+                {
+                    _collectionPage.Buffer.Release();
+                }
             }
-
-            if(_mode == LockMode.Write)
+            finally
             {
-                _locker.ExitLock(_collectionName);
+                try
+                {
+                    if (_mode == LockMode.Write)
+                    {
+                        _locker.ExitLock(_collectionName);
+                    }
+                }
+                finally
+                {
+                    _disposed = true;
+                }
             }
         }
 
@@ -220,15 +409,24 @@ namespace LiteDB.Engine
             {
                 // read page from log file
                 var buffer = _reader.ReadPage(walPosition.Position, _mode == LockMode.Write, FileOrigin.Log);
-                var dirty = BasePage.ReadPage<T>(buffer);
 
-                origin = FileOrigin.Log;
-                position = walPosition.Position;
-                walVersion = _readVersion;
+                try
+                {
+                    var dirty = BasePage.ReadPage<T>(buffer, _plugins);
 
-                ENSURE(dirty.TransactionID == _transactionID, "this page must came from same transaction");
+                    origin = FileOrigin.Log;
+                    position = walPosition.Position;
+                    walVersion = _readVersion;
 
-                return dirty;
+                    ENSURE(dirty.TransactionID == _transactionID, "this page must came from same transaction");
+
+                    return dirty;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
             }
 
             // now, look inside wal-index
@@ -238,16 +436,25 @@ namespace LiteDB.Engine
             {
                 // read page from log file
                 var buffer = _reader.ReadPage(pos, _mode == LockMode.Write, FileOrigin.Log);
-                var logPage = BasePage.ReadPage<T>(buffer);
 
-                // clear some data inside this page (will be override when write on log file)
-                logPage.TransactionID = 0;
-                logPage.IsConfirmed = false;
+                try
+                {
+                    var logPage = BasePage.ReadPage<T>(buffer, _plugins);
 
-                origin = FileOrigin.Log;
-                position = pos;
+                    // clear some data inside this page (will be override when write on log file)
+                    logPage.TransactionID = 0;
+                    logPage.IsConfirmed = false;
 
-                return logPage;
+                    origin = FileOrigin.Log;
+                    position = pos;
+
+                    return logPage;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
             }
             else
             {
@@ -256,14 +463,53 @@ namespace LiteDB.Engine
 
                 // read page from data file
                 var buffer = _reader.ReadPage(pagePosition, _mode == LockMode.Write, FileOrigin.Data);
-                var diskpage = BasePage.ReadPage<T>(buffer);
 
-                origin = FileOrigin.Data;
-                position = pagePosition;
+                try
+                {
+                    var diskpage = BasePage.ReadPage<T>(buffer, _plugins);
 
-                ENSURE(diskpage.IsConfirmed == false || diskpage.TransactionID != 0, "page are not header-clear in data file");
+                    origin = FileOrigin.Data;
+                    position = pagePosition;
 
-                return diskpage;
+                    ENSURE(diskpage.IsConfirmed == false || diskpage.TransactionID != 0, "page are not header-clear in data file");
+
+                    return diskpage;
+                }
+                catch
+                {
+                    ReleaseBuffer(buffer);
+                    throw;
+                }
+            }
+        }
+
+        private void ReleaseBuffer(PageBuffer buffer)
+        {
+            if (buffer == null)
+            {
+                return;
+            }
+
+            if (buffer.ShareCounter > 0)
+            {
+                buffer.Release();
+            }
+            else if (buffer.ShareCounter == BUFFER_WRITABLE)
+            {
+                try
+                {
+                    if (_disk == null)
+                    {
+                        buffer.ShareCounter = 0;
+                        return;
+                    }
+
+                    _disk.DiscardCleanPages(new[] { buffer });
+                }
+                catch
+                {
+                    buffer.ShareCounter = 0;
+                }
             }
         }
 
@@ -323,30 +569,6 @@ namespace LiteDB.Engine
                 page = this.GetPage<IndexPage>(freeIndexPageList);
 
                 ENSURE(page.FreeBytes > bytesLength, "this page shout be space enouth for this new node");
-                ENSURE(page.PageListSlot == 0, "this page should be in slot #0");
-            }
-
-            return page;
-        }
-
-        /// <summary>
-        /// Get a vector index page with enough free space for a new node.
-        /// </summary>
-        public VectorIndexPage GetFreeVectorPage(int bytesLength, ref uint freeVectorPageList)
-        {
-            ENSURE(!_disposed, "the snapshot is disposed");
-
-            VectorIndexPage page;
-
-            if (freeVectorPageList == uint.MaxValue)
-            {
-                page = this.NewPage<VectorIndexPage>();
-            }
-            else
-            {
-                page = this.GetPage<VectorIndexPage>(freeVectorPageList);
-
-                ENSURE(page.FreeBytes > bytesLength, "this page shout be space enouth for this new vector node");
                 ENSURE(page.PageListSlot == 0, "this page should be in slot #0");
             }
 
@@ -420,7 +642,7 @@ namespace LiteDB.Engine
                 _transPages.NewPages.Add(pageID);
             }
 
-            var page = BasePage.CreatePage<T>(buffer, pageID);
+            var page = BasePage.CreatePage<T>(buffer, pageID, _plugins);
 
             // update local cache with new instance T page type
             if (page.PageType != PageType.Collection)
@@ -513,42 +735,6 @@ namespace LiteDB.Engine
         }
 
         /// <summary>
-        /// Add/Remove a vector index page from single free list
-        /// </summary>
-        public void AddOrRemoveFreeVectorList(VectorIndexPage page, ref uint startPageID)
-        {
-            ENSURE(!_disposed, "the snapshot is disposed");
-
-            var newSlot = VectorIndexPage.FreeListSlot(page.FreeBytes);
-            var isOnList = page.PageListSlot == 0;
-            var mustKeep = newSlot == 0;
-
-            if (page.ItemsCount == 0)
-            {
-                if (isOnList)
-                {
-                    this.RemoveFreeList(page, ref startPageID);
-                }
-
-                this.DeletePage(page);
-            }
-            else
-            {
-                if (isOnList && !mustKeep)
-                {
-                    this.RemoveFreeList(page, ref startPageID);
-                }
-                else if (!isOnList && mustKeep)
-                {
-                    this.AddFreeList(page, ref startPageID);
-                }
-
-                page.PageListSlot = newSlot;
-                page.IsDirty = true;
-            }
-        }
-
-        /// <summary>
         /// Add page into double linked-list (always add as first element)
         /// </summary>
         private void AddFreeList<T>(T page, ref uint startPageID) where T : BasePage
@@ -567,7 +753,7 @@ namespace LiteDB.Engine
             page.NextPageID = startPageID;
             page.IsDirty = true;
 
-            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index pages must be first on free stack");
+            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index, "only data/index pages must be first on free stack");
 
             startPageID = page.PageID;
 
@@ -615,15 +801,14 @@ namespace LiteDB.Engine
         /// There is no re-use deleted page in same transaction - deleted pages will be in another linked list and will
         /// be part of Header free list page only in commit
         /// </summary>
-        private void DeletePage<T>(T page)
+        internal void DeletePage<T>(T page)
             where T : BasePage
         {
             ENSURE(page.PrevPageID == uint.MaxValue && page.NextPageID == uint.MaxValue, "before delete a page, no linked list with any another page");
             ENSURE(page.ItemsCount == 0 && page.UsedBytes == 0 && page.HighestIndex == byte.MaxValue && page.FragmentedBytes == 0, "no items on page when delete this page");
-            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || page.PageType == PageType.VectorIndex, "only data/index page can be deleted");
+            ENSURE(page.PageType == PageType.Data || page.PageType == PageType.Index || this.IsPluginPageType(page.PageType), "only data/index/plugin pages can be deleted");
             DEBUG(!_collectionPage.FreeDataPageList.Any(x => x == page.PageID), "this page cann't be deleted because free data list page is linked o this page");
             DEBUG(!_collectionPage.GetCollectionIndexes().Any(x => x.FreeIndexPageList == page.PageID), "this page cann't be deleted because free index list page is linked o this page");
-            DEBUG(!_collectionPage.GetVectorIndexes().Any(x => x.Metadata.Reserved == page.PageID), "this page cann't be deleted because free vector list page is linked o this page");
             DEBUG(page.Buffer.Slice(PAGE_HEADER_SIZE, PAGE_SIZE - PAGE_HEADER_SIZE - 1).All(0), "page content shloud be empty");
 
             // mark page as empty and dirty
@@ -664,7 +849,52 @@ namespace LiteDB.Engine
             ENSURE(!_disposed, "the snapshot is disposed");
 
             var indexer = new IndexService(this, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
-            VectorIndexService vectorIndexer = null;
+            var pluginIndexes = _plugins?.Indexes;
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+
+            var pluginIdsByIndex = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (var (index, pluginId, _) in _collectionPage.GetPluginIndexes())
+            {
+                if (index == null || string.IsNullOrWhiteSpace(index.Name) || string.IsNullOrWhiteSpace(pluginId))
+                {
+                    continue;
+                }
+
+                pluginIdsByIndex[index.Name] = pluginId;
+            }
+
+            var indexes = _collectionPage
+                .GetCollectionIndexes()
+                .PreventChangeFullFX()
+                .ToArray();
+
+            foreach (var index in indexes)
+            {
+                if (index == null || index.IndexType == 0)
+                {
+                    continue;
+                }
+
+                if (pluginIndexes?.GetByType(index.IndexType) != null)
+                {
+                    continue;
+                }
+
+                pluginIdsByIndex.TryGetValue(index.Name, out var pluginId);
+
+                var diagnostics = new BsonDocument
+                {
+                    ["event"] = "plugin.drop_collection_requires_plugin",
+                    ["operation"] = "DropCollection",
+                    ["collection"] = _collectionName ?? string.Empty,
+                    ["asset"] = index.Name ?? string.Empty,
+                    ["indexType"] = (int)index.IndexType,
+                    ["pluginId"] = pluginId ?? string.Empty
+                };
+
+                throw policy.CreateMissingPluginException(pluginId, "DropCollection", diagnostics);
+            }
             
             // CollectionPage will be last deleted page (there is no NextPageID from CollectionPage)
             _transPages.FirstDeletedPageID = _collectionPage.PageID;
@@ -678,10 +908,14 @@ namespace LiteDB.Engine
             var indexPages = new HashSet<uint>();
 
             // getting all indexes pages from all indexes
-            foreach(var index in _collectionPage.GetCollectionIndexes())
+            foreach(var index in indexes)
             {
-                if (index.IndexType == 1)
+                if (index.IndexType != 0)
                 {
+                    var strategy = pluginIndexes.GetByType(index.IndexType);
+                    strategy.DropIndex(this, _collectionPage, index.Name);
+
+                    safePoint();
                     continue;
                 }
                 
@@ -697,14 +931,6 @@ namespace LiteDB.Engine
             }
             
             
-            foreach (var (_, metadata) in _collectionPage.GetVectorIndexes())
-            {
-                vectorIndexer ??= new VectorIndexService(this, _header.Pragmas.Collation);
-                vectorIndexer.Drop(metadata);
-
-                safePoint();
-            }
-
             // now, mark all pages as deleted
             foreach (var pageID in indexPages)
             {
@@ -746,6 +972,18 @@ namespace LiteDB.Engine
 
             // remove collection name (in header) at commit time
             _transPages.Commit += (h) => h.DeleteCollection(_collectionName);
+        }
+
+        private bool IsPluginPageType(PageType pageType)
+        {
+            var registry = _plugins?.PageFactories;
+
+            if (registry == null)
+            {
+                return false;
+            }
+
+            return registry.TryGet((byte)pageType, out _);
         }
 
         #endregion

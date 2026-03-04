@@ -1,4 +1,5 @@
-﻿using LiteDB.Utils;
+﻿using LiteDB.Plugins;
+using LiteDB.Utils;
 
 using System;
 using System.Collections.Concurrent;
@@ -16,8 +17,11 @@ namespace LiteDB.Engine
     /// Its isolated from complete solution - works on low level only (no linq, no poco... just BSON objects)
     /// [ThreadSafe]
     /// </summary>
-    public partial class LiteEngine : ILiteEngine
+    public partial class LiteEngine : ILiteEngine, IPluginHost
     {
+        private static int _engineInstanceIdSeed;
+        private readonly int _engineInstanceId = Interlocked.Increment(ref _engineInstanceIdSeed);
+
         #region Services instances
 
         private LockService _locker;
@@ -36,6 +40,149 @@ namespace LiteDB.Engine
 
         // immutable settings
         private readonly EngineSettings _settings;
+
+        private ILitePluginContext _plugins;
+
+        internal ILitePluginContext PluginContext => _plugins;
+
+        void IPluginHost.SetPluginContext(ILitePluginContext context)
+        {
+            _plugins = context;
+            _monitor?.SetPluginContext(context);
+
+            if (context is DefaultPluginContext defaultContext && defaultContext.ValidatePluginsOnOpen == true)
+            {
+                this.ValidatePluginsOnOpen(defaultContext);
+            }
+        }
+
+        private void ValidatePluginsOnOpen(DefaultPluginContext context)
+        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            if (context.ValidationOnOpenRan &&
+                context.ValidationOnOpenEngineInstanceId == _engineInstanceId)
+            {
+                if (context.MissingPluginBehavior != PluginMissingBehavior.RefuseDatabase)
+                {
+                    return;
+                }
+
+                var previousDiagnostics = context.ValidationOnOpenDiagnostics;
+
+                if (previousDiagnostics == null)
+                {
+                    return;
+                }
+
+                if (previousDiagnostics.TryGetValue("missingCount", out var missingCountValue) == false ||
+                    missingCountValue.IsInt32 == false ||
+                    missingCountValue.AsInt32 <= 0)
+                {
+                    if (previousDiagnostics.TryGetValue("scanErrorCount", out var scanErrorCountValue) == false ||
+                        scanErrorCountValue.IsInt32 == false ||
+                        scanErrorCountValue.AsInt32 <= 0)
+                    {
+                        return;
+                    }
+                }
+
+                var previousPolicy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+
+                string previousPluginId = null;
+
+                if (previousDiagnostics.TryGetValue("requirements", out var requirementsValue) && requirementsValue.IsArray)
+                {
+                    foreach (var requirementValue in requirementsValue.AsArray)
+                    {
+                        if (requirementValue.IsDocument == false) continue;
+
+                        var requirement = requirementValue.AsDocument;
+
+                        if (requirement.TryGetValue("strategyAvailable", out var strategyValue) &&
+                            strategyValue.IsBoolean &&
+                            strategyValue.AsBoolean == false &&
+                            requirement.TryGetValue("pluginId", out var requirementPluginIdValue) &&
+                            requirementPluginIdValue.IsString &&
+                            !string.Equals(requirementPluginIdValue.AsString, "<unknown>", StringComparison.Ordinal))
+                        {
+                            previousPluginId = requirementPluginIdValue.AsString;
+                            break;
+                        }
+                    }
+                }
+
+                var previousDiagnosticsClone = DefaultPluginContext.CloneDiagnostics(previousDiagnostics);
+
+                throw previousPolicy.CreateMissingPluginException(previousPluginId, "OpenDatabase", previousDiagnosticsClone);
+            }
+
+            var scanner = new PluginRequirementScanner(_header, _disk, _walIndex, _plugins);
+            var requirements = scanner.Scan(transactionPages: null);
+
+            var missing = requirements.Where(x => x.StrategyAvailable == false).ToArray();
+
+            var scanErrorCount = 0;
+
+            foreach (var requirement in requirements)
+            {
+                if (requirement?.Errors == null)
+                {
+                    continue;
+                }
+
+                foreach (var error in requirement.Errors)
+                {
+                    if (error == null)
+                    {
+                        continue;
+                    }
+
+                    if (error.TryGetValue("kind", out var kindValue) &&
+                        kindValue.IsString &&
+                        string.Equals(kindValue.AsString, "scan-error", StringComparison.Ordinal))
+                    {
+                        scanErrorCount++;
+                    }
+                }
+            }
+
+            var hasValidationFailures = missing.Length > 0 || scanErrorCount > 0;
+
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = hasValidationFailures == false
+                    ? "plugin.validation_on_open_succeeded"
+                    : "plugin.validation_on_open_failed",
+                ["missingCount"] = missing.Length,
+                ["scanErrorCount"] = scanErrorCount
+            };
+
+            if (hasValidationFailures)
+            {
+                diagnostics["requirements"] = new BsonArray(requirements.Select(x => x.ToDocument()));
+            }
+
+            context.RecordValidationOnOpen(diagnostics, _engineInstanceId);
+
+            if (hasValidationFailures == false)
+            {
+                return;
+            }
+
+            if (context.MissingPluginBehavior != PluginMissingBehavior.RefuseDatabase)
+            {
+                return;
+            }
+
+            var pluginId = missing.Select(x => x.PluginId).FirstOrDefault(x => !string.Equals(x, "<unknown>", StringComparison.Ordinal));
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+
+            throw policy.CreateMissingPluginException(pluginId, "OpenDatabase", diagnostics);
+        }
 
         /// <summary>
         /// All system read-only collections for get metadata database information
@@ -111,6 +258,11 @@ namespace LiteDB.Engine
                 // if database is set to invalid state, need rebuild
                 if (buffer[HeaderPage.P_INVALID_DATAFILE_STATE] != 0 && _settings.AutoRebuild)
                 {
+                    if (_settings.ReadOnly)
+                    {
+                        throw LiteException.DatabaseReadOnly();
+                    }
+
                     // dispose disk access to rebuild process
                     _disk.Dispose();
                     _disk = null;
@@ -149,7 +301,7 @@ namespace LiteDB.Engine
                 _sortDisk = new SortDisk(_settings.CreateTempFactory(), CONTAINER_SORT_SIZE, _header.Pragmas);
 
                 // initialize transaction monitor as last service
-                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex);
+                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _plugins);
 
                 // register system collections
                 this.InitializeSystemCollections();
@@ -186,7 +338,7 @@ namespace LiteDB.Engine
             // stop running all transactions
             tc.Catch(() => _monitor?.Dispose());
 
-            if (_header?.Pragmas.Checkpoint > 0)
+            if (_header?.Pragmas.Checkpoint > 0 && _settings.ReadOnly == false)
             {
                 // do a soft checkpoint (only if exclusive lock is possible)
                 tc.Catch(() => _walIndex?.TryCheckpoint());

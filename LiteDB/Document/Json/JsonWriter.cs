@@ -1,4 +1,5 @@
-﻿using System;
+using LiteDB.Document.Bson;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -43,6 +44,11 @@ namespace LiteDB
 
         private void WriteValue(BsonValue value)
         {
+            if (value.TryWriteJson(this))
+            {
+                return;
+            }
+
             // use direct cast to better performance
             switch (value.Type)
             {
@@ -115,12 +121,6 @@ namespace LiteDB
 
                 case BsonType.MaxValue:
                     this.WriteExtendDataType("$maxValue", "1");
-                    break;
-
-                case BsonType.Vector:
-                    var vector = value.AsVector;
-                    var array = new BsonArray(vector.Select(x => (BsonValue)x));
-                    this.WriteArray(array);
                     break;
             }
         }

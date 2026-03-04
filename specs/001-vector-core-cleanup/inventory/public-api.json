@@ -1,0 +1,19 @@
+{
+    "id": "public-api-surface",
+    "area": "PublicApi",
+    "files": [
+        "LiteDB/Engine/ILiteEngine.cs",
+        "LiteDB/Engine/Engine/Index.cs",
+        "LiteDB/Client/Shared/SharedEngine.cs",
+        "LiteDB/Client/Database/Collections/Index.cs",
+        "LiteDB/Client/Database/LiteRepository.cs",
+        "LiteDB/Client/Database/LiteQueryable.cs"
+    ],
+    "scopeSummary": "Direct EnsureVectorIndex APIs, vector distance LINQ helpers, and repository wrappers expose vector search semantics to consumers",
+    "decisionId": "move-to-plugin-short",
+    "requiredGapIds": [
+        "gap-indexing-extensibility"
+    ],
+    "verificationStepIds": [],
+    "notes": "Short-term migration: replace EnsureVectorIndex APIs with plugin extension methods and index interceptors before relocating surface."
+}

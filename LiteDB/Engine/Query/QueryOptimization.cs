@@ -1,3 +1,5 @@
+using LiteDB.Plugins;
+using LiteDB.Plugins.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +17,7 @@ namespace LiteDB.Engine
         private readonly Collation _collation;
         private readonly QueryPlan _queryPlan;
         private readonly List<BsonExpression> _terms = new List<BsonExpression>();
-        private bool _vectorOrderConsumed;
+        private bool _orderByConsumed;
 
         public QueryOptimization(Snapshot snapshot, Query query, IEnumerable<BsonDocument> source, Collation collation)
         {
@@ -82,7 +84,7 @@ namespace LiteDB.Engine
                 // do not accept source * in WHERE
                 if (predicate.UseSource)
                 {
-                    throw new LiteException(0, $"WHERE filter can not use `*` expression in `{predicate.Source}");
+                    throw new LiteException(0, $"WHERE filter can not use `*` expression in `{predicate.Source}`");
                 }
 
                 // add expression in where list breaking AND statments
@@ -128,7 +130,7 @@ namespace LiteDB.Engine
                     term.Type == BsonExpressionType.Equal &&
                     term.Right?.Type == BsonExpressionType.Path)
                 {
-                    _terms[i] = BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters);
+                    _terms[i] = BsonExpression.Create(term.Right.Source + " IN ARRAY(" + term.Left.Source + ")", term.Parameters, _snapshot.Plugins?.Expressions);
                 }
             }
         }
@@ -169,62 +171,193 @@ namespace LiteDB.Engine
 
         #region Index Definition
 
+        private bool TryExecutePluginPlanning(out QueryPlanningContext context)
+        {
+            context = null;
+
+            var pluginContext = _snapshot?.Plugins;
+            var rules = pluginContext?.QueryPlanner?.Rules;
+
+            if (rules == null)
+            {
+                return false;
+            }
+
+            if (pluginContext?.QueryMetadata != null)
+            {
+                foreach (var pluginId in _query.RegisteredMetadata)
+                {
+                    if (!pluginContext.QueryMetadata.TryGetDescriptor(pluginId, out var descriptor))
+                    {
+                        continue;
+                    }
+
+                    if (!_query.TryGetMetadata(pluginId, out var bag))
+                    {
+                        continue;
+                    }
+
+                    if (!bag.IsCompatibleWith(descriptor))
+                    {
+                        bag.ApplyDescriptor(descriptor);
+                    }
+                }
+            }
+
+            var termsSnapshot = _terms.ToArray();
+            var terms = Array.AsReadOnly(termsSnapshot);
+
+            foreach (var rule in rules)
+            {
+                if (rule == null)
+                {
+                    continue;
+                }
+
+                var planningContext = new QueryPlanningContext(_snapshot, _query, terms, _queryPlan, pluginContext);
+
+                bool matched;
+
+                try
+                {
+                    matched = rule.TryRewrite(planningContext);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException && ex is not StackOverflowException && ex is not AccessViolationException)
+                {
+                    try
+                    {
+                        pluginContext?.Logger?.Write(
+                            LogLevel.Error,
+                            $"Query planning rule '{rule.GetType().FullName}' failed. Skipping rule and continuing evaluation.",
+                            ex);
+                    }
+                    catch
+                    {
+                        // Best-effort logging.
+                    }
+
+                    continue;
+                }
+
+                if (!matched)
+                {
+                    continue;
+                }
+
+                if (!planningContext.HasRewrite)
+                {
+                    continue;
+                }
+
+                context = planningContext;
+                return true;
+            }
+
+            return false;
+        }
+
         private void DefineIndex()
         {
-            // selected expression to be used as index (from _terms)
+            var consumedTerms = new HashSet<BsonExpression>();
             BsonExpression selected = null;
+            bool replaceFilters = false;
+            IReadOnlyList<BsonExpression> pluginFilters = null;
 
-            // if index are not defined yet, get index
-            if (_queryPlan.Index == null)
+            if (_queryPlan.Index == null && this.TryExecutePluginPlanning(out var planningContext))
             {
-                if (this.TrySelectVectorIndex(out var vectorIndex, out selected))
+                ENSURE(planningContext.SelectedIndex != null, "Query planning rule must call UseIndex before returning true.");
+                ENSURE(!string.IsNullOrWhiteSpace(planningContext.SelectedIndexExpression), "Query planning rule must provide an index expression.");
+
+                _queryPlan.Index = planningContext.SelectedIndex;
+                _queryPlan.IndexExpression = planningContext.SelectedIndexExpression;
+                _queryPlan.IsIndexKeyOnly = planningContext.SelectedIsIndexKeyOnly;
+
+                foreach (var term in planningContext.ConsumedTerms)
                 {
-                    _queryPlan.Index = vectorIndex;
-                    _queryPlan.IndexCost = vectorIndex.GetCost(null);
-                    _queryPlan.IndexExpression = vectorIndex.Expression;
+                    if (term != null && consumedTerms.Add(term) && selected == null)
+                    {
+                        selected = term;
+                    }
                 }
-                else
+
+                var computedCost = this.CalculateIndexCost(planningContext, selected);
+                _queryPlan.IndexCost = computedCost;
+
+                if (planningContext.OrderByConsumed)
                 {
-                    // try select best index (if return null, there is no good choice)
+                    _orderByConsumed = true;
+                }
+
+                pluginFilters = planningContext.AdditionalFilters;
+                replaceFilters = planningContext.ReplaceFilters;
+            }
+            else
+            {
+                if (_queryPlan.Index == null)
+                {
                     var indexCost = this.ChooseIndex(_queryPlan.Fields);
 
-                    // if found an index, use-it
                     if (indexCost != null)
                     {
                         _queryPlan.Index = indexCost.Index;
                         _queryPlan.IndexCost = indexCost.Cost;
                         _queryPlan.IndexExpression = indexCost.IndexExpression;
+                        selected = indexCost.Expression;
                     }
                     else
                     {
-                        // if has no index to use, use full scan over _id
                         var pk = _snapshot.CollectionPage.PK;
 
                         _queryPlan.Index = new IndexAll("_id", Query.Ascending);
                         _queryPlan.IndexCost = _queryPlan.Index.GetCost(pk);
                         _queryPlan.IndexExpression = "$._id";
                     }
+                }
+                else
+                {
+                    ENSURE(_queryPlan.Index is IndexVirtual, "pre-defined index must be only for virtual collections");
 
-                    // get selected expression used as index
-                    selected = indexCost?.Expression;
+                    _queryPlan.IndexCost = 0;
+                }
+
+                if (selected != null)
+                {
+                    consumedTerms.Add(selected);
+                }
+            }
+
+            ENSURE(_queryPlan.Index != null, "query optimization must select an index");
+
+            if (_queryPlan.Fields.Count == 1 &&
+                string.Equals(_queryPlan.IndexExpression, "$." + _queryPlan.Fields.First(), StringComparison.OrdinalIgnoreCase))
+            {
+                _queryPlan.IsIndexKeyOnly = true;
+            }
+
+            if (replaceFilters)
+            {
+                _queryPlan.Filters.Clear();
+
+                if (pluginFilters != null && pluginFilters.Count > 0)
+                {
+                    _queryPlan.Filters.AddRange(pluginFilters);
                 }
             }
             else
             {
-                ENSURE(_queryPlan.Index is IndexVirtual, "pre-defined index must be only for virtual collections");
+                foreach (var term in _terms)
+                {
+                    if (!consumedTerms.Contains(term))
+                    {
+                        _queryPlan.Filters.Add(term);
+                    }
+                }
 
-                _queryPlan.IndexCost = 0;
+                if (pluginFilters != null && pluginFilters.Count > 0)
+                {
+                    _queryPlan.Filters.AddRange(pluginFilters);
+                }
             }
-
-            // if is only 1 field to deserialize and this field are same as index, use IndexKeyOnly = rue
-            if (_queryPlan.Fields.Count == 1 && _queryPlan.IndexExpression == "$." + _queryPlan.Fields.First())
-            {
-                // best choice - no need lookup for document (use only index)
-                _queryPlan.IsIndexKeyOnly = true;
-            }
-
-            // fill filter using all expressions (remove selected term used in Index)
-            _queryPlan.Filters.AddRange(_terms.Where(x => x != selected));
         }
 
         /// <summary>
@@ -237,7 +370,9 @@ namespace LiteDB.Engine
         /// </summary>
         private IndexCost ChooseIndex(HashSet<string> fields)
         {
-            var indexes = _snapshot.CollectionPage.GetCollectionIndexes().ToArray();
+            var indexes = _snapshot.CollectionPage.GetCollectionIndexes()
+                .Where(x => x.IndexType == 0)
+                .ToArray();
 
             // if query contains a single field used, give preferred if this index exists
             var preferred = fields.Count == 1 ? "$." + fields.First() : null;
@@ -268,10 +403,10 @@ namespace LiteDB.Engine
                 else
                 {
                     index = indexes
-                        .Where(x => x.Expression == expr.Left.Source && expr.Right.IsValue)
+                        .Where(x => string.Equals(x.Expression, expr.Left.Source, StringComparison.OrdinalIgnoreCase) && expr.Right.IsValue)
                         .Select(x => Tuple.Create(x, expr.Right))
                         .Union(indexes
-                            .Where(x => x.Expression == expr.Right.Source && expr.Left.IsValue)
+                            .Where(x => string.Equals(x.Expression, expr.Right.Source, StringComparison.OrdinalIgnoreCase) && expr.Left.IsValue)
                             .Select(x => Tuple.Create(x, expr.Left))
                         ).FirstOrDefault();
                 }
@@ -294,9 +429,9 @@ namespace LiteDB.Engine
             {
                 var orderByExpr = _query.OrderBy.Count > 0 ? _query.OrderBy[0].Expression.Source : null;
                 var index =
-                    indexes.FirstOrDefault(x => x.Expression == _query.GroupBy?.Source) ??
-                    indexes.FirstOrDefault(x => x.Expression == orderByExpr) ??
-                    indexes.FirstOrDefault(x => x.Expression == preferred);
+                    indexes.FirstOrDefault(x => string.Equals(x.Expression, _query.GroupBy?.Source, StringComparison.OrdinalIgnoreCase)) ??
+                    indexes.FirstOrDefault(x => string.Equals(x.Expression, orderByExpr, StringComparison.OrdinalIgnoreCase)) ??
+                    indexes.FirstOrDefault(x => string.Equals(x.Expression, preferred, StringComparison.OrdinalIgnoreCase));
 
                 if (index != null)
                 {
@@ -305,217 +440,6 @@ namespace LiteDB.Engine
             }
 
             return lowest;
-        }
-
-        private bool TrySelectVectorIndex(out VectorIndexQuery index, out BsonExpression consumedTerm)
-        {
-            index = null;
-            consumedTerm = null;
-
-            string expression = null;
-            float[] target = null;
-            double maxDistance = double.MaxValue;
-            var matchedFromOrderBy = false;
-
-            foreach (var term in _terms)
-            {
-                if (this.TryParseVectorPredicate(term, out expression, out target, out maxDistance))
-                {
-                    consumedTerm = term;
-                    break;
-                }
-            }
-
-            if (expression == null && _query.OrderBy.Count > 0)
-            {
-                foreach (var order in _query.OrderBy)
-                {
-                    if (this.TryParseVectorExpression(order.Expression, out expression, out target))
-                    {
-                        matchedFromOrderBy = true;
-                        maxDistance = double.MaxValue;
-                        break;
-                    }
-                }
-            }
-
-            if (expression == null && _query.VectorTarget != null && _query.VectorField != null)
-            {
-                expression = NormalizeVectorField(_query.VectorField);
-                target = _query.VectorTarget?.ToArray();
-                maxDistance = _query.VectorMaxDistance;
-                matchedFromOrderBy = matchedFromOrderBy || (_query.OrderBy.Any(order => order.Expression?.Type == BsonExpressionType.VectorSim));
-            }
-
-            if (expression == null || target == null)
-            {
-                return false;
-            }
-
-            int? limit = _query.Limit != int.MaxValue ? _query.Limit : (int?)null;
-
-            foreach (var (candidate, metadata) in _snapshot.CollectionPage.GetVectorIndexes())
-            {
-                if (!string.Equals(candidate.Expression, expression, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (metadata.Dimensions != target.Length)
-                {
-                    continue;
-                }
-
-                index = new VectorIndexQuery(candidate.Name, _snapshot, candidate, metadata, target, maxDistance, limit, _collation);
-
-                if (matchedFromOrderBy)
-                {
-                    _vectorOrderConsumed = true;
-                }
-
-                return true;
-            }
-
-            return false;
-        }
-
-        private bool TryParseVectorPredicate(BsonExpression predicate, out string expression, out float[] target, out double maxDistance)
-        {
-            expression = null;
-            target = null;
-            maxDistance = double.NaN;
-
-            if (predicate == null)
-            {
-                return false;
-            }
-
-            if ((predicate.Type == BsonExpressionType.LessThan || predicate.Type == BsonExpressionType.LessThanOrEqual) &&
-                this.TryParseVectorExpression(predicate.Left, out expression, out target) &&
-                TryConvertToDouble(predicate.Right?.ExecuteScalar(_collation), out maxDistance))
-            {
-                return true;
-            }
-
-            if ((predicate.Type == BsonExpressionType.GreaterThan || predicate.Type == BsonExpressionType.GreaterThanOrEqual) &&
-                this.TryParseVectorExpression(predicate.Right, out expression, out target) &&
-                TryConvertToDouble(predicate.Left?.ExecuteScalar(_collation), out maxDistance))
-            {
-                return true;
-            }
-
-            expression = null;
-            target = null;
-            maxDistance = double.NaN;
-            return false;
-        }
-
-        private bool TryParseVectorExpression(BsonExpression expression, out string fieldExpression, out float[] target)
-        {
-            fieldExpression = null;
-            target = null;
-
-            if (expression == null || expression.Type != BsonExpressionType.VectorSim)
-            {
-                return false;
-            }
-
-            var field = expression.Left;
-            if (field == null || string.IsNullOrEmpty(field.Source))
-            {
-                return false;
-            }
-
-            var targetValue = expression.Right?.ExecuteScalar(_collation);
-
-            if (!TryConvertToVector(targetValue, out target))
-            {
-                return false;
-            }
-
-            fieldExpression = field.Source;
-            return true;
-        }
-
-        private static bool TryConvertToVector(BsonValue value, out float[] vector)
-        {
-            vector = null;
-
-            if (value == null || value.IsNull)
-            {
-                return false;
-            }
-
-            if (value.Type == BsonType.Vector)
-            {
-                vector = value.AsVector.ToArray();
-                return true;
-            }
-
-            if (!value.IsArray)
-            {
-                return false;
-            }
-
-            var array = value.AsArray;
-            var buffer = new float[array.Count];
-
-            for (var i = 0; i < array.Count; i++)
-            {
-                var item = array[i];
-
-                if (item.IsNull)
-                {
-                    return false;
-                }
-
-                try
-                {
-                    buffer[i] = (float)item.AsDouble;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-
-            vector = buffer;
-            return true;
-        }
-
-        private static bool TryConvertToDouble(BsonValue value, out double number)
-        {
-            number = double.NaN;
-
-            if (value == null || value.IsNull || !value.IsNumber)
-            {
-                return false;
-            }
-
-            number = value.AsDouble;
-            return !double.IsNaN(number);
-        }
-
-        private static string NormalizeVectorField(string field)
-        {
-            if (string.IsNullOrWhiteSpace(field))
-            {
-                return field;
-            }
-
-            field = field.Trim();
-
-            if (field.StartsWith("$", StringComparison.Ordinal))
-            {
-                return field;
-            }
-
-            if (field.StartsWith(".", StringComparison.Ordinal))
-            {
-                field = field.Substring(1);
-            }
-
-            return "$." + field;
         }
 
         #endregion
@@ -530,7 +454,7 @@ namespace LiteDB.Engine
             // if has no order by, returns null
             if (_query.OrderBy.Count == 0) return;
 
-            if (_vectorOrderConsumed)
+            if (_orderByConsumed)
             {
                 _queryPlan.OrderBy = null;
                 return;
@@ -539,7 +463,7 @@ namespace LiteDB.Engine
             var orderBy = new OrderBy(_query.OrderBy.Select(x => new OrderByItem(x.Expression, x.Order)));
 
             // if index expression are same as primary OrderBy segment, use index order configuration
-            if (orderBy.PrimaryExpression.Source == _queryPlan.IndexExpression)
+            if (string.Equals(orderBy.PrimaryExpression.Source, _queryPlan.IndexExpression, StringComparison.OrdinalIgnoreCase))
             {
                 _queryPlan.Index.Order = orderBy.PrimaryOrder;
 
@@ -568,7 +492,7 @@ namespace LiteDB.Engine
             var groupOrderBy = (OrderBy)null;
 
             // if groupBy use same expression in index, no additional ordering is required before grouping
-            if (expression.Source == _queryPlan.IndexExpression)
+            if (string.Equals(expression.Source, _queryPlan.IndexExpression, StringComparison.OrdinalIgnoreCase))
             {
                 // index already provides grouped ordering
             }
@@ -608,6 +532,120 @@ namespace LiteDB.Engine
                     _queryPlan.IncludeAfter.Add(include);
                 }
             }
+        }
+
+        private uint CalculateIndexCost(QueryPlanningContext planningContext, BsonExpression selectedTerm)
+        {
+            if (planningContext.SelectedIndexCost.HasValue)
+            {
+                return planningContext.SelectedIndexCost.Value;
+            }
+
+            var pluginContext = _snapshot?.Plugins;
+            var costModels = pluginContext?.QueryCostModels?.Registered;
+            var indexKind = planningContext.SelectedPluginIndexKind;
+
+            if (costModels != null &&
+                !string.IsNullOrWhiteSpace(indexKind))
+            {
+                var metadataDocument = planningContext.SelectedPluginMetadata ?? new BsonDocument();
+                var registration = costModels.FirstOrDefault(r => string.Equals(r.IndexKind, indexKind, StringComparison.OrdinalIgnoreCase));
+
+                if (registration != null)
+                {
+                    try
+                    {
+                        var expression = selectedTerm ??
+                            BsonExpression.Create(
+                                planningContext.SelectedIndexExpression,
+                                _snapshot?.Plugins?.Expressions ?? PluginContextFallbacks.Expressions);
+
+                        var context = new QueryCostContext(
+                            _snapshot.CollectionName ?? string.Empty,
+                            planningContext.SelectedIndex?.Name ?? planningContext.SelectedIndexExpression ?? string.Empty,
+                            expression,
+                            metadataDocument,
+                            GetEstimatedDocumentCount());
+
+                        var computed = registration.CalculateCost(context);
+
+                        if (!double.IsNaN(computed) && !double.IsInfinity(computed) && computed >= 0)
+                        {
+                            return (uint)Math.Min(uint.MaxValue, Math.Round(computed));
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore cost model failures and fall back to the default calculation.
+                    }
+                }
+            }
+
+            var collectionPage = _snapshot.CollectionPage;
+            var indexName = _queryPlan.Index?.Name;
+            var index = !string.IsNullOrWhiteSpace(indexName)
+                ? collectionPage?.GetCollectionIndex(indexName)
+                : null;
+
+            if (index == null)
+            {
+                return uint.MaxValue;
+            }
+
+            return _queryPlan.Index.GetCost(index);
+        }
+
+        private long? _estimatedDocumentCount;
+
+        private long GetEstimatedDocumentCount()
+        {
+            if (_estimatedDocumentCount.HasValue)
+            {
+                return _estimatedDocumentCount.Value;
+            }
+
+            long estimate = 0;
+
+            try
+            {
+                var collectionPage = _snapshot?.CollectionPage;
+
+                if (collectionPage != null)
+                {
+                    var visitedPages = new HashSet<uint>();
+
+                    for (var slot = 0; slot < PAGE_FREE_LIST_SLOTS; slot++)
+                    {
+                        var next = collectionPage.FreeDataPageList[slot];
+                        var counter = 0u;
+
+                        while (next != uint.MaxValue)
+                        {
+                            if (!visitedPages.Add(next))
+                            {
+                                break;
+                            }
+
+                            var page = _snapshot.GetPage<DataPage>(next);
+
+                            estimate += page.ItemsCount;
+                            next = page.NextPageID;
+
+                            if (counter++ > _snapshot.MaxItemsCount)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                estimate = 0;
+            }
+
+            _estimatedDocumentCount = estimate;
+            return estimate;
         }
     }
 }

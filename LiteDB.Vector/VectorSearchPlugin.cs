@@ -1,0 +1,212 @@
+using System;
+using LiteDB;
+using LiteDB.Engine;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
+using LiteDB.Plugins.Query;
+using LiteDB.Plugins.Storage;
+using LiteDB.Vector.Document;
+using LiteDB.Vector.Engine;
+using LiteDB.Vector.Query;
+using LiteDB.Vector.Utils;
+
+namespace LiteDB.Vector
+{
+    /// <summary>
+    /// Provides vector search capabilities for <see cref="LiteDatabase"/> instances via the plugin pipeline.
+    /// </summary>
+    /// <example>
+    /// <code><![CDATA[
+    /// using var db = new LiteDatabase(
+    ///     "Filename=mydata.db",
+    ///     plugins: new[] { VectorSearchPlugin.Instance });
+    /// ]]></code>
+    /// </example>
+    public sealed class VectorSearchPlugin : ILitePlugin
+    {
+        /// <summary>
+        /// Gets the singleton instance used when enabling the plugin via configuration.
+        /// </summary>
+        /// <example>
+        /// <code><![CDATA[
+        /// var db = new LiteDatabase("Filename=my.db", plugins: new[] { VectorSearchPlugin.Instance });
+        /// ]]></code>
+        /// </example>
+        public static VectorSearchPlugin Instance { get; } = new VectorSearchPlugin();
+
+        private VectorSearchPlugin()
+        {
+        }
+
+        /// <summary>
+        /// Registers vector-aware index strategies, query planning rules, and expression support.
+        /// </summary>
+        /// <param name="database">Database instance that will host vector operations.</param>
+        /// <param name="context">Plugin context used to register expressions and services.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="database"/> or <paramref name="context"/> is <c>null</c>.</exception>
+        /// <example>
+        /// <code><![CDATA[
+        /// var db = new LiteDatabase("Filename=my.db", plugins: new[] { VectorSearchPlugin.Instance });
+        /// ]]></code>
+        /// </example>
+        public void Initialize(LiteDatabase database, ILitePluginContext context)
+        {
+            if (database == null)
+            {
+                throw new ArgumentNullException(nameof(database));
+            }
+
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            if (!VectorTelemetry.EnsurePluginPrerequisites(context))
+            {
+                return;
+            }
+
+            try
+            {
+                var pluginId = VectorPlugin.PluginId;
+                var defaultMetric = TryReadDefaultMetric(context.ConnectionString["vector.metric"], context.Logger);
+
+                context.SetDiagnosticPolicy(VectorPluginDiagnosticPolicy.Instance);
+
+                context.RegisterQueryMetadata(
+                    pluginId: VectorQueryMetadata.PluginId,
+                    version: VectorQueryMetadata.Version,
+                    reservedKeys: VectorQueryMetadata.ReservedKeys);
+
+                context.RegisterBsonType(VectorBsonSerializer.CreateDescriptor(pluginId));
+                context.RegisterSqlFunction(VectorSqlFunctions.CreateVectorDistance(pluginId));
+                context.RegisterSqlFunction(VectorSqlFunctions.CreateVectorSimilarity(pluginId));
+                context.RegisterQueryOperator(VectorQueryOperators.CreateVectorKnn(pluginId));
+                context.RegisterQueryCostModel(VectorQueryCostModel.Create(pluginId));
+
+                context.RegisterIndexMetadata(new PluginIndexMetadataDescriptor(
+                    pluginId: pluginId,
+                    indexKind: VectorCompatibility.DefaultIndexKind,
+                    serialize: VectorMetadataSerializer.Serialize,
+                    deserialize: VectorMetadataSerializer.Deserialize));
+
+                VectorIndexServiceFactory.Register((snapshot, collation) => new VectorIndexSearchAdapter(snapshot, collation));
+
+                context.Expressions.RegisterKeyword("VECTOR_DIST");
+                context.Expressions.RegisterBinaryOperator(
+                    "VECTOR_DIST",
+                    BsonExpressionType.Call,
+                    VectorExpressions.VectorDistance,
+                    BinaryOperatorPrecedence.Comparison,
+                    " VECTOR_DIST "); // Comparison precedence keeps distance checks aligned with relational operators.
+                context.Expressions.RegisterFunction(
+                    "VECTOR_DIST",
+                    new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorDistance),
+                    BsonExpressionType.Call,
+                    convertScalarLeftToEnumerable: false,
+                    isScalarResult: true);
+                context.Expressions.RegisterFunction(
+                    "VECTOR_DIST",
+                    new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorDistance),
+                    BsonExpressionType.Call,
+                    convertScalarLeftToEnumerable: false,
+                    isScalarResult: true);
+
+                context.Expressions.RegisterKeyword("VECTOR_SIM");
+                context.Expressions.RegisterBinaryOperator(
+                    "VECTOR_SIM",
+                    BsonExpressionType.Call,
+                    VectorExpressions.VectorSimilarity,
+                    BinaryOperatorPrecedence.Comparison,
+                    " VECTOR_SIM ");
+                context.Expressions.RegisterFunction(
+                    "VECTOR_SIM",
+                    new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorSimilarity),
+                    BsonExpressionType.Call,
+                    convertScalarLeftToEnumerable: false,
+                    isScalarResult: true);
+                context.Expressions.RegisterFunction(
+                    "VECTOR_SIM",
+                    new Func<BsonDocument, Collation, BsonDocument, BsonValue, BsonValue, BsonValue, BsonValue>(VectorExpressions.VectorSimilarity),
+                    BsonExpressionType.Call,
+                    convertScalarLeftToEnumerable: false,
+                    isScalarResult: true);
+
+                var vectorIndexStrategy = new VectorIndexStrategy(context.Logger, defaultMetric);
+                context.Indexes.Register(vectorIndexStrategy);
+                context.QueryPlanner.AddRule(new VectorIndexPlanningRule());
+
+                context.Logger.Write(LogLevel.Information, "VectorSearchPlugin initialized.");
+
+                context.RegisterPageFactory(new PageFactoryRegistration(
+                    pluginId: pluginId,
+                    pageType: "VectorIndex",
+                    numericCode: VectorPlugin.PageTypeCode,
+                    compatibilityRange: ">=8.0",
+                    factory: ctx =>
+                    {
+                        if (ctx == null)
+                        {
+                            throw new ArgumentNullException(nameof(ctx));
+                        }
+
+                        if (ctx.Buffer is not PageBuffer buffer)
+                        {
+                            throw new InvalidOperationException("Vector page factory requires a PageBuffer instance.");
+                        }
+
+                        return ctx.IsNewPage
+                            ? new VectorIndexPage(buffer, ctx.PageId)
+                            : new VectorIndexPage(buffer);
+                    }));
+
+#pragma warning disable CS0618
+                var descriptor = new CustomIndexStrategyDescriptor(
+                    pluginId: pluginId,
+                    strategyId: pluginId,
+                    ensureIndex: ctx =>
+                    {
+                        if (ctx == null)
+                        {
+                            throw new ArgumentNullException(nameof(ctx));
+                        }
+
+                        var result = ctx.EnsureContext.ExecuteDefault();
+                        ctx.EnsureContext.SetResult(result);
+                        return result;
+                    },
+                    queryPlanner: _ => { },
+                    rebuildStrategy: _ => { },
+                    requiredBsonTypes: new[] { VectorBsonConstants.TypeCode },
+                    requiredPageTypes: new[] { "VectorIndex" });
+#pragma warning restore CS0618
+
+                context.RegisterCustomIndexStrategy(descriptor);
+            }
+            catch (Exception ex)
+            {
+                VectorTelemetry.EmitInitializationFailure(context.Logger, ex);
+                throw;
+            }
+        }
+
+        private static VectorDistanceMetric? TryReadDefaultMetric(string value, ILogger logger)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            if (VectorMetricParser.TryParseString(value, out var parsed))
+            {
+                logger.Write(LogLevel.Information, $"Using '{parsed}' as the default vector distance metric from the connection string.");
+                return parsed;
+            }
+
+            logger.Write(LogLevel.Warning, $"Unrecognized vector.metric value '{value}'. Falling back to explicit index configuration.");
+            return null;
+        }
+    }
+}
+
+

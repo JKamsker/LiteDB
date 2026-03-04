@@ -1,0 +1,12 @@
+{
+    "id": "remain-in-core",
+    "status": "RemainInCore",
+    "owners": [
+        "Core Engine Team"
+    ],
+    "prerequisites": [
+        "Reevaluate once plugin parity metrics exceed current core reliability guarantees"
+    ],
+    "targetRelease": "Pending",
+    "justification": "Fallback path ensuring the core retains compatibility shims if plugin adoption stalls or cannot satisfy backward-compat requirements."
+}

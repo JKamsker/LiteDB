@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 using FluentAssertions;
 using LiteDB.Engine;
 using Xunit;
@@ -135,6 +137,169 @@ namespace LiteDB.Internals
             {
                 m.DiscardPage(pw);
             }
+        }
+
+        [Fact]
+        public void Cache_ReadablePage_FactoryException_DoesNotLeakPages()
+        {
+            var m = new MemoryCache(new int[] { 1 });
+            var initialFreePages = m.FreePages;
+
+            m.Invoking(cache => cache.GetReadablePage(0, FileOrigin.Data, (_, __) => throw new InvalidOperationException("boom")))
+                .Should()
+                .Throw<InvalidOperationException>();
+
+            m.FreePages.Should().Be(initialFreePages);
+            m.GetPages().Should().BeEmpty();
+        }
+
+        [Fact]
+        public void Cache_WritablePage_FactoryException_DoesNotLeakPages()
+        {
+            var m = new MemoryCache(new int[] { 1 });
+            var initialFreePages = m.FreePages;
+
+            m.Invoking(cache => cache.GetWritablePage(0, FileOrigin.Data, (_, __) => throw new InvalidOperationException("boom")))
+                .Should()
+                .Throw<InvalidOperationException>();
+
+            m.FreePages.Should().Be(initialFreePages);
+        }
+
+        [Fact]
+        public void Cache_ReadablePage_LostRace_DoesNotReturnDirtyTimestampZeroPages()
+        {
+            var m = new MemoryCache(new int[] { 1 });
+
+            var page = m.GetReadablePage(0, FileOrigin.Data, (pos, slice) =>
+            {
+                slice[0] = 123;
+
+                var competing = m.NewPage();
+                competing.Position = pos;
+                competing.Origin = FileOrigin.Data;
+                competing[0] = 55;
+
+                m.TryMoveToReadable(competing).Should().BeTrue();
+            });
+
+            page[0].Should().Be(55);
+            page.Release();
+
+            var writable = m.NewPage();
+
+            writable.All(0).Should().BeTrue("lost readable pages must be cleared when returned to the free list");
+
+            m.DiscardPage(writable);
+        }
+
+        [Fact]
+        public void Cache_ReadablePage_Should_Not_Corrupt_Under_Extend_Races()
+        {
+            var m = new MemoryCache(new int[] { 1 });
+            const int positions = 32;
+            const int iterations = 2000;
+
+            var expected = new byte[positions][];
+
+            for (var i = 0; i < positions; i++)
+            {
+                var buffer = new byte[Constants.PAGE_SIZE];
+                for (var j = 0; j < buffer.Length; j++)
+                {
+                    buffer[j] = (byte)(i ^ 0x5A);
+                }
+
+                expected[i] = buffer;
+
+                var page = m.GetReadablePage(i, FileOrigin.Data, (pos, slice) =>
+                {
+                    Buffer.BlockCopy(expected[(int)pos], 0, slice.Array, slice.Offset, Constants.PAGE_SIZE);
+                });
+
+                page.Release();
+            }
+
+            var errors = new ConcurrentQueue<Exception>();
+
+            var reader = Task.Run(() =>
+            {
+                try
+                {
+                    for (var i = 0; i < iterations; i++)
+                    {
+                        var pos = i % positions;
+                        var page = m.GetReadablePage(pos, FileOrigin.Data, (p, slice) =>
+                        {
+                            Buffer.BlockCopy(expected[(int)p], 0, slice.Array, slice.Offset, Constants.PAGE_SIZE);
+                        });
+
+                        page[0].Should().Be(expected[pos][0]);
+                        page[1234].Should().Be(expected[pos][1234]);
+                        page[Constants.PAGE_SIZE - 1].Should().Be(expected[pos][Constants.PAGE_SIZE - 1]);
+
+                        page.Release();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Enqueue(ex);
+                }
+            });
+
+            var evictor = Task.Run(() =>
+            {
+                try
+                {
+                    for (var i = 0; i < iterations; i++)
+                    {
+                        var pages = new List<PageBuffer>();
+
+                        for (var j = 0; j < 4; j++)
+                        {
+                            pages.Add(m.NewPage());
+                        }
+
+                        foreach (var page in pages)
+                        {
+                            m.DiscardPage(page);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Enqueue(ex);
+                }
+            });
+
+            var copier = Task.Run(() =>
+            {
+                try
+                {
+                    for (var i = 0; i < iterations; i++)
+                    {
+                        var pos = i % positions;
+                        var writable = m.GetWritablePage(pos, FileOrigin.Data, (p, slice) =>
+                        {
+                            Buffer.BlockCopy(expected[(int)p], 0, slice.Array, slice.Offset, Constants.PAGE_SIZE);
+                        });
+
+                        writable[0].Should().Be(expected[pos][0]);
+                        writable[1234].Should().Be(expected[pos][1234]);
+                        writable[Constants.PAGE_SIZE - 1].Should().Be(expected[pos][Constants.PAGE_SIZE - 1]);
+
+                        m.DiscardPage(writable);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Enqueue(ex);
+                }
+            });
+
+            Task.WaitAll(reader, evictor, copier);
+
+            errors.Should().BeEmpty();
         }
 
         [Fact]

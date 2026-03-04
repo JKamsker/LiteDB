@@ -1,0 +1,221 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using LiteDB.Engine;
+using LiteDB.Plugins;
+
+namespace LiteDB
+{
+    public sealed class LiteDatabaseFactory : ILiteDatabaseFactory
+    {
+        private sealed class Lease : IDisposable
+        {
+            private readonly LiteDatabaseFactory _factory;
+            private int _released;
+
+            public Lease(LiteDatabaseFactory factory)
+            {
+                _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+            }
+
+            public void Dispose()
+            {
+                if (Interlocked.CompareExchange(ref _released, 1, 0) != 0)
+                {
+                    return;
+                }
+
+                _factory.ReleaseLease();
+            }
+        }
+
+        private readonly ILiteEngine _engine;
+        private readonly bool _ownsEngine;
+        private readonly BsonMapper _mapper;
+        private readonly DefaultPluginContext _pluginContext;
+        private readonly IReadOnlyList<ILitePlugin> _plugins;
+        private readonly IDisposable _ownedResources;
+        private readonly LiteDatabase _hostDatabase;
+
+        private int _refCount;
+        private int _disposed;
+        private int _cleanupRan;
+
+        internal Action AfterRefCountIncrementForTesting { get; set; }
+
+        internal LiteDatabaseFactory(
+            ILiteEngine engine,
+            bool ownsEngine,
+            BsonMapper mapper,
+            DefaultPluginContext pluginContext,
+            IReadOnlyList<ILitePlugin> plugins,
+            IDisposable ownedResources)
+        {
+            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            _ownsEngine = ownsEngine;
+            _mapper = mapper ?? BsonMapper.Global;
+            _pluginContext = pluginContext ?? throw new ArgumentNullException(nameof(pluginContext));
+            _plugins = plugins ?? Array.Empty<ILitePlugin>();
+            _ownedResources = ownedResources;
+            _refCount = 1;
+
+             try
+             {
+                 _hostDatabase = new LiteDatabase(
+                     _engine,
+                     disposeOnClose: false,
+                     mapper: _mapper,
+                     pluginContext: _pluginContext,
+                     initializePlugins: true,
+                     plugins: _plugins,
+                     disallowRebuild: true);
+             }
+             catch
+             {
+                 try
+                 {
+                     _ownedResources?.Dispose();
+                 }
+                 catch
+                 {
+                     // Best-effort cleanup.
+                 }
+
+                 if (_ownsEngine)
+                 {
+                     try
+                     {
+                         _engine.Dispose();
+                     }
+                     catch
+                     {
+                         // Best-effort cleanup.
+                     }
+                 }
+
+                 throw;
+             }
+         }
+
+        public ILiteDatabase CreateDatabase()
+        {
+            Interlocked.Increment(ref _refCount);
+
+            try
+            {
+                this.AfterRefCountIncrementForTesting?.Invoke();
+            }
+            catch
+            {
+                ReleaseLease();
+                throw;
+            }
+
+            var lease = new Lease(this);
+
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                lease.Dispose();
+                throw new ObjectDisposedException(nameof(LiteDatabaseFactory));
+            }
+
+            LiteDatabase database;
+
+            try
+            {
+                database = new LiteDatabase(
+                    _engine,
+                    disposeOnClose: false,
+                    mapper: _mapper,
+                    pluginContext: _pluginContext,
+                    initializePlugins: false,
+                    plugins: null,
+                    engineLease: lease,
+                    disallowRebuild: true);
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
+
+            try
+            {
+                this.NotifyHandleCreated(database);
+            }
+            catch
+            {
+                database.Dispose();
+                throw;
+            }
+
+            return database;
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            ReleaseLease();
+        }
+
+        private void ReleaseLease()
+        {
+            if (Interlocked.Decrement(ref _refCount) != 0)
+            {
+                return;
+            }
+
+            if (Interlocked.Exchange(ref _cleanupRan, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                _ownedResources?.Dispose();
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+
+            try
+            {
+                _hostDatabase?.Dispose();
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+
+            if (_ownsEngine)
+            {
+                try
+                {
+                    _engine.Dispose();
+                }
+                catch
+                {
+                    // Best-effort cleanup.
+                }
+            }
+        }
+
+        private void NotifyHandleCreated(ILiteDatabase database)
+        {
+            if (database == null) throw new ArgumentNullException(nameof(database));
+
+            foreach (var plugin in _plugins)
+            {
+                if (plugin is ILiteDatabaseHandleLifecycle lifecycle)
+                {
+                    lifecycle.OnHandleCreated(database);
+                }
+            }
+        }
+    }
+}

@@ -1,14 +1,28 @@
-﻿using LiteDB.Engine;
+using LiteDB.Engine;
 
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
+#pragma warning disable CS0436 // Type conflicts with imported type
+// TODO-vector-plugin-abstractions: Remove these friend assemblies once the plugin no longer depends on
+// engine internals such as Snapshot, PageAddress, TransactionService, and BasePage serialization helpers.
+// LiteDB.Vector currently requires access while the page factory and rebuild abstractions solidify.
 [assembly: InternalsVisibleTo("LiteDB.Tests")]
+[assembly: InternalsVisibleTo("LiteDB.Vector")]
+[assembly: InternalsVisibleTo("LiteDB.Vector.Tests")]
+#pragma warning restore CS0436
 #if DEBUG || TESTING
 [assembly: InternalsVisibleTo("ConsoleApp1")]
 #endif
+[assembly: InternalsVisibleTo("LiteDB.Spatial")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Core")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Geographic")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Cartesian2D")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Cartesian3D")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Core.Tests")]
+[assembly: InternalsVisibleTo("LiteDB.Spatial.Testing.Oracles")]
 
 namespace LiteDB
 {
@@ -38,6 +52,11 @@ namespace LiteDB
         /// Define ShareCounter buffer as writable
         /// </summary>
         public static int BUFFER_WRITABLE = -1;
+
+        /// <summary>
+        /// Define ShareCounter buffer as being evicted from the readable cache.
+        /// </summary>
+        public static int BUFFER_EVICTING = -2;
 
         /// <summary>
         /// Define index name max length

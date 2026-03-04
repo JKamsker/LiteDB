@@ -1,0 +1,13 @@
+{
+    "id": "migration-decision-id",
+    "status": "NeedsInfrastructure",
+    "owners": [
+        "Vector Plugin",
+        "Core Engine"
+    ],
+    "prerequisites": [
+        "Summarize the concrete work required before executing this decision."
+    ],
+    "targetRelease": "vNext",
+    "justification": "Provide rationale when retaining vector logic in the core or when additional context is helpful."
+}

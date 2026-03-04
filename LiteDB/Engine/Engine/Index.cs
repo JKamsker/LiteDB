@@ -1,8 +1,10 @@
-﻿using System;
+using LiteDB.Plugins;
+using LiteDB.Plugins.Indexing;
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using LiteDB.Vector;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -54,7 +56,7 @@ namespace LiteDB.Engine
                 // read all objects (read from PK index)
                 foreach (var pkNode in new IndexAll("_id", LiteDB.Query.Ascending).Run(collectionPage, indexer))
                 {
-                    using (var reader = new BufferReader(data.Read(pkNode.DataBlock)))
+                    using (var reader = new BufferReader(data.Read(pkNode.DataBlock), utcDate: false, pluginContext: snapshot.Plugins))
                     {
                         var doc = reader.ReadDocument(expression.Fields).GetValue();
 
@@ -96,69 +98,37 @@ namespace LiteDB.Engine
         }
 
         /// <summary>
-        /// Create a new vector index (or do nothing if already exists) for a collection/field.
+        /// Create a new plugin-provided index (or do nothing if already exists) for a collection/field.
         /// </summary>
-        public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options)
+        public bool EnsureCustomIndex(string collection, string name, string strategyKind, BsonExpression expression, BsonDocument options)
         {
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
+            if (strategyKind.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(strategyKind));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
             if (options == null) throw new ArgumentNullException(nameof(options));
-            if (expression.Fields.Count == 0) throw new ArgumentException("Vector index expressions must reference a document field.", nameof(expression));
+            if (expression.Fields.Count == 0) throw new ArgumentException($"Custom index '{strategyKind}' expressions must reference a document field.", nameof(expression));
 
             if (name.Length > INDEX_NAME_MAX_LENGTH) throw LiteException.InvalidIndexName(name, collection, "MaxLength = " + INDEX_NAME_MAX_LENGTH);
             if (!name.IsWord()) throw LiteException.InvalidIndexName(name, collection, "Use only [a-Z$_]");
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
 
+            var requestedPluginId = TryGetPluginIdFromOptions(options);
+            var strategy = _plugins?.Indexes?.GetByKind(strategyKind) ?? throw this.CreatePluginRequiredException(
+                pluginId: requestedPluginId,
+                strategyKind: strategyKind,
+                operation: "EnsureCustomIndex",
+                collection: collection,
+                indexName: name,
+                expression: expression.Source,
+                options: options);
+
             return this.AutoTransaction(transaction =>
             {
                 var snapshot = transaction.CreateSnapshot(LockMode.Write, collection, true);
                 var collectionPage = snapshot.CollectionPage;
-                var indexer = new IndexService(snapshot, _header.Pragmas.Collation, _disk.MAX_ITEMS_COUNT);
-                var data = new DataService(snapshot, _disk.MAX_ITEMS_COUNT);
-                var vectorService = new VectorIndexService(snapshot, _header.Pragmas.Collation);
 
-                var existing = collectionPage.GetCollectionIndex(name);
-                var existingMetadata = collectionPage.GetVectorIndexMetadata(name);
-
-                if (existing != null && existing.IndexType != 1)
-                {
-                    throw LiteException.IndexAlreadyExist(name);
-                }
-
-                if (existing != null && existingMetadata != null)
-                {
-                    if (existing.Expression != expression.Source)
-                    {
-                        throw LiteException.IndexAlreadyExist(name);
-                    }
-
-                    if (existingMetadata.Dimensions != options.Dimensions || existingMetadata.Metric != options.Metric)
-                    {
-                        throw new LiteException(0, $"Vector index '{name}' already exists with different options.");
-                    }
-
-                    return false;
-                }
-
-                LOG($"create vector index `{collection}.{name}`", "COMMAND");
-
-                var tuple = collectionPage.InsertVectorIndex(name, expression.Source, options.Dimensions, options.Metric);
-
-                foreach (var pkNode in new IndexAll("_id", LiteDB.Query.Ascending).Run(collectionPage, indexer))
-                {
-                    _state.Validate();
-
-                    using (var reader = new BufferReader(data.Read(pkNode.DataBlock)))
-                    {
-                        var doc = reader.ReadDocument(expression.Fields).GetValue();
-                        vectorService.Upsert(tuple.Index, tuple.Metadata, doc, pkNode.DataBlock);
-                    }
-
-                    transaction.Safepoint();
-                }
-
-                return true;
+                return strategy.EnsureIndex(snapshot, collectionPage, name, expression, options);
             });
         }
 
@@ -187,17 +157,24 @@ namespace LiteDB.Engine
                 // no index, no drop
                 if (index == null) return false;
 
-                if (index.IndexType == 1)
+                if (index.IndexType != 0)
                 {
-                    var metadata = col.GetVectorIndexMetadata(name);
-                    if (metadata != null)
+                    var strategy = _plugins?.Indexes?.GetByType(index.IndexType);
+
+                    if (strategy == null)
                     {
-                        var vectorService = new VectorIndexService(snapshot, _header.Pragmas.Collation);
-                        vectorService.Drop(metadata);
+                        var strategyName = $"type:{index.IndexType}";
+                        throw this.CreatePluginRequiredException(
+                            pluginId: this.TryGetPluginIdForIndex(col, name),
+                            strategyKind: strategyName,
+                            operation: "DropCustomIndex",
+                            collection: collection,
+                            indexName: name,
+                            expression: index.Expression,
+                            options: null);
                     }
 
-                    snapshot.CollectionPage.DeleteCollectionIndex(name);
-                    return true;
+                    return strategy.DropIndex(snapshot, col, name);
                 }
 
                 // delete all data pages + indexes pages
@@ -209,5 +186,95 @@ namespace LiteDB.Engine
                 return true;
             });
         }
+
+        private LiteException CreatePluginRequiredException(string pluginId, string strategyKind, string operation, string collection, string indexName, string expression, BsonDocument options)
+        {
+            var diagnostics = new BsonDocument
+            {
+                ["event"] = "plugin.index_required",
+                ["operation"] = operation ?? string.Empty,
+                ["collection"] = collection ?? string.Empty,
+                ["index"] = indexName ?? string.Empty,
+                ["expression"] = expression ?? string.Empty,
+                ["strategyKind"] = strategyKind ?? string.Empty,
+                ["pluginContextAvailable"] = _plugins != null,
+                ["strategyRegistryAvailable"] = _plugins?.CustomIndexes != null,
+                ["pluginId"] = pluginId ?? string.Empty,
+                ["registeredStrategies"] = this.GetRegisteredCustomStrategies()
+            };
+
+            if (options != null && options.Count > 0)
+            {
+                var optionCopy = new BsonDocument();
+                options.CopyTo(optionCopy);
+                diagnostics["options"] = optionCopy;
+            }
+
+            var policy = _plugins?.DiagnosticPolicy ?? DefaultPluginDiagnosticPolicy.Instance;
+            var exception = policy.CreateMissingPluginException(pluginId, operation ?? "PluginOperation", diagnostics);
+
+            LOG($"custom index plugin missing: {diagnostics.ToString()}", "PLUGIN");
+
+            return exception;
+        }
+
+        private static string TryGetPluginIdFromOptions(BsonDocument options)
+        {
+            if (options == null)
+            {
+                return null;
+            }
+
+            if (!options.TryGetValue("_pluginMetadata", out var envelope) || envelope.IsDocument == false)
+            {
+                return null;
+            }
+
+            var document = envelope.AsDocument;
+            if (!document.TryGetValue("pluginId", out var pluginIdValue) || pluginIdValue.IsString == false)
+            {
+                return null;
+            }
+
+            return pluginIdValue.AsString;
+        }
+
+        private string TryGetPluginIdForIndex(CollectionPage collectionPage, string indexName)
+        {
+            if (collectionPage == null || string.IsNullOrWhiteSpace(indexName))
+            {
+                return null;
+            }
+
+            foreach (var (index, pluginId, _) in collectionPage.GetPluginIndexes())
+            {
+                if (string.Equals(index?.Name, indexName, StringComparison.Ordinal))
+                {
+                    return pluginId;
+                }
+            }
+
+            return null;
+        }
+
+        private BsonArray GetRegisteredCustomStrategies()
+        {
+            var array = new BsonArray();
+            var registered = _plugins?.CustomIndexes?.Registered;
+
+            if (registered != null)
+            {
+                foreach (var descriptor in registered)
+                {
+                    if (descriptor?.StrategyId != null)
+                    {
+                        array.Add(descriptor.StrategyId);
+                    }
+                }
+            }
+
+            return array;
+        }
     }
 }
+

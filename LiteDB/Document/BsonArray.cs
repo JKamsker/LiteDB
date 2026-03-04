@@ -6,6 +6,7 @@ using static LiteDB.Constants;
 
 namespace LiteDB
 {
+    [Serializable]
     public class BsonArray : BsonValue, IList<BsonValue>
     {
         public BsonArray()

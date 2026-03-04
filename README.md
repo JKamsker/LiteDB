@@ -48,6 +48,12 @@ New UI to manage and visualize your database:
 
 Visit [the Wiki](https://github.com/mbdavid/LiteDB/wiki) for full documentation. For simplified chinese version, [check here](https://github.com/lidanger/LiteDB.wiki_Translation_zh-cn).
 
+## Spatial Plugin Enablement
+
+- Follow the [spatial plugin enablement checklist](docs/spatial-plugin-enable-checklist.md) when preparing internal releases.
+- Walk through the [spatial quickstart](specs/001-spatial-plugin-migration/quickstart.md) to validate configuration end-to-end.
+- Use `samples/SpatialApiSample` as the reference implementation for registering plugins and exercising spatial queries.
+
 ## LiteDB Community
 
 Help LiteDB grow its user community by answering this [simple survey](https://docs.google.com/forms/d/e/1FAIpQLSc4cNG7wyLKXXcOLIt7Ea4TlXCG6s-51_EfHPu2p5WZ2dIx7A/viewform?usp=sf_link)
@@ -157,6 +163,39 @@ using(var db = new LiteDatabase("MyOrderDatafile.db"))
 - UltraLiteDB (for Unity or IOT): https://github.com/rejemy/UltraLiteDB
 - OneBella - cross platform (windows, macos, linux) GUI tool : https://github.com/namigop/OneBella
 - LiteDB.Migration: Framework that makes schema migrations easier: https://github.com/JKamsker/LiteDB.Migration/
+
+## Vector Search Plugin (LiteDB.Vector)
+
+LiteDB 6.0+ keeps vector search fully optional by moving every vector API, BSON type, and index implementation into the `LiteDB.Vector` plugin. The core `LiteDB` package now exposes only plugin-neutral extension points, so applications that do not install the plugin stay free of vector dependencies.
+
+### Install and register the plugin
+
+1. Add the NuGet packages to every project that needs vector search:
+
+   ```bash
+   dotnet add package LiteDB
+   dotnet add package LiteDB.Vector
+   ```
+
+2. Register the plugin when constructing `LiteDatabase` so the engine can load the BSON, index, and query hooks supplied by LiteDB.Vector:
+
+   ```csharp
+   var options = new LiteDatabaseOptions
+   {
+       Plugins = new ILitePlugin[] { VectorSearchPlugin.Instance }
+   };
+
+   using var db = new LiteDatabase(connectionString, options: options);
+   ```
+
+3. Call the vector extension helpers from `LiteDB.Vector` (`LiteCollectionVectorExtensions.EnsureIndex`, `DropIndex`, etc.). Vector APIs are not available from the base assembly anymore and will throw a `LiteException (LITE2002 / PLUGIN_REQUIRED)` if the plugin is missing.
+
+### Compatibility notes and breaking changes
+
+- Databases created without vector data behave exactly as before; LiteDB simply omits the plugin-specific hooks.
+- If LiteDB opens a file that contains vector-owned indexes and the plugin is **not** registered, behavior is controlled by `PluginMissingBehavior` (default strict): affected collections/indexes throw `LiteException (LITE2002 / PLUGIN_REQUIRED)` when accessed; warnings are emitted only in non-strict modes. Non-vector collections remain usable.
+- Prerelease vector builds (before LiteDB.Vector shipped) wrote metadata formats the GA plugin does not read. Migrate those databases by exporting/importing documents or by using the final prerelease build to drop the legacy vector indexes before upgrading; otherwise GA releases will continue to emit `LITE2002`.
+- See `docs/vector-plugin-isolation.md` for the full migration checklist, compatibility matrix, and CI guidance.
 
 ## Changelog
 

@@ -17,7 +17,7 @@ namespace LiteDB.Tests.Engine
     public class Transactions_Tests
     {
         const int MIN_CPU_COUNT = 2;
-        
+
         [CpuBoundFact(MIN_CPU_COUNT)]
         public async Task Transaction_Write_Lock_Timeout()
         {
@@ -75,7 +75,7 @@ namespace LiteDB.Tests.Engine
             }
         }
 
-        
+
         [CpuBoundFact(MIN_CPU_COUNT)]
         public async Task Transaction_Avoid_Dirty_Read()
         {
@@ -135,7 +135,7 @@ namespace LiteDB.Tests.Engine
                 await Task.WhenAll(ta, tb);
             }
         }
-       
+
 
         [CpuBoundFact(MIN_CPU_COUNT)]
         public async Task Transaction_Read_Version()
@@ -230,6 +230,61 @@ namespace LiteDB.Tests.Engine
                 person.Insert(data1);
 
                 person.Count().Should().Be(20);
+            }
+        }
+
+        [Fact]
+        public void Commit_failure_should_release_transaction()
+        {
+            using var logStream = new ToggleThrowStream();
+            using var dataStream = new MemoryStream();
+            using var engine = new LiteEngine(new EngineSettings
+            {
+                DataStream = dataStream,
+                LogStream = logStream
+            });
+            using var db = new LiteDatabase(engine);
+
+            var col = db.GetCollection<BsonDocument>("col");
+
+            db.BeginTrans().Should().BeTrue();
+            col.Insert(new BsonDocument { ["_id"] = 1 });
+
+            logStream.ThrowOnWrite = true;
+
+            db.Invoking(x => x.Commit())
+                .Should()
+                .Throw<InvalidOperationException>();
+
+            db.BeginTrans().Should().BeTrue("failed commits must not leave the current thread in an active transaction");
+            db.Rollback().Should().BeTrue();
+        }
+
+        [CpuBoundFact(MIN_CPU_COUNT)]
+        public void Test_Transaction_Finalizer()
+        {
+            var db = new LiteDatabase(new MemoryStream());
+            db.BeginTrans();
+
+            GC.Collect(0, GCCollectionMode.Forced);
+
+            // Finalizer should not throw exception
+            // If it does, it will be an unhandled exception
+            GC.WaitForPendingFinalizers();
+        }
+
+        private sealed class ToggleThrowStream : MemoryStream
+        {
+            public bool ThrowOnWrite { get; set; }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                if (ThrowOnWrite)
+                {
+                    throw new InvalidOperationException("Simulated log stream failure.");
+                }
+
+                base.Write(buffer, offset, count);
             }
         }
 
@@ -337,11 +392,57 @@ namespace LiteDB.Tests.Engine
 
 #endif
 
+        [CpuBoundFact(MIN_CPU_COUNT)]
+        public async Task ForUpdate_Query_Should_Not_Leak_Collection_Write_Lock()
+        {
+            using (var db = DatabaseFactory.Create(connectionString: "filename=:memory:"))
+            {
+                db.Pragma(Pragmas.TIMEOUT, 1);
+                SetEngineTimeout(db, TimeSpan.FromMilliseconds(50));
+
+                var person = db.GetCollection<Person>();
+
+                person.Insert(new Person { Id = 1, Name = "John" });
+
+                var readerDisposed = new SemaphoreSlim(0, 1);
+                var keepThreadAlive = new SemaphoreSlim(0, 1);
+
+                var ta = Task.Run(() =>
+                {
+                    using (var reader = person.Query().ForUpdate().ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                        }
+                    }
+
+                    readerDisposed.Release();
+                    keepThreadAlive.Wait();
+                });
+
+                var tb = Task.Run(() =>
+                {
+                    readerDisposed.Wait();
+
+                    person
+                        .Invoking(x => x.Insert(new Person { Id = 2, Name = "Jane" }))
+                        .Should()
+                        .NotThrow();
+                });
+
+                await tb;
+
+                keepThreadAlive.Release();
+
+                await ta;
+            }
+        }
+
         private class BlockingStream : MemoryStream
         {
-            public readonly AutoResetEvent   Blocked       = new AutoResetEvent(false);
+            public readonly AutoResetEvent Blocked = new AutoResetEvent(false);
             public readonly ManualResetEvent ShouldUnblock = new ManualResetEvent(false);
-            public          bool             ShouldBlock;
+            public bool ShouldBlock;
 
             public override void Write(byte[] buffer, int offset, int count)
             {
@@ -358,10 +459,10 @@ namespace LiteDB.Tests.Engine
         [CpuBoundFact(MIN_CPU_COUNT)]
         public void Test_Transaction_ReleaseWhenFailToStart()
         {
-            var    blockingStream             = new BlockingStream();
-            var    db                         = new LiteDatabase(blockingStream);
+            var blockingStream = new BlockingStream();
+            var db = new LiteDatabase(blockingStream);
             SetEngineTimeout(db, TimeSpan.FromMilliseconds(50));
-            Thread lockerThread               = null;
+            Thread lockerThread = null;
             try
             {
                 lockerThread = new Thread(() =>
@@ -432,11 +533,11 @@ namespace LiteDB.Tests.Engine
             var engine = GetLiteEngine(database);
 
             var headerField = typeof(LiteEngine).GetField("_header", BindingFlags.Instance | BindingFlags.NonPublic);
-            var header      = headerField?.GetValue(engine) ?? throw new InvalidOperationException("LiteEngine header not available.");
+            var header = headerField?.GetValue(engine) ?? throw new InvalidOperationException("LiteEngine header not available.");
             var pragmasProp = header.GetType().GetProperty("Pragmas", BindingFlags.Instance | BindingFlags.Public) ?? throw new InvalidOperationException("Engine pragmas not accessible.");
-            var pragmas     = pragmasProp.GetValue(header) ?? throw new InvalidOperationException("Engine pragmas not available.");
+            var pragmas = pragmasProp.GetValue(header) ?? throw new InvalidOperationException("Engine pragmas not available.");
             var timeoutProp = pragmas.GetType().GetProperty("Timeout", BindingFlags.Instance | BindingFlags.Public) ?? throw new InvalidOperationException("Timeout property not found.");
-            var setter      = timeoutProp.GetSetMethod(true) ?? throw new InvalidOperationException("Timeout setter not accessible.");
+            var setter = timeoutProp.GetSetMethod(true) ?? throw new InvalidOperationException("Timeout setter not accessible.");
 
             setter.Invoke(pragmas, new object[] { timeout });
         }
