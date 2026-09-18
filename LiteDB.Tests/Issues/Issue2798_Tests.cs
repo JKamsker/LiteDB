@@ -59,7 +59,7 @@ namespace LiteDB.Tests.Issues
             throughInterface.Insert(new DatedRow { Time = recent, Marker = 3 });
 
             var raw = db.GetCollection("dated").FindAll().OrderBy(x => x["_id"]).ToArray();
-            raw.Select(x => x["_id"].AsDateTime).Should().Equal(old, middle, recent);
+            raw.Select(x => x["_id"].AsDateTime.ToUniversalTime()).Should().Equal(old, middle, recent);
             raw.Select(x => x["Marker"].AsInt32).Should().Equal(1, 2, 3);
             throughInterface.FindById(middle).Marker.Should().Be(2);
 
