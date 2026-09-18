@@ -10,6 +10,27 @@ namespace LiteDB.Engine
     public partial class LiteEngine
     {
         /// <summary>
+        /// Read-only databases cannot create an index, but "ensure" of an index that already
+        /// exists is a no-op and must keep working (common startup pattern).
+        /// </summary>
+        private bool EnsureIndexReadOnly(string collection, string name, string expression)
+        {
+            var exists = this.AutoTransaction(transaction =>
+            {
+                var snapshot = transaction.CreateSnapshot(LockMode.Read, collection, false);
+                var current = snapshot.CollectionPage?.GetCollectionIndex(name);
+
+                if (current != null && current.Expression != expression) throw LiteException.IndexAlreadyExist(name);
+
+                return current != null;
+            });
+
+            if (exists == false) throw new NotSupportedException("Cannot create an index in a read-only database.");
+
+            return false;
+        }
+
+        /// <summary>
         /// Create a new index (or do nothing if already exists) to a collection/field
         /// </summary>
         public bool EnsureIndex(string collection, string name, BsonExpression expression, bool unique)
@@ -27,7 +48,7 @@ namespace LiteDB.Engine
             if (expression.Source == "$._id") return false; // always exists
 
             _state.Validate();
-            if (_settings.ReadOnly) throw new NotSupportedException("Cannot create an index in a read-only database.");
+            if (_settings.ReadOnly) return this.EnsureIndexReadOnly(collection, name, expression.Source);
 
             return this.AutoTransaction(transaction =>
             {
@@ -114,7 +135,7 @@ namespace LiteDB.Engine
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
 
             _state.Validate();
-            if (_settings.ReadOnly) throw new NotSupportedException("Cannot create an index in a read-only database.");
+            if (_settings.ReadOnly) return this.EnsureIndexReadOnly(collection, name, expression.Source);
 
             return this.AutoTransaction(transaction =>
             {

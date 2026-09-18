@@ -46,5 +46,29 @@ namespace LiteDB.Tests.Issues
             }
             Assert.Equal(before, File.ReadAllBytes(file.Filename));
         }
+            [Theory]
+        [InlineData(ConnectionType.Direct)]
+        [InlineData(ConnectionType.Shared)]
+        public void Ensuring_an_existing_index_is_a_readonly_no_op(ConnectionType mode)
+        {
+            using var file = new TempFile();
+            using (var setup = new LiteDatabase(file.Filename))
+            {
+                var rows = setup.GetCollection("rows");
+                rows.EnsureIndex("value");
+                rows.Insert(new BsonDocument { ["_id"] = 1, ["value"] = 4 });
+            }
+            var before = File.ReadAllBytes(file.Filename);
+            using (var db = new LiteDatabase(new ConnectionString { Filename = file.Filename, ReadOnly = true, Connection = mode }))
+            {
+                var rows = db.GetCollection("rows");
+                Assert.False(rows.EnsureIndex("value"));
+                Assert.Throws<LiteException>(() => rows.EnsureIndex("value", "$.other"));
+                Assert.Throws<NotSupportedException>(() => rows.EnsureIndex("missing"));
+                Assert.Throws<NotSupportedException>(() => db.GetCollection("absent").EnsureIndex("value"));
+                Assert.Equal(1, rows.Count(Query.EQ("value", 4)));
+            }
+            Assert.Equal(before, File.ReadAllBytes(file.Filename));
+        }
     }
 }
