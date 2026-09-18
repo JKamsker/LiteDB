@@ -148,6 +148,47 @@ namespace LiteDB.Tests.Issues
             }
         }
 
+        public static IEnumerable<object[]> BackingTypeBounds()
+        {
+            yield return new object[] { typeof(SignedByte), (long)SByte.MinValue, (long)SByte.MaxValue };
+            yield return new object[] { typeof(UnsignedByte), (long)Byte.MinValue, (long)Byte.MaxValue };
+            yield return new object[] { typeof(SignedShort), (long)Int16.MinValue, (long)Int16.MaxValue };
+            yield return new object[] { typeof(UnsignedShort), (long)UInt16.MinValue, (long)UInt16.MaxValue };
+            yield return new object[] { typeof(SignedInt), (long)Int32.MinValue, (long)Int32.MaxValue };
+            yield return new object[] { typeof(UnsignedInt), (long)UInt32.MinValue, (long)UInt32.MaxValue };
+        }
+
+        [Theory]
+        [MemberData(nameof(BackingTypeBounds))]
+        public void Stored_integers_at_the_backing_type_bounds_still_deserialize(Type enumType, long min, long max)
+        {
+            var mapper = new BsonMapper();
+
+            Convert.ToInt64(mapper.Deserialize(enumType, new BsonValue(min))).Should().Be(min);
+            Convert.ToInt64(mapper.Deserialize(enumType, new BsonValue(max))).Should().Be(max);
+        }
+
+        [Theory]
+        [MemberData(nameof(BackingTypeBounds))]
+        public void Stored_integers_outside_the_backing_type_throw_instead_of_truncating(Type enumType, long min, long max)
+        {
+            var mapper = new BsonMapper();
+
+            Assert.Throws<OverflowException>(() => mapper.Deserialize(enumType, new BsonValue(min - 1)));
+            Assert.Throws<OverflowException>(() => mapper.Deserialize(enumType, new BsonValue(max + 1)));
+        }
+
+        [Fact]
+        public void Int64_backed_enums_accept_the_whole_stored_range()
+        {
+            var mapper = new BsonMapper();
+
+            mapper.Deserialize(typeof(SignedLong), new BsonValue(Int64.MinValue)).Should().Be((SignedLong)Int64.MinValue);
+            mapper.Deserialize(typeof(SignedLong), new BsonValue(Int64.MaxValue)).Should().Be((SignedLong)Int64.MaxValue);
+            mapper.Deserialize(typeof(UnsignedLong), new BsonValue(Int64.MinValue)).Should().Be((UnsignedLong)0x8000000000000000);
+            mapper.Deserialize(typeof(UnsignedLong), new BsonValue(Int64.MaxValue)).Should().Be((UnsignedLong)Int64.MaxValue);
+        }
+
         private static void AssertTypedQuery(
             ILiteCollection<UnsignedLongRow> collection,
             UnsignedLong value,
