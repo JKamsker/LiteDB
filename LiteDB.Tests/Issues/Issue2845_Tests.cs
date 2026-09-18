@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using FluentAssertions;
@@ -17,6 +17,20 @@ namespace LiteDB.Tests.Issues
             var value = JsonSerializer.Deserialize(json);
             value.Type.Should().Be(BsonType.Double);
             BitConverter.DoubleToInt64Bits(value.AsDouble).Should().Be(long.MinValue);
+        }
+
+        [Theory]
+        [InlineData(0.1, "0.1")]
+        [InlineData(0.3, "0.3")]
+        [InlineData(19.99, "19.99")]
+        [InlineData(2.675, "2.675")]
+        [InlineData(1.0, "1.0")]
+        [InlineData(100.0, "100.0")]
+        [InlineData(0.1 + 0.2, "0.30000000000000004")]
+        public void Json_writes_the_shortest_text_that_preserves_double_bits(double value, string expected)
+        {
+            JsonSerializer.Serialize(new BsonValue(value)).Should().Be(expected);
+            JsonSerializer.Serialize(new BsonDocument { ["price"] = value }).Should().Be("{\"price\":" + expected + "}");
         }
 
         [Fact]
