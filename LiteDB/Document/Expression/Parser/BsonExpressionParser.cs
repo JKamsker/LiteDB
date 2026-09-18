@@ -477,37 +477,19 @@ namespace LiteDB
 
             if (value != null)
             {
-                var isInt32 = Int32.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out var i32);
-                if (isInt32)
-                {
-                    var constant32 = Expression.Constant(new BsonValue(i32));
-
-                    return new BsonExpression
-                    {
-                        Type = BsonExpressionType.Int,
-                        Parameters = parameters,
-                        IsImmutable = true,
-                        UseSource = false,
-                        IsScalar = true,
-                        Fields = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                        Expression = constant32,
-                        Source = i32.ToString(CultureInfo.InvariantCulture.NumberFormat)
-                    };
-                }
-
-                var isInt64 = Int64.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture.NumberFormat, out var i64);
-                var literal = isInt64 ? new BsonValue(i64) : new BsonValue(value);
+                var literal = JsonReader.ParseInteger(value);
 
                 return new BsonExpression
                 {
-                    Type = isInt64 ? BsonExpressionType.Int : BsonExpressionType.String,
+                    Type = literal.IsDouble ? BsonExpressionType.Double : BsonExpressionType.Int,
                     Parameters = parameters,
                     IsImmutable = true,
                     UseSource = false,
                     IsScalar = true,
                     Fields = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                     Expression = Expression.Constant(literal),
-                    Source = isInt64 ? i64.ToString(CultureInfo.InvariantCulture.NumberFormat) : JsonSerializer.Serialize(literal)
+                    // The lexeme is the only spelling of a Double-sized integer that reparses to the same value.
+                    Source = literal.IsDouble ? value : Convert.ToString(literal.RawValue, CultureInfo.InvariantCulture)
                 };
             }
 

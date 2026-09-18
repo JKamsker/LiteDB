@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Linq;
 using FluentAssertions;
 using Xunit;
@@ -20,27 +21,22 @@ namespace LiteDB.Tests.Issues
         }
 
         [Fact]
-        public void Out_of_range_unquoted_numeric_token_matches_the_complete_string_value()
+        public void Out_of_range_unquoted_numeric_token_is_a_number_like_every_shorter_token()
         {
             const string digits = "111111111111111111111111111111111111";
             using var db = new LiteDatabase(":memory:");
             var col = db.GetCollection("rows");
             col.Insert(new[]
             {
-                new BsonDocument { ["_id"] = 1, ["Name"] = digits, ["marker"] = "exact" },
-                new BsonDocument { ["_id"] = 2, ["Name"] = digits + "2", ["marker"] = "suffix" },
-                new BsonDocument { ["_id"] = 3, ["Name"] = "1" + digits, ["marker"] = "prefix" }
+                new BsonDocument { ["_id"] = 1, ["Name"] = digits },
+                new BsonDocument { ["_id"] = 2, ["Name"] = "123" },
+                new BsonDocument { ["_id"] = 3, ["Name"] = double.Parse(digits, CultureInfo.InvariantCulture) }
             });
 
-            var expression = BsonExpression.Create("$.Name = " + digits);
-            var matches = col.Find(expression).ToArray();
-
-            matches.Should().ContainSingle();
-            matches[0]["_id"].AsInt32.Should().Be(1);
-            matches[0]["Name"].AsString.Should().Be(digits);
-            matches[0]["marker"].AsString.Should().Be("exact");
-            col.FindById(2)["Name"].AsString.Should().Be(digits + "2");
-            col.FindById(3)["Name"].AsString.Should().Be("1" + digits);
+            // An unquoted token never matches a string field, whatever its length; the query no longer throws.
+            col.Find("$.Name = 123").Should().BeEmpty();
+            col.Find("$.Name = " + digits).Select(x => x["_id"].AsInt32).Should().Equal(3);
+            col.Find("$.Name > " + digits).Select(x => x["_id"].AsInt32).Should().Equal(1, 2);
         }
     }
 }
