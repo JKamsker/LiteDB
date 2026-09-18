@@ -47,6 +47,33 @@ namespace LiteDB.Tests.Issues
             Assert.Equal(2, mapper.Calls);
         }
 
+        public class ValuesDto
+        {
+            public List<int> Values { get; set; }
+            public int Extra { get; set; }
+        }
+
+        [Fact]
+        public void Raw_projection_documents_still_map_as_documents_through_public_ToObject()
+        {
+            using var db = new LiteDatabase(":memory:");
+            var rows = db.GetCollection<Row>("rows");
+            rows.Insert(new Row { Id = 1, Values = new List<int> { 7 } });
+
+            foreach (var doc in new[]
+            {
+                rows.Query().Select("$.Values").ToDocuments().Single(),
+                rows.Query().Select("$.Values").ToList().Single(),
+                rows.Query().Select("$.Values").ToEnumerable().Single()
+            })
+            {
+                doc["Extra"] = 3;
+                var dto = BsonMapper.Global.ToObject<ValuesDto>(doc);
+                Assert.Equal(new[] { 7 }, dto.Values);
+                Assert.Equal(3, dto.Extra);
+            }
+        }
+
         [Fact]
         public void Custom_document_serialized_collection_is_not_unwrapped()
         {
