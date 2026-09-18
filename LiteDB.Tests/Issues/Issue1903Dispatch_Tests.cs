@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Xunit;
 
 namespace LiteDB.Tests.Issues
@@ -57,6 +58,73 @@ namespace LiteDB.Tests.Issues
             var expected = new InvalidOperationException("decoder");
             mapper.RegisterType<Entity>(_ => BsonValue.Null, _ => throw expected);
             Assert.Same(expected, Assert.Throws<InvalidOperationException>(() => mapper.ToObject<IEntity>(doc)));
+        }
+
+        public class Node : IEntity
+        {
+            public string Name { get; set; }
+            public bool PostProcessed { get; set; }
+            public List<IEntity> Children { get; set; }
+        }
+
+        private static BsonMapper MapperWithDelegatingNodeDecoder(Action onCall)
+        {
+            var mapper = new BsonMapper();
+
+            mapper.RegisterType<Node>(_ => BsonValue.Null, bson =>
+            {
+                onCall();
+                var node = (Node)mapper.Deserialize(typeof(IEntity), bson);
+                node.PostProcessed = true;
+                return node;
+            });
+
+            return mapper;
+        }
+
+        [Fact]
+        public void Decoder_delegating_to_default_materialisation_runs_once_per_document()
+        {
+            var calls = 0;
+            var mapper = MapperWithDelegatingNodeDecoder(() => calls++);
+            var doc = Document(typeof(Node));
+            doc["Name"] = "root";
+
+            var node = Assert.IsType<Node>(mapper.ToObject<IEntity>(doc));
+
+            Assert.Equal("root", node.Name);
+            Assert.True(node.PostProcessed);
+            Assert.Equal(1, calls);
+        }
+
+        [Fact]
+        public void Delegating_decoder_still_decodes_nested_documents_of_the_same_type()
+        {
+            var calls = 0;
+            var mapper = MapperWithDelegatingNodeDecoder(() => calls++);
+            var child = Document(typeof(Node));
+            child["Name"] = "child";
+            var doc = Document(typeof(Node));
+            doc["Children"] = new BsonArray { child };
+
+            var node = Assert.IsType<Node>(mapper.ToObject<IEntity>(doc));
+
+            var nested = Assert.IsType<Node>(Assert.Single(node.Children));
+            Assert.Equal("child", nested.Name);
+            Assert.True(nested.PostProcessed);
+            Assert.Equal(2, calls);
+        }
+
+        [Fact]
+        public void Delegating_decoder_is_used_again_after_a_failed_callback()
+        {
+            var calls = 0;
+            var mapper = MapperWithDelegatingNodeDecoder(() => { if (calls++ == 0) throw new InvalidOperationException(); });
+            var doc = Document(typeof(Node));
+
+            Assert.Throws<InvalidOperationException>(() => mapper.ToObject<IEntity>(doc));
+
+            Assert.True(Assert.IsType<Node>(mapper.ToObject<IEntity>(doc)).PostProcessed);
         }
     }
 }
