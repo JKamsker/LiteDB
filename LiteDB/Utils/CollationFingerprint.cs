@@ -8,7 +8,16 @@ namespace LiteDB
 {
     internal static class CollationFingerprint
     {
-        internal static uint Compute(Collation collation)
+        // The fingerprint depends only on the collation's culture and options and on this
+        // process' runtime sort data, none of which can change while the process runs.
+        // Every engine open validates the stored stamp (several times), so memoize it.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, int, CompareOptions), uint> _cache =
+            new System.Collections.Concurrent.ConcurrentDictionary<(string, int, CompareOptions), uint>();
+
+        internal static uint Compute(Collation collation) =>
+            _cache.GetOrAdd((collation.Culture.Name, collation.LCID, collation.SortOptions), _ => Calculate(collation));
+
+        private static uint Calculate(Collation collation)
         {
             using (var data = new MemoryStream())
             using (var writer = new BinaryWriter(data, Encoding.UTF8, true))
