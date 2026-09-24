@@ -23,20 +23,31 @@ namespace LiteDB.Client.Shared
             _getFiles = getFiles ?? Directory.GetFiles;
         }
 
+        /// <summary>
+        /// Lease <paramref name="version"/> until the returned handle is disposed. The caller
+        /// owns the mutex. A registry that cannot be inspected refuses the lease, and the
+        /// caller streams under the mutex instead; otherwise nothing is scanned or removed
+        /// here: checkpoints remove dead leases (crashed owners) themselves, and fail closed
+        /// on a registry they cannot read. An exclusive open handle is the lease, as before:
+        /// a prober's exclusive open fails while it is held (sharing violation, or LOCK_EX on
+        /// Unix). DeleteOnClose removes the file only when its owner closes it (on Unix at
+        /// Dispose, never while open), so a closed lease no longer has to be proven dead,
+        /// deleted and its directory recreated by the next registration.
+        /// </summary>
         internal IDisposable Register(int version)
         {
-            if (this.LiveVersions() == null)
-                throw new IOException("The shared-reader registry could not be inspected.");
-            Directory.CreateDirectory(_directory);
-            var name = version.ToString(CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N") + ".lease";
-            return new FileStream(Path.Combine(_directory, name), System.IO.FileMode.CreateNew,
-                FileAccess.ReadWrite, FileShare.None);
+            try { _getFiles(_directory, "*.lease"); }
+            catch (DirectoryNotFoundException) { }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                throw new IOException("The shared-reader registry could not be inspected.", ex);
+            }
+            return this.RegisterUnscanned(version);
         }
 
         /// <summary>
-        /// Experimental coordinator: register without first scanning the registry. The
-        /// coordinator's scan still fails closed if the directory cannot be read. The
-        /// file disappears when its handle closes, so closed leases never pile up.
+        /// Experimental coordinator: register without inspecting the registry first. The
+        /// coordinator's scan still fails closed if the directory cannot be read.
         /// </summary>
         internal IDisposable RegisterUnscanned(int version)
         {
