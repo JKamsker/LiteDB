@@ -90,7 +90,11 @@ namespace LiteDB
         /// Open database in safe mode. Returns the pin the operation runs under, or
         /// null when the operation owns a recursion of the named mutex instead.
         /// </summary>
-        private SharedMutexPin OpenDatabase()
+        /// <summary>
+        /// Open for an operation. A <paramref name="scoped"/> caller closes on the same thread
+        /// before it returns; its ownership then takes the OS mutex directly on this thread.
+        /// </summary>
+        private SharedMutexPin OpenDatabase(bool scoped = false)
         {
             var pin = _pin;
             if (pin != null)
@@ -101,7 +105,7 @@ namespace LiteDB
             }
 
             // Acquire mutex for every call to open DB.
-            var recoveredAbandonedOwner = _owner.Enter();
+            var recoveredAbandonedOwner = _owner.Enter(scoped);
 
             try
             {
@@ -477,7 +481,7 @@ namespace LiteDB
 
         private T QueryDatabase<T>(Func<T> Query)
         {
-            var use = OpenDatabase();
+            var use = OpenDatabase(scoped: true);
             try
             {
                 return Query();

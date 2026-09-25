@@ -12,6 +12,15 @@ namespace LiteDB
         private const int BUFFERED_RESULT_VALUES = 100;
         private const int BUFFERED_RESULT_BYTES = 64 * 1024;
 
+        private const int LEASES_UNKNOWN = 0;
+        private const int LEASES_AVAILABLE = 1;
+        private const int LEASES_UNAVAILABLE = 2;
+
+        // Whether the last reader-lease registration succeeded. A pure read's ownership
+        // ends before Query returns only when a larger result can be leased, so only then
+        // is it scoped; without leases it streams under the mutex, beyond the call.
+        private volatile int _leaseState = LEASES_UNKNOWN;
+
         /// <summary>
         /// Open a streaming snapshot. A result that fits the buffer budget completes
         /// under the mutex instead, without a second engine or a lease. Ordinary readers retain a process-lifetime
@@ -25,7 +34,9 @@ namespace LiteDB
             {
                 // The same acquisition as OpenDatabase. Where it would open the writable
                 // operation engine, a pure read opens the read-only snapshot engine instead.
-                var recoveredAbandonedOwner = _owner.Enter();
+                // Its ownership ends before Query returns (buffered, or leased and released),
+                // so it is scoped, unless leases are unavailable and it streams under the mutex.
+                var recoveredAbandonedOwner = _owner.Enter(scoped: _leaseState == LEASES_AVAILABLE);
                 try { RejectAbandonedTransaction(); }
                 catch { _owner.Exit(); throw; }
                 // As in OpenDatabase, an open engine is checked and counted under one lock,
@@ -74,7 +85,11 @@ namespace LiteDB
                 if (_settings.ReadTransform == null)
                 {
                     var buffered = this.TryBufferResult(collection, query);
-                    if (buffered != null) return buffered;
+                    if (buffered != null)
+                    {
+                        this.ProbeLeases(_engine.ReadVersion);
+                        return buffered;
+                    }
                 }
 
                 // Replay and registration are ordered with commits/checkpoints by
@@ -84,6 +99,7 @@ namespace LiteDB
                 {
                     // No lease can protect a snapshot (for example, a read-only
                     // directory). Stream under the mutex, as before v13.
+                    if (_owner.OwnsDirectly) return this.ReadAllUnderScopedOwnership(_engine.Query(collection, query));
                     closeDatabase = false;
                     return this.QueryUnderMutex(collection, query, use);
                 }
@@ -148,10 +164,34 @@ namespace LiteDB
         {
             try
             {
-                return _readers.Register(version);
+                var lease = _readers.Register(version);
+                _leaseState = LEASES_AVAILABLE;
+                return lease;
             }
-            catch (IOException) { return null; }
-            catch (UnauthorizedAccessException) { return null; }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                _leaseState = LEASES_UNAVAILABLE;
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// A connection's first pure reads may never need a lease (small results). Register
+        /// and drop one once, under the mutex and at this snapshot's own version, to learn
+        /// whether later reads may use a scoped ownership.
+        /// </summary>
+        private void ProbeLeases(int version)
+        {
+            if (_leaseState != LEASES_UNKNOWN) return;
+            try
+            {
+                _readers.Probe(version);
+                _leaseState = LEASES_AVAILABLE;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                _leaseState = LEASES_UNAVAILABLE;
+            }
         }
 
         /// <summary>
@@ -178,7 +218,11 @@ namespace LiteDB
                 if (_settings.ReadTransform == null)
                 {
                     var buffered = TryBuffer(reader, out prefix);
-                    if (buffered != null) return buffered;
+                    if (buffered != null)
+                    {
+                        this.ProbeLeases(snapshot.ReadVersion);
+                        return buffered;
+                    }
                 }
                 IBsonDataReader continued = prefix == null ? reader : new PrefixedDataReader(prefix, reader);
 
@@ -187,6 +231,7 @@ namespace LiteDB
                 {
                     // No lease can protect the snapshot (for example, a read-only
                     // directory). Stream under the mutex, as before v13.
+                    if (_owner.OwnsDirectly) return this.ReadAllUnderScopedOwnership(continued);
                     var generation = _owner.Generation;
                     var locked = snapshot;
                     lock (_useLock) _mutexSnapshots.Add(locked);
@@ -293,6 +338,28 @@ namespace LiteDB
                 if (!_mutexSnapshots.Remove(snapshot)) return;
             }
             snapshot.Dispose();
+        }
+
+        /// <summary>
+        /// A scoped ownership found that leases stopped working (they did before, or it would
+        /// not be scoped). Its mutex cannot outlive this call, so the result is read to its
+        /// end here; later reads stream under the mutex again. Disposes <paramref name="reader"/>.
+        /// </summary>
+        private IBsonDataReader ReadAllUnderScopedOwnership(IBsonDataReader reader)
+        {
+            using (reader)
+            {
+                var values = new List<BsonValue>();
+                try
+                {
+                    while (reader.Read()) values.Add(reader.Current);
+                }
+                catch (Exception ex) when (values.Count > 0)
+                {
+                    return new BufferedDataReader(values, reader.Collection, ExceptionDispatchInfo.Capture(ex));
+                }
+                return new BufferedDataReader(values, reader.Collection);
+            }
         }
 
         /// <summary>

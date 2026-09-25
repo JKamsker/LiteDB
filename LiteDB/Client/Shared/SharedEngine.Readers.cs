@@ -73,7 +73,7 @@ namespace LiteDB
             var pin = _pin;
             var use = pin != null && pin.TryEnter() ? pin
                 : this.CanPin() ? this.StartPin()
-                : this.OpenDatabase();
+                : this.OpenDatabase(scoped: true);
             try
             {
                 return write();
@@ -165,7 +165,7 @@ namespace LiteDB
         private void CheckpointAfterLastReader()
         {
             if (_settings.ReadOnly || !LogHasContent(_settings.Filename)) return;
-            if (!_owner.TryEnter(out var abandoned)) return;
+            if (!_owner.TryEnter(out var abandoned, scoped: true)) return;
             if (abandoned)
             {
                 // Leave abandoned-owner recovery to the next ordinary open.
@@ -198,7 +198,7 @@ namespace LiteDB
         private void CheckpointOnDispose()
         {
             if (_settings.ReadOnly || !LogHasContent(_settings.Filename)) return;
-            if (!_owner.TryEnter(out var abandoned)) return;
+            if (!_owner.TryEnter(out var abandoned, scoped: true)) return;
             try
             {
                 if (abandoned || _engine != null || _transactionRunning) return;
