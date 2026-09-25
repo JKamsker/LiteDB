@@ -113,7 +113,7 @@ namespace LiteDB.Tests.Engine
                 $"engineOpens={engine.EngineOpens - opens} waiterOps={sorted.Length} p50={p(0.5):F1}ms p99={p(0.99):F1}ms max={(sorted.Length == 0 ? double.NaN : sorted[^1]):F1}ms " +
                 $"failure={failure?.GetType().Name}");
             Console.WriteLine($"PROBE waiter={waiter} burners={burners} ownerWrites/s={writes / (double)seconds:F0} engineOpens={engine.EngineOpens - opens} " +
-                $"waiterOps={sorted.Length} p50={p(0.5):F1} p99={p(0.99):F1} max={(sorted.Length == 0 ? double.NaN : sorted[^1]):F1} {worst} log={LogKb(filename)}KB missed={missed} final={engine.Query("docs", new Query { Where = { BsonExpression.Create("_id = 1") } }).ToEnumerable().FirstOrDefault()?["value"]}");
+                $"waiterOps={sorted.Length} p50={p(0.5):F1} p99={p(0.99):F1} max={(sorted.Length == 0 ? double.NaN : sorted[^1]):F1} {worst} over500={sorted.Count(x => x > 500)} log={LogKb(filename)}KB missed={missed} final={engine.Query("docs", new Query { Where = { BsonExpression.Create("_id = 1") } }).ToEnumerable().FirstOrDefault()?["value"]}");
         }
 
         private static long LogKb(string filename)
