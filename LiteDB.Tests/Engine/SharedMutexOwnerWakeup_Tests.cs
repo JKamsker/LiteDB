@@ -18,8 +18,10 @@ namespace LiteDB.Tests.Engine
         [Fact]
         public void A_command_taken_before_its_signal_does_not_leave_the_holder_spinning()
         {
-            using var mutex = new Mutex(false, "LiteDB-wakeup-" + Guid.NewGuid().ToString("N"));
-            var owner = new SharedMutexOwner(mutex, () => { });
+            var name = "LiteDB-wakeup-" + Guid.NewGuid().ToString("N");
+            using var mutex = new Mutex(false, name);
+            using var turn = new Mutex(false, name + ".Turn");
+            var owner = new SharedMutexOwner(mutex, new SharedMutexTurnstile(turn), () => { });
             var delayed = 0;
             // Delay the first notification past the holder's poll, so it can find the command first.
             owner.BeforeNotify = () =>
