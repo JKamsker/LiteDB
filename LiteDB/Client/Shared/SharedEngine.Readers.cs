@@ -100,7 +100,19 @@ namespace LiteDB
             var other = _pin;
             if (other != null) other.RequestRelease(force: false);
 
-            var pin = SharedMutexPin.Acquire(_mutex, this.ClosePin, this.PinIdleLimit, this.PinHoldLimit);
+            // A pin that ended for a waiting thread of this instance must not be
+            // replaced ahead of it: let the waiter take the mutex first.
+            this.WaitForMutexWaiters();
+            SharedMutexPin pin;
+            this.AddMutexWaiter();
+            try
+            {
+                pin = SharedMutexPin.Acquire(_mutex, _turnstile, this.HasMutexWaiters, this.ClosePin, this.PinIdleLimit, this.PinHoldLimit);
+            }
+            finally
+            {
+                this.RemoveMutexWaiter();
+            }
             try
             {
                 // The holder owns the mutex on behalf of this thread.
