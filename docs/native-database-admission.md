@@ -14,6 +14,11 @@ never roots reference objects. Its monitor orders retain/release and replacement
 Acquisition and disposal need not run on the same managed thread. Abandoned leases
 use critical finalization: ordinary FileStream finalizers can flush buffered writes
 and must finish before the admission handle closes.
+The engine acquires its guard before creating buffered database/WAL streams and
+retains it until those streams close. [Critical-finalizer ordering](https://learn.microsoft.com/en-us/dotnet/api/system.runtime.constrainedexecution.criticalfinalizerobject)
+applies to objects reclaimed in the same collection; it is not global ordering
+across GC generations. The finalizer oracle therefore promotes its independent model owner
+and guard under one explicit root, then releases that root together.
 
 | Participants | Compatible? |
 | --- | --- |

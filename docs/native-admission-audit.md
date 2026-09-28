@@ -18,6 +18,12 @@ These tests retain positive controls: rejecting every connection, omitting a
 rebuild, returning an empty result or never releasing admission does not pass.
 The handoff test checks distinct physical identities, not just callback names.
 The path tests exercise 64-bit range lengths and skip-empty semantics explicitly.
+The finalizer oracle roots its independent model owner and guard together until
+both reach the oldest GC generation, then releases the root atomically. This
+tests the runtime's same-collection ordering contract while retaining both
+allocation orders and the independent kernel probe. Production acquires admission
+before constructing buffered database/WAL streams. An unrelated older model owner
+surviving a young-generation collection of its guard does not model that order.
 
 ## Historical failure and oracle checks
 

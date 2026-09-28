@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using FluentAssertions;
 using LiteDB.Client.Shared;
@@ -51,7 +52,22 @@ namespace LiteDB.Tests.Engine
             for (var i = 0; i < 8; i++)
             {
                 var result = new Result();
-                Forget(file, result, reverseAllocation);
+                var roots = CreateRootedPair(file, result, reverseAllocation);
+                try
+                {
+                    // Critical ordering applies only within one collection. An
+                    // older independent owner can otherwise survive a young GC
+                    // that already finalizes its guard. Keep both explicitly
+                    // rooted until they share the oldest generation, then drop
+                    // that single root without separate JIT last-use lifetimes.
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    AssertCommonGeneration(roots);
+                    result.Flushed.Should().Be(0);
+                }
+                finally { roots.Free(); }
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 GC.Collect();
@@ -64,14 +80,22 @@ namespace LiteDB.Tests.Engine
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void Forget(string filename, Result result, bool reverse)
+        private static GCHandle CreateRootedPair(string filename, Result result, bool reverse)
         {
             BufferedOwner owner = null;
             if (reverse) owner = new BufferedOwner(filename, result);
             var admission = SharedModeGuard.Open(filename, false, SharedMutexNameStrategy.Default);
             if (!reverse) owner = new BufferedOwner(filename, result);
-            GC.KeepAlive(admission);
-            GC.KeepAlive(owner);
+            return GCHandle.Alloc(new object[] { owner, admission });
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void AssertCommonGeneration(GCHandle roots)
+        {
+            // Do not expose managed references to the caller that frees the root.
+            var pair = (object[])roots.Target;
+            GC.GetGeneration(pair[0]).Should().Be(GC.MaxGeneration);
+            GC.GetGeneration(pair[1]).Should().Be(GC.MaxGeneration);
         }
     }
 }
