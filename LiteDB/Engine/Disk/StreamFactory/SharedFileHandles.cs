@@ -125,7 +125,11 @@ namespace LiteDB.Engine
 
             try
             {
-                return new LeasedFileStream(this, key, entry, generation, access, bufferSize);
+                var stream = new LeasedFileStream(this, key, entry, generation, access, bufferSize);
+#if DEBUG || TESTING
+                stream.LifetimeObserver = NativeAdmissionStreamProbe.Attach?.Invoke(path);
+#endif
+                return stream;
             }
             catch
             {
@@ -260,6 +264,9 @@ namespace LiteDB.Engine
         /// </summary>
         private sealed class LeasedFileStream : FileStream
         {
+#if DEBUG || TESTING
+            internal Action<string> LifetimeObserver;
+#endif
             private readonly SharedFileHandles _cache;
             private readonly Key _key;
             private readonly int _generation;
@@ -279,6 +286,9 @@ namespace LiteDB.Engine
 
             protected override void Dispose(bool disposing)
             {
+#if DEBUG || TESTING
+                if (!disposing) LifetimeObserver?.Invoke("finalizing");
+#endif
                 try
                 {
                     base.Dispose(disposing);
@@ -292,6 +302,9 @@ namespace LiteDB.Engine
                         if (disposing) _cache.Return(_key, entry, _generation);
                         else entry.Close();
                     }
+#if DEBUG || TESTING
+                    if (!disposing) LifetimeObserver?.Invoke("finalized");
+#endif
                 }
             }
         }

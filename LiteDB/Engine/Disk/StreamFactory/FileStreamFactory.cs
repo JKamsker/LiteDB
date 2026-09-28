@@ -76,6 +76,10 @@ namespace LiteDB.Engine
             {
                 stream = cached
                     ? _handles.Open(_filename, fileMode, fileAccess, PAGE_SIZE, fileOptions)
+#if DEBUG || TESTING
+                    : NativeAdmissionStreamProbe.Attach != null
+                    ? NativeAdmissionStreamProbe.Open(_filename, fileMode, fileAccess, fileShare, PAGE_SIZE, fileOptions, _nativeAdmission)
+#endif
                     : _nativeAdmission
                     ? AdmittedFileStream.Open(_filename, fileMode, fileAccess, fileShare, PAGE_SIZE, fileOptions)
                     : new FileStream(_filename,

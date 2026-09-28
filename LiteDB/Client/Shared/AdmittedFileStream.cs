@@ -23,7 +23,11 @@ namespace LiteDB.Client.Shared
 
         // FileStream.Name is not virtual in netstandard2.0. Preserve the path
         // explicitly for device-sync diagnostics on every supported target.
-        internal static string GetName(FileStream stream) => stream is NamedStream named ? named.Filename : stream.Name;
+        internal static string GetName(FileStream stream) =>
+#if DEBUG || TESTING
+            stream is Engine.NativeAdmissionStreamProbe observed ? observed.Filename :
+#endif
+            stream is NamedStream named ? named.Filename : stream.Name;
 
         private sealed class NamedStream : FileStream
         {

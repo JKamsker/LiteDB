@@ -25,6 +25,37 @@ allocation orders and the independent kernel probe. Production acquires admissio
 before constructing buffered database/WAL streams. An unrelated older model owner
 surviving a young-generation collection of its guard does not model that order.
 
+`NativeAdmissionGraphFinalizer_Tests` complements that model with real Direct and
+Shared engine graphs. It drains a real `IBsonDataReader` without disposing it;
+the Shared reader still owns its snapshot/lease closure. The test observes actual
+data and WAL stream construction and pauses an actual stream's ordinary finalizer,
+probing native exclusion before and after stream cleanup. Older abandoned graphs
+survive a forced young collection, then full collections release admission.
+Two cold opens check the acknowledged WAL insert, indexed lookup, rollback absence
+and unrelated collection. Test-only FileStream observers add no reference back to
+the engine or guard and are absent from production builds. This case excludes
+mid-iteration cursor abandonment: that separate scenario can trigger the existing
+test-build assertion for a finalized pinned `PageBuffer`; it is not silently
+suppressed or claimed as covered here.
+
+`NativeAdmissionIsolation_Tests` characterizes the existing process-global registry
+gate with two different databases. A forced identity-mutex wait for A delays B's
+open and final release for a measured 250 ms observation interval; B's raw native
+lock remains held. Releasing A's mutex permits all operations and both cold logical
+checks. This is a bounded head-of-line blocking measurement, not an isolation or
+throughput guarantee. Narrowing the gate requires new retain/release/replacement
+ordering evidence; the test does not change that protocol or hide its lifecycle cost.
+
+The migration crash/partial-I/O harness retains failed child stdout/stderr, requested
+arguments, observed stage/fault markers, runtime/architecture, durations and exit
+status. Databases still run on the original system-temp volume. Only after the child
+exits are complete fixture trees and hashes copied to failure artifacts; originals
+are retained if copying fails. CI exercises timeout, nonzero/invalid fault exits,
+missing markers, successful cleanup and failed artifact copying with real children.
+The actual migration timeout remains 90 seconds and fault/recovery assertions remain
+unchanged. Retention improves future diagnosis; it does not explain the historical
+Windows timeout whose evidence was discarded.
+
 ## Historical failure and oracle checks
 
 The inspected baseline was `b3e03caef74741da2b1370041a86359c4ec2d1cf`.

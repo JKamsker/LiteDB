@@ -34,6 +34,7 @@ namespace LiteDB.Client.Shared
                 var file = new DatabaseFileLock(filename, readOnly, create);
                 try
                 {
+                    SharedCoordinationFile.Observe(filename, "mode-before-identity-lock");
                     using var gate = Enter(file.Identity);
                     // A waiter may have opened the old inode before replacement.
                     using (var check = new DatabaseFileLock(filename, readOnly: true, create: false))

@@ -130,4 +130,3 @@ namespace LiteDB.Client.Shared
 
     }
 }
-

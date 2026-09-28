@@ -46,6 +46,15 @@ unchanged, including [orphan recovery](shared-mode-safety.md#orphan-coordination
 No data/WAL format migration is required. See [native database admission](native-database-admission.md)
 for platform support, read-only behavior, replacement and validation.
 
+Release acceptance includes these intentional restrictions: supported local
+filesystems/platforms only, mutually exclusive Direct read-only and writable/Shared
+access, remote idle Shared owners closing before replacement, and one common
+named-mutex namespace with all participants upgraded together. This is not a
+universally compatible locking substitution. Native admission also adds open/close
+work; the process-global setup gate can delay unrelated local database admission
+while another identity mutex is busy. Review the platform contract and workload
+measurements before adopting the release.
+
 ## Shared mapped reads
 
 Repeated Shared queries on qualified .NET 8+ local filesystems can retain a read-only

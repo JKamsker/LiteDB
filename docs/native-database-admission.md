@@ -157,6 +157,14 @@ format is introduced.
 
 ## Validation
 
+Admission setup currently holds a process-global registry gate during filesystem
+checks and the physical-identity mutex wait (up to five seconds). A busy database
+can therefore delay unrelated local database opens and final admission releases.
+`NativeAdmissionIsolation_Tests` records this bounded contention and subsequent
+progress; callers should not assume per-database admission latency isolation.
+The per-operation and repeated open/close production measurements are reported
+separately in the PR; native admission is a safety change, not a latency optimization.
+
 The fault model covers native process termination, failed acquisition, injected
 unsupported filesystems, failed lock conversion, installation/rollback I/O failures,
 and competing opens.
