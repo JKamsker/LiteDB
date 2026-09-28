@@ -28,9 +28,15 @@ surviving a young-generation collection of its guard does not model that order.
 `NativeAdmissionGraphFinalizer_Tests` complements that model with real Direct and
 Shared engine graphs. It drains a real `IBsonDataReader` without disposing it;
 the Shared reader still owns its snapshot/lease closure. The test observes actual
-data and WAL stream construction and pauses an actual stream's ordinary finalizer,
-probing native exclusion before and after stream cleanup. Older abandoned graphs
-survive a forced young collection, then full collections release admission.
+data and WAL stream construction and pauses an actual stream's ordinary finalizer.
+Every writable finalizer probes native exclusion before and after buffered-write
+cleanup; the Direct cases require this boundary to execute. Shared operation writers
+close normally before the exhausted snapshot reader is abandoned. Rooted graphs and
+older abandoned graphs after a forced young collection must retain native exclusion;
+full collections eventually release it. Read-only streams in thread-local pools
+can outlive the abandoned engine and its guard; the test additionally requires every observed stream to close within
+the bounded collection loop before cold verification and fixture deletion. It does
+not require admission during cleanup of those unused read-only handles.
 Two cold opens check the acknowledged WAL insert, indexed lookup, rollback absence
 and unrelated collection. Test-only FileStream observers add no reference back to
 the engine or guard and are absent from production builds. This case excludes

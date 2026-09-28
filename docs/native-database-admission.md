@@ -15,7 +15,9 @@ Acquisition and disposal need not run on the same managed thread. Abandoned leas
 use critical finalization: ordinary FileStream finalizers can flush buffered writes
 and must finish before the admission handle closes.
 The engine acquires its guard before creating buffered database/WAL streams and
-retains it until those streams close. [Critical-finalizer ordering](https://learn.microsoft.com/en-us/dotnet/api/system.runtime.constrainedexecution.criticalfinalizerobject)
+retains it through writable stream cleanup. Unused read-only handles retained by
+thread-local pools can close after an abandoned engine releases admission; they
+cannot flush buffered writes. [Critical-finalizer ordering](https://learn.microsoft.com/en-us/dotnet/api/system.runtime.constrainedexecution.criticalfinalizerobject)
 applies to objects reclaimed in the same collection; it is not global ordering
 across GC generations. The finalizer oracle therefore promotes its independent model owner
 and guard under one explicit root, then releases that root together.

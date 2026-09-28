@@ -28,7 +28,8 @@ namespace LiteDB.Tests.Engine
             internal readonly ConcurrentQueue<string> Events = new ConcurrentQueue<string>();
             internal readonly ManualResetEventSlim Finalizing = new ManualResetEventSlim();
             internal readonly ManualResetEventSlim Resume = new ManualResetEventSlim();
-            internal int Started, Finished;
+            internal int Started, Finished, Closed, WritableStarted;
+            internal bool PausedWritable;
             internal Observation(string filename) { Filename = filename; }
 
             internal Action<string> Attach(string path, bool writable)
@@ -36,15 +37,23 @@ namespace LiteDB.Tests.Engine
                 Opened.Enqueue(path);
                 Events.Enqueue("open writable=" + writable + " " + path);
                 Check("stream construction");
+                var closed = 0;
                 return stage =>
                 {
                     try
                     {
                         Events.Enqueue(stage + " writable=" + writable + " " + path);
+                        if ((stage == "disposed" || stage == "finalized") &&
+                            Interlocked.Exchange(ref closed, 1) == 0) Interlocked.Increment(ref Closed);
                         if (stage == "disposed") return;
-                        Check(stage + " writable=" + writable + " " + path);
+                        // Pooled read-only streams can survive the abandoned engine
+                        // through ConcurrentBag's thread-local storage. They cannot
+                        // flush writes; admission must cover every writable finalizer.
+                        if (writable) Check(stage + " writable=" + writable + " " + path);
+                        if (stage == "finalizing" && writable) Interlocked.Increment(ref WritableStarted);
                         if (stage == "finalizing" && Interlocked.Increment(ref Started) == 1)
                         {
+                            PausedWritable = writable;
                             Finalizing.Set();
                             if (!Resume.Wait(TimeSpan.FromSeconds(10))) Errors.Enqueue("Finalizer controller did not resume");
                         }
@@ -141,7 +150,8 @@ namespace LiteDB.Tests.Engine
                                 ((IAsyncResult)collection).AsyncWaitHandle }, TimeSpan.FromSeconds(10)).Should().NotBe(WaitHandle.WaitTimeout);
                             if (observation.Finalizing.IsSet)
                             {
-                                Locked(file).Should().BeTrue("an actual FileStream finalizer is paused before its cleanup");
+                                if (observation.PausedWritable)
+                                    Locked(file).Should().BeTrue("an actual writable FileStream finalizer is paused before its cleanup");
                                 observedPause = true;
                                 observation.Resume.Set();
                             }
@@ -149,22 +159,25 @@ namespace LiteDB.Tests.Engine
                         collection.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
                     }
                     catch { observation.Resume.Set(); collection.Wait(TimeSpan.FromSeconds(10)); throw; }
-                    if (!Locked(file)) break;
+                    if (!Locked(file) && Volatile.Read(ref observation.Closed) == observation.Opened.Count) break;
                     // SharedMutexOwner's holder can root the connection for its
                     // one-second idle lifetime, then subordinate finalizable graphs
-                    // need subsequent collections. Keep a bounded liveness deadline.
+                    // need subsequent collections. Read-only pools can also outlive
+                    // native admission; require their cleanup within the same bound.
                     Thread.Sleep(100);
                 } while (deadline.Elapsed < TimeSpan.FromSeconds(10));
                 observation.Started.Should().BeGreaterThan(0, "the real storage finalizer boundary must execute");
+                if (!shared) observation.WritableStarted.Should().BeGreaterThan(0, "the abandoned Direct engine owns buffered writers");
                 observation.Finished.Should().Be(observation.Started);
+                observation.Closed.Should().Be(observation.Opened.Count, "all observed storage streams must eventually close");
                 observation.Errors.Should().BeEmpty();
                 Locked(file).Should().BeFalse("abandonment eventually releases native admission");
             }
             finally
             {
                 observation.Resume.Set();
-                output.WriteLine("Finalizers started={0} finished={1}\n{2}\nErrors:\n{3}",
-                    observation.Started, observation.Finished, string.Join("\n", observation.Events),
+                output.WriteLine("Finalizers started={0} finished={1}, writable={2}, closed={3}/{4}\n{5}\nErrors:\n{6}",
+                    observation.Started, observation.Finished, observation.WritableStarted, observation.Closed, observation.Opened.Count, string.Join("\n", observation.Events),
                     string.Join("\n", observation.Errors));
             }
             for (var i = 0; i < 2; i++)
