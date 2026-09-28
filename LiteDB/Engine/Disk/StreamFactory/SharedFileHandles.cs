@@ -127,7 +127,7 @@ namespace LiteDB.Engine
             {
                 var stream = new LeasedFileStream(this, key, entry, generation, access, bufferSize);
 #if DEBUG || TESTING
-                stream.LifetimeObserver = NativeAdmissionStreamProbe.Attach?.Invoke(path);
+                stream.LifetimeObserver = NativeAdmissionStreamProbe.Attach?.Invoke(path, access != FileAccess.Read);
 #endif
                 return stream;
             }
@@ -303,7 +303,7 @@ namespace LiteDB.Engine
                         else entry.Close();
                     }
 #if DEBUG || TESTING
-                    if (!disposing) LifetimeObserver?.Invoke("finalized");
+                    LifetimeObserver?.Invoke(disposing ? "disposed" : "finalized");
 #endif
                 }
             }

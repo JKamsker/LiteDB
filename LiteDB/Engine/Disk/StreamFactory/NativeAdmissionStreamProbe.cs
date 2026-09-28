@@ -12,7 +12,7 @@ namespace LiteDB.Engine
     internal sealed class NativeAdmissionStreamProbe : FileStream
     {
         [ThreadStatic]
-        internal static Func<string, Action<string>> Attach;
+        internal static Func<string, bool, Action<string>> Attach;
         private readonly Action<string> _observe;
         internal readonly string Filename;
 
@@ -21,14 +21,14 @@ namespace LiteDB.Engine
             : base(path, mode, access, share, bufferSize, options)
         {
             Filename = path;
-            _observe = Attach?.Invoke(path);
+            _observe = Attach?.Invoke(path, access != FileAccess.Read);
         }
 
         private NativeAdmissionStreamProbe(SafeFileHandle handle, string path, FileAccess access, int bufferSize)
             : base(handle, access, bufferSize)
         {
             Filename = path;
-            _observe = Attach?.Invoke(path);
+            _observe = Attach?.Invoke(path, access != FileAccess.Read);
         }
 
         internal static FileStream Open(string path, FileMode mode, FileAccess access,
@@ -45,7 +45,7 @@ namespace LiteDB.Engine
         {
             if (!disposing) _observe?.Invoke("finalizing");
             try { base.Dispose(disposing); }
-            finally { if (!disposing) _observe?.Invoke("finalized"); }
+            finally { _observe?.Invoke(disposing ? "disposed" : "finalized"); }
         }
     }
 }

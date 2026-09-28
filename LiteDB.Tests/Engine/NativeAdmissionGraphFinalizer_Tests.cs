@@ -11,30 +11,38 @@ using FluentAssertions;
 using LiteDB.Client.Shared;
 using LiteDB.Engine;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace LiteDB.Tests.Engine
 {
     public class NativeAdmissionGraphFinalizer_Tests
     {
+        private readonly ITestOutputHelper _output;
+        public NativeAdmissionGraphFinalizer_Tests(ITestOutputHelper output) { _output = output; }
+
         private sealed class Observation : IDisposable
         {
             internal readonly string Filename;
             internal readonly ConcurrentQueue<string> Errors = new ConcurrentQueue<string>();
             internal readonly ConcurrentQueue<string> Opened = new ConcurrentQueue<string>();
+            internal readonly ConcurrentQueue<string> Events = new ConcurrentQueue<string>();
             internal readonly ManualResetEventSlim Finalizing = new ManualResetEventSlim();
             internal readonly ManualResetEventSlim Resume = new ManualResetEventSlim();
             internal int Started, Finished;
             internal Observation(string filename) { Filename = filename; }
 
-            internal Action<string> Attach(string path)
+            internal Action<string> Attach(string path, bool writable)
             {
                 Opened.Enqueue(path);
+                Events.Enqueue("open writable=" + writable + " " + path);
                 Check("stream construction");
                 return stage =>
                 {
                     try
                     {
-                        Check(stage);
+                        Events.Enqueue(stage + " writable=" + writable + " " + path);
+                        if (stage == "disposed") return;
+                        Check(stage + " writable=" + writable + " " + path);
                         if (stage == "finalizing" && Interlocked.Increment(ref Started) == 1)
                         {
                             Finalizing.Set();
@@ -64,7 +72,25 @@ namespace LiteDB.Tests.Engine
         [InlineData(true, true)]
         public void Abandoned_exhausted_reader_and_engine_retain_native_exclusion_and_committed_state(bool shared, bool youngFirst)
         {
-            using var file = new TempFile();
+            var file = new TempFile();
+            // A failed lifetime assertion can deliberately leave a handle open.
+            // Keep that fixture rather than masking the assertion in File.Delete
+            // or crashing the test host from TempFile's later finalizer.
+            GC.SuppressFinalize(file);
+            try
+            {
+                Exercise(file, shared, youngFirst, _output);
+                file.Dispose();
+            }
+            catch (Exception error)
+            {
+                _output.WriteLine("Retained graph fixture: {0}\n{1}", file.Filename, error);
+                throw;
+            }
+        }
+
+        private static void Exercise(TempFile file, bool shared, bool youngFirst, ITestOutputHelper output)
+        {
             using (var seed = new LiteDatabase(file))
             {
                 seed.GetCollection("rows").InsertBulk(Enumerable.Range(1, 3000)
@@ -134,7 +160,13 @@ namespace LiteDB.Tests.Engine
                 observation.Errors.Should().BeEmpty();
                 Locked(file).Should().BeFalse("abandonment eventually releases native admission");
             }
-            finally { observation.Resume.Set(); }
+            finally
+            {
+                observation.Resume.Set();
+                output.WriteLine("Finalizers started={0} finished={1}\n{2}\nErrors:\n{3}",
+                    observation.Started, observation.Finished, string.Join("\n", observation.Events),
+                    string.Join("\n", observation.Errors));
+            }
             for (var i = 0; i < 2; i++)
             {
                 using var cold = new LiteDatabase(file);
