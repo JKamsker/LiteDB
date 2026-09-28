@@ -72,13 +72,16 @@ namespace LiteDB.Tests.Engine
                 seed.GetCollection("rows").EnsureIndex("value", true);
                 seed.GetCollection("untouched").Insert(new BsonDocument { ["_id"] = 1, ["value"] = 99 });
             }
-            using var observation = new Observation(file);
-            var root = CreateGraph(file, shared, observation);
+            // macOS system temp commonly resolves through /var -> /private/var;
+            // assert the same canonical storage namespace used by engine settings.
+            var canonical = DatabaseFileIdentity.CanonicalPath(file);
+            using var observation = new Observation(canonical);
+            var root = CreateGraph(canonical, shared, observation);
             try
             {
                 observation.Errors.Should().BeEmpty();
-                observation.Opened.Should().Contain(file.Filename);
-                observation.Opened.Should().Contain(FileHelper.GetLogFile(file));
+                observation.Opened.Should().Contain(canonical);
+                observation.Opened.Should().Contain(FileHelper.GetLogFile(canonical));
                 Locked(file).Should().BeTrue();
                 if (youngFirst)
                 {
