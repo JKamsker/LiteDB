@@ -23,7 +23,7 @@ namespace LiteDB.Tests.Engine
             var canonical = DatabaseFileIdentity.CanonicalPath(file);
             Action<string, string> observe = (path, stage) =>
             {
-                if (path == canonical && stage == "mode-locking") acquisitions++;
+                if (path == canonical && stage == "mode-locking") System.Threading.Interlocked.Increment(ref acquisitions);
             };
             var leases = new SharedModeGuard[32];
             try
