@@ -14,6 +14,7 @@ namespace LiteDB
     {
         private readonly IEnumerator<BsonValue> _source = null;
         private readonly EngineState _state = null;
+        private readonly EngineContext _context;
         private readonly string _collection = null;
         private readonly bool _hasValues;
 
@@ -48,6 +49,7 @@ namespace LiteDB
             _collection = collection;
             _source = values.GetEnumerator();
             _state = state;
+            _context = state.Context;
 
             try
             {
@@ -93,6 +95,7 @@ namespace LiteDB
         /// </summary>
         public bool Read()
         {
+            using var scope = _context?.Enter();
             if (!_hasValues) return false;
 
             if (_isFirst)
@@ -152,6 +155,7 @@ namespace LiteDB
 
             if (disposing)
             {
+                using var scope = _context?.Enter();
                 _source?.Dispose();
             }
         }

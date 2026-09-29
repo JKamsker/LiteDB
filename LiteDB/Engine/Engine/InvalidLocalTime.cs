@@ -10,9 +10,9 @@ namespace LiteDB.Engine
         /// </summary>
         private void RejectInvalidLocalTime(BsonDocument doc)
         {
-            if (_settings.RejectInvalidLocalTime == false) return;
+            if (CurrentContext.Policy.RejectInvalidLocalTime == false) return;
 
-            RejectInvalidLocalTime(doc, _settings.LocalTimeZone ?? TimeZoneInfo.Local);
+            RejectInvalidLocalTime(doc, CurrentContext.Policy.LocalTimeZone ?? TimeZoneInfo.Local);
         }
 
         private static void RejectInvalidLocalTime(BsonValue value, TimeZoneInfo zone)

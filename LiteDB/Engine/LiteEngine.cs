@@ -23,6 +23,7 @@ namespace LiteDB.Engine
         private LockService _locker;
 
         private DiskService _disk;
+        private IDisposable _modeGuard;
 
         private WalIndexService _walIndex;
 
@@ -73,6 +74,8 @@ namespace LiteDB.Engine
         public LiteEngine(EngineSettings settings)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _defaultContext = new EngineContext(this, settings);
+            LiteDB.Client.Shared.SharedModeGuard.Normalize(_settings);
 
             this.Open();
         }
@@ -96,6 +99,9 @@ namespace LiteDB.Engine
                 // A failed rebuild may have left stale data or no canonical file.
                 // Check before upgrade, recovery, or DiskService can create a new file.
                 RebuildRecovery.EnsureAvailable(_settings);
+                _modeGuard ??= !_settings.RebuildCandidate && _settings.SharedAdmission != null
+                    ? _settings.SharedAdmission.Retain()
+                    : LiteDB.Client.Shared.SharedModeGuard.Open(_settings);
 
                 // before initilize, try if must be upgrade
                 if (_settings.Upgrade) this.TryUpgrade();
@@ -172,7 +178,7 @@ namespace LiteDB.Engine
                 _sortDisk = new SortDisk(_settings.CreateTempFactory(), CONTAINER_SORT_SIZE, _header.Pragmas);
 
                 // initialize transaction monitor as last service
-                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _settings.TransactionPageLimit);
+                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _settings.TransactionPageLimit, () => CurrentContext);
 
                 this.MigrateIndexOrdering();
                 _disk.TrimTrailingPages();
@@ -208,7 +214,7 @@ namespace LiteDB.Engine
         /// <summary>The opened header marks the data file invalid (a rebuild is due).</summary>
         internal bool InvalidDatafileState { get; private set; }
 
-        internal List<Exception> Close(bool checkpoint = true, bool final = false)
+        internal List<Exception> Close(bool checkpoint = true, bool final = false, bool releaseMode = true)
         {
             if (_state.Disposed) return new List<Exception>();
 
@@ -234,6 +240,7 @@ namespace LiteDB.Engine
             // dispose lockers
             tc.Catch(() => _locker?.Dispose());
 
+            if (releaseMode) tc.Catch(this.ReleaseModeGuard);
             return tc.Exceptions;
         }
 
@@ -284,7 +291,15 @@ namespace LiteDB.Engine
             // close engine lock service
             tc.Catch(() => _locker?.Dispose());
 
+            tc.Catch(this.ReleaseModeGuard);
             return tc.Exceptions;
+        }
+
+        private void ReleaseModeGuard()
+        {
+            var guard = _modeGuard;
+            _modeGuard = null;
+            guard?.Dispose();
         }
 
         #endregion
@@ -308,7 +323,7 @@ namespace LiteDB.Engine
         public int Checkpoint()
         {
             _state.Validate();
-            try { return _settings.ReadOnly ? 0 : _walIndex.Checkpoint(); }
+            try { return CurrentContext.Policy.ReadOnly ? 0 : _walIndex.Checkpoint(); }
             catch (Exception ex)
             {
                 _state.Handle(ex);
@@ -317,6 +332,7 @@ namespace LiteDB.Engine
         }
 
         internal int ReadVersion => _walIndex.CurrentReadVersion;
+        internal bool IsDisposed => _state.Disposed;
 
         public void Dispose()
         {
@@ -326,7 +342,8 @@ namespace LiteDB.Engine
 
         protected virtual void Dispose(bool disposing)
         {
-            this.Close();
+            try { this.Close(); }
+            finally { _defaultContext.DisposeSlots(); }
         }
     }
 }

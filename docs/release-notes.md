@@ -1,5 +1,77 @@
 # Release notes
 
+## Shared diagnostics and mode admission
+
+`LiteDatabase.GetSharedDiagnostics()` exposes diagnostics for `Connection=shared`
+connections; non-Shared engines return null. `SharedEngine.GetDiagnostics()` reports a typed read path, fallback reason, cache
+hits/misses, active leases and process-local participant/writer counters.
+`LiteDB-Shared` publishes lifecycle events; exception reasons omit stack traces.
+
+File-backed admission now uses process-wide OS-native locks on the database,
+replacing the persistent `<database>-shared-mode` sidecar. The first compatible
+local owner acquires the lock and the last releases it, including cleanup after
+abandoned references. Process death releases the OS lock automatically. Direct
+writers exclude other processes and Shared participants; compatible Shared
+processes coexist. Incompatible mutex strategies still fail before storage access.
+
+Compatible file-backed Direct `LiteDatabase` instances now share the same process
+engine, including caches, transaction locks and WAL state. Independent owner leases
+retain it until the last database, active call and reader releases it. Mappers stay
+separate; pragmas and same-thread explicit transactions are shared. Incompatible
+settings are refused. Raw independently constructed writable `LiteEngine` objects
+remain incompatible. See [Direct engine ownership](direct-engine-ownership.md).
+Multiple Direct read-only engines share admission. Direct read-only access excludes writable
+Direct and Shared participants; read-only Shared uses Shared admission. Read-only
+native opens need no writable admission artifact. Unsupported locking filesystems fail
+closed by default. Runtime file-sharing locks must also stay enabled for Shared coordination.
+
+**Breaking platform restriction:** file-backed opens now require Windows on local
+NTFS/ReFS, or x64/arm64 Linux or macOS with OFD locks. Linux allows ext2/3/4, XFS,
+Btrfs, tmpfs and local overlayfs; macOS allows APFS/HFS. Other filesystems are
+rejected by default. `AllowHostLocalAdmissionFallback=true` explicitly permits
+established local volumes to use a private, fixed host-local lock directory on a
+qualified filesystem. Native volumes still use database-file locking. Unknown
+locality, FUSE, network and clustered storage remain unsupported; stable physical
+file identity is required in either mode. Real f2fs has a production qualification
+scenario; admitting other local formats is not a claim of equivalent test coverage.
+
+Fallback lock-file bytes have no authority and stale files need no cleanup. Never
+remove that host directory or its files while participants exist. All participants
+must share it and the named-mutex namespace. Fallback Shared reads keep the writer
+mutex through streaming-reader disposal and reject recursive writes/checkpoints/
+rebuilds while a protected snapshot exists. Read-only fallback needs a writable
+host coordination directory. Stop all participants before changing library policy,
+mounts or coordination namespaces.
+32-bit Unix processes and runtimes identifying as platforms other than Windows,
+Linux or macOS (including iOS/tvOS) are rejected. Memory and caller-stream databases
+retain their existing platform contract. Use qualified native storage or the explicit host-local fallback under its
+documented conditions; preserve the complete data/WAL pair when moving storage.
+
+Symlinks resolve to the target before choosing storage paths. Hard links are
+rejected to prevent conflicting WAL identities. Concurrent directory bind aliases
+with different canonical paths are also rejected, including across processes.
+Shared participants must share one named-mutex namespace; file-only bind mounts
+and isolated container mutex namespaces are unsupported. Rebuild/upgrade locks both source
+and replacement through publication/rollback; Shared replacement requires other
+processes to close even idle connections first. Interrupted installation retains
+the existing recovery marker and data/WAL backups.
+
+Stop existing users before switching from the previous admission protocol. Old
+`-shared-mode` artifacts are ignored and preserved. The separately versioned
+`-shared-live`, `-shared-state` and `-shared-disabled` coordination protocol remains
+unchanged, including [orphan recovery](shared-mode-safety.md#orphan-coordination-recovery).
+No data/WAL format migration is required. See [native database admission](native-database-admission.md)
+for platform support, read-only behavior, replacement and validation.
+
+Release acceptance includes these intentional restrictions: supported local
+filesystems/platforms only, mutually exclusive Direct read-only and writable/Shared
+access, remote idle Shared owners closing before replacement, and one common
+named-mutex namespace with all participants upgraded together. This is not a
+universally compatible locking substitution. Native admission also adds open/close
+work; the process-global setup gate can delay unrelated local database admission
+while another identity mutex is busy. Review the platform contract and workload
+measurements before adopting the release.
+
 ## Shared mapped reads
 
 Repeated Shared queries on qualified .NET 8+ local filesystems can retain a read-only

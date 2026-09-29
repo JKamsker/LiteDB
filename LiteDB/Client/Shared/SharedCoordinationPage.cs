@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.IO.MemoryMappedFiles;
+using System.Runtime.ConstrainedExecution;
 using System.Threading;
 using LiteDB.Engine;
 using Protocol = LiteDB.Client.Shared.SharedCoordinationProtocol;
@@ -13,11 +14,13 @@ namespace LiteDB.Client.Shared
     /// the database mutex. Scheduling hints do not authorize storage access. Readers serialize local access with disposal. No stored page is
     /// trusted until an engine has opened under that mutex in this process.
     /// </summary>
-    internal sealed unsafe class SharedCoordinationPage : IBatchedCoordinationSignals, IDisposable
+    internal sealed unsafe class SharedCoordinationPage : CriticalFinalizerObject, IBatchedCoordinationSignals, IDisposable
     {
         private const int Size = SharedCoordinationProtocol.PageSize;
         private readonly string _revocationPath;
         private readonly FileStream _participation;
+        private SharedModeGuard _modeGuard;
+        private string _filename;
         private readonly MemoryMappedFile _map;
         private readonly MemoryMappedViewAccessor _view;
         private readonly long* _header;
@@ -63,23 +66,32 @@ namespace LiteDB.Client.Shared
         internal static string DisabledPath(string filename) => SharedCoordinationFallback.DisabledPath(filename);
 
         /// <summary>Caller owns the database mutex. Failure requires revocation before writable fallback.</summary>
-        internal static SharedCoordinationPage Open(string filename)
+        internal static SharedCoordinationPage Open(string filename, SharedMutexNameStrategy strategy = SharedMutexNameStrategy.Default, bool readOnly = false)
         {
+            if (!SharedCoordinationFallback.SupportsNames(filename))
+                throw new IOException("Mapped attachment requires a mode admission lease.");
+            SharedModeGuard guard = SharedModeGuard.Open(filename, shared: true, strategy, readOnly);
+            if (guard == null) throw new IOException("Mapped attachment requires a mode admission lease.");
             FileStream participation = null;
             FileStream file = null;
             try
             {
                 var header = SharedCoordinationFiles.Open(filename, out participation, out file);
-                var page = new SharedCoordinationPage(filename, participation, file, header);
+                var page = new SharedCoordinationPage(filename, participation, file, header) { _modeGuard = guard };
+                // Ownership transfers to the page, including the header-failure path.
+                guard = null;
                 if (!page.HeaderMatches())
                 {
                     page.Dispose();
                     throw new IOException("Shared coordination header changed during attachment: " + filename);
                 }
+                page._filename = filename;
+                SharedCoordinationEvents.Attached(filename);
                 return page;
             }
             catch
             {
+                guard?.Dispose();
                 file?.Dispose();
                 participation?.Dispose();
                 throw;
@@ -91,6 +103,8 @@ namespace LiteDB.Client.Shared
         /// writer runs. Failure to publish revocation propagates before database mutation.
         /// </summary>
         internal static void Revoke(string filename) => SharedCoordinationFallback.Revoke(filename);
+
+        internal bool IsRevoked { get { lock (_writeLock) return _disposed || !this.HeaderMatches() || this.Revoked(); } }
 
         private bool Revoked() => SharedCoordinationRevocation.ExistsOrUnknown(_revocationPath);
 
@@ -304,6 +318,7 @@ namespace LiteDB.Client.Shared
         {
             if (_disposed) return;
             _disposed = true;
+            if (_filename != null) SharedCoordinationEvents.Detached(_filename);
             if (_pointerAcquired)
             {
                 _view.SafeMemoryMappedViewHandle.ReleasePointer();
@@ -313,7 +328,11 @@ namespace LiteDB.Client.Shared
             finally
             {
                 try { _map?.Dispose(); }
-                finally { _participation?.Dispose(); }
+                finally
+                {
+                    try { _participation?.Dispose(); }
+                    finally { _modeGuard?.Dispose(); }
+                }
             }
         }
 

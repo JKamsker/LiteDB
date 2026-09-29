@@ -282,7 +282,8 @@ namespace LiteDB.Tests.Engine
 
         private static T ExecuteInTransaction<T>(LiteDatabase db, Func<TransactionService, T> action)
         {
-            var engine = (LiteEngine)EngineField.GetValue(db);
+            var inner = EngineField.GetValue(db);
+            var engine = inner is LiteDB.Client.Direct.DirectEngineLease lease ? lease.Engine : (LiteEngine)inner;
             var method = AutoTransactionMethod.MakeGenericMethod(typeof(T));
             return (T)method.Invoke(engine, new object[] { action });
         }

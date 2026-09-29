@@ -97,6 +97,108 @@ without its close checkpoint: another process may have committed or checkpointed
 meanwhile, so the engine's WAL index and cache can be stale. The next open
 recovers the WAL as usual.
 
+## Diagnostics and mode admission
+
+For `Connection=shared`, call `LiteDatabase.GetSharedDiagnostics()`; it returns
+null for other engines. A retained `SharedEngine` also exposes `GetDiagnostics()`.
+Both observe the connection without opening storage. `ReadPath` uses the
+`SharedReadPath` enum: `Uninitialized`,
+`Protected`, `Mapped`, `Revoked`, or `Disposed`. `Mapped` means a usable authority
+is attached; an individual query can still need the protected path, so consult
+`CoordinatedReadHits` and `CoordinatedReadMisses` as well. Misses count eligible
+cached-query attempts, including warmup. The snapshot also exposes the last
+fallback reason (exception types and messages, without stack traces), active
+snapshot leases, writer-pressure requests and reader
+yields. Counts are cumulative and observations are not transactionally consistent.
+`ProcessMappedParticipants` counts attachments to this path in this process;
+it is **not** the number of participating OS processes. No diagnostic counter
+is stored in the mapped correctness protocol. On older targets the path is
+protected and the reason identifies the runtime restriction.
+
+The `LiteDB-Shared` EventSource emits event 1 with `filename`, `state`, and
+`reason`. States include `attached`, `detached`, `fallback`, `revoked`, `created`,
+`retired`, and `mode-conflict`. Creation/retirement events identify the control
+file path, including a newly recreated authority. These are opt-in lifecycle
+events, not one event per read. Listener failures cannot authorize access or
+interrupt storage cleanup.
+
+File-backed connections use process-wide native database admission, described in
+[native admission](native-database-admission.md). The registry owns one lock on the
+physical database and reference-counts compatible local owners. There is no
+`-shared-mode` file to initialize, recover or clean up. Direct writers take an
+exclusive lock; Shared participants take shared locks. A different effective
+Shared mutex strategy is rejected before it can revoke or modify a peer's state.
+
+Shared admission remains lazy: the first storage operation admits the connection,
+which retains admission between operations. Short-lived engines and streaming
+snapshots retain its lease; an escaping reader can outlive connection disposal.
+Acquisition and final release can occur on different threads. Failed opens unwind
+their acquired references and abandoned references have finalizer cleanup.
+[Admission lifetime tests](../LiteDB.Tests/Engine/SharedAdmissionLifetime_Tests.cs)
+cover idle protected connections, escaping readers, cross-thread disposal,
+encrypted files, failed inner opens and cold indexed reopens.
+
+Read-only Shared connections now acquire native shared admission even when no
+coordination artifacts exist. They require only read permission on the database;
+protected reads remain available when the optional mapped files cannot be created.
+Standalone Direct read-only connections share admission with other Direct readers
+and exclude writable Direct and Shared connections. Coordinator-owned snapshots
+continue to use their existing host-issued reader lease. `ReadOnly` combined with
+`Upgrade` or `AutoRebuild` requires writable admission because opening can write.
+
+Native admission failures throw `DatabaseAdmissionException` (an `IOException`
+with the underlying cause); ordinary missing-directory and permission exceptions
+retain their types. Windows sharing/lock violations retain their codes for bounded
+retries. Memory databases and caller-owned streams retain their existing contract.
+Symlinks resolve before choosing the data/WAL/recovery paths. Hard-linked databases
+are refused because their different path names could select different WALs.
+
+### Compatibility impact for Direct connections
+
+Admission no longer needs a writable directory or a persistent mode sidecar. A
+writable engine still needs permission to modify the database and create its WAL.
+Native locks are mandatory on supported local filesystems; unqualified filesystems
+fail closed. The runtime's file-sharing locks must also remain enabled for the
+independent Shared reader/MMF protocol.
+
+Compatible file-backed Direct `LiteDatabase` instances share one process engine
+and native lock. Each instance has an independent disposable lease; the final
+database, operation and reader release closes the engine. Raw independently
+constructed writable `LiteEngine` objects still have separate caches/WAL indexes
+and cannot coexist. See [Direct engine ownership](direct-engine-ownership.md) for
+settings, per-thread transactions and finalization. Multiple standalone Direct
+read-only engines are compatible and share admission.
+
+Rebuild/upgrade locks the completed candidate before publication and transfers the
+registry to the resulting live inode. Shared replacement requires other processes
+to close their connections first, including idle ones; their handles cannot be
+transferred remotely. Local Shared connections follow the registry's replacement.
+The recovery marker continues to guard interrupted or incomplete installations.
+No database format change is involved.
+
+Stop all database users when updating from versions with the old sidecar protocol.
+Obsolete `-shared-mode` files are ignored and left untouched. An already active
+pre-guard mapped participant can still be detected by its `-shared-live` handle,
+but concurrent use with old executables that never acquire native admission is
+unsupported. External unlink/rename or changing symlinks while a database is live
+is also unsupported. See [release notes](release-notes.md).
+
+### Orphan coordination recovery
+
+If `<database>-shared-state` exists without `-shared-live`, Direct admission fails
+closed. The error names the orphan file. Stop **all** processes and connections
+using that database path before removing the orphan `-shared-state`; preserve the
+database, WAL, backups and rebuild-recovery markers. Retry only after cleanup is
+offline. Do not remove sidecars under live readers or writers. Permission failures
+must be corrected rather than treated as missing files. Direct uses managed file
+metadata checks here and does not depend on the mapped fast-path native probe.
+
+[Native admission evidence](native-database-admission.md#validation) covers native
+conflicts, owner death, local reference lifetimes, aliases, permissions and lock
+handoff. Existing Shared mode tests retain mutex-strategy rejection, diagnostics,
+MMF fallback and readers outliving their connection. Rebuild fault tests retain
+the complete data/WAL/backup/candidate recovery oracle.
+
 ## Durability reporting
 
 An ordinary commit whose device sync is explicitly unsupported follows the

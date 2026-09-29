@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using LiteDB.Client.Shared;
 
 using static LiteDB.Constants;
 
@@ -27,7 +28,16 @@ namespace LiteDB.Engine
         internal Func<bool> AutoRebuildAllowed { get; set; }
         // Shared mode: outlives each short-lived engine; rations close checkpoints too.
         internal CheckpointBackoff CheckpointBackoff { get; set; }
+        // Private rebuild/upgrade output; the live engine retains admission through publication.
+        internal bool RebuildCandidate { get; set; }
+        internal bool SharedMode { get; set; }
+        internal bool HostLocalAdmissionActive { get; set; }
+        internal SharedModeAdmission SharedAdmission { get; set; }
+        // Preserve connection admission intent when a query clones read-only snapshot settings.
+        internal bool SharedModeReadOnly { get; set; }
         internal bool SharedReadSnapshot { get; set; }
+        // A coordinator snapshot already owns its host-issued remote reader lease.
+        internal bool CoordinatedReadSnapshot { get; set; }
         internal Func<string, string, string[]> SharedReaderFiles { get; set; }
         internal SharedDurabilityState SharedDurability { get; set; }
         // Shared mode on Windows: data/log file handles kept open between operations.
@@ -115,6 +125,15 @@ namespace LiteDB.Engine
         public bool ReadOnly { get; set; } = false;
 
         /// <summary>
+        /// Opt in to host-local OS admission locks for an established local volume
+        /// whose database-file locking is unqualified. Defaults to false. All users
+        /// must share the host coordination and named-mutex namespaces; network
+        /// storage is unsupported. Shared streaming reads retain the writer mutex.
+        /// </summary>
+        public bool AllowHostLocalAdmissionFallback { get; set; }
+
+
+        /// <summary>
         /// With <see cref="ReadOnly"/>, open a file whose indexes still need the v11 ordering
         /// migration without changing it. Queries ignore those indexes and use full scans,
         /// so results stay correct but lookups become linear. Writable opens always migrate.
@@ -192,7 +211,7 @@ namespace LiteDB.Engine
             else if (!string.IsNullOrEmpty(this.Filename))
             {
                 return new FileStreamFactory(this.Filename, this.Password, this.ReadOnly, false, useAesStream,
-                    handles: this.SharedFileHandles);
+                    handles: this.SharedFileHandles, nativeAdmission: !this.RebuildCandidate);
             }
 
             throw new ArgumentException("EngineSettings must have Filename or DataStream as data source");

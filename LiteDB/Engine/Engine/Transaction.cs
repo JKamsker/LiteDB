@@ -10,14 +10,14 @@ namespace LiteDB.Engine
     public partial class LiteEngine
     {
         /// <summary>
-        /// Initialize a new transaction. Transaction are created "per-thread". There is only one single transaction per thread.
+        /// Initialize a transaction for the current engine context and actual thread.
         /// Return true when created; false joins the current thread transaction. Keep the block synchronous, with no await.
         /// </summary>
         public bool BeginTrans()
         {
             _state.Validate();
 
-            if (_settings.ReadOnly) throw new IOException("Cannot start a transaction in a read-only database.");
+            if (CurrentContext.Policy.ReadOnly) throw new ReadOnlyContextException("Cannot start a transaction in a read-only database.");
 
             var transacion = _monitor.GetTransaction(true, false, out var isNew);
 
@@ -87,7 +87,7 @@ namespace LiteDB.Engine
         {
             _state.Validate();
 
-            if (write && _settings.ReadOnly) throw new IOException("Cannot modify a read-only database.");
+            if (write && CurrentContext.Policy.ReadOnly) throw new ReadOnlyContextException("Cannot modify a read-only database.");
 
             var transaction = _monitor.GetTransaction(true, false, out var isNew);
 
@@ -130,7 +130,7 @@ namespace LiteDB.Engine
             }
 
             // try checkpoint when finish transaction and log file are bigger than checkpoint pragma value (in pages)
-            if (_header.Pragmas.Checkpoint > 0 &&
+            if (!CurrentContext.Policy.ReadOnly && _header.Pragmas.Checkpoint > 0 &&
                 _disk.GetFileLength(FileOrigin.Log) >= (_header.Pragmas.Checkpoint * PAGE_SIZE))
             {
                 _walIndex.TryAutoCheckpoint();

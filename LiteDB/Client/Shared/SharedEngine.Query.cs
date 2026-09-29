@@ -36,6 +36,7 @@ namespace LiteDB
             {
                 var coordinated = this.TryQueryCoordinated(collection, query);
                 if (coordinated != null) return coordinated;
+                System.Threading.Interlocked.Increment(ref _coordinatedReadMisses);
             }
 #endif
             SharedMutexPin use;
@@ -150,7 +151,11 @@ namespace LiteDB
             }
             finally
             {
-                try { snapshot?.Dispose(); }
+                try
+                    {
+                        if (snapshot != null && _settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot?.Dispose();
+                    }
                 finally
                 {
                     try { lease?.Dispose(); }
@@ -184,6 +189,11 @@ namespace LiteDB
 
         private IDisposable TryRegisterLease(int version)
         {
+            if (_settings.HostLocalAdmissionActive)
+            {
+                _leaseState = LEASES_UNAVAILABLE;
+                return null;
+            }
             try
             {
                 var lease = _readers.Register(version);
@@ -204,6 +214,11 @@ namespace LiteDB
         /// </summary>
         private void ProbeLeases(int version)
         {
+            if (_settings.HostLocalAdmissionActive)
+            {
+                _leaseState = LEASES_UNAVAILABLE;
+                return;
+            }
             if (_leaseState != LEASES_UNKNOWN) return;
             try
             {
@@ -241,7 +256,8 @@ namespace LiteDB
                     lease = this.TryRegisterLease(snapshot.ReadVersion);
                     if (lease == null)
                     {
-                        snapshot.Dispose();
+                        if (_settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot.Dispose();
                         snapshot = null;
                         release = false;
                         _owner.Exit();
@@ -306,7 +322,11 @@ namespace LiteDB
                 try { reader?.Dispose(); }
                 finally
                 {
-                    try { snapshot?.Dispose(); }
+                    try
+                    {
+                        if (snapshot != null && _settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot?.Dispose();
+                    }
                     finally
                     {
                         try { lease?.Dispose(); }
@@ -335,10 +355,13 @@ namespace LiteDB
             try
             {
                 RebuildRecovery.EnsureAvailable(_settings);
+                _settings.SharedAdmission.Ensure();
 #if NET8_0_OR_GREATER
                 this.EnsureReadCoordination();
 #endif
                 snapshot = this.CreateEngine(recoveredAbandonedOwner, this.SnapshotSettings());
+                if (_settings.HostLocalAdmissionActive)
+                    lock (_useLock) _mutexSnapshots.Add(snapshot);
             }
             catch (Exception ex) when (!(ex is OutOfMemoryException))
             {
@@ -346,7 +369,8 @@ namespace LiteDB
             }
             if (_settings.AutoRebuild && snapshot.InvalidDatafileState)
             {
-                snapshot.Dispose();
+                if (_settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                else snapshot.Dispose();
                 return null;
             }
 #if DEBUG || TESTING

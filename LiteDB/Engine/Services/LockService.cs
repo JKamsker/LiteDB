@@ -66,35 +66,42 @@ namespace LiteDB.Engine
             }
         }
 
+#if DEBUG || TESTING
+        internal Action AfterTransactionRelease;
+#endif
+
         /// <summary>
         /// Exit transaction read lock
         /// </summary>
         public void ExitTransaction(Thread owner)
         {
             _transaction.ExitReadLock(owner);
+#if DEBUG || TESTING
+            AfterTransactionRelease?.Invoke();
+#endif
         }
 
         /// <summary>
         /// Enter collection write lock mode (only 1 collection per time can have this lock)
         /// </summary>
-        public void EnterLock(string collectionName)
+        public void EnterLock(string collectionName, object owner)
         {
             ENSURE(_transaction.IsReadLockHeld || _transaction.IsWriteLockHeld, "Use EnterTransaction() before EnterLock(name)");
 
             // get collection lock from dictionary (or create new if it does not exist)
             var collection = _collections.GetOrAdd(collectionName, (s) => new CollectionLock());
 
-            if (collection.TryEnter(_pragmas.Timeout) == false) throw LiteException.LockTimeout("write", collectionName, _pragmas.Timeout);
+            if (collection.TryEnter(owner, _pragmas.Timeout) == false) throw LiteException.LockTimeout("write", collectionName, _pragmas.Timeout);
         }
 
         /// <summary>
         /// Exit collection in reserved lock
         /// </summary>
-        public void ExitLock(string collectionName)
+        public void ExitLock(string collectionName, object owner)
         {
             if (_collections.TryGetValue(collectionName, out var collection) == false) throw LiteException.CollectionLockerNotFound(collectionName);
 
-            collection.Exit();
+            collection.Exit(owner);
         }
 
         /// <summary>

@@ -18,6 +18,9 @@ on:
             { "display": ".NET 10", "runtimeMajor": 10, "sdk": "10.0.x",          "framework": "net10.0", "includePrerelease": false, "msbuildProps": "" }
           ]
 
+env:
+  LITEDB_RETAINED_FIXTURES: ${{ github.workspace }}/LiteDB.Tests/TestResults/retained-fixtures
+
 jobs:
   build-linux:
     name: Build (Linux)
@@ -67,19 +70,33 @@ jobs:
       - name: Build memory profile measurements
         run: dotnet build tools/MemoryProfiles/MemoryProfiles.csproj --configuration Release
 
+      - name: Build production native admission validation
+        run: dotnet build tools/NativeAdmissionValidation/NativeAdmissionValidation.csproj --configuration Release /p:TestingEnabled=false
+
       # Compatibility/measurement tools build production assemblies. Restore the
       # hook-enabled outputs before packaging any test artifacts.
       - name: Restore test-hook assemblies
         run: dotnet build LiteDB.sln --configuration Release --no-restore /p:TestingEnabled=true
 
       - name: Package build outputs
-        run: tar -czf tests-build-linux.tar.gz LiteDB/bin/Release LiteDB/obj/Release LiteDB.Tests/bin/Release LiteDB.Tests/obj/Release LiteDB.Tests.SharedMutexHarness/bin/Release LiteDB.Tests.SharedMutexHarness/obj/Release
+        run: tar -czf tests-build-linux.tar.gz LiteDB/bin/Release LiteDB/obj/Release LiteDB.Tests/bin/Release LiteDB.Tests/obj/Release LiteDB.Tests.SharedMutexHarness/bin/Release LiteDB.Tests.SharedMutexHarness/obj/Release tools/NativeAdmissionValidation/bin/Release
 
       - name: Upload linux test build
         uses: actions/upload-artifact@v4
         with:
           name: tests-build-linux
           path: tests-build-linux.tar.gz
+
+      - name: Verify real graph-failure fixture retention
+        run: python3 scripts/test-graph-retention.py --output artifacts_temp/graph-retention-contract
+
+      - name: Upload graph retention contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph-retention-contract-linux
+          path: artifacts_temp/graph-retention-contract/
+          if-no-files-found: warn
 
       - name: Verify prerelease database acknowledgement guard
         run: >-
@@ -132,6 +149,47 @@ jobs:
           name: test-results-${{ github.job }}-${{ strategy.job-index }}
           path: LiteDB.Tests/TestResults/*.trx
           if-no-files-found: warn
+
+      - name: Preserve failed graph fixtures after test-host exit
+        if: always()
+        uses: ./.github/actions/retained-fixtures
+
+  test-native-glibc231:
+    if: inputs.tier == 'full'
+    name: Native admission (glibc 2.31 - ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: build-linux
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: tests-build-linux
+      - name: Extract test build
+        run: tar -xzf tests-build-linux.tar.gz
+      - name: Verify old glibc symbol compatibility and native admission
+        run: bash scripts/test-native-admission-glibc.sh
+      - name: Upload native admission results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-admission-glibc231-${{ matrix.os }}
+          path: |
+            LiteDB.Tests/TestResults/NativeAdmission-glibc231-*.trx
+            LiteDB.Tests/TestResults/NativeAdmission-bind-*
+          if-no-files-found: warn
+
+      - name: Upload retained container graph fixtures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retained-fixtures-glibc-${{ matrix.os }}
+          path: LiteDB.Tests/TestResults/retained-fixtures/
+          if-no-files-found: ignore
 
   build-macos:
     if: inputs.tier == 'full'
@@ -207,6 +265,55 @@ jobs:
           name: test-results-${{ github.job }}-${{ strategy.job-index }}
           path: LiteDB.Tests/TestResults/*.trx
           if-no-files-found: warn
+
+      - name: Preserve failed graph fixtures after test-host exit
+        if: always()
+        uses: ./.github/actions/retained-fixtures
+
+  test-native-macos-intel:
+    if: inputs.tier == 'full'
+    name: Native admission (macOS Intel - ${{ matrix.framework }})
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - framework: net8.0
+            runtimeMajor: 8
+          - framework: net10.0
+            runtimeMajor: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            8.0.x
+      - name: Build admission tests and process harness
+        run: dotnet build LiteDB.Tests/LiteDB.Tests.csproj -c Release -f ${{ matrix.framework }} -p:TestingEnabled=true
+      # Darwin x64 uses different stat symbols and variadic calling conventions
+      # from arm64. The full macOS suite above exercises the arm64 runner.
+      - name: Verify Intel native locking and replacement
+        shell: pwsh
+        run: >-
+          ./scripts/run-ci-tests.ps1
+          -RuntimeMajor ${{ matrix.runtimeMajor }}
+          -Framework "${{ matrix.framework }}"
+          -Architecture x64
+          -Filter 'FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~SharedMode|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~Issue2979|FullyQualifiedName~SharedCoordinated'
+          -ResultFile 'NativeAdmission.trx'
+      - name: Upload native admission results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-admission-macos-intel-${{ matrix.framework }}
+          path: LiteDB.Tests/TestResults/*.trx
+          if-no-files-found: warn
+
+      - name: Preserve failed graph fixtures after test-host exit
+        if: always()
+        uses: ./.github/actions/retained-fixtures
 
   build-windows:
     name: Build (Windows)
@@ -364,6 +471,10 @@ jobs:
           path: LiteDB.Tests/TestResults/*.trx
           if-no-files-found: warn
 
+      - name: Preserve failed graph fixtures after test-host exit
+        if: always()
+        uses: ./.github/actions/retained-fixtures
+
   test-windows-framework:
     name: Test (Windows ${{ matrix.framework }})
     runs-on: windows-2022
@@ -414,6 +525,10 @@ jobs:
           $total = [int]$report.assemblies.assembly.total
           if ($total -eq 0) { throw "The $framework runner discovered zero tests." }
 
+      - name: Preserve failed graph fixtures after test-host exit
+        if: always()
+        uses: ./.github/actions/retained-fixtures
+
   test-linux-arm64:
     if: inputs.tier == 'full'
     name: Test (Linux ARM64 - ${{ matrix.item.display }})
@@ -457,4 +572,87 @@ jobs:
         with:
           name: test-results-${{ github.job }}-${{ strategy.job-index }}
           path: LiteDB.Tests/TestResults/*.trx
+          if-no-files-found: warn
+
+      - name: Preserve failed graph fixtures after test-host exit
+        if: always()
+        uses: ./.github/actions/retained-fixtures
+
+  test-native-windows-arm64:
+    if: inputs.tier == 'full'
+    name: Native admission (Windows ARM64 - ${{ matrix.framework }})
+    runs-on: windows-11-arm
+    needs: build-windows
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - framework: net8.0
+            runtimeMajor: 8
+          - framework: net10.0
+            runtimeMajor: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            8.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: tests-build-windows
+      - name: Verify ARM64 runtime, native admission, fallback and replacement
+        shell: pwsh
+        run: >-
+          ./scripts/run-ci-tests.ps1
+          -RuntimeMajor ${{ matrix.runtimeMajor }}
+          -Framework "${{ matrix.framework }}"
+          -Architecture arm64
+          -Filter 'FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~SharedMode|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~SharedCoordinated'
+          -ResultFile 'NativeAdmission-arm64.trx'
+      - name: Verify Windows fixture collector and actual failing graph host
+        shell: pwsh
+        run: |
+          python -m unittest discover -s .github/scripts -p test_retained_fixtures.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-graph-retention.py --framework '${{ matrix.framework }}' --architecture arm64 --output artifacts_temp/graph-retention-contract
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload native and retention contract results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-admission-windows-arm64-${{ matrix.framework }}
+          path: |
+            LiteDB.Tests/TestResults/*.trx
+            artifacts_temp/graph-retention-contract/
+          if-no-files-found: warn
+      - name: Preserve failed graph fixtures after test-host exit
+        if: always()
+        uses: ./.github/actions/retained-fixtures
+
+  test-host-local-filesystem:
+    if: inputs.tier == 'full'
+    name: Host-local admission (real f2fs)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install local filesystem tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y f2fs-tools linux-modules-extra-$(uname -r)
+      - name: Build production admission validation
+        run: dotnet build tools/NativeAdmissionValidation/NativeAdmissionValidation.csproj -c Release -f net8.0 -p:TestingEnabled=false
+      - name: Verify actual unqualified local storage and file-bind refusal
+        run: bash scripts/test-host-local-filesystem.sh
+      - name: Upload filesystem qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-local-f2fs
+          path: LiteDB.Tests/TestResults/host-local-f2fs/
           if-no-files-found: warn
