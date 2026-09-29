@@ -115,6 +115,33 @@ namespace LiteDB.Tests.Engine
         }
 
         [Fact]
+        public void Reentrant_read_transform_cannot_write_before_streaming_snapshot_publication()
+        {
+            using var file = new TempFile();
+            NativeAdmission_Tests.Seed(file);
+            using var volume = new UnqualifiedVolume(file);
+            SharedEngine engine = null;
+            var callbacks = 0;
+            using (engine = new SharedEngine(new EngineSettings
+            {
+                Filename = file, AllowHostLocalAdmissionFallback = true,
+                ReadTransform = (_, row) =>
+                {
+                    callbacks++;
+                    Action write = () => engine.Checkpoint();
+                    write.Should().Throw<InvalidOperationException>().WithMessage("*streaming readers*");
+                    return row;
+                }
+            }))
+            using (var db = new LiteDatabase(engine))
+            {
+                db.GetCollection("rows").FindById(1)["value"].AsInt32.Should().Be(42);
+                callbacks.Should().BeGreaterThan(0);
+            }
+            for (var i = 0; i < 2; i++) NativeAdmission_Tests.Verify(file, fallback: true);
+        }
+
+        [Fact]
         public async Task Shared_streaming_snapshot_blocks_recursive_mutation_and_can_close_on_another_thread()
         {
             using var file = new TempFile();
@@ -125,7 +152,11 @@ namespace LiteDB.Tests.Engine
                 seed.GetCollection("rows").EnsureIndex("value");
             }
             using var volume = new UnqualifiedVolume(file);
-            using var engine = new SharedEngine(new EngineSettings { Filename = file, AllowHostLocalAdmissionFallback = true });
+            using var engine = new SharedEngine(new EngineSettings
+            {
+                Filename = file, AllowHostLocalAdmissionFallback = true,
+                SharedReaderFiles = (_, __) => throw new InvalidOperationException("Unqualified database reader leases must not be consulted")
+            });
             using var db = new LiteDatabase(engine);
             using var reader = engine.Query("rows", Query.All());
             reader.Read().Should().BeTrue();

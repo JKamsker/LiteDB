@@ -22,7 +22,7 @@ result = subprocess.run(['dotnet', 'test', 'LiteDB.Tests/LiteDB.Tests.csproj', '
 (root / 'expected-failing-test-host.log').write_text(result.stdout, encoding='utf-8')
 assert result.returncode != 0, 'The deliberately failing graph test unexpectedly passed'
 manifests = list(root.glob('*.json'))
-assert len(manifests) == 4, f'Expected four actual C# graph manifests, got {len(manifests)}'
+assert len(manifests) == 6, f'Expected six actual C# graph manifests, got {len(manifests)}'
 for manifest in manifests:
     data = json.loads(manifest.read_text(encoding='utf-8-sig'))
     assert 'graph retention sentinel after real graph construction' in data['failure'], data['failure']
@@ -31,6 +31,7 @@ spec = importlib.util.spec_from_file_location('collector', Path(__file__).with_n
 collector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(collector)
 assert collector.collect(root) == 0, 'Post-host collection failed'
+coordination_copies = 0
 for manifest in manifests:
     data = json.loads(manifest.read_text(encoding='utf-8-sig'))
     report = json.loads((root / manifest.stem / 'collection-report.json').read_text())
@@ -39,5 +40,15 @@ for manifest in manifests:
         copied = root / manifest.stem / original.name
         assert copied.stat().st_size > 0, f'Missing exercised database/WAL: {copied}'
         assert hashlib.sha256(copied.read_bytes()).digest() == hashlib.sha256(original.read_bytes()).digest()
+    # Match every source file beneath this GUID's coordination directories, not
+    # only the data/WAL. Shared exhausted readers retain actual reader lease files.
+    for original in database.parent.glob(database.stem + '*'):
+        if original.is_dir():
+            for source in original.rglob('*'):
+                if source.is_file():
+                    copied = root / manifest.stem / source.relative_to(database.parent)
+                    assert copied.read_bytes() == source.read_bytes(), f'Coordination evidence missing: {source}'
+                    coordination_copies += 1
     assert report['errors'] == []
-print('Passed: four failing real engine graphs retained original assertions and byte-identical database/WAL artifacts after host exit')
+assert coordination_copies >= 2, 'Shared graph fixtures did not exercise coordination retention'
+print('Passed: six failing real engine graphs retained original assertions and byte-identical database/WAL artifacts after host exit')

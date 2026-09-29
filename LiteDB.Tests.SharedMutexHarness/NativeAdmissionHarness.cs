@@ -30,6 +30,33 @@ internal static class NativeAdmissionHarness
         }
         var shared = args[4].Contains("shared", StringComparison.Ordinal);
         settings.ReadOnly = args[4].Contains("readonly", StringComparison.Ordinal);
+        if (mode == "native-stream-hold")
+        {
+            using var engine = new SharedEngine(settings);
+            using var reader = engine.Query("rows", Query.All());
+            if (!reader.Read()) throw new Exception("Streaming reader was empty");
+            Console.WriteLine("ready");
+            Console.ReadLine();
+            var count = 1;
+            while (reader.Read())
+            {
+                var row = reader.Current;
+                if (row["value"].AsInt32 != row["_id"].AsInt32 * 2) throw new Exception("Protected snapshot changed");
+                count++;
+            }
+            if (count != 300) throw new Exception("Protected snapshot lost rows");
+            return true;
+        }
+        if (mode == "native-update")
+        {
+            using var db = new LiteDatabase(new SharedEngine(settings));
+            Console.WriteLine("attempting");
+            if (!db.GetCollection("rows").Update(new BsonDocument { ["_id"] = 1, ["value"] = 999 }))
+                throw new Exception("Contending update missed row");
+            db.Checkpoint();
+            Console.WriteLine("done");
+            return true;
+        }
         if (mode == "native-rebuild-hold")
         {
             var stage = args[4].Split('|')[0];

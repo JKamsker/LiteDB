@@ -256,7 +256,8 @@ namespace LiteDB
                     lease = this.TryRegisterLease(snapshot.ReadVersion);
                     if (lease == null)
                     {
-                        snapshot.Dispose();
+                        if (_settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot.Dispose();
                         snapshot = null;
                         release = false;
                         _owner.Exit();

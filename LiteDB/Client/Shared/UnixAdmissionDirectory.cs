@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace LiteDB.Client.Shared
 {
@@ -29,18 +30,30 @@ namespace LiteDB.Client.Shared
             // POSIX access ACL grants on Linux are bounded by the mode mask. macOS
             // extended ACLs are independent, so conservatively require no entries.
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return;
-            var acl = GetAcl(path, 0x100); // ACL_TYPE_EXTENDED
-            if (acl == IntPtr.Zero) throw DatabaseFileLock.Error("Admission directory ACL");
+            using var handle = DatabaseFileIdentity.Open(path, readOnly: true, create: false);
+            var acl = GetAcl(handle, 0x100); // ACL_TYPE_EXTENDED
+            if (acl == IntPtr.Zero)
+            {
+                // Darwin filesec_get_property reports ENOENT when a valid fd has
+                // no extended ACL property. Using an fd distinguishes absent ACL
+                // from an absent pathname; every other inspection failure rejects.
+                if (Marshal.GetLastWin32Error() == 2) return;
+                throw DatabaseFileLock.Error("Admission directory ACL");
+            }
             try
             {
                 var result = GetEntry(acl, 0, out _); // ACL_FIRST_ENTRY
-                if (result != 0) throw new IOException("Host admission directories cannot have extended ACL entries.");
+                // Darwin returns 0 for an entry, -1/EINVAL at end (unlike
+                // POSIX implementations returning 1/0). The ACL was just opened.
+                if (result == 0) throw new IOException("Host admission directories cannot have extended ACL entries.");
+                if (result != -1 || Marshal.GetLastWin32Error() != 22)
+                    throw DatabaseFileLock.Error("Admission ACL enumeration");
             }
             finally { FreeAcl(acl); }
         }
 
-        [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "acl_get_file", SetLastError = true)]
-        private static extern IntPtr GetAcl(string path, int type);
+        [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "acl_get_fd_np", SetLastError = true)]
+        private static extern IntPtr GetAcl(SafeFileHandle handle, int type);
         [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "acl_get_entry", SetLastError = true)]
         private static extern int GetEntry(IntPtr acl, int entry, out IntPtr result);
         [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "acl_free")]

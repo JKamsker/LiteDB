@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -74,6 +75,15 @@ sys.stdin.readline()
             self.assertIn('copy failure sentinel', report['errors'][0])
             self.assertEqual(len(report['files']), 1)
             self.assertEqual(db.read_bytes(), b'database')
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux zombie process state')
+    def test_exited_unreaped_child_has_no_live_handles(self):
+        child = subprocess.Popen([sys.executable, '-c', 'pass'])
+        try:
+            os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOWAIT)
+            self.assertFalse(retained.running(child.pid))
+        finally:
+            child.wait(timeout=10)
 
     def test_no_failures_is_noop(self):
         with tempfile.TemporaryDirectory() as root:

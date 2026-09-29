@@ -2,11 +2,13 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace LiteDB.Client.Shared
 {
     internal static class WindowsAdmissionDirectory
     {
+        private static readonly Lazy<string> InstallerSid = new Lazy<string>(TrustedInstaller);
         internal static void Ensure(string path)
         {
             var user = CurrentUser();
@@ -34,7 +36,7 @@ namespace LiteDB.Client.Shared
             try
             {
                 if (!Trusted(Sid(owner), user) || acl == IntPtr.Zero)
-                    throw new IOException("Host admission directory has an untrusted owner or unrestricted ACL.");
+                    throw new IOException("Host admission directory has an untrusted owner or unrestricted ACL: " + path + " (" + Sid(owner) + ").");
                 if (expected != IntPtr.Zero)
                 {
                     if (!GetSecurityDescriptorControl(descriptor, out var control, out _) || (control & 0x1000) == 0 ||
@@ -54,14 +56,33 @@ namespace LiteDB.Client.Shared
                     // conditional/object grants cannot establish this trust proof.
                     if (type != 0) throw new IOException("Unsupported host admission ancestor ACL.");
                     var mask = (uint)Marshal.ReadInt32(ace, 4);
-                    if ((mask & 0x100c0040) != 0 && !Trusted(Sid(IntPtr.Add(ace, 8)), user))
+                    if ((mask & 0x100d0040) != 0 && !Trusted(Sid(IntPtr.Add(ace, 8)), user))
                         throw new IOException("Host admission ancestor allows an untrusted user to replace its children or ACL.");
                 }
             }
             finally { LocalFree(descriptor); }
         }
 
-        private static bool Trusted(string sid, string user) => sid == user || sid == "S-1-5-18" || sid == "S-1-5-32-544";
+        private static bool Trusted(string sid, string user) => sid == user || sid == "S-1-5-18" || sid == "S-1-5-32-544" || sid == InstallerSid.Value;
+        private static string TrustedInstaller()
+        {
+            // Windows system-volume ancestors can be owned by this OS servicing
+            // identity. Resolve its local service SID rather than trusting arbitrary
+            // service accounts or an owner name supplied by the directory.
+            uint size = 0, domainSize = 0;
+            LookupAccountNameW(null, @"NT SERVICE\TrustedInstaller", IntPtr.Zero, ref size, null, ref domainSize, out _);
+            if (Marshal.GetLastWin32Error() != 122) throw DatabaseFileLock.Error("Windows servicing identity");
+            var sid = Marshal.AllocHGlobal(checked((int)size));
+            try
+            {
+                var domain = new StringBuilder(checked((int)domainSize));
+                if (!LookupAccountNameW(null, @"NT SERVICE\TrustedInstaller", sid, ref size, domain, ref domainSize, out _))
+                    throw DatabaseFileLock.Error("Windows servicing identity");
+                return Sid(sid);
+            }
+            finally { Marshal.FreeHGlobal(sid); }
+        }
+
         private static byte[] Bytes(IntPtr acl)
         {
             var bytes = new byte[(ushort)Marshal.ReadInt16(acl, 2)];
@@ -101,6 +122,10 @@ namespace LiteDB.Client.Shared
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool CreateDirectoryW(string path, ref SecurityAttributes security);
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool LookupAccountNameW(string system, string account, IntPtr sid, ref uint sidSize,
+            StringBuilder domain, ref uint domainSize, out uint use);
         [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool ConvertStringSecurityDescriptorToSecurityDescriptorW(string value, uint revision, out IntPtr descriptor, out uint size);

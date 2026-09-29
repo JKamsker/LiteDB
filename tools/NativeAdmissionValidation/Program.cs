@@ -20,6 +20,24 @@ internal static class Program
             if (architecture != null) Require(RuntimeInformation.ProcessArchitecture.ToString().Equals(architecture,
                 StringComparison.OrdinalIgnoreCase), "Wrong architecture.");
             if (args[0] == "scenario") await Scenario(args[1], args[2]);
+            else if (args[0] == "fallback-default")
+            {
+                try { using var db = new LiteDatabase(args[1]); throw new Exception("Unqualified volume was admitted by default"); }
+                catch (DatabaseAdmissionException) { }
+            }
+            else if (args[0] == "file-mount")
+            {
+                try { using var db = Open(args[1], shared: false); throw new Exception("File-only bind mount was admitted"); }
+                catch (DatabaseAdmissionException error) when (error.Message.Contains("File-only bind mounts")) { }
+            }
+            else if (args[0] == "hold-wal")
+            {
+                using var db = Open(args[1], shared: false);
+                db.CheckpointSize = 0;
+                db.GetCollection("rows").Update(Row(1, 11));
+                Console.WriteLine("wal-ready");
+                Console.ReadLine();
+            }
             else if (args[0] == "probe") Probe(args[1], args[2] == "readonly", args[3] == "reject");
             else if (args[0] == "write") Write(args[1]);
             else if (args[0] == "verify") Verify(args[1]);
@@ -34,7 +52,7 @@ internal static class Program
     {
         var file = Path.Combine(root, "data.db");
         var alternate = Path.Combine(alias, "data.db");
-        using (var seed = new LiteDatabase(file))
+        using (var seed = Open(file, shared: false))
         {
             seed.GetCollection("rows").Insert(new[] { Row(1, 10), Row(2, 20) });
             seed.GetCollection("rows").EnsureIndex("value", unique: true);
@@ -72,7 +90,7 @@ internal static class Program
             await Child("probe", file, "readonly", "allow");
         }
         await Child("verify", file);
-        using (var next = new LiteDatabase(file))
+        using (var next = Open(file, shared: false))
         {
             next.GetCollection("rows").Insert(Row(4, 40));
             Require(next.GetCollection("rows").Delete(4), "Post-recovery mutation made no progress.");
@@ -118,7 +136,7 @@ internal static class Program
 
     private static void Verify(string file)
     {
-        using var db = new LiteDatabase(file);
+        using var db = Open(file, shared: false);
         var rows = db.GetCollection("rows");
         var actual = rows.FindAll().OrderBy(x => x["_id"].AsInt32).ToArray();
         Require(actual.Length == 2 && actual.All(x => x.Count == 2 && x["_id"].IsInt32 && x["value"].IsInt32) &&
@@ -138,7 +156,7 @@ internal static class Program
     }
 
     private static LiteDatabase Open(string file, bool shared, bool readOnly = false) => new LiteDatabase(new ConnectionString
-        { Filename = file, Connection = shared ? ConnectionType.Shared : ConnectionType.Direct, ReadOnly = readOnly });
+        { Filename = file, Connection = shared ? ConnectionType.Shared : ConnectionType.Direct, ReadOnly = readOnly, AllowHostLocalAdmissionFallback = Environment.GetEnvironmentVariable("LITEDB_VALIDATE_HOST_LOCAL") == "1" });
 
     private static BsonDocument Row(int id, int value) => new BsonDocument { ["_id"] = id, ["value"] = value };
 

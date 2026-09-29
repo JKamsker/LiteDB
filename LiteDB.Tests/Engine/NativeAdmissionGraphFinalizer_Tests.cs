@@ -23,6 +23,7 @@ namespace LiteDB.Tests.Engine
         private sealed class Observation : IDisposable
         {
             internal readonly string Filename;
+            internal readonly bool Fallback;
             internal readonly ConcurrentQueue<string> Errors = new ConcurrentQueue<string>();
             internal readonly ConcurrentQueue<string> Opened = new ConcurrentQueue<string>();
             internal readonly ConcurrentQueue<string> Events = new ConcurrentQueue<string>();
@@ -30,7 +31,7 @@ namespace LiteDB.Tests.Engine
             internal readonly ManualResetEventSlim Resume = new ManualResetEventSlim();
             internal int Started, Finished, Closed, WritableStarted;
             internal bool PausedWritable;
-            internal Observation(string filename) { Filename = filename; }
+            internal Observation(string filename, bool fallback) { Filename = filename; Fallback = fallback; }
 
             internal Action<string> Attach(string path, bool writable)
             {
@@ -65,7 +66,7 @@ namespace LiteDB.Tests.Engine
 
             private void Check(string stage)
             {
-                try { if (!Locked(Filename)) Errors.Enqueue("Native admission missing during " + stage); }
+                try { if (!Locked(Filename, Fallback)) Errors.Enqueue("Native admission missing during " + stage); }
                 catch (Exception ex) { Errors.Enqueue(stage + ": " + ex); }
             }
 
@@ -79,7 +80,9 @@ namespace LiteDB.Tests.Engine
         [InlineData(false, true)]
         [InlineData(true, false)]
         [InlineData(true, true)]
-        public void Abandoned_exhausted_reader_and_engine_retain_native_exclusion_and_committed_state(bool shared, bool youngFirst)
+        [InlineData(false, false, true)]
+        [InlineData(false, true, true)]
+        public void Abandoned_exhausted_reader_and_engine_retain_native_exclusion_and_committed_state(bool shared, bool youngFirst, bool fallback = false)
         {
             var file = new TempFile();
             // A failed lifetime assertion can deliberately leave a handle open.
@@ -88,7 +91,7 @@ namespace LiteDB.Tests.Engine
             GC.SuppressFinalize(file);
             try
             {
-                Exercise(file, shared, youngFirst, _output);
+                Exercise(file, shared, youngFirst, fallback, _output);
                 file.Dispose();
             }
             catch (Exception error)
@@ -98,7 +101,7 @@ namespace LiteDB.Tests.Engine
             }
         }
 
-        private static void Exercise(TempFile file, bool shared, bool youngFirst, ITestOutputHelper output)
+        private static void Exercise(TempFile file, bool shared, bool youngFirst, bool fallback, ITestOutputHelper output)
         {
             using (var seed = new LiteDatabase(file))
             {
@@ -107,11 +110,12 @@ namespace LiteDB.Tests.Engine
                 seed.GetCollection("rows").EnsureIndex("value", true);
                 seed.GetCollection("untouched").Insert(new BsonDocument { ["_id"] = 1, ["value"] = 99 });
             }
+            using var volume = fallback ? new NativeAdmissionFallback_Tests.UnqualifiedVolume(file) : null;
             // macOS system temp commonly resolves through /var -> /private/var;
             // assert the same canonical storage namespace used by engine settings.
             var canonical = DatabaseFileIdentity.CanonicalPath(file);
-            using var observation = new Observation(canonical);
-            var root = CreateGraph(canonical, shared, observation);
+            using var observation = new Observation(canonical, fallback);
+            var root = CreateGraph(canonical, shared, fallback, observation);
             try
             {
                 if (Environment.GetEnvironmentVariable("LITEDB_GRAPH_RETENTION_SENTINEL") == "1")
@@ -119,7 +123,7 @@ namespace LiteDB.Tests.Engine
                 observation.Errors.Should().BeEmpty();
                 observation.Opened.Should().Contain(canonical);
                 observation.Opened.Should().Contain(FileHelper.GetLogFile(canonical));
-                Locked(file).Should().BeTrue();
+                Locked(file, fallback).Should().BeTrue();
                 if (youngFirst)
                 {
                     GC.Collect();
@@ -134,7 +138,7 @@ namespace LiteDB.Tests.Engine
             {
                 GC.Collect(0, GCCollectionMode.Forced, blocking: true);
                 GC.WaitForPendingFinalizers();
-                Locked(file).Should().BeTrue("the abandoned older engine graph survived a young collection");
+                Locked(file, fallback).Should().BeTrue("the abandoned older engine graph survived a young collection");
                 observation.Started.Should().Be(0);
             }
             try
@@ -153,7 +157,7 @@ namespace LiteDB.Tests.Engine
                             if (observation.Finalizing.IsSet)
                             {
                                 if (observation.PausedWritable)
-                                    Locked(file).Should().BeTrue("an actual writable FileStream finalizer is paused before its cleanup");
+                                    Locked(file, fallback).Should().BeTrue("an actual writable FileStream finalizer is paused before its cleanup");
                                 observedPause = true;
                                 observation.Resume.Set();
                             }
@@ -161,7 +165,7 @@ namespace LiteDB.Tests.Engine
                         collection.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
                     }
                     catch { observation.Resume.Set(); collection.Wait(TimeSpan.FromSeconds(10)); throw; }
-                    if (!Locked(file) && Volatile.Read(ref observation.Closed) == observation.Opened.Count) break;
+                    if (!Locked(file, fallback) && Volatile.Read(ref observation.Closed) == observation.Opened.Count) break;
                     // SharedMutexOwner's holder can root the connection for its
                     // one-second idle lifetime, then subordinate finalizable graphs
                     // need subsequent collections. Read-only pools can also outlive
@@ -173,7 +177,7 @@ namespace LiteDB.Tests.Engine
                 observation.Finished.Should().Be(observation.Started);
                 observation.Closed.Should().Be(observation.Opened.Count, "all observed storage streams must eventually close");
                 observation.Errors.Should().BeEmpty();
-                Locked(file).Should().BeFalse("abandonment eventually releases native admission");
+                Locked(file, fallback).Should().BeFalse("abandonment eventually releases native admission");
             }
             finally
             {
@@ -184,7 +188,7 @@ namespace LiteDB.Tests.Engine
             }
             for (var i = 0; i < 2; i++)
             {
-                using var cold = new LiteDatabase(file);
+                using var cold = new LiteDatabase(new ConnectionString { Filename = file, AllowHostLocalAdmissionFallback = fallback });
                 var rows = cold.GetCollection("rows");
                 rows.Count().Should().Be(3001);
                 rows.Find("value = 8000").Single()["_id"].AsInt32.Should().Be(4000);
@@ -195,15 +199,15 @@ namespace LiteDB.Tests.Engine
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static GCHandle CreateGraph(string filename, bool shared, Observation observation)
+        private static GCHandle CreateGraph(string filename, bool shared, bool fallback, Observation observation)
         {
             AppContext.TryGetSwitch(SharedCoordinationPolicy.DisableMappedSwitch, out var before);
             AppContext.SetSwitch(SharedCoordinationPolicy.DisableMappedSwitch, true);
             NativeAdmissionStreamProbe.Attach = observation.Attach;
             try
             {
-                ILiteEngine engine = shared ? (ILiteEngine)new SharedEngine(new EngineSettings { Filename = filename })
-                    : new LiteEngine(filename);
+                var settings = new EngineSettings { Filename = filename, AllowHostLocalAdmissionFallback = fallback };
+                ILiteEngine engine = shared ? (ILiteEngine)new SharedEngine(settings) : new LiteEngine(settings);
                 var db = new LiteDatabase(engine);
                 db.CheckpointSize = 0;
                 var rows = db.GetCollection("rows");
@@ -237,9 +241,10 @@ namespace LiteDB.Tests.Engine
             foreach (var value in (object[])root.Target) GC.GetGeneration(value).Should().Be(GC.MaxGeneration);
         }
 
-        private static bool Locked(string filename)
+        private static bool Locked(string filename, bool fallback)
         {
-            using var probe = new DatabaseFileLock(filename, readOnly: true, create: false);
+            using var probe = new DatabaseFileLock(filename, readOnly: true, create: false, fallback);
+            if (probe.HostLocal != fallback) throw new IOException("Wrong admission backend in finalizer oracle.");
             return probe.Conflicts(DatabaseFileLock.Admission);
         }
     }

@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using LiteDB.Client.Shared;
@@ -42,6 +43,35 @@ namespace LiteDB.Tests.Internals
             await MvccProcess.Run("native-raw-probe", file, null, "fallback|released");
             for (var i = 0; i < 2; i++) await MvccProcess.Run("native-open", file, null, contender + "|fallback");
             NativeAdmission_Tests.Verify(file);
+        }
+
+        [Fact]
+        public async Task Fallback_streaming_reader_prevents_another_process_from_writing_or_checkpointing()
+        {
+            using var file = new TempFile();
+            using (var seed = new LiteDatabase(file))
+            {
+                seed.GetCollection("rows").InsertBulk(Enumerable.Range(1, 300).Select(i =>
+                    new BsonDocument { ["_id"] = i, ["value"] = i * 2 }));
+                seed.GetCollection("rows").EnsureIndex("value");
+            }
+            using var reader = new MvccProcess("native-stream-hold", file, null, "shared|fallback");
+            await reader.Expect("ready");
+            using var writer = new MvccProcess("native-update", file, null, "shared|fallback");
+            await writer.Expect("attempting");
+            var completion = writer.ReadLine(TimeSpan.FromSeconds(20));
+            await Task.Delay(200);
+            completion.IsCompleted.Should().BeFalse("the active streaming snapshot retains writer ownership");
+            await reader.Finish(release: true);
+            (await completion).Should().Be("done");
+            await writer.Finish();
+            using var volume = new NativeAdmissionFallback_Tests.UnqualifiedVolume(file);
+            for (var i = 0; i < 2; i++)
+            {
+                using var cold = new LiteDatabase(NativeAdmissionFallback_Tests.Settings(file));
+                cold.GetCollection("rows").Count().Should().Be(300);
+                cold.GetCollection("rows").Find("value = 999").Single()["_id"].AsInt32.Should().Be(1);
+            }
         }
 
         [Theory]

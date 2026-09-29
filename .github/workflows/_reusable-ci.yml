@@ -630,3 +630,29 @@ jobs:
       - name: Preserve failed graph fixtures after test-host exit
         if: always()
         uses: ./.github/actions/retained-fixtures
+
+  test-host-local-filesystem:
+    if: inputs.tier == 'full'
+    name: Host-local admission (real f2fs)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install local filesystem tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y f2fs-tools linux-modules-extra-$(uname -r)
+      - name: Build production admission validation
+        run: dotnet build tools/NativeAdmissionValidation/NativeAdmissionValidation.csproj -c Release -f net8.0 -p:TestingEnabled=false
+      - name: Verify actual unqualified local storage and file-bind refusal
+        run: bash scripts/test-host-local-filesystem.sh
+      - name: Upload filesystem qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-local-f2fs
+          path: LiteDB.Tests/TestResults/host-local-f2fs/
+          if-no-files-found: warn
