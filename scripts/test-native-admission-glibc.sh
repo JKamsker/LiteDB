@@ -20,16 +20,28 @@ case "$(docker info --format '{{json .SecurityOptions}}')" in
 esac
 # Use packaged outputs and the invoking host user's permissions; no network or
 # restore is needed. Parent and children assert actual runtime/architecture.
+set +e
 docker run --rm --network none --user "$container_user" \
     -e LITEDB_EXPECTED_RUNTIME_MAJOR=8 -e LITEDB_EXPECTED_ARCHITECTURE="$architecture" \
-    -e LITEDB_MAPPED_TEST_DIRECTORY=/results \
+    -e LITEDB_MAPPED_TEST_DIRECTORY=/results -e LITEDB_RETAINED_FIXTURES=/results/retained-fixtures \
     --mount "type=bind,src=$repo_root,dst=/repo,readonly" \
     --mount "type=bind,src=$results,dst=/results" \
     --workdir /repo/LiteDB.Tests/bin/Release/net8.0 \
-    "$image" dotnet vstest LiteDB.Tests.dll \
+    "$image" sh -c '
+        dotnet "$@"
+        test_status=$?
+        python3 /repo/scripts/collect-retained-fixtures.py "$LITEDB_RETAINED_FIXTURES"
+        collect_status=$?
+        if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
+        exit "$collect_status"
+    ' sh vstest LiteDB.Tests.dll \
     /Settings:/repo/tests.runsettings /ResultsDirectory:/results \
     "/Logger:trx;LogFileName=NativeAdmission-glibc231-$architecture.trx" \
     '/TestCaseFilter:FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedMode|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~TestHost_Tests'
+
+container_status=$?
+set -e
+if [ "$container_status" -ne 0 ]; then exit "$container_status"; fi
 
 python3 - "$results/NativeAdmission-glibc231-$architecture.trx" <<'PY'
 import sys

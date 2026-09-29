@@ -93,7 +93,7 @@ namespace LiteDB.Tests.Engine
             }
             catch (Exception error)
             {
-                _output.WriteLine("Retained graph fixture: {0}\n{1}", file.Filename, error);
+                RetainedTestFixture.Publish(file.Filename, error, _output);
                 throw;
             }
         }
@@ -114,6 +114,8 @@ namespace LiteDB.Tests.Engine
             var root = CreateGraph(canonical, shared, observation);
             try
             {
+                if (Environment.GetEnvironmentVariable("LITEDB_GRAPH_RETENTION_SENTINEL") == "1")
+                    throw new InvalidOperationException("graph retention sentinel after real graph construction");
                 observation.Errors.Should().BeEmpty();
                 observation.Opened.Should().Contain(canonical);
                 observation.Opened.Should().Contain(FileHelper.GetLogFile(canonical));
