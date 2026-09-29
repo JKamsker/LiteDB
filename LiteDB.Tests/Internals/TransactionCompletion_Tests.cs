@@ -56,7 +56,9 @@ namespace LiteDB.Tests.Internals
                     fail();
                     complete = () => { if (phase == "commit") db.Commit(); else db.Rollback(); };
                 }
-                complete.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(injected);
+                if (phase == "automatic rollback")
+                    complete.Should().Throw<LiteException>().Which.Data["LiteDB.StatementRollback"].Should().BeSameAs(injected);
+                else complete.Should().Throw<InvalidOperationException>().Which.Should().BeSameAs(injected);
                 engine.GetMonitor().Transactions.Should().BeEmpty();
                 Action insert = () => rows.Insert(new BsonDocument { ["_id"] = 3 });
                 insert.Should().Throw<LiteException>().Which.InnerException.Should().BeSameAs(injected);

@@ -107,7 +107,9 @@ namespace LiteDB
             }
 
             // Acquire mutex for every call to open DB.
-            var recoveredAbandonedOwner = this.EnterOwner(scoped && this.CanScope, writing, closing);
+            // A transaction child has a dedicated lifetime holder, even when application
+            // threads execute read callbacks. Its native ownership never escapes that holder.
+            var recoveredAbandonedOwner = this.EnterOwner(scoped && (this.CanScope || _transactionChild), writing, closing);
 
             try
             {

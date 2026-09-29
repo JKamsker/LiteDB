@@ -50,10 +50,12 @@ namespace LiteDB.Tests.Issues
                     failure = Record.Exception(() => { if (phase == "commit") db.Commit(); else db.Rollback(); });
                 }
                 log.FailWrites = false;
-                failure.Should().BeOfType<IOException>().Which.Message.Should().Be("injected transaction completion failure");
+                var completionFailure = phase == "automatic rollback"
+                    ? failure.Should().BeOfType<LiteException>().Which.Data["LiteDB.StatementRollback"] as Exception : failure;
+                completionFailure.Should().BeOfType<IOException>().Which.Message.Should().Be("injected transaction completion failure");
                 log.FailureCount.Should().BeGreaterThan(0);
                 var nextFailure = Record.Exception(() => col.Insert(new BsonDocument { ["_id"] = 50000, ["payload"] = "acknowledged after failure" }));
-                nextFailure.Should().BeOfType<IOException>().Which.InnerException.Should().BeSameAs(failure,
+                nextFailure.Should().BeOfType<IOException>().Which.InnerException.Should().BeSameAs(completionFailure,
                     "the contextual closed-engine failure must preserve the original completion cause");
             }
             using (var reopened = new LiteDatabase(new LiteEngine(settings)))

@@ -40,6 +40,8 @@ namespace LiteDB.Tests.Internals
                 await holder.Expect("ready");
                 holder.Send("commit");
                 await holder.Expect("done");
+                Assert.True(new System.IO.FileInfo(FileHelper.GetLogFile(file)).Length > 0,
+                    "the acknowledged transaction must still require WAL recovery before session checkpoint");
                 await holder.Kill();
             }
             Verify(file, password, new[] { 1, 2 });

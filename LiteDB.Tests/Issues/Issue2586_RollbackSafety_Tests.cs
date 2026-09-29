@@ -43,7 +43,11 @@ namespace LiteDB.Tests.Issues
                 }
                 finally
                 {
-                    if (readOnlyMarker) buffer.ShareCounter = 0;
+                    if (readOnlyMarker)
+                    {
+                        buffer.ShareCounter = Constants.BUFFER_WRITABLE;
+                        buffer.Cache.DiscardPage(buffer);
+                    }
                 }
 
                 docs.FindById(1)["value"].AsString.Should().Be("committed");

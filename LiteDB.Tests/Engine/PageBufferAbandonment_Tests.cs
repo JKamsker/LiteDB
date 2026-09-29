@@ -52,7 +52,7 @@ namespace LiteDB.Tests.Engine
         public void Abandoned_dirty_legacy_Direct_graph_preserves_committed_state(bool promote)
         {
             using var file = new TempFile();
-            var reference = Abandon(file, promote);
+            var reference = AbandonOnRetiredThread(file, promote);
             for (var i = 0; i < 100 && (reference.IsAlive || NativeAdmissionDirectPool_Tests.Locked(file)); i++)
             { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); Thread.Sleep(20); }
             Assert.False(reference.IsAlive);
@@ -64,6 +64,16 @@ namespace LiteDB.Tests.Engine
                 Assert.NotNull(db.GetCollection("rows").FindOne("value = 'committed'"));
                 Assert.Null(db.GetCollection("rows").FindById(2));
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference AbandonOnRetiredThread(string file, bool promote)
+        {
+            WeakReference reference = null;
+            // CLR ConcurrentBag thread-local reader caches may retain unused read streams
+            // until the worker retires. Do not leave the fixture on xUnit's long-lived thread.
+            TransactionHandle_Tests.OnThread(() => reference = Abandon(file, promote));
+            return reference;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

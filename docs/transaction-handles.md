@@ -37,7 +37,7 @@ whose engine transaction was rolled back, the handle becomes Failed.
 | Direct memory, temporary and caller-stream engines | Yes; existing caller ownership remains applicable |
 | Built-in filename-backed Shared | Yes; uses existing native admission/mutex/recovery protocol |
 | Read-only Direct/Shared | Queries and completion; mutation remains forbidden |
-| Shared with caller-supplied data/log/temp streams | Rejected before handle admission |
+| Shared memory/temporary storage or caller-supplied data/log/temp streams | Rejected before handle admission |
 | Coordinated and custom/decorated engines inside `LiteDatabase` | Rejected; legacy/ordinary support unchanged |
 | Typed/BSON collections, bulk input, queries, Include, vector queries | Yes |
 | Index creation/removal and collection metadata | Yes |
@@ -103,7 +103,10 @@ before allocating a holder/engine. Ordinary and legacy Shared callers still use
 the native mutex; they cannot recurse into a handle's writer ownership. As with
 existing Shared native admission, a begin can wait until the owner releases it;
 closing its session cancels pending admission. Collection-lock `TIMEOUT` is not a
-deadline for Shared native admission. Cached admission gates are inert metadata.
+deadline for Shared native admission. Do not synchronously begin a second Shared
+handle while the same caller is responsible for completing the first: complete it
+first, or arrange independent completion/session cancellation. Cached admission
+gates are inert metadata.
 No complete Shared-engine pooling or cache-retention optimization is introduced.
 The child closes its operation engine using normal WAL/checkpoint thresholds;
 the parent session retains the final checkpoint policy. Completing each handle

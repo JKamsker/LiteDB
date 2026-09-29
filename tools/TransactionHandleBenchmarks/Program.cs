@@ -2,6 +2,9 @@ using System.Diagnostics;
 using System.Text.Json;
 using LiteDB;
 var revision = args[0];
+#if HANDLES
+if (args.Length > 1 && args[1] == "resources") { Resources(revision); return; }
+#endif
 if (args.Length > 1 && args[1] == "contention") { Contention(revision); return; }
 foreach (var shared in new[] { false, true })
 foreach (var mode in Modes())
@@ -137,3 +140,60 @@ static void Contention(string revision)
         foreach (var path in Directory.GetFiles(Path.GetDirectoryName(file), Path.GetFileName(file) + "*")) File.Delete(path);
     }
 }
+#if HANDLES
+static void Resources(string revision)
+{
+    foreach (var callback in new[] { false, true })
+    for (var repeat = 0; repeat < 3; repeat++)
+    {
+        var file = Path.Combine(Path.GetTempPath(), "litedb-handle-resources-" + Guid.NewGuid() + ".db");
+        var settings = new LiteDB.Engine.EngineSettings { Filename = file,
+            ReadTransform = callback ? (collection, value) => value : null };
+        using (var seed = new LiteDatabase(file)) seed.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1 });
+        using var shared = new SharedEngine(settings);
+        using var db = new LiteDatabase(shared, disposeOnClose: false);
+        var process = Process.GetCurrentProcess();
+        object Sample(string phase)
+        {
+            process.Refresh();
+            return new { phase, threads = process.Threads.Count, handles = process.HandleCount,
+                managedBytes = GC.GetTotalMemory(false), workingSet = process.WorkingSet64 };
+        }
+        var before = Sample("idle-session");
+        var owner = db.BeginTransaction();
+        if (owner.GetCollection("rows").FindById(1) == null) throw new Exception("missing row");
+        var active = Sample("active-handle");
+        using var ready = new CountdownEvent(12);
+        var errors = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+        var callers = Enumerable.Range(0, 12).Select(_ => new Thread(() =>
+        {
+            try
+            {
+                ready.Signal();
+                using var tx = db.BeginTransaction();
+                if (tx.GetCollection("rows").FindById(1) == null) throw new Exception("missing row");
+                tx.Rollback();
+            }
+            catch (Exception error) { errors.Enqueue(error); }
+        })).ToArray();
+        foreach (var thread in callers) thread.Start();
+        if (!ready.Wait(TimeSpan.FromSeconds(20))) throw new Exception("callers did not start");
+        Thread.Sleep(100); // sampling window; deterministic pending-admission assertions live in tests
+        var pending = Sample("twelve-waiting-callers");
+        var clock = Stopwatch.StartNew();
+        owner.Rollback();
+        foreach (var thread in callers) if (!thread.Join(TimeSpan.FromSeconds(30))) throw new Exception("caller stuck");
+        if (!errors.IsEmpty) throw new AggregateException(errors);
+        var drained = Sample("all-handles-completed");
+        db.Dispose();
+        shared.Dispose();
+        clock.Stop();
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        var closed = Sample("closed-collected");
+        Console.WriteLine(JsonSerializer.Serialize(new { revision, operation = "resources", callback, repeat,
+            before, active, pending, drained, closed, drainMs = clock.Elapsed.TotalMilliseconds }));
+        using (var verify = new LiteDatabase(file)) if (verify.GetCollection("rows").Count() != 1) throw new Exception("incorrect cold state");
+        foreach (var path in Directory.GetFiles(Path.GetDirectoryName(file), Path.GetFileName(file) + "*")) File.Delete(path);
+    }
+}
+#endif

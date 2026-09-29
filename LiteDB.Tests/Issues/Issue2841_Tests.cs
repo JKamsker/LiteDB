@@ -22,7 +22,7 @@ namespace LiteDB.Tests.Issues
                 () => db.Pragma("TIMEOUT", 60)
             })
             {
-                action.Should().Throw<LiteException>().Which.ErrorCode.Should().Be(LiteException.ENGINE_DISPOSED);
+                action.Should().Throw<ObjectDisposedException>().Which.ObjectName.Should().Be(nameof(LiteDatabase));
             }
         }
 

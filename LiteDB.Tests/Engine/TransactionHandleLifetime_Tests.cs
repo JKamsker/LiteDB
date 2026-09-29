@@ -130,8 +130,8 @@ namespace LiteDB.Tests.Engine
             // Ensure native admission has an opportunity to block behind the independent owner.
             Assert.False(begin.Wait(100));
             waiter.Dispose();
-            Assert.True(await begin);
             Assert.True(owner.Commit());
+            Assert.True(await begin);
             Assert.Equal(1, owner.GetCollection("rows").Count());
         }
 

@@ -305,7 +305,10 @@ namespace LiteDB.Tests.Engine
             }
             finally
             {
-                buffer.ShareCounter = 0;
+                // Undo this fixture's synthetic marker; rollback deliberately left the
+                // frame alone, so the fixture must return its actual writable ownership.
+                buffer.ShareCounter = Constants.BUFFER_WRITABLE;
+                buffer.Cache.DiscardPage(buffer);
             }
 
             collection.Count().Should().Be(0);

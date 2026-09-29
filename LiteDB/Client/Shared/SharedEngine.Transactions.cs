@@ -16,7 +16,7 @@ namespace LiteDB
         {
             // A caller stream can capture the facade; a native holder must not root that
             // graph indefinitely, or perform storage I/O after its external owner is gone.
-            if (_settings.DataStream != null || _settings.LogStream != null || _settings.TempStream != null)
+            if (!SharedModeGuard.IsFile(_settings) || _settings.LogStream != null || _settings.TempStream != null)
                 throw new NotSupportedException("Shared transaction handles require filename-backed storage without caller streams.");
             lock (_useLock)
             {
@@ -44,7 +44,10 @@ namespace LiteDB
                 }
                 settings.CoordinationSignals = null;
                 settings.SharedFileHandles = null;
-                holder = new TransactionHolder(new SharedEngine(settings) { _transactionChild = true }, gate, closing, sessionToken);
+                var child = new SharedEngine(settings) { _transactionChild = true };
+                child._settings.SharedDurability = _settings.SharedDurability;
+                child._settings.CheckpointBackoff = _settings.CheckpointBackoff;
+                holder = new TransactionHolder(child, gate, closing, sessionToken);
             }
             catch { gate.Release(); throw; }
             return holder.Open(policyAnchor);
@@ -81,7 +84,7 @@ namespace LiteDB
                     throw;
                 }
                 _opened.Wait();
-                if (_error != null) { Release(); throw _error; }
+                if (_error != null) Release();
                 return new TransactionResources(_engine, _engine.CurrentContext, Release, () => _close.Set(), policyAnchor);
             }
 
@@ -129,7 +132,7 @@ namespace LiteDB
                 _thread.Join();
                 _opened.Dispose();
                 _close.Dispose();
-                if (_error != null) throw _error;
+                if (_error != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(_error).Throw();
             }
         }
     }
