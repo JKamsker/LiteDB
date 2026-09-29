@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="SteadyState.cs" />
     <Reference Include="LiteDB"><HintPath>$(LibraryPath)</HintPath></Reference>
   </ItemGroup>
 </Project>

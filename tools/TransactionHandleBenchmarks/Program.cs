@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using LiteDB;
 var revision = args[0];
+if (args.Length > 1 && args[1] == "steady") { SteadyState.Run(args); return; }
 #if HANDLES
 if (args.Length > 1 && args[1] == "resources") { Resources(revision); return; }
 #endif
