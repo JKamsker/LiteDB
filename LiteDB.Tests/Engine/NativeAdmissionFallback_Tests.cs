@@ -114,6 +114,33 @@ namespace LiteDB.Tests.Engine
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void Wrong_password_opens_release_host_authority_and_allow_retry(bool shared)
+        {
+            using var file = new TempFile();
+            NativeAdmission_Tests.Seed(file, "secret");
+            using var volume = new UnqualifiedVolume(file);
+            var settings = Settings(file, shared);
+            for (var i = 0; i < 2; i++)
+            {
+                settings.Password = "wrong";
+                Action open = () =>
+                {
+                    using var wrong = new LiteDatabase(settings);
+                    wrong.GetCollection("rows").Count();
+                };
+                open.Should().Throw<LiteException>();
+                using (var raw = new DatabaseFileLock(file, true, false, true))
+                    raw.Conflicts(DatabaseFileLock.Admission).Should().BeFalse();
+                settings.Password = "secret";
+                using var correct = new LiteDatabase(settings);
+                correct.GetCollection("rows").FindById(1)["value"].AsInt32.Should().Be(42);
+                correct.GetCollection("untouched").FindById(1)["value"].AsInt32.Should().Be(99);
+            }
+        }
+
         [Fact]
         public void Reentrant_read_transform_cannot_write_before_streaming_snapshot_publication()
         {

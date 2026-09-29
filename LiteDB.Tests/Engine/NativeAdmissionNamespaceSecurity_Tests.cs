@@ -16,7 +16,7 @@ namespace LiteDB.Tests.Engine
         [Fact]
         public void Unix_writable_nonsticky_ancestor_cannot_split_authority()
         {
-            if (DatabaseFileIdentity.Windows) return;
+            if (OperatingSystem.IsWindows()) return;
             var root = Path.Combine(Path.GetTempPath(), "litedb-admission-security-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
             try
@@ -52,7 +52,7 @@ namespace LiteDB.Tests.Engine
         [Fact]
         public void Windows_ancestor_delete_grant_cannot_split_authority()
         {
-            if (!DatabaseFileIdentity.Windows) return;
+            if (!OperatingSystem.IsWindows()) return;
             var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                 "litedb-admission-test-" + Guid.NewGuid().ToString("N"));
             try
@@ -73,7 +73,7 @@ namespace LiteDB.Tests.Engine
         [Fact]
         public void Windows_private_directory_reopens_but_inherited_acl_is_not_repaired()
         {
-            if (!DatabaseFileIdentity.Windows) return;
+            if (!OperatingSystem.IsWindows()) return;
             var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                 "litedb-admission-test-" + Guid.NewGuid().ToString("N"));
             try

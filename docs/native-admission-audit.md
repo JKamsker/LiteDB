@@ -126,3 +126,39 @@ collision resistance, qualified filesystems, stable namespace during use and a
 shared named-mutex namespace remain assumptions. File-only bind mounts and moving
 only the data file cannot establish historical WAL pairing. Separate isolated
 container mutex namespaces require a different operation-coordination contract.
+
+## Host-local fallback and retained graph evidence
+
+The explicit fallback retains ADMISSION-1 through ADMISSION-5 and adds these
+rules. Defaults still require qualified native admission; opting in cannot turn
+an acquisition error into a different lock authority.
+
+| Rule | Dangerous transition and independent oracle |
+| --- | --- |
+| HOST-1: established local storage selects one physical authority | `NativeAdmissionFallbackProcess_Tests` runs twelve compatible/incompatible family pairs in child processes. Raw probes require the host authority to be locked and the database's admission range to be unlocked. Owner death must unlock the host authority and permit two subsequent opens. Qualified storage stays native with opt-in. |
+| HOST-2: unqualified reader locks cannot authorize reclamation | Fallback never publishes mapped/reader leases on the database volume. An escaping reader blocks another process's update/checkpoint until disposal. Same-connection recursive writes/checkpoints/rebuilds and a read-transform callback fail before writable engine opening; full rows, indexes and repeated cold opens remain correct. A reader-file provider that throws must never be consulted. |
+| HOST-3: the host namespace cannot split between untrusted users | Fixed machine paths, private ownership/DACL, ancestor permissions, no aliases/hardlinks and qualified host filesystem. Tests reject Unix writable nonsticky ancestors, Darwin extended ACLs, inherited Windows root ACLs and an untrusted ancestor DELETE grant. Stale file bytes are ignored; final release never unlinks the authority. |
+| HOST-4: replacement preserves both generations and faults every retained user after failed conversion | Local read-only-first Shared admission follows two replacements; password changes survive cold opens. Remote idle ownership refuses replacement before the recovery marker. Three child handoff pauses, twelve plain/encrypted process-death cases, and failed installation/downgrade cases preserve committed rows, indexes, unrelated records and recoverable candidates. |
+| HOST-5: fallback has real storage evidence beyond injected classification | `scripts/test-host-local-filesystem.sh` formats a disposable f2fs loop volume and runs the production (hooks absent) directory-alias/model scenario. It also rejects a file-only bind while an acknowledged WAL is nonempty, checks unchanged data/WAL hashes, kills the owner and performs two cold verifications. The full CI tier runs this on standard Ubuntu. |
+| EVIDENCE-1: a failed lifetime assertion survives host exit as an artifact | The graph host only publishes manifests and retains original temp-volume fixtures. The post-host collector copies matching DB/WAL/coordination files without releasing admission, preserves the original exception, and reports per-file failures separately. A deliberate failure after real graph construction verifies six manifests and byte-identical data/WAL/Shared reader files; Python child controls cover live-host refusal, zombies, copy failures and empty input. |
+
+At `39f0c3b5f`, an independent Linux x64/.NET 8 oracle review in a separate
+worktree ran the 24 fallback controls, then two unsafe variants. Removing only
+host Admission locks and their enforcement check failed all fourteen selected
+cases at raw authority assertions. Re-enabling database-volume reader leases
+failed the cross-process reader test because the writer completed before reader
+release. A diagnostic repeat awaited its actual `done` response, emitted only
+after successful update and checkpoint. Restored controls passed 24/24. Logs,
+TRX files and patches are retained with the review artifacts;
+these mutations are not production switches.
+
+Actual graph finalization covers native Direct/Shared and host-local Direct,
+with mapped reads disabled and exhausted undisposed readers. Host-local Shared
+streaming readers keep mutex ownership: explicit disposal or owner-thread/process
+exit releases that protection. Arbitrary abandoned partially consumed cursors,
+every GC schedule, network storage and device power-loss behavior are outside
+these claims. Real f2fs execution does not establish equivalent execution coverage
+for every format classified as local. OS ownership checks assume trusted owners
+and administrators; automated cleanup/external replacement of the authority root
+must be prevented while participants exist. See the protocol for the required
+common directory and named-mutex namespaces.

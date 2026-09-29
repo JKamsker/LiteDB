@@ -18,17 +18,30 @@ Independent writable Direct engines remain incompatible because their caches and
 WAL state are separate; reuse one engine or use Shared connections. Multiple Direct
 read-only engines share admission. Direct read-only access now excludes writable
 Direct and Shared participants; read-only Shared uses Shared admission. Read-only
-opens need no writable admission artifact. Unsupported locking filesystems fail
-closed. Runtime file-sharing locks must also stay enabled for Shared coordination.
+native opens need no writable admission artifact. Unsupported locking filesystems fail
+closed by default. Runtime file-sharing locks must also stay enabled for Shared coordination.
 
 **Breaking platform restriction:** file-backed opens now require Windows on local
 NTFS/ReFS, or x64/arm64 Linux or macOS with OFD locks. Linux allows ext2/3/4, XFS,
-Btrfs, tmpfs and local overlayfs; macOS allows APFS/HFS. Other filesystems, including
-Linux ZFS, f2fs and ecryptfs, Windows FAT/exFAT and network shares, are rejected.
+Btrfs, tmpfs and local overlayfs; macOS allows APFS/HFS. Other filesystems are
+rejected by default. `AllowHostLocalAdmissionFallback=true` explicitly permits
+established local volumes to use a private, fixed host-local lock directory on a
+qualified filesystem. Native volumes still use database-file locking. Unknown
+locality, FUSE, network and clustered storage remain unsupported; stable physical
+file identity is required in either mode. Real f2fs has a production qualification
+scenario; admitting other local formats is not a claim of equivalent test coverage.
+
+Fallback lock-file bytes have no authority and stale files need no cleanup. Never
+remove that host directory or its files while participants exist. All participants
+must share it and the named-mutex namespace. Fallback Shared reads keep the writer
+mutex through streaming-reader disposal and reject recursive writes/checkpoints/
+rebuilds while a protected snapshot exists. Read-only fallback needs a writable
+host coordination directory. Stop all participants before changing library policy,
+mounts or coordination namespaces.
 32-bit Unix processes and runtimes identifying as platforms other than Windows,
 Linux or macOS (including iOS/tvOS) are rejected. Memory and caller-stream databases
-retain their existing platform contract. Copy a closed database and its matching
-WAL to a supported local filesystem before opening it with this version.
+retain their existing platform contract. Use qualified native storage or the explicit host-local fallback under its
+documented conditions; preserve the complete data/WAL pair when moving storage.
 
 Symlinks resolve to the target before choosing storage paths. Hard links are
 rejected to prevent conflicting WAL identities. Concurrent directory bind aliases

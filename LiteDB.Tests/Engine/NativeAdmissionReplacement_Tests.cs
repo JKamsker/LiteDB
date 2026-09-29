@@ -40,11 +40,14 @@ namespace LiteDB.Tests.Engine
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void Failed_downgrade_retains_exclusion_and_faults_cached_admission(bool installationFails)
+        [InlineData(false, true)]
+        [InlineData(true, true)]
+        public void Failed_downgrade_retains_exclusion_and_faults_cached_admission(bool installationFails, bool fallback = false)
         {
             using var file = new TempFile();
             NativeAdmission_Tests.Seed(file);
-            using (var db = new LiteDatabase(new ConnectionString { Filename = file, Connection = ConnectionType.Shared }))
+            using var volume = fallback ? new NativeAdmissionFallback_Tests.UnqualifiedVolume(file) : null;
+            using (var db = new LiteDatabase(new ConnectionString { Filename = file, Connection = ConnectionType.Shared, AllowHostLocalAdmissionFallback = fallback }))
             {
                 var reached = false;
                 RebuildService.SimulateInstallFailure = stage =>
@@ -76,10 +79,12 @@ namespace LiteDB.Tests.Engine
                 }
                 Action write = () => db.GetCollection("rows").DeleteAll();
                 write.Should().Throw<DatabaseAdmissionException>().WithMessage("*conversion failed*");
-                Action direct = () => { using var engine = new LiteEngine(file); };
+                Action direct = () => { using var engine = new LiteEngine(new EngineSettings { Filename = file, AllowHostLocalAdmissionFallback = fallback }); };
                 direct.Should().Throw<DatabaseAdmissionException>();
+                using var raw = new DatabaseFileLock(file, true, false, fallback);
+                raw.Conflicts(DatabaseFileLock.Admission).Should().BeTrue();
             }
-            NativeAdmission_Tests.Verify(file, installationFails ? null : "replacement-password");
+            NativeAdmission_Tests.Verify(file, installationFails ? null : "replacement-password", fallback);
         }
 
         [Fact]
