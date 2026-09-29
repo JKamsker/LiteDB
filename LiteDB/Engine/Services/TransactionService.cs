@@ -33,7 +33,7 @@ namespace LiteDB.Engine
         private TransactionState _state = TransactionState.Active;
 
         // expose (as read only)
-        public int ThreadID => Owner.Thread.ManagedThreadId;
+        public int ThreadID => Owner.Thread?.ManagedThreadId ?? 0;
         internal Thread OwnerThread => Owner.Thread;
         public uint TransactionID => _transPages.TransactionID;
         public TransactionState State => _state;
@@ -307,7 +307,9 @@ namespace LiteDB.Engine
                 }
             }
 
-            // dispose all snapshots
+            // Record the known durable outcome independently of cleanup state.
+            if (Owner.Explicit != null) Owner.Explicit.Outcome = LiteTransactionState.Committed;
+
             foreach (var snapshot in this.Snapshots)
             {
                 snapshot.Dispose();

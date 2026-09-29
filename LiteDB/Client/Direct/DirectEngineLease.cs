@@ -21,6 +21,26 @@ namespace LiteDB.Client.Direct
 
         internal LiteEngine Engine { get { lock (_gate) return _entry?.Engine; } }
 
+        internal TransactionResources OpenTransactionResources()
+        {
+            lock (_gate)
+            {
+                if (_entry == null) throw new ObjectDisposedException(nameof(LiteDatabase));
+                var entry = _entry;
+                entry.Retain();
+                _context.Retain();
+                return new TransactionResources(entry.Engine, _context, () =>
+                {
+                    try { _context.Release(disposing: true); }
+                    finally { entry.Release(disposing: true); }
+                }, () =>
+                {
+                    try { _context.Release(disposing: false); }
+                    finally { entry.Release(disposing: false); }
+                });
+            }
+        }
+
         private Use Enter()
         {
             Use use;

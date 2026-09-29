@@ -13,7 +13,7 @@ namespace LiteDB.Tests.Engine
 {
     public class NativeAdmissionDirectPool_Tests
     {
-        internal static LiteEngine Engine(LiteDatabase db) => ((DirectEngineLease)db.Context.Engine).Engine;
+        internal static LiteEngine Engine(LiteDatabase db) => ((DirectEngineLease)db.Context.RawEngine).Engine;
         internal static bool Locked(string path)
         {
             using var probe = new DatabaseFileLock(path, readOnly: true, create: false);
@@ -74,18 +74,20 @@ namespace LiteDB.Tests.Engine
         }
 
         [Fact]
-        public void Reentrant_last_owner_disposal_keeps_operation_and_commit_protected()
+        public void Reentrant_last_owner_disposal_is_rejected_before_affecting_the_session()
         {
             using var file = new TempFile();
             using var db = new LiteDatabase(file);
             var rows = db.GetCollection("rows");
             IEnumerable<BsonDocument> Documents()
             {
-                db.Dispose();
+                Assert.Throws<InvalidOperationException>(db.Dispose);
                 Assert.True(Locked(file));
                 yield return new BsonDocument { ["_id"] = 42 };
             }
             Assert.Equal(1, rows.Insert(Documents()));
+            Assert.Equal(1, rows.Count());
+            db.Dispose();
             Assert.False(Locked(file));
             using var cold = new LiteDatabase(file);
             Assert.NotNull(cold.GetCollection("rows").FindById(42));

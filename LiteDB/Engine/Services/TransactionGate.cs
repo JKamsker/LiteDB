@@ -12,10 +12,13 @@ namespace LiteDB.Engine
     internal sealed class TransactionGate : IDisposable
     {
         private readonly object _sync = new object();
+        private readonly Func<object> _owner;
+        internal TransactionGate(Func<object> owner = null) { _owner = owner; }
+        private object CurrentOwner => _owner?.Invoke() ?? Thread.CurrentThread;
         // A cursor can outlive its originating thread. Numeric managed IDs can
         // be recycled after that thread is collected, so retain its identity
         // until the last lease is released, including release on another thread.
-        private readonly Dictionary<Thread, int> _readers = new Dictionary<Thread, int>();
+        private readonly Dictionary<object, int> _readers = new Dictionary<object, int>();
         private int _readerCount;
         private Thread _writer;
         private int _waitingWriters;
@@ -23,7 +26,7 @@ namespace LiteDB.Engine
 
         public bool IsReadLockHeld
         {
-            get { lock (_sync) return _readers.ContainsKey(Thread.CurrentThread); }
+            get { lock (_sync) return _readers.ContainsKey(CurrentOwner); }
         }
 
         public bool IsWriteLockHeld
@@ -40,14 +43,16 @@ namespace LiteDB.Engine
         {
             get
             {
-                lock (_sync) return _readers.TryGetValue(Thread.CurrentThread, out var count) ? count : 0;
+                lock (_sync) return _readers.TryGetValue(CurrentOwner, out var count) ? count : 0;
             }
         }
 
-        public bool TryEnterReadLock(TimeSpan timeout)
+        public bool TryEnterReadLock(TimeSpan timeout) => TryEnterReadLock(timeout, CurrentOwner);
+
+        internal bool TryEnterReadLock(TimeSpan timeout, object owner)
         {
             var elapsed = Stopwatch.StartNew();
-            var thread = Thread.CurrentThread;
+            var thread = owner;
             lock (_sync)
             {
                 ThrowIfDisposed();
@@ -62,13 +67,13 @@ namespace LiteDB.Engine
             }
         }
 
-        public void ExitReadLock(Thread owner)
+        public void ExitReadLock(object owner)
         {
             lock (_sync)
             {
                 // Transactions created within an exclusive operation do not take
                 // separate leases. Disposal after engine shutdown is also harmless.
-                if (_writer == owner || !_readers.TryGetValue(owner, out var count)) return;
+                if (ReferenceEquals(_writer, owner) || !_readers.TryGetValue(owner, out var count)) return;
                 if (count == 1) _readers.Remove(owner);
                 else _readers[owner] = count - 1;
                 _readerCount--;
@@ -83,7 +88,7 @@ namespace LiteDB.Engine
             lock (_sync)
             {
                 ThrowIfDisposed();
-                if (_readers.ContainsKey(thread)) throw new LockRecursionException("Cannot enter exclusive mode inside a transaction.");
+                if (_readers.ContainsKey(CurrentOwner)) throw new LockRecursionException("Cannot enter exclusive mode inside a transaction.");
                 _waitingWriters++;
                 try
                 {

@@ -34,7 +34,7 @@ namespace LiteDB.Engine
                     if (!Monitor.Wait(_lock, remaining)) return false;
                 }
                 _owner = owner;
-                _thread = Thread.CurrentThread;
+                _thread = TransactionContext.AdmissionOwner as Thread;
                 _depth++;
                 return true;
             }

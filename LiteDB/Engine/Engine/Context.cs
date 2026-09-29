@@ -10,10 +10,34 @@ namespace LiteDB.Engine
         private readonly ConcurrentQueue<EngineContext> _abandonedContexts = new ConcurrentQueue<EngineContext>();
         internal EngineContext CurrentContext => EngineContext.CurrentFor(this) ?? _defaultContext;
 
+        internal void BeginHandleTransaction()
+        {
+            using var operation = EnterOperation();
+            _state.Validate();
+            var transaction = _monitor.GetTransaction(true, false, out var created);
+            if (!created) throw new InvalidOperationException("An explicit handle must own a new transaction.");
+            transaction.ExplicitTransaction = true;
+        }
+
+        internal string[] GetTransactionCollectionNames()
+        {
+            using var reader = this.Query("$cols", new Query { Select = BsonExpression.Create("$") });
+            var names = new System.Collections.Generic.List<string>();
+            while (reader.Read())
+                if (reader.Current["type"].AsString == "user") names.Add(reader.Current["name"].AsString);
+            var transaction = CurrentContext.Slot.Transaction;
+            if (transaction != null)
+                names.AddRange(transaction.Snapshots.Where(snapshot => snapshot.CollectionPage != null)
+                    .Select(snapshot => snapshot.CollectionName));
+            return names.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        }
+
         internal void AbandonContext(EngineContext context) => _abandonedContexts.Enqueue(context);
 
         internal void ReleaseAbandonedContexts()
         {
+            using var operation = EnterOperation();
+            if (_state.Disposed) return;
             // A live caller keeps storage rooted. Never resurrect an unreachable
             // engine on a finalizer worker while its streams may be finalizing.
             while (_abandonedContexts.TryDequeue(out var context))
@@ -28,6 +52,7 @@ namespace LiteDB.Engine
 
         internal void ReleaseContext(EngineContext context)
         {
+            using var operation = EnterOperation();
             if (_state.Disposed) return;
             try { _monitor.ReleaseContext(context); }
             catch (Exception error) { _state.Stop(error); throw; }

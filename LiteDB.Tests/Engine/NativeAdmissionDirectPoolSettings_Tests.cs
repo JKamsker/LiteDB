@@ -18,7 +18,7 @@ namespace LiteDB.Tests.Engine
         }
 
         private static LiteEngine EngineOf(LiteDatabase database) =>
-            ((DirectEngineLease)database.Context.Engine).Engine;
+            ((DirectEngineLease)database.Context.RawEngine).Engine;
 
         private static ConnectionString Settings(string filename, string password = null) =>
             new ConnectionString { Filename = filename, Password = password };

@@ -53,7 +53,7 @@ namespace LiteDB.Tests.Engine
         private static WeakReference AbandonOwner(string file)
         {
             var db = new LiteDatabase(file);
-            return new WeakReference(db.Context.Engine);
+            return new WeakReference(db.Context.RawEngine);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

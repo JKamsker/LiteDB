@@ -18,6 +18,11 @@ namespace LiteDB.Engine
         /// </summary>
         public long Rebuild(RebuildOptions options)
         {
+            if (_locker.IsInTransaction) throw LiteException.AlreadyExistsTransaction();
+            #if DEBUG || TESTING
+            _locker.BeforeExclusiveAdmission?.Invoke();
+#endif
+            using var maintenance = _operations.Exclusive(() => _locker.TransactionsCount == 0, _header.Pragmas.Timeout);
             if (CurrentContext.Policy.ReadOnly) throw new ReadOnlyContextException("Cannot rebuild a read-only database.");
 
             // Every omitted option keeps its current value; conflicting options fail before the engine closes.

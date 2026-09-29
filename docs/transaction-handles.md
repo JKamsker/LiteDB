@@ -1,0 +1,137 @@
+# Explicit transaction handles (v6)
+
+`LiteDatabase.BeginTransaction()` creates one independently owned synchronous
+transaction. `ILiteDatabase.BeginTransaction()` is an extension using the optional
+`ILiteTransactionProvider` capability; existing interface implementers need no new
+members. Providers without the capability fail before starting a transaction.
+
+```csharp
+using var tx = db.BeginTransaction();
+var users = tx.GetCollection<User>("users");
+users.Insert(user);
+tx.Commit();
+```
+
+Only objects obtained through `tx` enlist. Ordinary database collections, including
+ones used in a mapper/input callback, remain ordinary operations (or use their
+applicable legacy transaction). Two handles are separate transactions, even on
+the same thread; they are not nested transactions or savepoints. Existing isolation
+and durability settings are preserved. The API adds no snapshot-isolation promise.
+
+Sequential handoff to another thread is supported, including after the creating
+thread exits. Overlapping public calls and public reentry on the same handle fail
+before executing and do not abort the legitimate operation. This includes mapping,
+query execution, enumeration, reader access, commit, rollback and disposal. The
+guard detects overlapping calls, not accidental sequential sharing by an application.
+
+## Supported surface
+
+| Backend or API | Handle support |
+| --- | --- |
+| Built-in file-backed Direct | Yes; retains the existing pooled host and originating session |
+| Direct memory, temporary and caller-stream engines | Yes; existing caller ownership remains applicable |
+| Built-in filename-backed Shared | Yes; uses existing native admission/mutex/recovery protocol |
+| Read-only Direct/Shared | Queries and completion; mutation remains forbidden |
+| Shared with caller-supplied data/log/temp streams | Rejected before handle admission |
+| Coordinated and custom/decorated engines inside `LiteDatabase` | Rejected; legacy/ordinary support unchanged |
+| Typed/BSON collections, bulk input, queries, Include, vector queries | Yes |
+| Index creation/removal and collection metadata | Yes |
+| Collection drop/rename | Explicit `NotSupportedException` before mutation |
+| SQL, FileStorage, nested begin, checkpoint, rebuild, pragma mutation | Not exposed through the handle |
+| External/system query I/O | Rejected; `$cols` and `$indexes` metadata are supported |
+
+Shared caller streams can hold application callbacks that capture their session.
+A native holder retaining those streams would prevent abandoned sessions from
+being collected. This initial capability boundary avoids that ownership cycle;
+it does not change ordinary Shared or Direct caller-stream ownership.
+
+## Outcome and cleanup
+
+`State` is `Active`, `Committed`, `RolledBack`, `Failed` or `Indeterminate`.
+`Commit()` and `Rollback()` return void. Repeated completion is a usage error;
+repeated disposal is safe. Commit with an open bound reader fails before mutation
+and leaves the transaction active: dispose the reader and retry commit.
+
+An executing statement failure aborts the handle; there is no statement savepoint.
+Read-only/capability refusals before mutation leave it active. Disposing a healthy
+active handle rolls it back. Terminal disposal never commits or claims rollback of
+an indeterminate commit. A known committed result stays committed if later cleanup
+fails. A failed flush does not prove recovery will find the write absent.
+
+Completion releases transaction locks, Shared writer ownership and unused host
+references, and unregisters the handle as soon as cleanup finishes. Keeping a
+completed handle alive does not retain those dependencies. Bound collections,
+queryables and readers reject further work after completion; they never revert to
+automatic transactions.
+
+Original errors remain primary. Additional cleanup errors are attached in
+`Exception.Data` under `LiteDB.*Cleanup*`, `LiteDB.StatementRollback`, or
+`LiteDB.TransactionRollback` keys. A fatal storage error stops every session using
+that Direct host; recovery requires releasing its owners and opening a new host.
+
+## Session close and resource topology
+
+Disposal moves a session from Open through Closing to Closed. It rejects new work,
+cancels pending handle admission, settles idle owned handles, and drains executing
+work before releasing its engine lease. Each disposal call waits up to 10 seconds,
+including cleanup time. A timeout leaves the session Closing with needed resources
+retained; cleanup continues automatically when outstanding work finishes. A retry
+joins cleanup and reports any deferred cleanup failure once. Reentrant disposal
+from an executing operation or its internal native holder is rejected before
+changing the session state.
+
+Already-open ordinary readers retain their existing independent lifetime; bound
+readers belong to their handle/session. Peer Direct sessions remain usable unless
+the shared storage host has suffered a fatal error. `disposeOnClose=false` never
+grants ownership of the externally supplied engine to the facade.
+
+Direct keeps the parent PR's one compatible storage host per canonical database
+identity and loaded LiteDB assembly, with independent EngineContexts. Explicit
+transactions have logical identities; only the deprecated legacy adapter uses
+thread-local lookup. A synchronous dispatch scope carries identity through existing
+internal call composition; it does not own the transaction or flow across threads.
+
+Shared keeps separate engines. At most one new handle per database/mutex namespace
+in the process passes the handle admission gate. That handle has a native mutex
+holder thread and a child engine. Pending begins wait on their calling threads
+before allocating a holder/engine. Ordinary and legacy Shared callers still use
+the native mutex; they cannot recurse into a handle's writer ownership. As with
+existing Shared native admission, a begin can wait until the owner releases it;
+closing its session cancels pending admission. Collection-lock `TIMEOUT` is not a
+deadline for Shared native admission. Cached admission gates are inert metadata.
+No complete Shared-engine pooling or cache-retention optimization is introduced.
+
+Operation leases cover the full storage call and completion tail. Maintenance and
+close cannot replace/dispose the core until those calls finish. Cursor/snapshot
+leases separately protect idle readers. Existing native lock/MMF/sidecar protocols,
+filesystem support, file formats, WAL publication and configured durability remain
+those of [native admission](native-database-admission.md).
+
+## Migrating legacy callers
+
+`BeginTrans`, database-level `Commit` and `Rollback` remain binary compatible and
+thread-bound. They now emit **CS0618** (`Obsolete`, warning only). Replace the trio
+with a handle and obtain the participating collections from that handle. Valid
+existing synchronous legacy use continues to work; crossing `await` remains unsafe
+for the legacy API.
+
+Projects using `TreatWarningsAsErrors` may migrate incrementally with a targeted
+`<WarningsNotAsErrors>$(WarningsNotAsErrors);CS0618</WarningsNotAsErrors>` setting,
+or a narrow `#pragma warning disable CS0618` around intentional legacy calls.
+Do not disable unrelated warnings.
+
+## Safety evidence and limits
+
+The transaction-handle test classes cover handoff/creator retirement, exact binding,
+overlap, mapper callbacks, cursor completion, close deadlines and eventual cleanup,
+terminal resource release, read-only behavior, WAL write/flush failures, cleanup
+failures and process termination with repeated cold reopen/index/sentinel checks.
+The broader legacy, admission, Shared and maintenance suites remain required.
+Hosted CI and performance evidence must identify the final tested revision.
+
+Tests also distinguish abandonment of a whole dirty cache from leaking a page
+owned by a surviving cache. The test-only finalizer diagnostic uses a short weak
+cache reference; explicit cache disposal remains strict, and finalizers perform
+no new storage I/O or rollback. The original assertion failure was reproduced on
+parent `49c327cf1926fa300f9eb7477eb4bcb404f75c43` using only legacy `BeginTrans`.
+Abandonment is recovery, not a substitute for deterministic disposal.

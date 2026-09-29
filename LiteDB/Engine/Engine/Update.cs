@@ -12,6 +12,7 @@ namespace LiteDB.Engine
         /// </summary>
         public int Update(string collection, IEnumerable<BsonDocument> docs)
         {
+            using var operation = EnterOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (docs == null) throw new ArgumentNullException(nameof(docs));
 
@@ -49,6 +50,7 @@ namespace LiteDB.Engine
         /// </summary>
         public int UpdateMany(string collection, BsonExpression transform, BsonExpression predicate)
         {
+            using var operation = EnterOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (transform == null) throw new ArgumentNullException(nameof(transform));
 

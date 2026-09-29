@@ -65,16 +65,18 @@ namespace LiteDB.Engine
                 this.ThrowIfDisposed();
 
                 var enteredTransaction = false;
-                var owner = Thread.CurrentThread;
+                var owner = (object)TransactionContext.For(context) ?? Thread.CurrentThread;
                 try
                 {
                     // Checkpoint can reset the WAL ID sequence only while holding
                     // exclusive admission. Take our lease before reserving an ID.
-                    _locker.EnterTransaction();
+                    _locker.EnterTransaction(owner);
                     enteredTransaction = true;
                     this.ThrowIfDisposed();
                     transaction = new TransactionService(_header, _locker, _disk, _walIndex, context.Policy.TransactionPageLimit, this, queryOnly);
                     _transactions.Add(transaction);
+                    var explicitContext = TransactionContext.For(context);
+                    if (explicitContext != null) explicitContext.Transaction = transaction;
 
                     this.ThrowIfDisposed();
                     if (queryOnly == false) slot.Transaction = transaction;
@@ -124,7 +126,7 @@ namespace LiteDB.Engine
         public void ReleaseTransaction(TransactionService transaction)
         {
             if (!transaction.QueryOnly)
-                ENSURE(transaction.OwnerThread == Thread.CurrentThread && transaction.Owner.Slot.Transaction == transaction,
+                ENSURE((transaction.Owner.Explicit != null || transaction.OwnerThread == Thread.CurrentThread) && transaction.Owner.Slot.Transaction == transaction,
                     "current thread must contains transaction parameter");
             var removed = false;
             try
@@ -139,7 +141,7 @@ namespace LiteDB.Engine
                     // lease is released. Finish service cleanup before admitting it.
                     if (!transaction.QueryOnly)
                     {
-                        ENSURE(transaction.OwnerThread == Thread.CurrentThread && transaction.Owner.Slot.Transaction == transaction,
+                        ENSURE((transaction.Owner.Explicit != null || transaction.OwnerThread == Thread.CurrentThread) && transaction.Owner.Slot.Transaction == transaction,
                             "current thread must contains transaction parameter");
                         transaction.Owner.Slot.Transaction = null;
                     }
@@ -149,7 +151,7 @@ namespace LiteDB.Engine
                 {
                     if (removed)
                     {
-                        _locker.ExitTransaction(transaction.OwnerThread);
+                        _locker.ExitTransaction(transaction.Owner.Admission);
 #if DEBUG || TESTING
                         AfterTransactionExit?.Invoke();
 #endif
@@ -235,7 +237,7 @@ namespace LiteDB.Engine
                 finally
                 {
                     if (ReferenceEquals(transaction.Owner.Slot.Transaction, transaction)) transaction.Owner.Slot.Transaction = null;
-                    _locker.ExitTransaction(transaction.OwnerThread);
+                    _locker.ExitTransaction(transaction.Owner.Admission);
                 }
             }
         }

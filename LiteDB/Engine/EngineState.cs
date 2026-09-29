@@ -18,6 +18,7 @@ namespace LiteDB.Engine
         private Exception _exception;
         private readonly LiteEngine _engine; // can be null for unit tests
         private readonly EngineSettings _settings;
+        internal OperationLifetime.Lease EnterOperation() => _engine?.EnterOperation() ?? default;
         internal EngineContext Context => _engine?.CurrentContext;
 
 #if DEBUG || TESTING
@@ -93,8 +94,8 @@ namespace LiteDB.Engine
         internal void CompleteStop(Exception ex, bool ownsFailure)
         {
             if (!ownsFailure) return;
-            try { _engine?.Close(ex, this); }
-            finally { this.Disposed = true; }
+            if (_engine != null) _engine.StopAfterOperations(ex, this);
+            else this.Disposed = true;
         }
 
         /// <summary>

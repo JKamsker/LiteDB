@@ -95,6 +95,7 @@ namespace LiteDB
         /// </summary>
         public bool Read()
         {
+            using var operation = _state?.EnterOperation();
             using var scope = _context?.Enter();
             if (!_hasValues) return false;
 
@@ -155,6 +156,7 @@ namespace LiteDB
 
             if (disposing)
             {
+                using var operation = _state?.EnterOperation();
                 using var scope = _context?.Enter();
                 _source?.Dispose();
             }

@@ -16,7 +16,7 @@ namespace LiteDB
         /// Enter the connection's mutex ownership, counted as a waiter meanwhile so that
         /// any pin of this instance, including one started after this call, ends for it.
         /// </summary>
-        private bool EnterOwner(bool scoped = false, bool writing = false)
+        private bool EnterOwner(bool scoped = false, bool writing = false, CancellationToken closing = default)
         {
             if (_owner.IsOwnedByCurrentThread) return _owner.Enter(scoped);
 #if NET8_0_OR_GREATER
@@ -27,7 +27,17 @@ namespace LiteDB
             this.AddMutexWaiter();
             try
             {
-                var abandoned = _owner.Enter(scoped);
+                bool abandoned;
+                if (!closing.CanBeCanceled) abandoned = _owner.Enter(scoped);
+                else
+                {
+                    closing.ThrowIfCancellationRequested();
+                    while (!_owner.TryEnter(out abandoned, scoped))
+                    {
+                        closing.WaitHandle.WaitOne(10);
+                        closing.ThrowIfCancellationRequested();
+                    }
+                }
 #if NET8_0_OR_GREATER
                 // A queued writer must not replace the current owner's local token.
                 if (writing) Interlocked.Exchange(ref _writerRequest, request);

@@ -19,7 +19,7 @@ namespace LiteDB.Engine
             var abortedHere = _monitor.ConsumeExplicitAbort();
 
             if (commit && transaction == null && !abortedHere && _monitor.Transactions.Any(candidate =>
-                ReferenceEquals(candidate.Owner.Context, CurrentContext) && candidate.ExplicitTransaction && candidate.State == TransactionState.Active &&
+                candidate.Owner.Explicit == null && ReferenceEquals(candidate.Owner.Context, CurrentContext) && candidate.ExplicitTransaction && candidate.State == TransactionState.Active &&
                 candidate.OwnerThread != Thread.CurrentThread))
             {
                 throw new LiteException(0, "No transaction belongs to this thread, but an explicit transaction is open on another thread. " +

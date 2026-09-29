@@ -12,6 +12,7 @@ namespace LiteDB.Engine
         /// </summary>
         public int Delete(string collection, IEnumerable<BsonValue> ids)
         {
+            using var operation = EnterOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (ids == null) throw new ArgumentNullException(nameof(ids));
 
@@ -68,6 +69,7 @@ namespace LiteDB.Engine
         /// </summary>
         public int DeleteMany(string collection, BsonExpression predicate)
         {
+            using var operation = EnterOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
 
             // do optimization for when using "_id = value" key

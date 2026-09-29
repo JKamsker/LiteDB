@@ -78,6 +78,11 @@ namespace LiteDB.Engine
         }
 
 #if DEBUG || TESTING
+        // A short weak reference clears before finalization of an abandoned cache graph.
+        // Page.Cache itself may still be present through f-reachable objects at that point.
+        internal WeakReference<MemoryCache> OwnerLiveness;
+        internal bool FinalizedWithLiveOwner => OwnerLiveness == null || OwnerLiveness.TryGetTarget(out _);
+
         /// <summary>
         /// Test hook: receives the share count of a buffer finalized while still in use (a pinned
         /// reader page is positive, a transaction's writable page is BUFFER_WRITABLE) instead of
@@ -93,6 +98,9 @@ namespace LiteDB.Engine
                 if (this.ShareCounter != 0) hook(this.ShareCounter);
                 return;
             }
+            // Abandonment discards uncommitted memory; it must not do storage I/O or rollback
+            // from a finalizer. Explicit observers above still see every unreleased frame.
+            if (!FinalizedWithLiveOwner) return;
             ENSURE(this.ShareCounter == 0, $"share count must be 0 in destroy PageBuffer (current: {this.ShareCounter})");
         }
 #endif

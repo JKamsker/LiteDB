@@ -21,6 +21,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool DropCollection(string name)
         {
+            using var operation = EnterOperation();
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 
             _state.Validate();
@@ -52,6 +53,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool RenameCollection(string collection, string newName)
         {
+            using var operation = EnterOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (newName.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(newName));
 

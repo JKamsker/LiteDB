@@ -94,7 +94,7 @@ namespace LiteDB
         /// Open for an operation. A <paramref name="scoped"/> caller closes on the same thread
         /// before it returns; its ownership then takes the OS mutex directly on this thread.
         /// </summary>
-        private SharedMutexPin OpenDatabase(bool scoped = false, bool writing = false)
+        private SharedMutexPin OpenDatabase(bool scoped = false, bool writing = false, CancellationToken closing = default)
         {
             // Writers retire idle read handles before _useLock, preserving lock order.
             if (writing) this.RetireCoordinatedReads();
@@ -107,10 +107,11 @@ namespace LiteDB
             }
 
             // Acquire mutex for every call to open DB.
-            var recoveredAbandonedOwner = this.EnterOwner(scoped && this.CanScope, writing);
+            var recoveredAbandonedOwner = this.EnterOwner(scoped && this.CanScope, writing, closing);
 
             try
             {
+                closing.ThrowIfCancellationRequested();
                 RejectAbandonedTransaction();
             }
             catch { this.EndWriterPressure(); _owner.Exit(); throw; }
@@ -177,7 +178,7 @@ namespace LiteDB
         /// Dequeue stack and dispose database on empty stack. A pinned use ends an
         /// operation, or with <paramref name="hold"/> a reader or transaction.
         /// </summary>
-        private void CloseDatabase(SharedMutexPin use = null, bool hold = false, int generation = -1)
+        private void CloseDatabase(SharedMutexPin use = null, bool hold = false, int generation = -1, bool reportErrors = false)
         {
             if (use != null)
             {
@@ -197,7 +198,12 @@ namespace LiteDB
                     {
                         var engine = _engine;
                         _engine = null;
-                        try { engine.Close(); } finally { this.EndWriterPressure(); }
+                        try
+                        {
+                            var errors = engine.Close();
+                            if (reportErrors) LiteEngine.ThrowCleanupErrors(errors);
+                        }
+                        finally { this.EndWriterPressure(); }
                     }
                 }
             }

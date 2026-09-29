@@ -1,4 +1,4 @@
-using LiteDB.Utils;
+﻿using LiteDB.Utils;
 
 using System;
 using System.Collections.Concurrent;
@@ -21,6 +21,14 @@ namespace LiteDB.Engine
         #region Services instances
 
         private LockService _locker;
+        private readonly OperationLifetime _operations = new OperationLifetime();
+        internal OperationLifetime.Lease EnterOperation() => _operations.Enter();
+        internal void StopAfterOperations(Exception error, EngineState origin) => _operations.Stop(() =>
+        {
+            var errors = this.Close(error, origin);
+            for (var i = 0; i < errors.Count; i++)
+                if (!ReferenceEquals(errors[i], error)) error.Data["LiteDB.FatalCleanup." + i] = errors[i];
+        });
 
         private DiskService _disk;
         private IDisposable _modeGuard;
@@ -160,7 +168,7 @@ namespace LiteDB.Engine
                 }
 
                 // initialize locker service
-                _locker = new LockService(_header.Pragmas);
+                _locker = new LockService(_header.Pragmas, () => (object)TransactionContext.For(CurrentContext) ?? Thread.CurrentThread);
 
                 // initialize wal-index service
                 _walIndex = new WalIndexService(_disk, _locker, _settings.SharedReaderVersions, () => _header,
@@ -216,6 +224,7 @@ namespace LiteDB.Engine
 
         internal List<Exception> Close(bool checkpoint = true, bool final = false, bool releaseMode = true)
         {
+            using var exclusive = _operations.Exclusive(() => true);
             if (_state.Disposed) return new List<Exception>();
 
             _state.Disposed = true;
@@ -322,6 +331,7 @@ namespace LiteDB.Engine
         /// </summary>
         public int Checkpoint()
         {
+            using var operation = EnterOperation();
             _state.Validate();
             try { return CurrentContext.Policy.ReadOnly ? 0 : _walIndex.Checkpoint(); }
             catch (Exception ex)
@@ -342,8 +352,16 @@ namespace LiteDB.Engine
 
         protected virtual void Dispose(bool disposing)
         {
-            try { this.Close(); }
-            finally { _defaultContext.DisposeSlots(); }
+            var errors = this.Close();
+            _defaultContext.DisposeSlots();
+            ThrowCleanupErrors(errors);
+        }
+
+        internal static void ThrowCleanupErrors(List<Exception> errors)
+        {
+            if (errors.Count == 0) return;
+            for (var i = 1; i < errors.Count; i++) errors[0].Data["LiteDB.EngineCleanup." + i] = errors[i];
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(errors[0]).Throw();
         }
     }
 }

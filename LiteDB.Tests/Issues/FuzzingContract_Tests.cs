@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -186,8 +186,23 @@ namespace LiteDB.Tests.Issues
                 monitor.Dispose();
                 exclusiveAdmitted.Set();
             };
+            using var tailEntered = new ManualResetEventSlim();
+            using var releaseTail = new ManualResetEventSlim();
             monitor.AfterTransactionExit = () =>
-                exclusiveAdmitted.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+            {
+                tailEntered.Set();
+                releaseTail.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+            };
+            var tailObserver = Task.Run(() =>
+            {
+                try
+                {
+                    tailEntered.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+                    exclusiveAdmitted.Wait(TimeSpan.FromMilliseconds(100)).Should().BeFalse(
+                        "maintenance must wait for the complete operation tail");
+                }
+                finally { releaseTail.Set(); }
+            });
 
             engine.BeginTrans().Should().BeTrue();
             var rebuild = Task.Factory.StartNew(() => engine.Rebuild(), CancellationToken.None,
@@ -200,6 +215,7 @@ namespace LiteDB.Tests.Issues
             try { engine.Commit().Should().BeTrue(); }
             catch (Exception ex) { commitFailure = ex; }
 
+            await tailObserver;
             Exception rebuildFailure = null;
             try { await rebuild; }
             catch (Exception ex) { rebuildFailure = ex; }
