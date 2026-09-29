@@ -95,8 +95,6 @@ namespace LiteDB
         /// </summary>
         public bool Read()
         {
-            using var operation = _state?.EnterOperation();
-            using var scope = _context?.Enter();
             if (!_hasValues) return false;
 
             if (_isFirst)
@@ -108,6 +106,10 @@ namespace LiteDB
             {
                 if (_source != null)
                 {
+                    // The first value was materialized under Query's operation lease.
+                    // Only advancing the source accesses storage after construction.
+                    using var operation = _state?.EnterOperation();
+                    using var scope = _context?.Enter();
                     _state.Validate(); // checks if engine still open
 
                     try

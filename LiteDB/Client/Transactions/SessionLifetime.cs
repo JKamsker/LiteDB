@@ -53,20 +53,23 @@ namespace LiteDB
 
         internal void Completed(LiteTransaction transaction)
         {
-            lock (_gate) _transactions.Remove(transaction);
-            TryFinish();
+            bool closing;
+            lock (_gate) { _transactions.Remove(transaction); closing = _closeRequested; }
+            if (closing) TryFinish();
         }
 
         internal void Report(Exception error) { lock (_gate) _errors.Add(error); }
 
         private void Exit(Thread thread)
         {
+            bool closing;
             lock (_gate)
             {
                 if (--_threads[thread] == 0) _threads.Remove(thread);
                 _active--;
+                closing = _closeRequested;
             }
-            TryFinish();
+            if (closing) TryFinish();
         }
 
         internal void Close(Action release, TimeSpan? wait = null)

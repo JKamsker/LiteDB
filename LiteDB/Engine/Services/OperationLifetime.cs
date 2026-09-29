@@ -53,7 +53,7 @@ namespace LiteDB.Engine
                     _deferredClose = null;
                     _exclusive = thread;
                 }
-                Monitor.PulseAll(_gate);
+                if (_active == 0 || exclusive) Monitor.PulseAll(_gate);
             }
             FinishClose(close);
         }

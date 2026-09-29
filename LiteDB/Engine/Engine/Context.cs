@@ -36,6 +36,9 @@ namespace LiteDB.Engine
 
         internal void ReleaseAbandonedContexts()
         {
+            // A later enqueue can be handled by the next call, just as it can arrive
+            // after the final TryDequeue below. An empty queue touches no engine state.
+            if (_abandonedContexts.IsEmpty) return;
             using var operation = EnterOperation();
             if (_state.Disposed) return;
             // A live caller keeps storage rooted. Never resurrect an unreachable
