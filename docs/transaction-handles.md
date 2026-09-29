@@ -12,7 +12,9 @@ users.Insert(user);
 tx.Commit();
 ```
 
-Only objects obtained through `tx` enlist. Ordinary database collections, including
+“Bound” means that each collection, query and reader obtained through `tx` always
+executes within exactly that transaction and rejects use after completion. Only
+objects obtained through `tx` enlist. Ordinary database collections, including
 ones used in a mapper/input callback, remain ordinary operations (or use their
 applicable legacy transaction). Two handles are separate transactions, even on
 the same thread; they are not nested transactions or savepoints. Existing isolation
@@ -38,6 +40,7 @@ whose engine transaction was rolled back, the handle becomes Failed.
 | Built-in filename-backed Shared | Yes; uses existing native admission/mutex/recovery protocol |
 | Read-only Direct/Shared | Queries and completion; mutation remains forbidden |
 | Shared memory/temporary storage or caller-supplied data/log/temp streams | Rejected before handle admission |
+| Shared handle begin under Windows thread impersonation | Rejected before queuing/acquisition; holder context must not silently use a different OS identity |
 | Coordinated and custom/decorated engines inside `LiteDatabase` | Rejected; legacy/ordinary support unchanged |
 | Typed/BSON collections, bulk input, queries, Include, vector queries | Yes |
 | Index creation/removal and collection metadata | Yes |
@@ -85,6 +88,11 @@ joins cleanup and reports any deferred cleanup failure once. Reentrant disposal
 from an executing operation or its internal native holder is rejected before
 changing the session state.
 
+Initial cleanup runs independently of the application thread pool, so callers
+disposing sessions cannot exhaust the pool needed to clean them up. If the runtime
+cannot start that cleanup worker, disposal reports the startup error, retains the
+Closing session and its ownership, and a later disposal retries scheduling.
+
 Already-open ordinary readers retain their existing independent lifetime; bound
 readers belong to their handle/session. Peer Direct sessions remain usable unless
 the shared storage host has suffered a fatal error. `disposeOnClose=false` never
@@ -96,17 +104,41 @@ transactions have logical identities; only the deprecated legacy adapter uses
 thread-local lookup. A synchronous dispatch scope carries identity through existing
 internal call composition; it does not own the transaction or flow across threads.
 
+Writable Direct holds exclusive native admission for the host's entire dependency
+lifetime, including idle periods between transactions. It excludes every other
+process, including read-only Direct opens. Compatible writable facades in the same
+process share that host and may read/write through their independent contexts;
+transaction/collection locks still govern overlapping work. Standalone read-only
+Direct processes can coexist only when no writable Direct or Shared owner is
+admitted. A conflicting Direct open fails; it does not queue for its turn. The last
+real dependent lease releases admission after cleanup, allowing another process to
+open the file. Opt-in waiting for Direct opening remains [#3068](https://github.com/litedb-org/LiteDB/issues/3068).
+
 Shared keeps separate engines. At most one new handle per database/mutex namespace
 in the process passes the handle admission gate. That handle has a native mutex
 holder thread and a child engine. Pending begins wait on their calling threads
 before allocating a holder/engine. Ordinary and legacy Shared callers still use
 the native mutex; they cannot recurse into a handle's writer ownership. As with
-existing Shared native admission, a begin can wait until the owner releases it;
-closing its session cancels pending admission. Collection-lock `TIMEOUT` is not a
-deadline for Shared native admission. Do not synchronously begin a second Shared
-handle while the same caller is responsible for completing the first: complete it
-first, or arrange independent completion/session cancellation. Cached admission
-gates are inert metadata.
+existing Shared native admission, parameterless begin can wait until the owner
+releases it; closing its session cancels pending admission. Cached admission gates
+are inert metadata.
+
+These mechanisms have separate jobs:
+
+| Mechanism | Ownership and scope |
+| --- | --- |
+| Shared lifetime admission | Allows compatible Shared participants and excludes Direct hosts for the dependent lifetime; it does not mean that the process owns the writer mutex throughout |
+| Native writer mutex | Serializes writer ownership across processes and ordinary/legacy/handle callers |
+| Local handle gate | Queues only the new transaction handles for that database/mutex namespace, before creating their holder/child engine |
+| Ordinary Shared snapshot reads | Use the existing snapshot/version and reader-lease protocol where supported, without enlisting in an explicit handle; fallback/native coordination remains backend-dependent |
+
+Each handle releases native ownership before the next handle acquires it. The local
+queue does not remove this release/acquire pair or consolidate ordinary and legacy
+writers into one process participant. Reusable writer ownership, local scheduling
+and remote fairness are [#3069](https://github.com/litedb-org/LiteDB/issues/3069).
+Participation/mapping/reader-registry consolidation is [#3017](https://github.com/litedb-org/LiteDB/issues/3017);
+retained coherent engine/cache state is [#3004](https://github.com/litedb-org/LiteDB/issues/3004).
+
 No complete Shared-engine pooling or cache-retention optimization is introduced.
 The child closes its operation engine using normal WAL/checkpoint thresholds;
 the parent session retains the final checkpoint policy. Completing each handle
@@ -118,6 +150,48 @@ close cannot replace/dispose the core until those calls finish. Cursor/snapshot
 leases separately protect idle readers. Existing native lock/MMF/sidecar protocols,
 filesystem support, file formats, WAL publication and configured durability remain
 those of [native admission](native-database-admission.md).
+
+## Opt-in Shared admission deadline and cancellation
+
+```csharp
+using var tx = db.BeginTransaction(TimeSpan.FromSeconds(2), cancellationToken);
+tx.GetCollection<User>("users").Insert(user);
+tx.Commit();
+```
+
+The `sharedAdmissionTimeout` overload uses one monotonic budget for the combined
+local handle-gate and native writer-mutex waits. `TimeSpan.Zero` attempts immediate
+admission at both stages; `Timeout.InfiniteTimeSpan` keeps the unbounded default.
+Other values must be nonnegative and at most `Int32.MaxValue` milliseconds.
+Expiration throws `TimeoutException`; caller cancellation throws
+`OperationCanceledException` carrying the supplied token. Partial ownership and
+registrations are cleaned before the failed begin returns; cleanup failures remain
+secondary diagnostics on the original error. Failed admission never completes or
+releases the current owner's transaction.
+
+Cancellation applies only while beginning a transaction. Once a handle is returned,
+later token cancellation does not cancel its operations or an executing commit,
+and cannot determine its commit outcome. Admission tokens and their callbacks are
+detached before return. Internal holder threads do not retain caller execution
+contexts. Session close still cancels pending begins independently.
+Default collation initialization still observes the caller's culture, and an unset
+collation still accepts the existing file's persisted value. On Windows, beginning
+a Shared handle while impersonating is explicitly unsupported: it fails before
+queuing rather than opening storage under a different identity.
+
+The timeout bounds the two Shared ownership waits, not the total method duration:
+engine opening/recovery I/O, cleanup and existing Direct/collection lock waits keep
+their existing contracts. Direct observes begin cancellation at acquisition
+boundaries; this overload does not add a deadline to Direct file opening.
+Collection-lock `TIMEOUT` is a different setting. Do not use parameterless begin for
+a second Shared handle when the blocked caller is the only code able to complete
+the first; use a bounded begin, or arrange independent completion/cancellation.
+
+`ILiteDatabase` exposes the overload through the optional
+`ILiteTransactionAdmissionProvider` extension capability. Neither `ILiteDatabase`
+nor the existing `ILiteTransactionProvider` gains required members. An older/custom
+provider without this capability rejects the overload before beginning work; it
+does not silently ignore the timeout/token.
 
 ## Migrating legacy callers
 

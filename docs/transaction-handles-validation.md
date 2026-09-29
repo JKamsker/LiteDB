@@ -23,8 +23,12 @@ claim that every device, scheduling interleaving or failure has been proved safe
 | Shared child engines preserve degradation diagnostics but later commits retry device sync | `TransactionHandleSharedPolicy_Tests`: plain/encrypted injection specifically between confirmed-WAL flush phase hooks |
 | Callback-enabled Shared handles need only their lifetime holder, including foreign-thread completion | `TransactionHandleSharedPolicy_Tests`: 20 consecutive handles, no auxiliary mutex-holder thread |
 | Whole-cache abandonment differs from leaking an in-use frame of a surviving cache | `PageBufferAbandonment_Tests`, young/promoted handle-abandonment tests, independent exact-parent legacy reproduction |
+| One bounded Shared admission budget covers local and native waiting; failures preserve the current owner | `TransactionHandleAdmission_Tests`, remote-owner timeout/cancellation in `TransactionHandleProcess_Tests` |
+| Begin cancellation detaches callbacks; later cancellation cannot affect a returned handle/commit | `TransactionHandleAdmissionLifetime_Tests`, foreign-thread commit after token cancellation, callback/AsyncLocal abandonment and cold reopen |
+| Close cleanup progresses when all application pool workers are blocked disposing sessions | Isolated process restricted to one pool worker: idle/active Direct/Shared disposal and cold data/index/sentinel checks; concurrent retry and blocked-release tests |
+| Suppressing holder execution-context flow preserves default/persisted collation and cannot silently change an impersonated Windows caller's identity | Cold-process Turkish collation/index test; Windows/CLR impersonation rejection and normal retry in `TransactionHandleContext_Tests` |
 
-The focused final production-source runs pass 96 tests on net10.0 and 112 on
+The earlier focused production-source runs passed 96 tests on net10.0 and 112 on
 net8.0 (the latter also includes FuzzingContract). Earlier broader local partitions
 passed 352 Shared and 1,568 issue tests, with one existing issue skip. Final hosted
 coverage, including Framework runtime execution, is reported separately in the PR.
@@ -68,7 +72,25 @@ cycles and Shared child policy propagation. Reviewers rechecked their retained
 findings. These were bounded source/reproduction reviews, not universal approval
 of untested behavior.
 
+The admission review additionally found an idle holder stack temporary retaining a
+disposed linked cancellation source, whose callbacks captured the facade. A heap
+root trace confirmed that chain. Acquisition now ends on a separate stack frame,
+and admission disposal clears its token/source references. Callback and AsyncLocal
+abandonment cases verify collection, native release and preservation of committed
+sentinel data without the uncommitted row. Windows impersonation is an explicit
+capability refusal before queuing; the holder never silently switches identities.
+
+Hosted tests also exposed thread-pool starvation in session close. The original
+close queued its cleanup to the pool while blocking the disposing workers. A
+separate close worker now progresses independently; a failed worker startup retains
+Closing ownership and can be retried. Concurrent retries release exactly once.
+The close deadline still covers blocked cleanup, including zero-handle sessions.
+
 ## Performance and resource costs
+
+The measurements below predate the admission and close-scheduling review fixes.
+They are retained as a baseline, not final-revision results or accepted costs.
+Final profiling and longer paired measurements follow correctness verification.
 
 Measurements use isolated production Release/net10.0 libraries with
 `TestingEnabled=false`, Ubuntu 24.04 x64, .NET 10.0.11, SDK 10.0.400, local ext4
