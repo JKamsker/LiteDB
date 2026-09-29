@@ -19,9 +19,8 @@ namespace LiteDB.Tests.Internals
         {
             using var file = new TempFile();
             NativeAdmission_Tests.Seed(file);
-            if (fallback) DatabaseFileIdentity.UnsupportedVolume = path => path == file.Filename;
+            using var volume = fallback ? new NativeAdmissionFallback_Tests.UnqualifiedVolume(file) : null;
             var family = fallback ? "direct-fallback" : "direct";
-            try
             {
                 var connection = new ConnectionString { Filename = file, AllowHostLocalAdmissionFallback = fallback };
                 using var first = new LiteDatabase(connection);
@@ -43,7 +42,6 @@ namespace LiteDB.Tests.Internals
                 Assert.NotNull(cold.GetCollection("sentinel").FindById(8));
                 Assert.Equal(42, cold.GetCollection("rows").FindOne("value = 42")["value"].AsInt32);
             }
-            finally { DatabaseFileIdentity.UnsupportedVolume = null; }
         }
 
         [Fact]

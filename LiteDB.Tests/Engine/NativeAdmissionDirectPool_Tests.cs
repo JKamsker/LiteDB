@@ -102,13 +102,14 @@ namespace LiteDB.Tests.Engine
             using var opening = new ManualResetEventSlim();
             Task close = null;
             Task<LiteDatabase> open = null;
+            var canonical = DatabaseFileIdentity.CanonicalPath(file);
             DirectEnginePool.BeforeFinalClose = path =>
             {
-                if (path != file.Filename) return;
+                if (path != canonical) return;
                 closing.Set();
                 Assert.True(finish.Wait(TimeSpan.FromSeconds(10)));
             };
-            DirectEnginePool.WaitingForClose = path => { if (path == file.Filename) opening.Set(); };
+            DirectEnginePool.WaitingForClose = path => { if (path == canonical) opening.Set(); };
             try
             {
                 close = Task.Run(() => db.Dispose());

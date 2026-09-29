@@ -67,6 +67,7 @@ namespace LiteDB.Tests.Engine
                 return value;
             });
             db = new LiteDatabase(lease);
+            Assert.True(DirectEnginePool.Contains(file));
             db.GetCollection("rows").EnsureIndex("value", true);
             db.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1, ["value"] = 42 });
             db.GetCollection("sentinel").Insert(new BsonDocument { ["_id"] = 9 });
@@ -89,6 +90,7 @@ namespace LiteDB.Tests.Engine
         private static ILiteCollection<BsonDocument> CreateCollection(string file, out WeakReference database)
         {
             var db = new LiteDatabase(file);
+            Assert.True(DirectEnginePool.Contains(file));
             var collection = db.GetCollection("rows");
             collection.Insert(new BsonDocument { ["_id"] = 1 });
             database = new WeakReference(db);

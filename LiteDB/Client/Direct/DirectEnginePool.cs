@@ -81,7 +81,11 @@ namespace LiteDB.Client.Direct
 #if DEBUG || TESTING
         internal static Action<string> BeforeFinalClose;
         internal static Action<string> WaitingForClose;
-        internal static bool Contains(string filename) { lock (Gate) return Entries.ContainsKey(filename); }
+        internal static bool Contains(string filename)
+        {
+            var canonical = DatabaseFileIdentity.CanonicalPath(filename);
+            lock (Gate) return Entries.ContainsKey(canonical);
+        }
 #endif
 
         internal static ILiteEngine Open(EngineSettings settings)
