@@ -74,7 +74,7 @@ namespace LiteDB.Tests.Engine
         {
             using var file = new TempFile();
             using var db = new LiteDatabase(file);
-            db.Timeout = TimeSpan.FromMilliseconds(100);
+            db.Timeout = TimeSpan.FromSeconds(1);
             using var first = db.BeginTransaction();
             using var second = db.BeginTransaction();
             first.GetCollection("rows").Insert(Row(1, 10));
