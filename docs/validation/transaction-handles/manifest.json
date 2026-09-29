@@ -17,5 +17,12 @@
     "candidate-contention.jsonl": "8bf96adf6cc1b0ed48e4292ded4b6af048942b9aa5781eccf536bb30f9294332",
     "candidate-resources.jsonl": "68da1f069fbf72c002ff9fac37872bd8028a3141c3d97f485231757c59d39939"
   },
-  "benchmark_source_sha256": "53a915cb053ccc6adc5d442018f599e056d2172ade0be2074216f1100f7f124d"
+  "benchmark_source_sha256": "53a915cb053ccc6adc5d442018f599e056d2172ade0be2074216f1100f7f124d",
+  "process_exit_codes": {
+    "parent": 0,
+    "parent-contention": 0,
+    "candidate": 0,
+    "candidate-contention": 0,
+    "candidate-resources": 0
+  }
 }

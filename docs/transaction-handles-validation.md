@@ -82,7 +82,10 @@ Ordinary and legacy workloads run unchanged against both DLLs. Handles use
 begin/operation/commit as the semantic adapter; old code has no handle API.
 Single-operation cases use five measured repetitions after warmup. Contention
 uses three repetitions of four callers updating separate rows of one collection,
-including final drain/disposal. Every database is cold-reopened and checked.
+including final drain/disposal. Repetitions share one process in fixed workload
+order; Shared read windows are short. Every database is cold-reopened and checked,
+but same-value benchmark updates do not independently prove each commit: that
+requires the model/fault tests above.
 
 Performance tables and bounded raw samples accompany this report. Production
 binary hashes, runtime, repetition ranges, allocations, latency percentiles and
@@ -140,8 +143,13 @@ Contention median operations/s (three repetitions, same four-caller workload):
 | Shared / legacy | 114.4 | 112.5 |
 | Shared / handle | — | 129.7 |
 
+Shared attach churn reached roughly 178–298 native threads in both versions, an
+inherited transient cost not removed by this change.
+
 The Shared contention result does not establish a general speedup: this workload
-includes close/checkpoint scheduling and only three repetitions. Candidate Shared
+includes close/checkpoint scheduling and only three repetitions. WAL size and
+checkpoint time were not separately measured, so no general lifecycle/storage
+improvement is claimed. Candidate Shared
 handle samples added one native holder thread; twelve pending begins added twelve
 caller threads and no additional sampled native handles. After draining, thread
 counts returned to the pre-handle baseline, including with read callbacks. Warm
