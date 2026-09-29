@@ -14,9 +14,13 @@ abandoned references. Process death releases the OS lock automatically. Direct
 writers exclude other processes and Shared participants; compatible Shared
 processes coexist. Incompatible mutex strategies still fail before storage access.
 
-Independent writable Direct engines remain incompatible because their caches and
-WAL state are separate; reuse one engine or use Shared connections. Multiple Direct
-read-only engines share admission. Direct read-only access now excludes writable
+Compatible file-backed Direct `LiteDatabase` instances now share the same process
+engine, including caches, transaction locks and WAL state. Independent owner leases
+retain it until the last database, active call and reader releases it. Mappers stay
+separate; pragmas and same-thread explicit transactions are shared. Incompatible
+settings are refused. Raw independently constructed writable `LiteEngine` objects
+remain incompatible. See [Direct engine ownership](direct-engine-ownership.md).
+Multiple Direct read-only engines share admission. Direct read-only access excludes writable
 Direct and Shared participants; read-only Shared uses Shared admission. Read-only
 native opens need no writable admission artifact. Unsupported locking filesystems fail
 closed by default. Runtime file-sharing locks must also stay enabled for Shared coordination.

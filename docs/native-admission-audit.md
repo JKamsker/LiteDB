@@ -129,6 +129,11 @@ container mutex namespaces require a different operation-coordination contract.
 
 ## Host-local fallback and retained graph evidence
 
+Direct connection pooling additionally follows the ownership contract and tests
+in [Direct engine ownership](direct-engine-ownership.md). Pool references protect
+the actual engine as well as its native admission; a second compatible Direct
+`LiteDatabase` must reuse the same caches, transaction monitor and WAL state.
+
 The explicit fallback retains ADMISSION-1 through ADMISSION-5 and adds these
 rules. Defaults still require qualified native admission; opting in cannot turn
 an acquisition error into a different lock authority.

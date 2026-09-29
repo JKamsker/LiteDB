@@ -161,11 +161,13 @@ Native locks are mandatory on supported local filesystems; unqualified filesyste
 fail closed. The runtime's file-sharing locks must also remain enabled for the
 independent Shared reader/MMF protocol.
 
-Compatible admission references share one native lock. Independent writable Direct
-engines still have separate caches and WAL indexes, so admitting a second such
-engine locally remains unsafe and is rejected. Use the same `LiteEngine` or Shared
-connections for concurrent operations. Multiple standalone Direct read-only engines
-are compatible and share admission.
+Compatible file-backed Direct `LiteDatabase` instances share one process engine
+and native lock. Each instance has an independent disposable lease; the final
+database, operation and reader release closes the engine. Raw independently
+constructed writable `LiteEngine` objects still have separate caches/WAL indexes
+and cannot coexist. See [Direct engine ownership](direct-engine-ownership.md) for
+settings, per-thread transactions and finalization. Multiple standalone Direct
+read-only engines are compatible and share admission.
 
 Rebuild/upgrade locks the completed candidate before publication and transfers the
 registry to the resulting live inode. Shared replacement requires other processes

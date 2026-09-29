@@ -31,12 +31,16 @@ and guard under one explicit root, then releases that root together.
 | Standalone Direct reader / standalone Direct reader | Yes |
 | Standalone Direct reader / Direct writer or Shared | No |
 
-Compatible local owners reuse the process's admission handle. This does not merge
-independent engines' transaction monitors, caches or WAL indexes: a second local
-writable Direct engine remains incompatible. Share the engine for concurrent
-operations, or use Shared connections. Independent Direct read-only engines are
-compatible. Shared operation engines and escaping snapshots retain connection
-admission through the existing lifetime wrapper.
+File-backed Direct `LiteDatabase` instances with compatible settings reuse the
+same process engine, including its transaction monitor, caches and WAL index.
+Each database has an independent disposable lease and mapper. The last owner
+closes the engine after outstanding calls and readers release their uses, then
+other processes can acquire the file. Raw independently constructed `LiteEngine`
+objects are not pooled and a second writable engine remains incompatible.
+Independent Direct read-only engines are compatible. Shared connections retain
+separate engines; operation engines and escaping snapshots retain connection
+admission through the existing lifetime wrapper. See [Direct engine ownership](direct-engine-ownership.md)
+for settings, transactions, finalization and the Shared pooling assessment.
 
 `ReadOnly=true` opens an existing database with read access and never creates a
 mode artifact. Read-only Shared can use protected reads when mapped coordination

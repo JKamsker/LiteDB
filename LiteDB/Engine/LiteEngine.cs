@@ -331,6 +331,7 @@ namespace LiteDB.Engine
         }
 
         internal int ReadVersion => _walIndex.CurrentReadVersion;
+        internal bool IsDisposed => _state.Disposed;
 
         public void Dispose()
         {

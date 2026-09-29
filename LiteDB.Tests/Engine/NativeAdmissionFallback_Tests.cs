@@ -68,7 +68,14 @@ namespace LiteDB.Tests.Engine
                 authority = resolved.AuthorityPath;
                 using var raw = new DatabaseFileLock(authority, true, false);
                 raw.Conflicts(DatabaseFileLock.Admission).Should().BeTrue("the host-local file must enforce admission");
-                Action contender = () => { using var other = new LiteDatabase(Settings(file)); };
+                if (!shared)
+                {
+                    using var sibling = new LiteDatabase(Settings(file));
+                    NativeAdmissionDirectPool_Tests.Engine(sibling).Should().BeSameAs(NativeAdmissionDirectPool_Tests.Engine(db));
+                    sibling.GetCollection("rows").Count().Should().Be(2);
+                }
+                Action contender = () => { using var other = new LiteEngine(new EngineSettings
+                    { Filename = file, AllowHostLocalAdmissionFallback = true }); };
                 contender.Should().Throw<DatabaseAdmissionException>();
             }
             File.Exists(authority).Should().BeTrue("last release never unlinks an authority");

@@ -17,6 +17,18 @@ internal static class NativeAdmissionHarness
                 .SetValue(null, (Func<string, bool>)(path => Path.GetFileName(path).StartsWith(prefix, StringComparison.Ordinal)));
         }
         if (args[4].Contains("sha1", StringComparison.Ordinal)) settings.SharedMutexNameStrategy = SharedMutexNameStrategy.Sha1Hash;
+        if (mode == "native-pool-hold")
+        {
+            var connection = new ConnectionString { Filename = filename, Password = password };
+            using var first = new LiteDatabase(connection);
+            using var second = new LiteDatabase(connection);
+            first.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 2, ["value"] = 84 });
+            first.Dispose();
+            if (second.GetCollection("rows").Count() != 2) throw new Exception("Pooled owner lost shared state");
+            Console.WriteLine("ready");
+            Console.ReadLine();
+            return true;
+        }
         if (mode == "native-raw-probe")
         {
             var type = typeof(LiteEngine).Assembly.GetType("LiteDB.Client.Shared.DatabaseFileLock")!;

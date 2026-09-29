@@ -406,7 +406,9 @@ namespace LiteDB.Tests.Engine
             var engineField = typeof(LiteDatabase).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)
                               ?? throw new InvalidOperationException("Unable to locate LiteDatabase engine field.");
 
-            if (engineField.GetValue(database) is not LiteEngine engine)
+            var inner = engineField.GetValue(database);
+            var engine = inner is LiteDB.Client.Direct.DirectEngineLease lease ? lease.Engine : inner as LiteEngine;
+            if (engine == null)
             {
                 throw new InvalidOperationException("LiteDatabase engine is not initialized.");
             }

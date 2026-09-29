@@ -301,7 +301,7 @@ namespace LiteDB
             // create engine implementation as Connection Type
             if (this.Connection == ConnectionType.Direct)
             {
-                return new LiteEngine(settings);
+                return Client.Direct.DirectEnginePool.Open(settings);
             }
             else if (this.Connection == ConnectionType.Shared)
             {
