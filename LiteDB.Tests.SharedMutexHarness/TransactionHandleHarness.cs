@@ -5,9 +5,21 @@ internal static class TransactionHandleHarness
     internal static bool TryRun(string mode, string filename, string? password, string[] args)
     {
         if (!mode.StartsWith("handle-", StringComparison.Ordinal)) return false;
+        if (mode == "handle-first-culture")
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("tr-TR");
         using var db = new LiteDatabase(new ConnectionString { Filename = filename, Password = password,
             Connection = args[4] == "shared" ? ConnectionType.Shared : ConnectionType.Direct,
             TransactionPageLimit = 1 });
+        if (mode == "handle-first-culture")
+        {
+            using var tx = db.BeginTransaction();
+            tx.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1, ["value"] = "I" });
+            tx.GetCollection("rows").EnsureIndex("value");
+            tx.Commit();
+            if (db.Collation.Culture.Name != "tr-TR") throw new Exception("Caller default collation was lost");
+            Console.WriteLine("done");
+            return true;
+        }
         if (mode == "handle-writer")
         {
             Console.WriteLine("attempting");

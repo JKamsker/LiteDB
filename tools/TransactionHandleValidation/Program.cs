@@ -16,13 +16,21 @@ if (scenario == "binary")
     decorated.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 2 });
     if (!decorated.Commit() || decorated.GetCollection("rows").Count() != 1) throw new Exception("decorator failed");
     // Reflection keeps this fixture compilable against the actual parent interface/API.
-    var extension = typeof(LiteDatabase).Assembly.GetType("LiteDB.LiteTransactionExtensions")?.GetMethod("BeginTransaction");
+    var extension = typeof(LiteDatabase).Assembly.GetType("LiteDB.LiteTransactionExtensions")?.GetMethod("BeginTransaction", new[] { typeof(ILiteDatabase) });
     if (extension != null)
     {
         foreach (ILiteDatabase unsupported in new ILiteDatabase[] { mock, decorated })
         {
             try { extension.Invoke(null, new object[] { unsupported }); throw new Exception("unsupported capability accepted"); }
             catch (TargetInvocationException error) when (error.InnerException is NotSupportedException) { }
+            var controlled = extension.DeclaringType.GetMethod("BeginTransaction",
+                new[] { typeof(ILiteDatabase), typeof(TimeSpan), typeof(CancellationToken) });
+            if (controlled != null)
+            {
+                try { controlled.Invoke(null, new object[] { unsupported, TimeSpan.Zero, CancellationToken.None });
+                    throw new Exception("unsupported admission capability accepted"); }
+                catch (TargetInvocationException error) when (error.InnerException is NotSupportedException) { }
+            }
         }
         if (!raw.BeginTrans()) throw new Exception("capability rejection started a legacy transaction");
         raw.Rollback();

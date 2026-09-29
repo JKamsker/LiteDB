@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using LiteDB.Client.Shared;
 using LiteDB.Engine;
@@ -12,12 +13,16 @@ namespace LiteDB
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> TransactionWriters =
             new ConcurrentDictionary<string, SemaphoreSlim>(StringComparer.Ordinal);
 
-        internal TransactionResources OpenTransactionResources(CancellationToken closing, object sessionToken)
+        internal TransactionResources OpenTransactionResources(TransactionAdmission admission, object sessionToken)
         {
             // A caller stream can capture the facade; a native holder must not root that
             // graph indefinitely, or perform storage I/O after its external owner is gone.
             if (!SharedModeGuard.IsFile(_settings) || _settings.LogStream != null || _settings.TempStream != null)
                 throw new NotSupportedException("Shared transaction handles require filename-backed storage without caller streams.");
+            TransactionHolderContext.Validate();
+            // First-use default collation must observe the caller's culture, while null
+            // settings still accept an existing database's persisted collation.
+            RuntimeHelpers.RunClassConstructor(typeof(Collation).TypeHandle);
             lock (_useLock)
             {
                 if (_disposed != 0) throw new ObjectDisposedException(nameof(SharedEngine));
@@ -27,12 +32,12 @@ namespace LiteDB
             var name = SharedMutexNameFactory.Create(_settings.Filename, _settings.SharedMutexNameStrategy);
             var gate = TransactionWriters.GetOrAdd(name, _ => new SemaphoreSlim(1, 1));
             // Pending begins use their caller's synchronous wait, never a holder thread/engine.
-            gate.Wait(closing);
+            admission.WaitLocal(gate);
             TransactionHolder holder;
             var policyAnchor = _settings.ReadTransform;
             try
             {
-                closing.ThrowIfCancellationRequested();
+                admission.Acquired("local-acquired");
                 var settings = _settings.Clone();
                 // The holder thread must not root application callbacks that can capture the
                 // facade/handle. The external resource owner retains the delegate while live.
@@ -47,7 +52,7 @@ namespace LiteDB
                 var child = new SharedEngine(settings) { _transactionChild = true };
                 child._settings.SharedDurability = _settings.SharedDurability;
                 child._settings.CheckpointBackoff = _settings.CheckpointBackoff;
-                holder = new TransactionHolder(child, gate, closing, sessionToken);
+                holder = new TransactionHolder(child, gate, admission, sessionToken);
             }
             catch { gate.Release(); throw; }
             return holder.Open(policyAnchor);
@@ -58,7 +63,7 @@ namespace LiteDB
         {
             private readonly SharedEngine _child;
             private readonly SemaphoreSlim _gate;
-            private readonly CancellationToken _closing;
+            private TransactionAdmission _admission;
             private readonly object _sessionToken;
             private readonly ManualResetEventSlim _opened = new ManualResetEventSlim();
             private readonly ManualResetEventSlim _close = new ManualResetEventSlim();
@@ -69,13 +74,18 @@ namespace LiteDB
             private readonly Func<string, bool, Action<string>> _streamProbe = NativeAdmissionStreamProbe.Attach;
 #endif
 
-            internal TransactionHolder(SharedEngine child, SemaphoreSlim gate, CancellationToken closing, object sessionToken)
-            { _child = child; _gate = gate; _closing = closing; _sessionToken = sessionToken; }
+            internal TransactionHolder(SharedEngine child, SemaphoreSlim gate, TransactionAdmission admission, object sessionToken)
+            { _child = child; _gate = gate; _admission = admission; _sessionToken = sessionToken; }
 
             internal TransactionResources Open(object policyAnchor)
             {
                 _thread = new Thread(Run) { IsBackground = true, Name = "LiteDB transaction mutex" };
-                try { _thread.Start(); }
+                try
+                {
+                    // An internal idle holder must not retain application AsyncLocals.
+                    if (ExecutionContext.IsFlowSuppressed()) _thread.Start();
+                    else using (ExecutionContext.SuppressFlow()) _thread.Start();
+                }
                 catch (Exception error)
                 {
                     try { _child.Dispose(); }
@@ -107,9 +117,7 @@ namespace LiteDB
                 var acquired = false;
                 try
                 {
-                    _child.OpenDatabase(scoped: true, writing: !_child._settings.ReadOnly, closing: _closing);
-                    acquired = true;
-                    _closing.ThrowIfCancellationRequested();
+                    Acquire(ref acquired);
                     _engine = _child._engine;
                     _opened.Set();
                     _close.Wait();
@@ -117,6 +125,7 @@ namespace LiteDB
                 catch (Exception error) { _error = error; }
                 finally
                 {
+                    _admission = null;
                     if (acquired) Cleanup(() => _child.CloseDatabase(reportErrors: true));
                     Cleanup(() => _child.EndAdmissions(0));
                     Cleanup(_child.Dispose);
@@ -124,6 +133,19 @@ namespace LiteDB
                     // Failed-open publication follows all cleanup and preserves its original error.
                     _opened.Set();
                 }
+            }
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            private void Acquire(ref bool acquired)
+            {
+                // Keep admission-token temporaries off the long-lived idle stack.
+                try
+                {
+                    _child.OpenDatabase(scoped: true, writing: !_child._settings.ReadOnly, admission: _admission);
+                    acquired = true;
+                    _admission.Acquired("storage-opened");
+                }
+                finally { _admission = null; }
             }
 
             private void Release()

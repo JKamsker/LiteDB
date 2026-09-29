@@ -1,14 +1,30 @@
 #if !NETFRAMEWORK
 using System;
 using System.Linq;
+using System.Threading;
+using LiteDB.Tests.Issues;
 using System.Threading.Tasks;
 using LiteDB.Internals;
 using Xunit;
 
 namespace LiteDB.Tests.Internals
 {
+    [Collection(NativeFileSyncCollection.Name)]
     public class TransactionHandleProcess_Tests
     {
+        [Fact]
+        public async Task First_shared_handle_preserves_caller_culture_and_existing_persisted_collation()
+        {
+            using var file = new TempFile();
+            await MvccProcess.Run("handle-first-culture", file, null, "shared");
+            using var db = new LiteDatabase(new ConnectionString { Filename = file, Connection = ConnectionType.Shared });
+            using var tx = db.BeginTransaction();
+            Assert.Equal(1, tx.GetCollection("rows").Find(Query.EQ("value", "ı")).Count());
+            Assert.Empty(tx.GetCollection("rows").Find(Query.EQ("value", "i")));
+            tx.Commit();
+            Assert.Equal("tr-TR", db.Collation.Culture.Name);
+        }
+
         [Theory]
         [InlineData(false, null)]
         [InlineData(false, "secret")]
@@ -69,6 +85,43 @@ namespace LiteDB.Tests.Internals
             await holder.Finish(release: true);
             Verify(file, password, new[] { 1, 2, 3 });
             Verify(file, password, new[] { 1, 2, 3 });
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Bounded_begin_preserves_remote_owner_and_retries_after_release(bool cancel)
+        {
+            using var file = new TempFile();
+            Seed(file, null);
+            using var holder = new MvccProcess("handle-hold", file, null, "shared");
+            await holder.Expect("ready");
+            using var db = new LiteDatabase(new ConnectionString { Filename = file, Connection = ConnectionType.Shared });
+            using var cancellation = new CancellationTokenSource();
+            using var waiting = new ManualResetEventSlim();
+            TransactionAdmission.Observe = stage => { if (stage == "native-wait") waiting.Set(); };
+            try
+            {
+                var pending = Task.Run(() => Record.Exception(() =>
+                { using var tx = db.BeginTransaction(cancel ? Timeout.InfiniteTimeSpan : TimeSpan.FromMilliseconds(100), cancellation.Token); }));
+                Assert.True(waiting.Wait(TimeSpan.FromSeconds(5)));
+                if (cancel) cancellation.Cancel();
+                var failure = await pending;
+                if (cancel) Assert.Equal(cancellation.Token, Assert.IsType<OperationCanceledException>(failure).CancellationToken);
+                else Assert.IsType<TimeoutException>(failure);
+            }
+            finally { cancellation.Cancel(); TransactionAdmission.Observe = null; }
+            holder.Send("commit");
+            await holder.Expect("done");
+            using (var retry = db.BeginTransaction(TimeSpan.Zero))
+            {
+                Assert.NotNull(retry.GetCollection("rows").FindById(2));
+                retry.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 3, ["value"] = 126 });
+                retry.Commit();
+            }
+            await holder.Finish(release: true);
+            db.Dispose();
+            Verify(file, null, new[] { 1, 2, 3 });
         }
 
         private static void Seed(string file, string password)

@@ -226,7 +226,7 @@ namespace LiteDB
             finally { Exit(); }
         }
 
-        internal void RequestClose()
+        internal void RequestClose(Exception cause = null)
         {
             lock (_gate)
             {
@@ -236,7 +236,11 @@ namespace LiteDB
             }
             var session = _session;
             try { DisposeCore(); }
-            catch (Exception error) { session?.Report(error); }
+            catch (Exception error)
+            {
+                if (cause == null) session?.Report(error);
+                else cause.Data["LiteDB.TransactionOpenCleanup"] = error;
+            }
             finally { lock (_gate) _executing = null; }
         }
 

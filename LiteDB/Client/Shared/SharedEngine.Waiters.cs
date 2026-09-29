@@ -16,7 +16,7 @@ namespace LiteDB
         /// Enter the connection's mutex ownership, counted as a waiter meanwhile so that
         /// any pin of this instance, including one started after this call, ends for it.
         /// </summary>
-        private bool EnterOwner(bool scoped = false, bool writing = false, CancellationToken closing = default)
+        private bool EnterOwner(bool scoped = false, bool writing = false, CancellationToken closing = default, TransactionAdmission admission = null)
         {
             if (_owner.IsOwnedByCurrentThread) return _owner.Enter(scoped);
 #if NET8_0_OR_GREATER
@@ -28,7 +28,8 @@ namespace LiteDB
             try
             {
                 bool abandoned;
-                if (!closing.CanBeCanceled) abandoned = _owner.Enter(scoped);
+                if (admission != null) abandoned = admission.EnterNative(_owner, scoped);
+                else if (!closing.CanBeCanceled) abandoned = _owner.Enter(scoped);
                 else
                 {
                     closing.ThrowIfCancellationRequested();

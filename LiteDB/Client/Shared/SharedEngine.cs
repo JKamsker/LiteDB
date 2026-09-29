@@ -94,7 +94,7 @@ namespace LiteDB
         /// Open for an operation. A <paramref name="scoped"/> caller closes on the same thread
         /// before it returns; its ownership then takes the OS mutex directly on this thread.
         /// </summary>
-        private SharedMutexPin OpenDatabase(bool scoped = false, bool writing = false, CancellationToken closing = default)
+        private SharedMutexPin OpenDatabase(bool scoped = false, bool writing = false, CancellationToken closing = default, TransactionAdmission admission = null)
         {
             // Writers retire idle read handles before _useLock, preserving lock order.
             if (writing) this.RetireCoordinatedReads();
@@ -109,10 +109,11 @@ namespace LiteDB
             // Acquire mutex for every call to open DB.
             // A transaction child has a dedicated lifetime holder, even when application
             // threads execute read callbacks. Its native ownership never escapes that holder.
-            var recoveredAbandonedOwner = this.EnterOwner(scoped && (this.CanScope || _transactionChild), writing, closing);
+            var recoveredAbandonedOwner = this.EnterOwner(scoped && (this.CanScope || _transactionChild), writing, closing, admission);
 
             try
             {
+                admission?.Acquired("native-acquired");
                 closing.ThrowIfCancellationRequested();
                 RejectAbandonedTransaction();
             }

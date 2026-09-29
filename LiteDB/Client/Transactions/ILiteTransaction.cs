@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace LiteDB
 {
@@ -36,8 +37,30 @@ namespace LiteDB
         ILiteTransaction BeginTransaction();
     }
 
+    /// <summary>Optional begin-time admission controls; existing providers need no new members.</summary>
+    public interface ILiteTransactionAdmissionProvider : ILiteTransactionProvider
+    {
+        /// <summary>
+        /// Bounds Shared local/native writer waits. Cancellation applies only until begin returns;
+        /// engine I/O, cleanup and existing Direct/collection lock waits retain their own contracts.
+        /// </summary>
+        ILiteTransaction BeginTransaction(TimeSpan sharedAdmissionTimeout, CancellationToken cancellationToken = default);
+    }
+
     public static class LiteTransactionExtensions
     {
+        /// <summary>Begins with opt-in Shared writer admission controls, without changing commit cancellation.</summary>
+        public static ILiteTransaction BeginTransaction(this ILiteDatabase database, TimeSpan sharedAdmissionTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            if (database == null) throw new ArgumentNullException(nameof(database));
+            TransactionAdmission.Validate(sharedAdmissionTimeout);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (database is ILiteTransactionAdmissionProvider provider)
+                return provider.BeginTransaction(sharedAdmissionTimeout, cancellationToken);
+            throw new NotSupportedException("This database provider does not support transaction admission controls.");
+        }
+
         /// <summary>Creates an independent handle without enlisting ordinary database collections.</summary>
         public static ILiteTransaction BeginTransaction(this ILiteDatabase database)
         {
