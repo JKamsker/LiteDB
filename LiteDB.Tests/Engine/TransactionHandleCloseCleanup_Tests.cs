@@ -21,9 +21,9 @@ namespace LiteDB.Tests.Engine
                 entered.Set();
                 Assert.True(finish.Wait(TimeSpan.FromSeconds(10)));
             };
-            lifetime.StartCloseOverride = _ => throw new InvalidOperationException("dispatch failed");
+            lifetime.BeforeCloseDispatch = () => throw new InvalidOperationException("dispatch failed");
             Assert.Throws<InvalidOperationException>(() => lifetime.Close(release));
-            lifetime.StartCloseOverride = null;
+            lifetime.BeforeCloseDispatch = null;
             var first = Task.Run(() => lifetime.Close(release));
             var second = Task.Run(() => lifetime.Close(release));
             try
@@ -78,11 +78,11 @@ namespace LiteDB.Tests.Engine
             tx.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 2 });
             var lifetime = (SessionLifetime)typeof(LiteDatabase).GetField("_lifetime", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(db);
             var failure = new InvalidOperationException("cannot start cleanup worker");
-            lifetime.StartCloseOverride = _ => throw failure;
+            lifetime.BeforeCloseDispatch = () => throw failure;
             Assert.Same(failure, Assert.Throws<InvalidOperationException>(db.Dispose));
             Assert.True(NativeAdmissionDirectPool_Tests.Locked(file));
             Assert.Throws<ObjectDisposedException>(() => db.BeginTransaction());
-            lifetime.StartCloseOverride = null;
+            lifetime.BeforeCloseDispatch = null;
             db.Dispose();
             Assert.Equal(LiteTransactionState.RolledBack, tx.State);
             using var cold = new LiteDatabase(file);

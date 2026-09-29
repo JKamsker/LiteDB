@@ -25,7 +25,7 @@ namespace LiteDB
         internal readonly object DependencyToken = new object();
 #if DEBUG || TESTING
         internal TimeSpan? CloseWaitOverride;
-        internal Action<Thread> StartCloseOverride;
+        internal Action BeforeCloseDispatch;
         internal int ActiveHandles { get { lock (_gate) return _transactions.Count; } }
 #endif
 
@@ -91,14 +91,12 @@ namespace LiteDB
                 {
                     // Dispose may itself run on a saturated thread pool. Cleanup must
                     // progress independently while this caller waits for its deadline.
-                    _requestThread = new Thread(RequestClose) { IsBackground = true, Name = "LiteDB session close" };
                     try
                     {
 #if DEBUG || TESTING
-                        if (StartCloseOverride != null) StartCloseOverride(_requestThread);
-                        else
+                        BeforeCloseDispatch?.Invoke();
 #endif
-                        _requestThread.Start();
+                        _requestThread = SessionCloseScheduler.Queue(RequestClose);
                     }
                     catch
                     {
