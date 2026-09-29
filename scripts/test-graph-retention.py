@@ -14,7 +14,8 @@ parser.add_argument('--framework', default='net8.0')
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--architecture', default={'amd64': 'x64', 'x86_64': 'x64', 'aarch64': 'arm64'}.get(platform.machine().lower(), platform.machine().lower()))
 args = parser.parse_args()
-args.output.mkdir(parents=True, exist_ok=True)
+# A failed host startup must never pass by reusing six earlier manifests.
+args.output.mkdir(parents=True, exist_ok=False)
 root = args.output.resolve()
 env = dict(os.environ, LITEDB_RETAINED_FIXTURES=str(root), LITEDB_GRAPH_RETENTION_SENTINEL='1')
 # Execute the downloaded assembly directly: packaged CI outputs intentionally do
