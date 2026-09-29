@@ -1,0 +1,21 @@
+{
+  "parent": "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+  "candidate": "cf7362a1f46ee885837397bba73404c1b030cc40",
+  "runtime": ".NET 10.0.11 linux-x64",
+  "sdk": "10.0.400",
+  "os": "Ubuntu 24.04.3",
+  "filesystem": "ext4 /tmp",
+  "configuration": "Release TestingEnabled=false DOTNET_TieredCompilation=0",
+  "production_dll_sha256": {
+    "parent": "4c555f2abb969064629b1d67a8b0fb02a8eb9e554113f4d4ad20c3802a4aafc4",
+    "candidate": "af1da522af07c2ecd537f3b7bc4e7d8b5228fd7721594230db882ff4d4839830"
+  },
+  "raw_sha256": {
+    "parent.jsonl": "51f2e7e6e8ab850085c460423ace4520c28a3790d30396eeea8320dfd89bab4c",
+    "candidate.jsonl": "7fd1657c61f8807e708050437ea5a19ab57dd1206365be94f9814ef6a422b11e",
+    "parent-contention.jsonl": "d67d8a3dd26e85cc85b4b8aea7abf98618028a827a0e8d5d165d7d38afee5d45",
+    "candidate-contention.jsonl": "8bf96adf6cc1b0ed48e4292ded4b6af048942b9aa5781eccf536bb30f9294332",
+    "candidate-resources.jsonl": "68da1f069fbf72c002ff9fac37872bd8028a3141c3d97f485231757c59d39939"
+  },
+  "benchmark_source_sha256": "53a915cb053ccc6adc5d442018f599e056d2172ade0be2074216f1100f7f124d"
+}

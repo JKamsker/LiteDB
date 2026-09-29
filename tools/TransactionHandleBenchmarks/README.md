@@ -31,3 +31,15 @@ not with a nonexistent old handle API. Report ordinary, legacy and new-handle
 results separately, with runtime/platform, binary hashes, distributions and costs.
 Avoid running other builds/tests concurrently with measurement. These are local
 latency/resource measurements, not a universal throughput guarantee.
+
+Candidate-only resource sampling also exercises twelve pending begins, with and
+without a read callback:
+
+```sh
+DOTNET_TieredCompilation=0 dotnet /tmp/handle-bench/TransactionHandleBenchmarks.dll COMMIT resources > resources.jsonl
+```
+
+It samples idle, active, waiting, drained and closed/collected process state; the
+waiting sample includes twelve application threads. These are coarse process
+samples, not an assertion about exact per-object retained memory. Deterministic
+pending-admission and holder-retirement assertions remain in the test suite.

@@ -190,7 +190,7 @@ static void Resources(string revision)
         clock.Stop();
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         var closed = Sample("closed-collected");
-        Console.WriteLine(JsonSerializer.Serialize(new { revision, operation = "resources", callback, repeat,
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { revision, operation = "resources", callback, repeat,
             before, active, pending, drained, closed, drainMs = clock.Elapsed.TotalMilliseconds }));
         using (var verify = new LiteDatabase(file)) if (verify.GetCollection("rows").Count() != 1) throw new Exception("incorrect cold state");
         foreach (var path in Directory.GetFiles(Path.GetDirectoryName(file), Path.GetFileName(file) + "*")) File.Delete(path);
