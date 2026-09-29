@@ -86,7 +86,9 @@ namespace LiteDB.Tests.Engine
                 Assert.True(owner.Commit()); // Legacy completion stays on its original thread.
             }
             finally { cancellation.Cancel(); TransactionAdmission.Observe = null; owner.Rollback(); }
-            using var next = waiter.BeginTransaction(TimeSpan.Zero);
+            // Legacy completion posts native release to its existing holder. The
+            // peer remains live; allow that handoff instead of assuming zero-delay release.
+            using var next = waiter.BeginTransaction(TimeSpan.FromSeconds(5));
             Assert.NotNull(next.GetCollection("rows").FindById(1));
             next.Commit();
         }
@@ -135,7 +137,8 @@ namespace LiteDB.Tests.Engine
                 TransactionAdmission.Observe = null;
                 TransactionAdmission.TimestampOverride = null;
             }
-            using var retry = db.BeginTransaction(TimeSpan.Zero);
+            // The legacy owner above releases asynchronously, unlike a completed handle.
+            using var retry = db.BeginTransaction(TimeSpan.FromSeconds(5));
             retry.Commit();
         }
 
