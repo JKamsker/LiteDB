@@ -142,6 +142,12 @@ an acquisition error into a different lock authority.
 | HOST-5: fallback has real storage evidence beyond injected classification | `scripts/test-host-local-filesystem.sh` formats a disposable f2fs loop volume and runs the production (hooks absent) directory-alias/model scenario. It also rejects a file-only bind while an acknowledged WAL is nonempty, checks unchanged data/WAL hashes, kills the owner and performs two cold verifications. The full CI tier runs this on standard Ubuntu. |
 | EVIDENCE-1: a failed lifetime assertion survives host exit as an artifact | The graph host only publishes manifests and retains original temp-volume fixtures. The post-host collector copies matching DB/WAL/coordination files without releasing admission, preserves the original exception, and reports per-file failures separately. A deliberate failure after real graph construction verifies six manifests and byte-identical data/WAL/Shared reader files; Python child controls cover live-host refusal, zombies, copy failures and empty input. |
 
+The retention contract checks both Shared reader directories and every surviving
+coordination file. Windows removes its `DeleteOnClose` lease/content files in
+the kernel at host exit; those files are therefore absent from Windows bundles.
+Unix bundles also verify retained lease/content bytes. The collector never keeps
+a handle alive or changes cleanup semantics to manufacture post-exit evidence.
+
 At `39f0c3b5f`, an independent Linux x64/.NET 8 oracle review in a separate
 worktree ran the 24 fallback controls, then two unsafe variants. Removing only
 host Admission locks and their enforcement check failed all fourteen selected

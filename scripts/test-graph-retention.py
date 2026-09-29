@@ -41,6 +41,7 @@ collector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(collector)
 assert collector.collect(root) == 0, 'Post-host collection failed'
 coordination_copies = 0
+coordination_directories = 0
 for manifest in manifests:
     data = json.loads(manifest.read_text(encoding='utf-8-sig'))
     report = json.loads((root / manifest.stem / 'collection-report.json').read_text())
@@ -53,11 +54,18 @@ for manifest in manifests:
     # only the data/WAL. Shared exhausted readers retain actual reader lease files.
     for original in database.parent.glob(database.stem + '*'):
         if original.is_dir():
+            assert (root / manifest.stem / original.name).is_dir(), f'Coordination directory missing: {original}'
+            coordination_directories += 1
             for source in original.rglob('*'):
                 if source.is_file():
                     copied = root / manifest.stem / source.relative_to(database.parent)
                     assert copied.read_bytes() == source.read_bytes(), f'Coordination evidence missing: {source}'
                     coordination_copies += 1
     assert report['errors'] == []
-assert coordination_copies >= 2, 'Shared graph fixtures did not exercise coordination retention'
+assert coordination_directories >= 2, 'Shared graph fixtures did not exercise coordination retention'
+# Windows enforces DeleteOnClose in the kernel, so lease/content files vanish
+# at host exit. Unix can retain them after exit without managed Dispose. Keep
+# byte checks for every surviving file; never release or copy a live lease.
+if os.name != 'nt':
+    assert coordination_copies >= 2, 'Shared graph fixtures did not retain coordination files'
 print('Passed: six failing real engine graphs retained original assertions and byte-identical database/WAL artifacts after host exit')
