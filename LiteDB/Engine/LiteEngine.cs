@@ -23,6 +23,14 @@ namespace LiteDB.Engine
         private LockService _locker;
         private readonly OperationLifetime _operations = new OperationLifetime();
         internal OperationLifetime.Lease EnterOperation() => _operations.Enter();
+        private void ValidatePublicDispatch()
+        {
+            var authorized = TransactionContext.ConsumeDispatch(this);
+            if (TransactionContext.For(CurrentContext) != null && !authorized)
+                throw new TransactionCapabilityException("Raw engine reentry from a transaction callback is unsupported. Use ordinary database objects for independent work.");
+        }
+        private OperationLifetime.Lease EnterPublicOperation()
+        { ValidatePublicDispatch(); return EnterOperation(); }
         internal void StopAfterOperations(Exception error, EngineState origin) => _operations.Stop(() =>
         {
             var errors = this.Close(error, origin);
@@ -331,7 +339,7 @@ namespace LiteDB.Engine
         /// </summary>
         public int Checkpoint()
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             _state.Validate();
             try { return CurrentContext.Policy.ReadOnly ? 0 : _walIndex.Checkpoint(); }
             catch (Exception ex)
@@ -352,6 +360,7 @@ namespace LiteDB.Engine
 
         protected virtual void Dispose(bool disposing)
         {
+            ValidatePublicDispatch();
             var errors = this.Close();
             _defaultContext.DisposeSlots();
             ThrowCleanupErrors(errors);

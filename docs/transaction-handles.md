@@ -23,6 +23,11 @@ thread exits. Overlapping public calls and public reentry on the same handle fai
 before executing and do not abort the legitimate operation. This includes mapping,
 query execution, enumeration, reader access, commit, rollback and disposal. The
 guard detects overlapping calls, not accidental sequential sharing by an application.
+Raw `LiteEngine` reentry from a bound mapper/input/read callback is rejected before
+side effects; use ordinary `LiteDatabase` objects for independent callback work.
+Internal engine composition carries a one-use dispatch authorization, consumed
+before entering user callbacks. If a callback lets that refusal escape a statement
+whose engine transaction was rolled back, the handle becomes Failed.
 
 ## Supported surface
 
@@ -100,6 +105,10 @@ existing Shared native admission, a begin can wait until the owner releases it;
 closing its session cancels pending admission. Collection-lock `TIMEOUT` is not a
 deadline for Shared native admission. Cached admission gates are inert metadata.
 No complete Shared-engine pooling or cache-retention optimization is introduced.
+The child closes its operation engine using normal WAL/checkpoint thresholds;
+the parent session retains the final checkpoint policy. Completing each handle
+does not force an extra final checkpoint. Acknowledged WAL commits remain durable
+if the process dies before that session closes.
 
 Operation leases cover the full storage call and completion tail. Maintenance and
 close cannot replace/dispose the core until those calls finish. Cursor/snapshot

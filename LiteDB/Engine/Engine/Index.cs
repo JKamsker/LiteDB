@@ -45,7 +45,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool EnsureIndex(string collection, string name, BsonExpression expression, bool unique)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -135,7 +135,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -207,7 +207,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool DropIndex(string collection, string name)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 

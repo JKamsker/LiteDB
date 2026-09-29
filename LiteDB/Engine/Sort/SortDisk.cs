@@ -106,7 +106,9 @@ namespace LiteDB.Engine
         {
             _pool.Dispose();
 
-            _factory.Delete();
+            // A never-used sort disk owns no file (its derived name may not even be
+            // creatable for a maximum-length read-only database filename).
+            if (this.HasSpilled) _factory.Delete();
         }
     }
 }

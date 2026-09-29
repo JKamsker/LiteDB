@@ -18,6 +18,7 @@ namespace LiteDB.Engine
         /// </summary>
         public long Rebuild(RebuildOptions options)
         {
+            ValidatePublicDispatch();
             if (_locker.IsInTransaction) throw LiteException.AlreadyExistsTransaction();
             #if DEBUG || TESTING
             _locker.BeforeExclusiveAdmission?.Invoke();

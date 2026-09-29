@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="MockDatabase.cs" />
+    <Compile Include="LegacyEngineDecorator.cs" />
+    <Reference Include="LiteDB"><HintPath>$(LibraryPath)</HintPath></Reference>
+  </ItemGroup>
+</Project>

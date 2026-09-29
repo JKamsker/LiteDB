@@ -13,13 +13,22 @@ namespace LiteDB.Engine
         private int _active;
         private Thread _exclusive;
         private Action _deferredClose;
+#if DEBUG || TESTING
+        internal Action WaitingForMaintenance;
+#endif
 
         internal Lease Enter()
         {
             var thread = Thread.CurrentThread;
             lock (_gate)
             {
-                while (_exclusive != null && _exclusive != thread) Monitor.Wait(_gate);
+                while (_exclusive != null && _exclusive != thread)
+                {
+#if DEBUG || TESTING
+                    WaitingForMaintenance?.Invoke();
+#endif
+                    Monitor.Wait(_gate);
+                }
                 _threads.TryGetValue(thread, out var count);
                 _threads[thread] = count + 1;
                 _active++;

@@ -26,11 +26,11 @@ namespace LiteDB
         private IBsonDataReader _inner;
         internal TransactionReader(LiteTransaction owner, IBsonDataReader inner) { _owner = owner; _inner = inner; }
         private IBsonDataReader Reader => _inner ?? throw new ObjectDisposedException(nameof(IBsonDataReader));
-        public BsonValue Current => _owner.Dispatch(() => Reader.Current);
-        public BsonValue this[string field] => _owner.Dispatch(() => Reader[field]);
-        public string Collection => _owner.Dispatch(() => Reader.Collection);
-        public bool HasValues => _owner.Dispatch(() => Reader.HasValues);
-        public bool Read() => _owner.Dispatch(() => Reader.Read());
+        public BsonValue Current => _owner.Dispatch(() => Reader.Current, authorizeEngine: false);
+        public BsonValue this[string field] => _owner.Dispatch(() => Reader[field], authorizeEngine: false);
+        public string Collection => _owner.Dispatch(() => Reader.Collection, authorizeEngine: false);
+        public bool HasValues => _owner.Dispatch(() => Reader.HasValues, authorizeEngine: false);
+        public bool Read() => _owner.Dispatch(() => Reader.Read(), authorizeEngine: false);
         public void Dispose() { if (_inner != null) _owner.ReleaseReader(this); }
         internal void Close()
         {

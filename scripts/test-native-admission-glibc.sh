@@ -37,7 +37,7 @@ docker run --rm --network none --user "$container_user" \
     ' sh vstest LiteDB.Tests.dll \
     /Settings:/repo/tests.runsettings /ResultsDirectory:/results \
     "/Logger:trx;LogFileName=NativeAdmission-glibc231-$architecture.trx" \
-    '/TestCaseFilter:FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedMode|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~TestHost_Tests'
+    '/TestCaseFilter:FullyQualifiedName~TransactionHandle|FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedMode|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~TestHost_Tests'
 
 container_status=$?
 set -e

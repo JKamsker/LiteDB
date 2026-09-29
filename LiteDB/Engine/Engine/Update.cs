@@ -12,7 +12,7 @@ namespace LiteDB.Engine
         /// </summary>
         public int Update(string collection, IEnumerable<BsonDocument> docs)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (docs == null) throw new ArgumentNullException(nameof(docs));
 
@@ -50,10 +50,11 @@ namespace LiteDB.Engine
         /// </summary>
         public int UpdateMany(string collection, BsonExpression transform, BsonExpression predicate)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (transform == null) throw new ArgumentNullException(nameof(transform));
 
+            using var dispatch = TransactionContext.Dispatch(this);
             return this.Update(collection, transformDocs());
 
             IEnumerable<BsonDocument> transformDocs()
@@ -65,6 +66,7 @@ namespace LiteDB.Engine
                     q.Where.Add(predicate);
                 }
 
+                using var queryDispatch = TransactionContext.Dispatch(this);
                 using (var reader = this.Query(collection, q))
                 {
                     while (reader.Read())

@@ -13,7 +13,7 @@ namespace LiteDB.Engine
         /// </summary>
         public int Upsert(string collection, IEnumerable<BsonDocument> docs, BsonAutoId autoId)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (docs == null) throw new ArgumentNullException(nameof(docs));
 

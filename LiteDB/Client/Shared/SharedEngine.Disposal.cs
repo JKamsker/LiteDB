@@ -6,6 +6,9 @@ namespace LiteDB
 {
     public partial class SharedEngine
     {
+        // A handle's child closes its operation engine normally; the public session owns
+        // the final checkpoint policy. Durable commits remain in the authoritative WAL.
+        private bool _transactionChild;
         protected virtual void Dispose(bool disposing)
         {
             if (!disposing || Interlocked.Exchange(ref _disposed, 1) != 0) return;
@@ -55,7 +58,7 @@ namespace LiteDB
             _owner.ReleaseAll();
             // Operations left a WAL below the close threshold: checkpoint it now, so
             // the data file alone is the database again once every connection closed.
-            if (!closed) this.CheckpointOnDispose();
+            if (!closed && !_transactionChild) this.CheckpointOnDispose();
             _handles?.Dispose();
             // Leased readers may outlive the connection; the slot file closes after the last.
             _readers.Dispose();

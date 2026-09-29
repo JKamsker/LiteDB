@@ -31,6 +31,24 @@ namespace LiteDB.Tests.Internals
         [Theory]
         [InlineData(null)]
         [InlineData("secret")]
+        public async Task Acknowledged_shared_commit_survives_death_before_session_checkpoint(string password)
+        {
+            using var file = new TempFile();
+            Seed(file, password);
+            using (var holder = new MvccProcess("handle-hold", file, password, "shared"))
+            {
+                await holder.Expect("ready");
+                holder.Send("commit");
+                await holder.Expect("done");
+                await holder.Kill();
+            }
+            Verify(file, password, new[] { 1, 2 });
+            Verify(file, password, new[] { 1, 2 });
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("secret")]
         public async Task Independent_process_waits_for_shared_handle_then_acquires_before_handle_disposal(string password)
         {
             using var file = new TempFile();

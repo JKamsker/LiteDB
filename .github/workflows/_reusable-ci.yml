@@ -301,7 +301,7 @@ jobs:
           -RuntimeMajor ${{ matrix.runtimeMajor }}
           -Framework "${{ matrix.framework }}"
           -Architecture x64
-          -Filter 'FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~SharedMode|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~Issue2979|FullyQualifiedName~SharedCoordinated'
+          -Filter 'FullyQualifiedName~TransactionHandle|FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~SharedMode|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~Issue2979|FullyQualifiedName~SharedCoordinated'
           -ResultFile 'NativeAdmission.trx'
       - name: Upload native admission results
         if: always()
@@ -609,7 +609,7 @@ jobs:
           -RuntimeMajor ${{ matrix.runtimeMajor }}
           -Framework "${{ matrix.framework }}"
           -Architecture arm64
-          -Filter 'FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~SharedMode|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~SharedCoordinated'
+          -Filter 'FullyQualifiedName~TransactionHandle|FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~SharedMode|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~SharedCoordinated'
           -ResultFile 'NativeAdmission-arm64.trx'
       - name: Verify Windows fixture collector and actual failing graph host
         shell: pwsh

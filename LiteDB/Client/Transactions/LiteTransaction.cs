@@ -73,22 +73,24 @@ namespace LiteDB
             try { return action(); }
             catch (Exception error)
             {
-                if (!(error is TransactionCapabilityException) && !(error is ReadOnlyContextException) &&
-                    !(_transaction.Policy.ReadOnly && error is NotSupportedException &&
-                        ReferenceEquals(_transaction.Slot.Transaction, _transaction.Transaction))) Abort(error);
+                var intact = ReferenceEquals(_transaction.Slot.Transaction, _transaction.Transaction) &&
+                    _transaction.Transaction.State == TransactionState.Active;
+                if (!intact || (!(error is TransactionCapabilityException) && !(error is ReadOnlyContextException) &&
+                    !(_transaction.Policy.ReadOnly && error is NotSupportedException))) Abort(error);
                 throw;
             }
             finally { Exit(); }
         }
 
         // Only composed client operations may dispatch internally. Public wrappers always use Run.
-        internal T Dispatch<T>(Func<T> action)
+        internal T Dispatch<T>(Func<T> action, bool authorizeEngine = true)
         {
             lock (_gate)
                 if (!ReferenceEquals(_executing, Thread.CurrentThread))
                     throw new InvalidOperationException("A bound engine call requires its transaction operation.");
             using var context = _resources.Session.Enter();
             using var binding = TransactionContext.Enter(_transaction);
+            using var dispatch = TransactionContext.Dispatch(authorizeEngine ? _resources.Engine : null);
             return action();
         }
 
@@ -158,7 +160,7 @@ namespace LiteDB
             try
             {
                 if (!onlyIfActive || (!_resources.Engine.IsDisposed && _transaction.Slot.Transaction != null))
-                    _resources.Engine.Rollback();
+                    Dispatch(() => _resources.Engine.Rollback());
             }
             catch (Exception error)
             {
@@ -177,7 +179,7 @@ namespace LiteDB
             {
                 if (_readers.Count != 0) throw new InvalidOperationException("Close transaction-bound readers before committing.");
                 Exception failure = null;
-                try { _resources.Engine.Commit(); }
+                try { Dispatch(() => _resources.Engine.Commit()); }
                 catch (Exception error)
                 {
                     failure = error;
@@ -248,7 +250,7 @@ namespace LiteDB
             Run(() => (ILiteCollection<T>)new TransactionCollection<T>(this, new LiteCollection<T>(name, autoId, _client)));
         public ILiteCollection<BsonDocument> GetCollection(string name, BsonAutoId autoId = BsonAutoId.ObjectId) =>
             GetCollection<BsonDocument>(name ?? throw new ArgumentNullException(nameof(name)), autoId);
-        public IEnumerable<string> GetCollectionNames() => Run(() => _resources.Engine.GetTransactionCollectionNames());
+        public IEnumerable<string> GetCollectionNames() => Run(() => Dispatch(() => _resources.Engine.GetTransactionCollectionNames()));
         public bool CollectionExists(string name) => GetCollectionNames().Contains(name, StringComparer.OrdinalIgnoreCase);
         public bool DropCollection(string name) => throw new TransactionCapabilityException("Dropping collections is not supported inside transactions.");
         public bool RenameCollection(string name, string newName) => throw new TransactionCapabilityException("Renaming collections is not supported inside transactions.");

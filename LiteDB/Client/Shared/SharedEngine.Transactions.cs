@@ -44,7 +44,7 @@ namespace LiteDB
                 }
                 settings.CoordinationSignals = null;
                 settings.SharedFileHandles = null;
-                holder = new TransactionHolder(new SharedEngine(settings), gate, closing, sessionToken);
+                holder = new TransactionHolder(new SharedEngine(settings) { _transactionChild = true }, gate, closing, sessionToken);
             }
             catch { gate.Release(); throw; }
             return holder.Open(policyAnchor);

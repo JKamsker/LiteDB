@@ -13,7 +13,9 @@ namespace LiteDB.Engine
         /// </summary>
         public IEnumerable<string> GetCollectionNames()
         {
-            return _header.GetCollections().Select(x => x.Key);
+            using var operation = EnterPublicOperation();
+            _state.Validate();
+            return _header.GetCollections().Select(x => x.Key).ToArray();
         }
 
         /// <summary>
@@ -21,7 +23,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool DropCollection(string name)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 
             _state.Validate();
@@ -53,7 +55,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool RenameCollection(string collection, string newName)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (newName.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(newName));
 

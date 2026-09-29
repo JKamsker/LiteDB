@@ -15,7 +15,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool BeginTrans()
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             _state.Validate();
 
             if (CurrentContext.Policy.ReadOnly) throw new ReadOnlyContextException("Cannot start a transaction in a read-only database.");
@@ -38,7 +38,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool Commit()
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             _state.Validate();
 
             var transaction = this.GetTransactionForCompletion(commit: true);
@@ -64,7 +64,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool Rollback()
         {
-            using var operation = EnterOperation();
+            using var operation = EnterPublicOperation();
             _state.Validate();
 
             var transaction = this.GetTransactionForCompletion(commit: false);
