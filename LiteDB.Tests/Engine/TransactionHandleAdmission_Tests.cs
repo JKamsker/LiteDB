@@ -143,6 +143,7 @@ namespace LiteDB.Tests.Engine
         }
 
         [Theory]
+        [InlineData("local-acquired")]
         [InlineData("native-acquired")]
         [InlineData("storage-opened")]
         public void Cancellation_after_acquisition_releases_ownership_before_reporting_failure(string at)
