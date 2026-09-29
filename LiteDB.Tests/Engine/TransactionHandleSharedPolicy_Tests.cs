@@ -17,8 +17,13 @@ namespace LiteDB.Tests.Engine
         [InlineData(":temp:")]
         public void Shared_private_storage_cannot_claim_persistent_handle_commits(string filename)
         {
-            using var db = new LiteDatabase(new SharedEngine(new EngineSettings { Filename = filename }));
-            Assert.Throws<NotSupportedException>(() => db.BeginTransaction());
+            Assert.Throws<NotSupportedException>(() =>
+            {
+                // Framework can reject private storage while constructing its path-based
+                // reader registry; other runtimes reach the explicit handle capability guard.
+                using var db = new LiteDatabase(new SharedEngine(new EngineSettings { Filename = filename }));
+                using var tx = db.BeginTransaction();
+            });
         }
 
         [Theory]
