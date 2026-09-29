@@ -92,6 +92,9 @@ Initial cleanup runs independently of the application thread pool, so callers
 disposing sessions cannot exhaust the pool needed to clean them up. If the runtime
 cannot start that cleanup worker, disposal reports the startup error, retains the
 Closing session and its ownership, and a later disposal retries scheduling.
+At most two empty cleanup workers are reused for up to one second. Busy workers
+do not limit other sessions, and idle workers retain no session, callback or caller
+execution context. This cache never retains database admission or storage ownership.
 
 Already-open ordinary readers retain their existing independent lifetime; bound
 readers belong to their handle/session. Peer Direct sessions remain usable unless
@@ -174,6 +177,9 @@ later token cancellation does not cancel its operations or an executing commit,
 and cannot determine its commit outcome. Admission tokens and their callbacks are
 detached before return. Internal holder threads do not retain caller execution
 contexts. Session close still cancels pending begins independently.
+Holder settings are detached from application subclasses, and explicit collation
+is copied through its existing serialized policy. Application fields on settings
+or collation cannot keep an abandoned session and its writer ownership alive.
 Default collation initialization still observes the caller's culture, and an unset
 collation still accepts the existing file's persisted value. On Windows, beginning
 a Shared handle while impersonating is explicitly unsupported: it fails before

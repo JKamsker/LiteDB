@@ -1,0 +1,1074 @@
+{
+  "configuration": {
+    "versions": {
+      "parent": {
+        "runner": "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "revision": "49c327cf1926fa300f9eb7477eb4bcb404f75c43"
+      },
+      "final": {
+        "runner": "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "revision": "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f"
+      },
+      "final-legacy": {
+        "runner": "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "revision": "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "mode": "legacy"
+      },
+      "final-handle": {
+        "runner": "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "revision": "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "mode": "handle"
+      }
+    },
+    "groups": [
+      {
+        "name": "final-paired",
+        "versions": [
+          "parent",
+          "final"
+        ],
+        "cases": [
+          [
+            "direct",
+            "ordinary",
+            "read",
+            1
+          ],
+          [
+            "direct",
+            "legacy",
+            "read",
+            1
+          ],
+          [
+            "direct",
+            "ordinary",
+            "open",
+            1
+          ],
+          [
+            "shared",
+            "ordinary",
+            "read",
+            1
+          ],
+          [
+            "shared",
+            "legacy",
+            "read",
+            1
+          ]
+        ],
+        "rounds": 2
+      },
+      {
+        "name": "handle-fixed-cost",
+        "versions": [
+          "final-legacy",
+          "final-handle"
+        ],
+        "rounds": 2,
+        "cases": [
+          [
+            "shared",
+            "adapter",
+            "read",
+            0
+          ],
+          [
+            "shared",
+            "adapter",
+            "read",
+            1
+          ],
+          [
+            "shared",
+            "adapter",
+            "read",
+            10
+          ],
+          [
+            "shared",
+            "adapter",
+            "read",
+            100
+          ],
+          [
+            "direct",
+            "adapter",
+            "read",
+            1
+          ]
+        ]
+      },
+      {
+        "name": "default-tiering",
+        "versions": [
+          "parent",
+          "final"
+        ],
+        "rounds": 2,
+        "tiered": null,
+        "cases": [
+          [
+            "direct",
+            "ordinary",
+            "read",
+            1
+          ],
+          [
+            "direct",
+            "legacy",
+            "read",
+            1
+          ],
+          [
+            "direct",
+            "ordinary",
+            "open",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  "driver_sha256": "89f9f41b8c2bae83410f6e5518f8bcd187c15ba5f72b6e8bc5725065a3a11c81",
+  "runs": [
+    {
+      "name": "final-paired-direct-ordinary-read-1-0-0-parent",
+      "started": "2026-09-29T23:05:10.334899+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-ordinary-read-1-0-1-final",
+      "started": "2026-09-29T23:05:30.952780+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-ordinary-read-1-1-0-final",
+      "started": "2026-09-29T23:05:51.579433+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-ordinary-read-1-1-1-parent",
+      "started": "2026-09-29T23:06:12.159495+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-legacy-read-1-0-0-parent",
+      "started": "2026-09-29T23:06:32.721117+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-legacy-read-1-0-1-final",
+      "started": "2026-09-29T23:06:53.277686+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-legacy-read-1-1-0-final",
+      "started": "2026-09-29T23:07:13.849553+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-legacy-read-1-1-1-parent",
+      "started": "2026-09-29T23:07:34.443957+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-ordinary-open-1-0-0-parent",
+      "started": "2026-09-29T23:07:55.069910+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-ordinary-open-1-0-1-final",
+      "started": "2026-09-29T23:08:15.625032+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-ordinary-open-1-1-0-final",
+      "started": "2026-09-29T23:08:36.178072+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-direct-ordinary-open-1-1-1-parent",
+      "started": "2026-09-29T23:08:56.736552+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-shared-ordinary-read-1-0-0-parent",
+      "started": "2026-09-29T23:09:17.269580+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "shared",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-shared-ordinary-read-1-0-1-final",
+      "started": "2026-09-29T23:09:38.744905+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-shared-ordinary-read-1-1-0-final",
+      "started": "2026-09-29T23:10:00.203602+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-shared-ordinary-read-1-1-1-parent",
+      "started": "2026-09-29T23:10:21.702707+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "shared",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-shared-legacy-read-1-0-0-parent",
+      "started": "2026-09-29T23:10:43.213980+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-shared-legacy-read-1-0-1-final",
+      "started": "2026-09-29T23:11:04.636173+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-shared-legacy-read-1-1-0-final",
+      "started": "2026-09-29T23:11:26.133752+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "final-paired-shared-legacy-read-1-1-1-parent",
+      "started": "2026-09-29T23:11:47.547720+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-0-0-0-final-legacy",
+      "started": "2026-09-29T23:12:08.948873+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "0",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-0-0-1-final-handle",
+      "started": "2026-09-29T23:12:30.456655+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "handle",
+        "read",
+        "0",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-0-1-0-final-handle",
+      "started": "2026-09-29T23:12:51.831085+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "handle",
+        "read",
+        "0",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-0-1-1-final-legacy",
+      "started": "2026-09-29T23:13:13.163578+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "0",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-1-0-0-final-legacy",
+      "started": "2026-09-29T23:13:34.721128+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-1-0-1-final-handle",
+      "started": "2026-09-29T23:13:56.168825+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "handle",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-1-1-0-final-handle",
+      "started": "2026-09-29T23:14:17.598167+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "handle",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-1-1-1-final-legacy",
+      "started": "2026-09-29T23:14:38.941149+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-10-0-0-final-legacy",
+      "started": "2026-09-29T23:15:00.359400+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "10",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-10-0-1-final-handle",
+      "started": "2026-09-29T23:15:21.920768+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "handle",
+        "read",
+        "10",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-10-1-0-final-handle",
+      "started": "2026-09-29T23:15:43.296120+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "handle",
+        "read",
+        "10",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-10-1-1-final-legacy",
+      "started": "2026-09-29T23:16:04.648173+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "10",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-100-0-0-final-legacy",
+      "started": "2026-09-29T23:16:26.166447+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "100",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-100-0-1-final-handle",
+      "started": "2026-09-29T23:16:47.606548+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "handle",
+        "read",
+        "100",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-100-1-0-final-handle",
+      "started": "2026-09-29T23:17:08.933769+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "handle",
+        "read",
+        "100",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-shared-adapter-read-100-1-1-final-legacy",
+      "started": "2026-09-29T23:17:30.265962+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "shared",
+        "legacy",
+        "read",
+        "100",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-direct-adapter-read-1-0-0-final-legacy",
+      "started": "2026-09-29T23:17:51.740123+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-direct-adapter-read-1-0-1-final-handle",
+      "started": "2026-09-29T23:18:12.339971+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "handle",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-direct-adapter-read-1-1-0-final-handle",
+      "started": "2026-09-29T23:18:33.018341+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "handle",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "handle-fixed-cost-direct-adapter-read-1-1-1-final-legacy",
+      "started": "2026-09-29T23:18:53.613682+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-ordinary-read-1-0-0-parent",
+      "started": "2026-09-29T23:19:14.268135+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-ordinary-read-1-0-1-final",
+      "started": "2026-09-29T23:19:34.717547+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-ordinary-read-1-1-0-final",
+      "started": "2026-09-29T23:19:55.200325+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-ordinary-read-1-1-1-parent",
+      "started": "2026-09-29T23:20:15.699576+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-legacy-read-1-0-0-parent",
+      "started": "2026-09-29T23:20:36.248094+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-legacy-read-1-0-1-final",
+      "started": "2026-09-29T23:20:56.774650+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-legacy-read-1-1-0-final",
+      "started": "2026-09-29T23:21:17.317830+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-legacy-read-1-1-1-parent",
+      "started": "2026-09-29T23:21:37.841177+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-ordinary-open-1-0-0-parent",
+      "started": "2026-09-29T23:21:58.352564+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-ordinary-open-1-0-1-final",
+      "started": "2026-09-29T23:22:18.751516+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-ordinary-open-1-1-0-final",
+      "started": "2026-09-29T23:22:39.140870+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    },
+    {
+      "name": "default-tiering-direct-ordinary-open-1-1-1-parent",
+      "started": "2026-09-29T23:22:59.551456+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "10",
+        "10"
+      ],
+      "tiered": null,
+      "exit": 0
+    }
+  ]
+}

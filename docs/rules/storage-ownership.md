@@ -70,6 +70,15 @@ Read [explicit transactions](../explicit-transactions.md),
   compatibility must include the storage/coordination namespace, not just inode
   and mode; aliases must not create independent WAL or writer-mutex identities.
 
+Long-lived native-owner threads must not root the application graph whose
+abandonment signals their release. Check callbacks, captured execution contexts,
+disposed cancellation registrations, and fields on public settings subclasses.
+Copy effective configuration into a detached snapshot; preserve serialized policy
+and unset/default distinctions when adding settings. Test graph collection and
+native release with a committed indexed sentinel and abandoned writes. Reusable
+cleanup workers must return their callback stack frame and restore their execution
+context before becoming idle, and blocked workers must not starve unrelated owners.
+
 ## Buffers and cleanup
 
 Every pin, pooled buffer, cursor, and underlying stream needs a clear owner and

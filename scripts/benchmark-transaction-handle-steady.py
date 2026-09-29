@@ -24,7 +24,10 @@ for group in config["groups"]:
                 definition = config["versions"][version]
                 warmup, windows = group.get("warmup", 10), group.get("windows", 10)
                 name = f'{group["name"]}-{case}-{repeat}-{position}-{version}'
-                command = ["dotnet", definition["runner"], definition["revision"], "steady", *map(str, scenario), str(warmup), str(windows)]
+                invocation = list(scenario)
+                if "mode" in definition:
+                    invocation[1] = definition["mode"]
+                command = ["dotnet", definition["runner"], definition["revision"], "steady", *map(str, invocation), str(warmup), str(windows)]
                 environment = os.environ.copy()
                 tiered = group.get("tiered", "0")
                 if tiered is None:

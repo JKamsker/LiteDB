@@ -1,0 +1,61 @@
+{
+  "runs": [
+    {
+      "name": "parent-single",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43"
+      ],
+      "exit": 0,
+      "library_sha256": "4c555f2abb969064629b1d67a8b0fb02a8eb9e554113f4d4ad20c3802a4aafc4"
+    },
+    {
+      "name": "parent-contention",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "49c327cf1926fa300f9eb7477eb4bcb404f75c43",
+        "contention"
+      ],
+      "exit": 0,
+      "library_sha256": "4c555f2abb969064629b1d67a8b0fb02a8eb9e554113f4d4ad20c3802a4aafc4"
+    },
+    {
+      "name": "final-settings-single",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f"
+      ],
+      "exit": 0,
+      "library_sha256": "71b8390ccfd067db4d002f81953ae82759975235f4754ebf3dd97044fcd7d6c2"
+    },
+    {
+      "name": "final-settings-contention",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "contention"
+      ],
+      "exit": 0,
+      "library_sha256": "71b8390ccfd067db4d002f81953ae82759975235f4754ebf3dd97044fcd7d6c2"
+    },
+    {
+      "name": "final-settings-resources",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final-settings/TransactionHandleBenchmarks.dll",
+        "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+        "resources"
+      ],
+      "exit": 0,
+      "library_sha256": "71b8390ccfd067db4d002f81953ae82759975235f4754ebf3dd97044fcd7d6c2"
+    }
+  ],
+  "environment_overrides": {
+    "DOTNET_TieredCompilation": "0"
+  },
+  "methodology": "Fixed-order processes; parent single/contention before final single/contention/resources. No local build/test/profile workload during timing. Same runners/runtime/storage as final steady campaign."
+}

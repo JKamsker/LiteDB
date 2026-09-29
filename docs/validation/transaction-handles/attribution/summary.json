@@ -1,0 +1,191 @@
+[
+  {
+    "group": "guard-attribution",
+    "case": "direct-ordinary-read-1",
+    "versions": {
+      "review": {
+        "medianOps": 77513.03713631743,
+        "minOps": 76778.61156872094,
+        "maxOps": 78247.46270391392,
+        "medianBytesPerOp": 10272.000061929863,
+        "medianWindowP95us": 13.630500000000001,
+        "medianWindowP99us": 19.386499999999998,
+        "runs": [
+          {
+            "name": "guard-attribution-direct-ordinary-read-1-0-0-review",
+            "opsPerSecond": 78247.46270391392,
+            "bytesPerOp": 10272.000061342795,
+            "windowOpsMin": 71038.99225674984,
+            "windowOpsMax": 81702.79794898067,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "guard-attribution-direct-ordinary-read-1-1-1-review",
+            "opsPerSecond": 76778.61156872094,
+            "bytesPerOp": 10272.000062516932,
+            "windowOpsMin": 71421.33606725992,
+            "windowOpsMax": 79519.31724714211,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "guard": {
+        "medianOps": 85666.14378943926,
+        "minOps": 85454.92750261484,
+        "maxOps": 85877.36007626366,
+        "medianBytesPerOp": 10248.000056031447,
+        "medianWindowP95us": 12.062999999999999,
+        "medianWindowP99us": 16.906,
+        "runs": [
+          {
+            "name": "guard-attribution-direct-ordinary-read-1-0-1-guard",
+            "opsPerSecond": 85877.36007626366,
+            "bytesPerOp": 10248.000055893244,
+            "windowOpsMin": 78350.43752220903,
+            "windowOpsMax": 89072.62464795973,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "guard-attribution-direct-ordinary-read-1-1-0-guard",
+            "opsPerSecond": 85454.92750261484,
+            "bytesPerOp": 10248.00005616965,
+            "windowOpsMin": 81311.41073620638,
+            "windowOpsMax": 88507.23458943526,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      1.0975098374911025,
+      1.113004334887303
+    ],
+    "medianPairedRatio": 1.1052570861892028
+  },
+  {
+    "group": "guard-attribution",
+    "case": "direct-legacy-read-1",
+    "versions": {
+      "review": {
+        "medianOps": 70699.74368801084,
+        "minOps": 69966.97376000688,
+        "maxOps": 71432.5136160148,
+        "medianBytesPerOp": 10200.00006789941,
+        "medianWindowP95us": 14.501999999999999,
+        "medianWindowP99us": 20.558500000000002,
+        "runs": [
+          {
+            "name": "guard-attribution-direct-legacy-read-1-0-0-review",
+            "opsPerSecond": 69966.97376000688,
+            "bytesPerOp": 10200.000068602985,
+            "windowOpsMin": 65649.26682898807,
+            "windowOpsMax": 73628.56573871928,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "guard-attribution-direct-legacy-read-1-1-1-review",
+            "opsPerSecond": 71432.5136160148,
+            "bytesPerOp": 10200.000067195833,
+            "windowOpsMin": 63751.317350893805,
+            "windowOpsMax": 74073.97859262019,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "guard": {
+        "medianOps": 76985.79769403761,
+        "minOps": 75681.86284041031,
+        "maxOps": 78289.7325476649,
+        "medianBytesPerOp": 10128.000062366646,
+        "medianWindowP95us": 13.5905,
+        "medianWindowP99us": 18.3345,
+        "runs": [
+          {
+            "name": "guard-attribution-direct-legacy-read-1-0-1-guard",
+            "opsPerSecond": 75681.86284041031,
+            "bytesPerOp": 10128.000063422936,
+            "windowOpsMin": 68841.70721621922,
+            "windowOpsMax": 80366.66229928502,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "guard-attribution-direct-legacy-read-1-1-0-guard",
+            "opsPerSecond": 78289.7325476649,
+            "bytesPerOp": 10128.000061310355,
+            "windowOpsMin": 70491.89961953495,
+            "windowOpsMax": 81005.00485351538,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      1.0816798093912998,
+      1.0959957669768008
+    ],
+    "medianPairedRatio": 1.0888377881840503
+  },
+  {
+    "group": "cleanup-attribution",
+    "case": "direct-ordinary-open-1",
+    "versions": {
+      "guard": {
+        "medianOps": 5563.93768584142,
+        "minOps": 5507.796900868217,
+        "maxOps": 5620.078470814622,
+        "medianBytesPerOp": 30176.145801352613,
+        "medianWindowP95us": 198.947,
+        "medianWindowP99us": 325.528,
+        "runs": [
+          {
+            "name": "cleanup-attribution-direct-ordinary-open-1-0-0-guard",
+            "opsPerSecond": 5620.078470814622,
+            "bytesPerOp": 30176.144331364314,
+            "windowOpsMin": 5548.781439047898,
+            "windowOpsMax": 5688.600114166374,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "cleanup-attribution-direct-ordinary-open-1-1-1-guard",
+            "opsPerSecond": 5507.796900868217,
+            "bytesPerOp": 30176.14727134091,
+            "windowOpsMin": 5334.510291955198,
+            "windowOpsMax": 5713.832853247544,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 11252.887054857089,
+        "minOps": 10874.779961623983,
+        "maxOps": 11630.994148090196,
+        "medianBytesPerOp": 29920.000427023613,
+        "medianWindowP95us": 97.04599999999999,
+        "medianWindowP99us": 112.951,
+        "runs": [
+          {
+            "name": "cleanup-attribution-direct-ordinary-open-1-0-1-final",
+            "opsPerSecond": 11630.994148090196,
+            "bytesPerOp": 29920.000412676032,
+            "windowOpsMin": 10851.433110282887,
+            "windowOpsMax": 12206.999597169013,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "cleanup-attribution-direct-ordinary-open-1-1-0-final",
+            "opsPerSecond": 10874.779961623983,
+            "bytesPerOp": 29920.000441371194,
+            "windowOpsMin": 9922.712191732879,
+            "windowOpsMax": 11333.142523103561,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      2.0695430159010395,
+      1.9744337268336358
+    ],
+    "medianPairedRatio": 2.0219883713673377
+  }
+]

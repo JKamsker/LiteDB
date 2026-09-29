@@ -43,3 +43,55 @@ It samples idle, active, waiting, drained and closed/collected process state; th
 waiting sample includes twelve application threads. These are coarse process
 samples, not an assertion about exact per-object retained memory. Deterministic
 pending-admission and holder-retirement assertions remain in the test suite.
+
+## Longer alternating comparisons
+
+`steady` runs one scenario in a fresh process, defaults to ten seconds of warmup
+followed by ten one-second measurement windows, and verifies cold-reopened records,
+an indexed lookup and an unrelated sentinel. Arguments after `steady` are backend,
+API, operation, reads per transaction, warmup seconds and window count:
+
+```sh
+DOTNET_TieredCompilation=0 dotnet /tmp/handle-bench/TransactionHandleBenchmarks.dll \
+  FULL_COMMIT_SHA steady direct ordinary read 1 10 10
+```
+
+APIs are `ordinary`, `legacy`, and (candidate only) `handle`; operations are `read`
+and `open`. `open` means attach/count/dispose with a peer retained. Zero reads
+measures begin/get-collection/commit without query execution. Ten or one hundred reads per transaction
+show how fixed transaction costs amortize. Throughput is transactions/operations
+per second; `readsPerSecond` reports the corresponding read count separately.
+Point reads use a seeded BSON row plus an index. Latencies include the full public
+operation, and process-wide allocation counters include helper threads. Harness
+buffers, JSON serialization and process-resource samples are outside the timed
+allocation interval. Latency sampling is bounded to the first 250,000 operations
+per window; raw output reports the actual count and sample count.
+Windows are separated by reporting and process inspection; throughput uses active
+window time. This is a warm steady-state comparison, not a cold-start measurement.
+
+[`benchmark-transaction-handle-steady.py`](../../scripts/benchmark-transaction-handle-steady.py)
+alternates version order AB/BA/AB/BA. Its JSON configuration supplies `versions`
+(each with `runner`, full `revision`, optionally an API `mode` override) and `groups`
+(each with `name`, `versions`, `cases`, optionally `rounds`, `warmup`, `windows`,
+and `tiered`). A case is `["direct", "ordinary", "read", 1]`. Setting `tiered` to
+null removes the environment override for a default-tiering confirmation.
+
+```sh
+python3 scripts/benchmark-transaction-handle-steady.py \
+  --config /tmp/comparisons.json --output artifacts_temp/transaction-steady
+```
+
+The driver retains the exact configuration, commands, exits and raw windows. Each
+process records its runtime, architecture and actual loaded-library SHA-256.
+Build all runners before measurement; do not run local builds/tests concurrently.
+Profiles are separate experiments and must not be substituted for uninstrumented
+timings. Attribute grouped guard changes separately from cleanup-worker reuse;
+do not claim an individual guard's cost from an end-to-end throughput difference.
+
+Summarize complete runs with `python3 scripts/summarize-transaction-handle-steady.py
+DIRECTORY`. Published evidence can pack the per-process files into `raw.jsonl`
+with an added `run` field on each record; the same summarizer accepts that format.
+It aggregates counts over active-window time and reports every paired ratio,
+process range, allocation total and median window p95/p99. Windows from one
+process are not independent repetitions, and medians of window percentiles are
+not pooled latency percentiles.
