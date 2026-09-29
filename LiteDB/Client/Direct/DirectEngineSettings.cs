@@ -14,14 +14,12 @@ namespace LiteDB.Client.Direct
                 throw new LiteException(LiteException.INVALID_PASSWORD, "Invalid password for the open Direct database.");
             if (entry.Engine.IsDisposed)
                 throw DirectEnginePool.Conflict(requested, "The Direct engine stopped. Dispose all its database instances before reopening.");
-            if (current.ReadOnly != requested.ReadOnly || current.DurableCommits != requested.DurableCommits ||
+            if ((current.ReadOnly && !requested.ReadOnly) || current.DurableCommits != requested.DurableCommits ||
                 current.AllowHostLocalAdmissionFallback != requested.AllowHostLocalAdmissionFallback ||
                 current.CompactStorage != requested.CompactStorage || current.LegacyIndexScan != requested.LegacyIndexScan ||
                 current.Upgrade != requested.Upgrade || current.AutoRebuild != requested.AutoRebuild ||
-                current.RejectInvalidLocalTime != requested.RejectInvalidLocalTime ||
-                current.GetCacheSize() != requested.GetCacheSize() || current.TransactionPageLimit != requested.TransactionPageLimit ||
+                current.GetCacheSize() != requested.GetCacheSize() ||
                 current.IndexMigrationLimitSize != requested.IndexMigrationLimitSize ||
-                current.ReadTransform != requested.ReadTransform || current.LocalTimeZone != requested.LocalTimeZone ||
                 (requested.Collation != null && requested.Collation.ToString() !=
                     (current.Collation?.ToString() ?? entry.InitialCollation)))
                 throw DirectEnginePool.Conflict(requested, "Connection settings conflict with the open Direct engine. Use compatible settings or close all existing owners.");

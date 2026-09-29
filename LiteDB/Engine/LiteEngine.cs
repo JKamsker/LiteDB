@@ -74,6 +74,7 @@ namespace LiteDB.Engine
         public LiteEngine(EngineSettings settings)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _defaultContext = new EngineContext(this, settings);
             LiteDB.Client.Shared.SharedModeGuard.Normalize(_settings);
 
             this.Open();
@@ -177,7 +178,7 @@ namespace LiteDB.Engine
                 _sortDisk = new SortDisk(_settings.CreateTempFactory(), CONTAINER_SORT_SIZE, _header.Pragmas);
 
                 // initialize transaction monitor as last service
-                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _settings.TransactionPageLimit);
+                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _settings.TransactionPageLimit, () => CurrentContext);
 
                 this.MigrateIndexOrdering();
                 _disk.TrimTrailingPages();
@@ -322,7 +323,7 @@ namespace LiteDB.Engine
         public int Checkpoint()
         {
             _state.Validate();
-            try { return _settings.ReadOnly ? 0 : _walIndex.Checkpoint(); }
+            try { return CurrentContext.Policy.ReadOnly ? 0 : _walIndex.Checkpoint(); }
             catch (Exception ex)
             {
                 _state.Handle(ex);
@@ -341,7 +342,8 @@ namespace LiteDB.Engine
 
         protected virtual void Dispose(bool disposing)
         {
-            this.Close();
+            try { this.Close(); }
+            finally { _defaultContext.DisposeSlots(); }
         }
     }
 }

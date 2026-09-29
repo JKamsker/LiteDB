@@ -70,6 +70,7 @@ internal static class Program
         var engineField = typeof(LiteDatabase).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)
                          ?? throw new InvalidOperationException("LiteDatabase._engine field not found.");
         var engine = engineField.GetValue(database) ?? throw new InvalidOperationException("LiteDatabase engine unavailable.");
+        using var contextScope = EngineInspection.EnterDirectContext(engine);
         engine = EngineInspection.UnwrapDirectEngine(engine);
         var engineType = engine.GetType();
 

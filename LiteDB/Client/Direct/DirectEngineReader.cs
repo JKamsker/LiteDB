@@ -1,4 +1,5 @@
 using System;
+using LiteDB.Engine;
 
 namespace LiteDB.Client.Direct
 {
@@ -8,10 +9,11 @@ namespace LiteDB.Client.Direct
         private readonly object _gate = new object();
         private IBsonDataReader _reader;
         private DirectEnginePool.Entry _entry;
+        private EngineContext _context;
         private bool _reading, _disposed;
 
-        internal DirectEngineReader(IBsonDataReader reader, DirectEnginePool.Entry entry)
-        { _reader = reader; _entry = entry; }
+        internal DirectEngineReader(IBsonDataReader reader, DirectEnginePool.Entry entry, EngineContext context)
+        { _reader = reader; _entry = entry; _context = context; }
 
         public BsonValue this[string field] { get { lock (_gate) { Check(); return _reader[field]; } } }
         public string Collection { get { lock (_gate) { Check(); return _reader.Collection; } } }
@@ -59,16 +61,23 @@ namespace LiteDB.Client.Direct
         {
             var entry = _entry;
             var reader = _reader;
+            var context = _context;
             _entry = null;
             _reader = null;
+            _context = null;
             try { reader?.Dispose(); }
-            finally { entry?.Release(disposing: true); }
+            finally
+            {
+                try { context?.Release(disposing: true); }
+                finally { entry?.Release(disposing: true); }
+            }
         }
 
         ~DirectEngineReader()
         {
             // The engine graph and its storage finalizers own abandoned cleanup.
-            _entry?.Release(disposing: false);
+            try { _context?.Release(disposing: false); }
+            finally { _entry?.Release(disposing: false); }
         }
     }
 }

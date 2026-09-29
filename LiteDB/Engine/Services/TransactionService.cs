@@ -8,7 +8,7 @@ namespace LiteDB.Engine
 {
     /// <summary>
     /// Represent a single transaction service. Need a new instance for each transaction.
-    /// You must run each transaction in a different thread - no 2 transaction in same thread (locks as per-thread)
+    /// Transactions belong to a connection context and managed thread.
     /// </summary>
     internal class TransactionService : IDisposable
     {
@@ -26,15 +26,15 @@ namespace LiteDB.Engine
         private readonly TransactionPages _transPages = new TransactionPages();
 
         // transaction info
-        private readonly Thread _ownerThread = Thread.CurrentThread;
+        internal readonly TransactionOwner Owner;
         private readonly DateTime _startTime;
         private long _headerPosition = long.MaxValue;
         private LockMode _mode = LockMode.Read;
         private TransactionState _state = TransactionState.Active;
 
         // expose (as read only)
-        public int ThreadID => _ownerThread.ManagedThreadId;
-        internal Thread OwnerThread => _ownerThread;
+        public int ThreadID => Owner.Thread.ManagedThreadId;
+        internal Thread OwnerThread => Owner.Thread;
         public uint TransactionID => _transPages.TransactionID;
         public TransactionState State => _state;
         public LockMode Mode => _mode;
@@ -65,6 +65,7 @@ namespace LiteDB.Engine
             _disk = disk;
             _walIndex = walIndex;
             _monitor = monitor;
+            Owner = new TransactionOwner(monitor.CurrentContext);
 
             this.QueryOnly = queryOnly;
             this.MaxTransactionSize = maxTransactionSize;
@@ -476,7 +477,7 @@ namespace LiteDB.Engine
                 foreach (var snapshot in this.Snapshots)
                 {
                     TransactionPageCleanup.Release(snapshot, _disk.Cache,
-                        _ownerThread == Thread.CurrentThread, ref errors);
+                        true, ref errors);
                 }
             }
 

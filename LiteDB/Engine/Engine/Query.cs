@@ -17,6 +17,9 @@ namespace LiteDB.Engine
             if (string.IsNullOrWhiteSpace(collection)) throw new ArgumentNullException(nameof(collection));
             if (query == null) throw new ArgumentNullException(nameof(query));
             _state.Validate();
+            if (CurrentContext.Policy.ReadOnly && (query.ForUpdate ||
+                (query.Into != null && !query.Into.StartsWith("$"))))
+                throw new ReadOnlyContextException("Cannot modify a read-only database.");
 
             IEnumerable<BsonDocument> source = null;
 

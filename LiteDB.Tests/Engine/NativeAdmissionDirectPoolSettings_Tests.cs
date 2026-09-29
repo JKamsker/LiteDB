@@ -26,16 +26,13 @@ namespace LiteDB.Tests.Engine
         private static BsonDocument Document(int id) => new BsonDocument { ["_id"] = id, ["value"] = id * 10 };
 
         [Theory]
-        [InlineData("readonly")]
         [InlineData("durability")]
         [InlineData("fallback")]
         [InlineData("compact")]
         [InlineData("legacy")]
         [InlineData("upgrade")]
         [InlineData("rebuild")]
-        [InlineData("local-time")]
         [InlineData("cache")]
-        [InlineData("transaction-pages")]
         [InlineData("migration-limit")]
         [InlineData("collation")]
         public void Incompatible_settings_preserve_the_live_owner_and_database_bytes(string setting)
@@ -148,29 +145,32 @@ namespace LiteDB.Tests.Engine
         }
 
         [Fact]
-        public void Same_thread_join_and_sibling_disposal_leave_transaction_completion_with_the_caller()
+        public void Same_thread_connections_own_independent_transactions_and_write_locks()
         {
             using var file = new TempFile();
             using (var owner = new LiteDatabase(file.Filename))
+            using (var sibling = new LiteDatabase(file.Filename))
             {
                 owner.GetCollection("rows").Insert(Document(1));
+                owner.GetCollection("rows").EnsureIndex("value", true);
                 owner.BeginTrans().Should().BeTrue();
                 owner.GetCollection("rows").Insert(Document(2));
-                using (var sibling = new LiteDatabase(file.Filename))
-                {
-                    EngineOf(sibling).Should().BeSameAs(EngineOf(owner));
-                    sibling.BeginTrans().Should().BeFalse();
-                    sibling.GetCollection("rows").Insert(Document(3));
-                }
-                owner.GetCollection("rows").Count().Should().Be(3);
+                sibling.GetCollection("rows").Count().Should().Be(1);
+                sibling.Commit().Should().BeFalse();
+                sibling.Rollback().Should().BeFalse();
+                sibling.BeginTrans().Should().BeTrue();
+                sibling.GetCollection("other").Insert(Document(3));
+                sibling.Commit().Should().BeTrue();
+                Action conflict = () => sibling.GetCollection("rows").Insert(Document(4));
+                conflict.Should().Throw<LiteException>();
+                owner.GetCollection("rows").Count().Should().Be(2);
                 owner.Rollback().Should().BeTrue();
-                owner.GetCollection("rows").Count().Should().Be(1);
-                owner.BeginTrans().Should().BeTrue();
-                using (var sibling = new LiteDatabase(file.Filename)) sibling.GetCollection("rows").Insert(Document(4));
-                owner.Commit().Should().BeTrue();
+                sibling.GetCollection("rows").Insert(Document(5));
             }
             using var reopened = new LiteDatabase(file.Filename);
-            reopened.GetCollection("rows").FindAll().Select(row => row["_id"].AsInt32).Should().Equal(1, 4);
+            reopened.GetCollection("rows").FindAll().Select(row => row["_id"].AsInt32).Should().Equal(1, 5);
+            reopened.GetCollection("rows").FindOne("value = 50")["_id"].AsInt32.Should().Be(5);
+            Assert.NotNull(reopened.GetCollection("other").FindById(3));
         }
 
         [Fact]
@@ -188,9 +188,11 @@ namespace LiteDB.Tests.Engine
                 {
                     try
                     {
-                        Action commit = () => sibling.Commit();
+                        Action commit = () => owner.Commit();
                         commit.Should().Throw<LiteException>().WithMessage("*same thread*");
+                        sibling.Commit().Should().BeFalse();
                         sibling.Rollback().Should().BeFalse();
+                        owner.Rollback().Should().BeFalse();
                     }
                     catch (Exception error) { failure = error; }
                 }) { IsBackground = true };

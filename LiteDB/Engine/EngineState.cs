@@ -18,6 +18,7 @@ namespace LiteDB.Engine
         private Exception _exception;
         private readonly LiteEngine _engine; // can be null for unit tests
         private readonly EngineSettings _settings;
+        internal EngineContext Context => _engine?.CurrentContext;
 
 #if DEBUG || TESTING
         public Action<long, FileOrigin> BeforePageRead;
@@ -50,7 +51,7 @@ namespace LiteDB.Engine
         {
             LOG(ex.Message, "ERROR");
 
-            if (ex is IOException ||
+            if ((ex is IOException && !(ex is ReadOnlyContextException)) ||
                 (ex is LiteException lex && (lex.ErrorCode == LiteException.INVALID_DATAFILE_STATE || lex.ErrorCode == LiteException.CHECKSUM_MISMATCH)))
             {
                 this.Stop(ex);
@@ -112,9 +113,10 @@ namespace LiteDB.Engine
 
         public BsonValue ReadTransform(string collection, BsonValue value)
         {
-            if (_settings?.ReadTransform is null) return value;
+            var transform = _engine == null ? _settings?.ReadTransform : _engine.CurrentContext.Policy.ReadTransform;
+            if (transform is null) return value;
 
-            var result = _settings.ReadTransform(collection, value);
+            var result = transform(collection, value);
             if (value is BsonDocument source && result is BsonDocument target)
                 target.IsProjectionValue = source.IsProjectionValue;
             return result;

@@ -34,8 +34,13 @@ namespace LiteDB.Client.Direct
             internal Entry(EngineSettings settings, object slot)
             {
                 _slot = slot;
-                Settings = settings;
-                Engine = new LiteEngine(settings);
+                Settings = settings.Clone();
+                // Session callbacks must not be rooted by the host after their
+                // context closes, or affect storage initialization/recovery.
+                Settings.ReadTransform = null;
+                Settings.RejectInvalidLocalTime = false;
+                Settings.LocalTimeZone = null;
+                Engine = new LiteEngine(Settings);
                 try { InitialCollation = Engine.Pragma(Pragmas.COLLATION).AsString; }
                 catch { Engine.Dispose(); throw; }
             }
@@ -113,7 +118,7 @@ namespace LiteDB.Client.Direct
                             {
                                 if (entry.Rebuilding) throw Conflict(settings, "The Direct engine is rebuilding; retry after replacement finishes.");
                                 DirectEngineSettings.RequireCompatible(entry, settings);
-                                return new DirectEngineLease(entry);
+                                return new DirectEngineLease(entry, settings);
                             }
                         }
                     }
@@ -137,7 +142,7 @@ namespace LiteDB.Client.Direct
             try
             {
                 opened = new Entry(settings, reserved);
-                var lease = new DirectEngineLease(opened);
+                var lease = new DirectEngineLease(opened, settings);
                 lock (Gate)
                 {
                     reserved.Target = new WeakReference<Entry>(opened);

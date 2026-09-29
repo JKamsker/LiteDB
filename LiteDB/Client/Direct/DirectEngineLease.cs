@@ -10,9 +10,11 @@ namespace LiteDB.Client.Direct
     {
         private readonly object _gate = new object();
         private DirectEnginePool.Entry _entry;
+        private readonly EngineContext _context;
 
-        internal DirectEngineLease(DirectEnginePool.Entry entry)
+        internal DirectEngineLease(DirectEnginePool.Entry entry, EngineSettings settings)
         {
+            _context = new EngineContext(entry.Engine, settings);
             entry.Retain();
             _entry = entry;
         }
@@ -21,20 +23,38 @@ namespace LiteDB.Client.Direct
 
         private Use Enter()
         {
+            Use use;
             lock (_gate)
             {
                 if (_entry == null) throw new ObjectDisposedException(nameof(LiteDatabase));
                 _entry.Retain();
-                return new Use(_entry);
+                _context.Retain();
+                use = new Use(_entry, _context);
             }
+            try { use.Engine.ReleaseAbandonedContexts(); return use; }
+            catch { use.Dispose(); throw; }
         }
 
         private readonly struct Use : IDisposable
         {
             internal readonly DirectEnginePool.Entry Entry;
+            private readonly EngineContext _context;
+            private readonly EngineContext.Scope _scope;
             internal LiteEngine Engine => Entry.Engine;
-            internal Use(DirectEnginePool.Entry entry) { Entry = entry; }
-            public void Dispose() => Entry.Release(disposing: true);
+            internal Use(DirectEnginePool.Entry entry, EngineContext context)
+            { Entry = entry; _context = context; _scope = context.Enter(); }
+            internal IBsonDataReader Transfer(IBsonDataReader reader)
+            {
+                var result = new DirectEngineReader(reader, Entry, _context);
+                _scope.Dispose();
+                return result;
+            }
+            public void Dispose()
+            {
+                _scope.Dispose();
+                try { _context.Release(disposing: true); }
+                finally { Entry.Release(disposing: true); }
+            }
         }
 
         public int Checkpoint() { using var use = Enter(); return use.Engine.Checkpoint(); }
@@ -84,7 +104,7 @@ namespace LiteDB.Client.Direct
             try
             {
                 reader = use.Engine.Query(collection, query);
-                return new DirectEngineReader(reader, use.Entry);
+                return use.Transfer(reader);
             }
             catch
             {
@@ -104,7 +124,9 @@ namespace LiteDB.Client.Direct
         {
             DirectEnginePool.Entry entry;
             lock (_gate) { entry = _entry; _entry = null; }
-            entry?.Release(disposing);
+            if (entry == null) return;
+            try { _context.Release(disposing); }
+            finally { entry.Release(disposing); }
         }
 
         ~DirectEngineLease() { Release(disposing: false); }

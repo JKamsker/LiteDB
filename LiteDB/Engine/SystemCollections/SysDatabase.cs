@@ -23,7 +23,7 @@ namespace LiteDB.Engine
             {
                 ["name"] = _disk.GetName(FileOrigin.Data),
                 ["encrypted"] = _settings.Password != null,
-                ["readOnly"] = _settings.ReadOnly,
+                ["readOnly"] = CurrentContext.Policy.ReadOnly,
 
                 ["lastPageID"] = (int)_header.LastPageID,
                 ["freeEmptyPageID"] = (int)_header.FreeEmptyPageList,

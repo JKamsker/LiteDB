@@ -33,9 +33,13 @@ and guard under one explicit root, then releases that root together.
 
 File-backed Direct `LiteDatabase` instances with compatible settings reuse the
 same process engine, including its transaction monitor, caches and WAL index.
-Each database has an independent disposable lease and mapper. The last owner
-closes the engine after outstanding calls and readers release their uses, then
-other processes can acquire the file. Raw independently constructed `LiteEngine`
+Each database has an independent disposable lease, mapper and `EngineContext`.
+Transactions are scoped to that context and the actual managed thread; two
+wrappers on one thread do not join or complete each other's transactions.
+A read-only context can attach to a writable host while enforcing its own
+read-only policy; a read-only host rejects a later writable attachment. The last
+owner closes the engine after outstanding calls and readers release their uses,
+then other processes can acquire the file. Raw independently constructed `LiteEngine`
 objects are not pooled and a second writable engine remains incompatible.
 Independent Direct read-only engines are compatible. Shared connections retain
 separate engines; operation engines and escaping snapshots retain connection

@@ -13,15 +13,15 @@ namespace LiteDB.Engine
     internal class TransactionMonitor : IDisposable
     {
         private readonly TransactionRegistry _transactions = new TransactionRegistry();
-        private readonly ThreadLocal<TransactionService> _slot = new ThreadLocal<TransactionService>();
-        private readonly ThreadLocal<bool> _explicitAborted = new ThreadLocal<bool>();
+        private readonly Func<EngineContext> _context;
+        private readonly EngineContext _standaloneContext;
+        internal EngineContext CurrentContext => _context?.Invoke() ?? _standaloneContext;
 
         private readonly HeaderPage _header;
         private readonly LockService _locker;
         private readonly DiskService _disk;
         private readonly WalIndexService _walIndex;
 
-        private readonly int _transactionPageLimit;
         private int _disposed;
 
 #if TESTING
@@ -33,10 +33,10 @@ namespace LiteDB.Engine
 
         // expose open transactions
         public ICollection<TransactionService> Transactions => _transactions.Snapshot();
-        public int TransactionPageLimit => _transactionPageLimit;
+        public int TransactionPageLimit => CurrentContext.Policy.TransactionPageLimit;
         public TransactionService[] GetTransactionsSnapshot() => _transactions.Snapshot().ToArray();
 
-        public TransactionMonitor(HeaderPage header, LockService locker, DiskService disk, WalIndexService walIndex, int transactionPageLimit)
+        public TransactionMonitor(HeaderPage header, LockService locker, DiskService disk, WalIndexService walIndex, int transactionPageLimit, Func<EngineContext> context = null)
         {
             if (transactionPageLimit <= 0) throw new ArgumentOutOfRangeException(nameof(transactionPageLimit));
 
@@ -44,13 +44,16 @@ namespace LiteDB.Engine
             _locker = locker;
             _disk = disk;
             _walIndex = walIndex;
-            _transactionPageLimit = transactionPageLimit;
+            _context = context;
+            if (context == null) _standaloneContext = new EngineContext(null, new EngineSettings { TransactionPageLimit = transactionPageLimit });
         }
 
         public TransactionService GetTransaction(bool create, bool queryOnly, out bool isNew)
         {
             this.ThrowIfDisposed();
-            var transaction = _slot.Value;
+            var context = CurrentContext;
+            var slot = context.Slot;
+            var transaction = slot.Transaction;
 
             if (create && transaction == null)
             {
@@ -70,11 +73,11 @@ namespace LiteDB.Engine
                     _locker.EnterTransaction();
                     enteredTransaction = true;
                     this.ThrowIfDisposed();
-                    transaction = new TransactionService(_header, _locker, _disk, _walIndex, _transactionPageLimit, this, queryOnly);
+                    transaction = new TransactionService(_header, _locker, _disk, _walIndex, context.Policy.TransactionPageLimit, this, queryOnly);
                     _transactions.Add(transaction);
 
                     this.ThrowIfDisposed();
-                    if (queryOnly == false) _slot.Value = transaction;
+                    if (queryOnly == false) slot.Transaction = transaction;
                 }
                 catch
                 {
@@ -120,6 +123,9 @@ namespace LiteDB.Engine
         /// </summary>
         public void ReleaseTransaction(TransactionService transaction)
         {
+            if (!transaction.QueryOnly)
+                ENSURE(transaction.OwnerThread == Thread.CurrentThread && transaction.Owner.Slot.Transaction == transaction,
+                    "current thread must contains transaction parameter");
             var removed = false;
             try
             {
@@ -133,8 +139,9 @@ namespace LiteDB.Engine
                     // lease is released. Finish service cleanup before admitting it.
                     if (!transaction.QueryOnly)
                     {
-                        ENSURE(_slot.Value == transaction, "current thread must contains transaction parameter");
-                        _slot.Value = null;
+                        ENSURE(transaction.OwnerThread == Thread.CurrentThread && transaction.Owner.Slot.Transaction == transaction,
+                            "current thread must contains transaction parameter");
+                        transaction.Owner.Slot.Transaction = null;
                     }
                     _disk.Cache.TrimToLimit();
                 }
@@ -160,7 +167,7 @@ namespace LiteDB.Engine
             // Dispose on another thread may already have released the slot; a closing engine has nothing left to complete.
             try
             {
-                _explicitAborted.Value = true;
+                CurrentContext.Slot.ExplicitAborted = true;
             }
             catch (ObjectDisposedException)
             {
@@ -174,8 +181,8 @@ namespace LiteDB.Engine
         {
             try
             {
-                var aborted = _explicitAborted.Value;
-                if (aborted) _explicitAborted.Value = false;
+                var aborted = CurrentContext.Slot.ExplicitAborted;
+                if (aborted) CurrentContext.Slot.ExplicitAborted = false;
                 return aborted;
             }
             catch (ObjectDisposedException)
@@ -191,7 +198,7 @@ namespace LiteDB.Engine
         public TransactionService GetThreadTransaction()
         {
             this.ThrowIfDisposed();
-            return _slot.Value ?? _transactions.FindForThread(Thread.CurrentThread);
+            return CurrentContext.Slot.Transaction ?? _transactions.FindForThread(Thread.CurrentThread, CurrentContext);
         }
 
         /// <summary>
@@ -212,11 +219,25 @@ namespace LiteDB.Engine
             foreach (var transaction in _transactions.Close())
             {
                 cleanup.Catch(transaction.Dispose);
+                if (ReferenceEquals(transaction.Owner.Slot.Transaction, transaction)) transaction.Owner.Slot.Transaction = null;
             }
 
-            cleanup.Catch(_slot.Dispose);
-            cleanup.Catch(_explicitAborted.Dispose);
+            _standaloneContext?.Release(disposing: false);
             if (cleanup.Exceptions.Count > 0) throw new AggregateException(cleanup.Exceptions);
+        }
+
+        internal void ReleaseContext(EngineContext context)
+        {
+            foreach (var transaction in _transactions.Snapshot().Where(item => ReferenceEquals(item.Owner.Context, context)))
+            {
+                if (transaction.State == TransactionState.Active) transaction.Rollback();
+                try { this.RemoveTransaction(transaction, out _); }
+                finally
+                {
+                    if (ReferenceEquals(transaction.Owner.Slot.Transaction, transaction)) transaction.Owner.Slot.Transaction = null;
+                    _locker.ExitTransaction(transaction.OwnerThread);
+                }
+            }
         }
 
         private void ThrowIfDisposed()
