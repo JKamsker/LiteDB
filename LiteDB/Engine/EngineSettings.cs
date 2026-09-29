@@ -31,6 +31,7 @@ namespace LiteDB.Engine
         // Private rebuild/upgrade output; the live engine retains admission through publication.
         internal bool RebuildCandidate { get; set; }
         internal bool SharedMode { get; set; }
+        internal bool HostLocalAdmissionActive { get; set; }
         internal SharedModeAdmission SharedAdmission { get; set; }
         // Preserve connection admission intent when a query clones read-only snapshot settings.
         internal bool SharedModeReadOnly { get; set; }
@@ -122,6 +123,15 @@ namespace LiteDB.Engine
         /// Indicate that engine will open files in readonly mode (and will not support any database change)
         /// </summary>
         public bool ReadOnly { get; set; } = false;
+
+        /// <summary>
+        /// Opt in to host-local OS admission locks for an established local volume
+        /// whose database-file locking is unqualified. Defaults to false. All users
+        /// must share the host coordination and named-mutex namespaces; network
+        /// storage is unsupported. Shared streaming reads retain the writer mutex.
+        /// </summary>
+        public bool AllowHostLocalAdmissionFallback { get; set; }
+
 
         /// <summary>
         /// With <see cref="ReadOnly"/>, open a file whose indexes still need the v11 ordering

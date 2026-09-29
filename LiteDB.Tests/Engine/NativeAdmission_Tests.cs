@@ -203,9 +203,9 @@ namespace LiteDB.Tests.Engine
             db.GetCollection("untouched").Insert(new BsonDocument { ["_id"] = 1, ["value"] = 99 });
         }
 
-        internal static void Verify(string file, string password = null)
+        internal static void Verify(string file, string password = null, bool fallback = false)
         {
-            using var db = new LiteDatabase(new ConnectionString { Filename = file, Password = password });
+            using var db = new LiteDatabase(new ConnectionString { Filename = file, Password = password, AllowHostLocalAdmissionFallback = fallback });
             db.GetCollection("rows").Find("value = 42").Single()["_id"].AsInt32.Should().Be(1);
             db.GetCollection("untouched").FindById(1)["value"].AsInt32.Should().Be(99);
         }

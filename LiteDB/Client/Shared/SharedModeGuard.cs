@@ -25,8 +25,11 @@ namespace LiteDB.Client.Shared
                 settings.ReadOnly && !settings.Upgrade && !settings.AutoRebuild;
             try
             {
-                return Open(settings.Filename, settings.SharedMode, settings.SharedMutexNameStrategy,
-                    readOnly, engine: !settings.SharedMode && !readOnly, create: !settings.ReadOnly);
+                var guard = Open(settings.Filename, settings.SharedMode, settings.SharedMutexNameStrategy,
+                    readOnly, engine: !settings.SharedMode && !readOnly, create: !settings.ReadOnly,
+                    allowHostLocalFallback: settings.AllowHostLocalAdmissionFallback);
+                settings.HostLocalAdmissionActive = guard._entry.Current.HostLocal;
+                return guard;
             }
             catch (IOException error) when (settings.ReadOnly && IsMissing(error))
             { throw MissingReadOnly(settings.Filename, error); }
@@ -70,14 +73,14 @@ namespace LiteDB.Client.Shared
         }
 
         internal static SharedModeGuard Open(string filename, bool shared, SharedMutexNameStrategy strategy,
-            bool readOnly = false, bool engine = false, bool? create = null)
+            bool readOnly = false, bool engine = false, bool? create = null, bool allowHostLocalFallback = false)
         {
             filename = DatabaseFileIdentity.CanonicalPath(filename);
             SharedCoordinationPolicy.RequireFileLocking();
             try
             {
                 return SharedCoordinationFile.RetrySharingViolation(() =>
-                    DatabaseAdmissionRegistry.Open(filename, shared, strategy, readOnly, engine, create ?? !readOnly));
+                    DatabaseAdmissionRegistry.Open(filename, shared, strategy, readOnly, engine, create ?? !readOnly, allowHostLocalFallback));
             }
             catch (IOException error) when (!(error is DirectoryNotFoundException) &&
                 !(error is FileNotFoundException) && !(error is PathTooLongException))

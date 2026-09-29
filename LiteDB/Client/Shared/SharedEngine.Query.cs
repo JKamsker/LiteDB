@@ -151,7 +151,11 @@ namespace LiteDB
             }
             finally
             {
-                try { snapshot?.Dispose(); }
+                try
+                    {
+                        if (snapshot != null && _settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot?.Dispose();
+                    }
                 finally
                 {
                     try { lease?.Dispose(); }
@@ -185,6 +189,11 @@ namespace LiteDB
 
         private IDisposable TryRegisterLease(int version)
         {
+            if (_settings.HostLocalAdmissionActive)
+            {
+                _leaseState = LEASES_UNAVAILABLE;
+                return null;
+            }
             try
             {
                 var lease = _readers.Register(version);
@@ -205,6 +214,11 @@ namespace LiteDB
         /// </summary>
         private void ProbeLeases(int version)
         {
+            if (_settings.HostLocalAdmissionActive)
+            {
+                _leaseState = LEASES_UNAVAILABLE;
+                return;
+            }
             if (_leaseState != LEASES_UNKNOWN) return;
             try
             {
@@ -307,7 +321,11 @@ namespace LiteDB
                 try { reader?.Dispose(); }
                 finally
                 {
-                    try { snapshot?.Dispose(); }
+                    try
+                    {
+                        if (snapshot != null && _settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot?.Dispose();
+                    }
                     finally
                     {
                         try { lease?.Dispose(); }
@@ -341,6 +359,8 @@ namespace LiteDB
                 this.EnsureReadCoordination();
 #endif
                 snapshot = this.CreateEngine(recoveredAbandonedOwner, this.SnapshotSettings());
+                if (_settings.HostLocalAdmissionActive)
+                    lock (_useLock) _mutexSnapshots.Add(snapshot);
             }
             catch (Exception ex) when (!(ex is OutOfMemoryException))
             {
@@ -348,7 +368,8 @@ namespace LiteDB
             }
             if (_settings.AutoRebuild && snapshot.InvalidDatafileState)
             {
-                snapshot.Dispose();
+                if (_settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                else snapshot.Dispose();
                 return null;
             }
 #if DEBUG || TESTING

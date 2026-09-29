@@ -15,6 +15,7 @@ namespace LiteDB.Client.Shared
         private readonly DatabaseAdmissionRegistry.Entry _entry;
         private readonly DatabaseFileLock _source, _replacement;
         private readonly string _filename;
+        private readonly bool _allowFallback;
         private readonly IDisposable _pathGate;
         internal Exception PrimaryFailure { get; set; }
         internal bool Published { get; set; }
@@ -27,6 +28,7 @@ namespace LiteDB.Client.Shared
             _source = entry.Current;
             _replacement = replacement;
             _filename = filename;
+            _allowFallback = entry.Current.HostLocal;
             _pathGate = pathGate;
         }
 
@@ -38,14 +40,14 @@ namespace LiteDB.Client.Shared
             try
             {
                 reference = SharedModeGuard.Open(settings.Filename, settings.SharedMode,
-                    settings.SharedMutexNameStrategy);
+                    settings.SharedMutexNameStrategy, allowHostLocalFallback: settings.AllowHostLocalAdmissionFallback);
                 lock (DatabaseAdmissionRegistry.Gate)
                 {
-                    using var identity = new DatabaseFileLock(settings.Filename, readOnly: true, create: false);
+                    using var identity = new DatabaseFileLock(settings.Filename, readOnly: true, create: false, settings.AllowHostLocalAdmissionFallback);
                     var entry = DatabaseAdmissionRegistry.Entries[identity.Identity];
                     using var gate = DatabaseAdmissionRegistry.Enter(identity.Identity);
                     if (entry.Replacing) throw new IOException("Database replacement is already in progress.");
-                    replacement = new DatabaseFileLock(candidate, readOnly: false, create: false);
+                    replacement = new DatabaseFileLock(candidate, readOnly: false, create: false, settings.AllowHostLocalAdmissionFallback);
                     if (DatabaseAdmissionRegistry.Entries.ContainsKey(replacement.Identity))
                         throw new IOException("The rebuild candidate already has an admitted user.");
                     // Candidate is private, but acquire its lock before publishing it.
@@ -84,7 +86,7 @@ namespace LiteDB.Client.Shared
                     // detach the unused inode so backups/candidates stay recoverable.
                     if (FileHelper.ExistsOrThrow(_filename))
                     {
-                        using var live = new DatabaseFileLock(_filename, readOnly: true, create: false);
+                        using var live = new DatabaseFileLock(_filename, readOnly: true, create: false, _allowFallback);
                         if (live.Identity == _replacement.Identity) _entry.Current = _replacement;
                     }
                     if (_entry.Family >= 0)

@@ -80,6 +80,8 @@ namespace LiteDB
         /// "readonly": Open datafile in readonly mode (default: false)
         /// </summary>
         public bool ReadOnly { get; set; } = false;
+        /// <summary>Opt in to host-local admission for an unqualified local volume; network storage remains unsupported.</summary>
+        public bool AllowHostLocalAdmissionFallback { get; set; }
 
         /// <summary>
         /// "upgrade": Check if data file is an old version and convert before open (default: false)
@@ -176,6 +178,7 @@ namespace LiteDB
             if (_values.ContainsKey("index migration limit size"))
                 this.IndexMigrationLimitSize = _values.GetFileSize("index migration limit size", 0);
             this.ReadOnly = _values.GetValue("readonly", this.ReadOnly);
+            this.AllowHostLocalAdmissionFallback = _values.GetValue("allowhostlocaladmissionfallback", this.AllowHostLocalAdmissionFallback);
             this.LegacyIndexScan = _values.GetValue("legacy index scan", this.LegacyIndexScan);
 
             this.Collation = _values.ContainsKey("collation") ? new Collation(_values.GetValue<string>("collation")) : this.Collation;
@@ -205,6 +208,7 @@ namespace LiteDB
                 firstKey.Equals("initial size", StringComparison.OrdinalIgnoreCase) ||
                 firstKey.Equals("compact storage", StringComparison.OrdinalIgnoreCase) ||
                 firstKey.Equals("readonly", StringComparison.OrdinalIgnoreCase) ||
+                firstKey.Equals("allowhostlocaladmissionfallback", StringComparison.OrdinalIgnoreCase) ||
                 firstKey.Equals("legacy index scan", StringComparison.OrdinalIgnoreCase) ||
                 firstKey.Equals("upgrade", StringComparison.OrdinalIgnoreCase) ||
                 firstKey.Equals("auto-rebuild", StringComparison.OrdinalIgnoreCase) ||
@@ -282,6 +286,7 @@ namespace LiteDB
                 CacheSize = this.CacheSize,
                 TransactionPageLimit = this.TransactionPageLimit,
                 ReadOnly = this.ReadOnly,
+                AllowHostLocalAdmissionFallback = this.AllowHostLocalAdmissionFallback,
                 CompactStorage = this.CompactStorage,
                 LegacyIndexScan = this.LegacyIndexScan,
                 Collation = this.Collation,
@@ -373,6 +378,8 @@ namespace LiteDB
                     .AppendFormat(CultureInfo.InvariantCulture, "{0:D}", InitialSize)
                     .Append(';');
             }
+
+            if (AllowHostLocalAdmissionFallback) bld.Append("AllowHostLocalAdmissionFallback=True;");
 
             if (ReadOnly)
             {

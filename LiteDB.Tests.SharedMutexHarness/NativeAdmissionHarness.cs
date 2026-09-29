@@ -8,6 +8,26 @@ internal static class NativeAdmissionHarness
     {
         if (!mode.StartsWith("native-", StringComparison.Ordinal)) return false;
         var settings = new EngineSettings { Filename = filename, Password = password };
+        settings.AllowHostLocalAdmissionFallback = args[4].Contains("fallback", StringComparison.Ordinal);
+        if (settings.AllowHostLocalAdmissionFallback)
+        {
+            var identity = typeof(LiteEngine).Assembly.GetType("LiteDB.Client.Shared.DatabaseFileIdentity")!;
+            var prefix = Path.GetFileNameWithoutExtension(filename);
+            identity.GetField("UnsupportedVolume", BindingFlags.Static | BindingFlags.NonPublic)!
+                .SetValue(null, (Func<string, bool>)(path => Path.GetFileName(path).StartsWith(prefix, StringComparison.Ordinal)));
+        }
+        if (args[4].Contains("sha1", StringComparison.Ordinal)) settings.SharedMutexNameStrategy = SharedMutexNameStrategy.Sha1Hash;
+        if (mode == "native-raw-probe")
+        {
+            var type = typeof(LiteEngine).Assembly.GetType("LiteDB.Client.Shared.DatabaseFileLock")!;
+            using var raw = (IDisposable)Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.NonPublic,
+                null, new object[] { filename, true, false, settings.AllowHostLocalAdmissionFallback }, null)!;
+            var held = (bool)type.GetMethod("Conflicts", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(raw, new object[] { long.MaxValue - 4096, 1L })!;
+            if (held != args[4].Contains("held", StringComparison.Ordinal)) throw new Exception("Raw native authority exclusion mismatch");
+            Console.WriteLine("done");
+            return true;
+        }
         var shared = args[4].Contains("shared", StringComparison.Ordinal);
         settings.ReadOnly = args[4].Contains("readonly", StringComparison.Ordinal);
         if (mode == "native-rebuild-hold")

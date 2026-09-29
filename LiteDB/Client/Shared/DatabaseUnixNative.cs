@@ -7,6 +7,7 @@ namespace LiteDB.Client.Shared
 {
     internal static class DatabaseUnixNative
     {
+        internal delegate int MakeDirectoryCall(string path, int mode);
         internal delegate int OpenCall(string path, int flags, int mode);
         internal delegate int StatCall(SafeFileHandle handle, byte[] data);
         internal delegate int LegacyStatCall(int version, SafeFileHandle handle, byte[] data);
@@ -22,6 +23,8 @@ namespace LiteDB.Client.Shared
         internal sealed class Binding
         {
             internal OpenCall Open;
+            internal MakeDirectoryCall MakeDirectory;
+            internal Func<uint> EffectiveUser;
             internal StatCall Stat, FileSystemStat;
             internal LegacyStatCall LegacyStat;
             internal RealPathCall RealPath;
@@ -60,7 +63,8 @@ namespace LiteDB.Client.Shared
                 case "libc":
                     binding = new Binding
                     {
-                        Open = DatabaseUnixBindings.Generic.Open, Stat = DatabaseUnixBindings.Generic.Stat,
+                        Open = DatabaseUnixBindings.Generic.Open, MakeDirectory = DatabaseUnixBindings.Generic.MakeDirectory,
+                        EffectiveUser = DatabaseUnixBindings.Generic.EffectiveUser, Stat = DatabaseUnixBindings.Generic.Stat,
                         FileSystemStat = DatabaseUnixBindings.Generic.FileSystemStat,
                         RealPath = DatabaseUnixBindings.Generic.RealPath, ReadLink = DatabaseUnixBindings.Generic.ReadLink,
                         Free = DatabaseUnixBindings.Generic.Free,
@@ -74,7 +78,8 @@ namespace LiteDB.Client.Shared
                 case "libc.so.6":
                     binding = new Binding
                     {
-                        Open = DatabaseUnixBindings.Glibc.Open, Stat = DatabaseUnixBindings.Glibc.Stat,
+                        Open = DatabaseUnixBindings.Glibc.Open, MakeDirectory = DatabaseUnixBindings.Glibc.MakeDirectory,
+                        EffectiveUser = DatabaseUnixBindings.Glibc.EffectiveUser, Stat = DatabaseUnixBindings.Glibc.Stat,
                         FileSystemStat = DatabaseUnixBindings.Glibc.FileSystemStat,
                         RealPath = DatabaseUnixBindings.Glibc.RealPath, ReadLink = DatabaseUnixBindings.Glibc.ReadLink,
                         Free = DatabaseUnixBindings.Glibc.Free,
@@ -84,7 +89,8 @@ namespace LiteDB.Client.Shared
                 case "/usr/lib/libSystem.B.dylib":
                     binding = new Binding
                     {
-                        Open = DatabaseUnixBindings.System.Open, Stat = DatabaseUnixBindings.System.Stat,
+                        Open = DatabaseUnixBindings.System.Open, MakeDirectory = DatabaseUnixBindings.System.MakeDirectory,
+                        EffectiveUser = DatabaseUnixBindings.System.EffectiveUser, Stat = DatabaseUnixBindings.System.Stat,
                         FileSystemStat = DatabaseUnixBindings.System.FileSystemStat,
                         RealPath = DatabaseUnixBindings.System.RealPath, ReadLink = DatabaseUnixBindings.System.ReadLink,
                         Free = DatabaseUnixBindings.System.Free,
@@ -97,7 +103,8 @@ namespace LiteDB.Client.Shared
                 case "libc.musl-x86_64.so.1":
                     binding = new Binding
                     {
-                        Open = DatabaseUnixBindings.MuslX64.Open, Stat = DatabaseUnixBindings.MuslX64.Stat,
+                        Open = DatabaseUnixBindings.MuslX64.Open, MakeDirectory = DatabaseUnixBindings.MuslX64.MakeDirectory,
+                        EffectiveUser = DatabaseUnixBindings.MuslX64.EffectiveUser, Stat = DatabaseUnixBindings.MuslX64.Stat,
                         FileSystemStat = DatabaseUnixBindings.MuslX64.FileSystemStat,
                         RealPath = DatabaseUnixBindings.MuslX64.RealPath, ReadLink = DatabaseUnixBindings.MuslX64.ReadLink,
                         Free = DatabaseUnixBindings.MuslX64.Free,
@@ -107,7 +114,8 @@ namespace LiteDB.Client.Shared
                 case "libc.musl-aarch64.so.1":
                     binding = new Binding
                     {
-                        Open = DatabaseUnixBindings.MuslArm64.Open, Stat = DatabaseUnixBindings.MuslArm64.Stat,
+                        Open = DatabaseUnixBindings.MuslArm64.Open, MakeDirectory = DatabaseUnixBindings.MuslArm64.MakeDirectory,
+                        EffectiveUser = DatabaseUnixBindings.MuslArm64.EffectiveUser, Stat = DatabaseUnixBindings.MuslArm64.Stat,
                         FileSystemStat = DatabaseUnixBindings.MuslArm64.FileSystemStat,
                         RealPath = DatabaseUnixBindings.MuslArm64.RealPath, ReadLink = DatabaseUnixBindings.MuslArm64.ReadLink,
                         Free = DatabaseUnixBindings.MuslArm64.Free,

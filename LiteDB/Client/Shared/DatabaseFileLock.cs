@@ -15,11 +15,14 @@ namespace LiteDB.Client.Shared
         internal const long Admission = long.MaxValue - 4096;
         internal const long Family = Admission + 1;
         private readonly SafeFileHandle _handle;
+        private readonly SafeFileHandle _database;
+        internal bool HostLocal { get; }
+        internal string AuthorityPath { get; }
         internal string Identity { get; }
         internal string Path { get; }
         internal bool ReadOnly { get; }
 
-        internal DatabaseFileLock(string filename, bool readOnly, bool create)
+        internal DatabaseFileLock(string filename, bool readOnly, bool create, bool allowHostLocalFallback = false)
         {
             _handle = DatabaseFileIdentity.Open(filename, readOnly, create);
             ReadOnly = readOnly;
@@ -27,9 +30,17 @@ namespace LiteDB.Client.Shared
             {
                 Identity = DatabaseFileIdentity.Read(_handle);
                 Path = DatabaseFileIdentity.CanonicalPath(filename);
-                DatabaseFileIdentity.RequireLocalVolume(_handle, Path);
+                if (!DatabaseVolumePolicy.IsNative(_handle, Path, allowHostLocalFallback))
+                {
+                    _database = _handle;
+                    _handle = HostLocalAdmission.Open(Identity, out var authority);
+                    AuthorityPath = authority;
+                    HostLocal = true;
+                    ReadOnly = false; // OFD conversions operate on the writable authority.
+                }
+                else AuthorityPath = Path;
             }
-            catch { _handle.Dispose(); throw; }
+            catch { _handle.Dispose(); _database?.Dispose(); throw; }
         }
 
         internal void Lock(long offset, bool exclusive)
@@ -116,7 +127,11 @@ namespace LiteDB.Client.Shared
                 DatabaseFileIdentity.Windows ? unchecked((int)0x80070000) | code : unchecked((int)0x80131620));
         }
 
-        public void Dispose() => _handle.Dispose();
+        public void Dispose()
+        {
+            _handle.Dispose();
+            _database?.Dispose();
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct LinuxFlock

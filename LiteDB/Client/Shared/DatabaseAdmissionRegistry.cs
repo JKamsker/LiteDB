@@ -22,22 +22,24 @@ namespace LiteDB.Client.Shared
         }
 
         internal static SharedModeGuard Open(string filename, bool shared, SharedMutexNameStrategy strategy,
-            bool readOnly, bool engine, bool create)
+            bool readOnly, bool engine, bool create, bool allowHostLocalFallback = false)
         {
             RebuildRecovery.EnsureAvailable(new EngineSettings { Filename = filename });
             SharedCoordinationFile.Observe(filename, "mode-before-path-lock");
             using var pathGate = EnterPath(filename);
             RebuildRecovery.EnsureAvailable(new EngineSettings { Filename = filename });
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux))
+                DatabaseVolumePolicy.RequireDatabaseMount(filename);
             var family = shared ? (strategy == SharedMutexNameStrategy.Sha1Hash ? 1 : 0) : readOnly ? 2 : -1;
             lock (Gate)
             {
-                var file = new DatabaseFileLock(filename, readOnly, create);
+                var file = new DatabaseFileLock(filename, readOnly, create, allowHostLocalFallback);
                 try
                 {
                     SharedCoordinationFile.Observe(filename, "mode-before-identity-lock");
                     using var gate = Enter(file.Identity);
                     // A waiter may have opened the old inode before replacement.
-                    using (var check = new DatabaseFileLock(filename, readOnly: true, create: false))
+                    using (var check = new DatabaseFileLock(filename, readOnly: true, create: false, allowHostLocalFallback))
                         if (check.Identity != file.Identity) throw new IOException("Database changed during admission; retry opening.");
                     RebuildRecovery.EnsureAvailable(new EngineSettings { Filename = filename });
                     if (Entries.TryGetValue(file.Identity, out var entry))
@@ -45,7 +47,7 @@ namespace LiteDB.Client.Shared
                         if (!string.Equals(entry.Filename, filename, DatabaseFileIdentity.Windows
                             ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
                             throw new IOException("The physical database is already open through a different canonical path.");
-                        if (entry.Family != family || entry.Replacing || entry.Faulted || (engine && entry.Engine))
+                        if (entry.Current.HostLocal != file.HostLocal || entry.Family != family || entry.Replacing || entry.Faulted || (engine && entry.Engine))
                             throw new IOException("Incompatible local database access. Independent Direct writers require one shared LiteEngine.");
                         return Retain(entry, engine);
                     }
@@ -61,12 +63,12 @@ namespace LiteDB.Client.Shared
                         DatabasePathLock.Claim(file, filename);
                     }
                     // Detect unsupported/no-op locking before storage can write.
-                    using (var probe = new DatabaseFileLock(filename, readOnly: true, create: false))
+                    using (var probe = new DatabaseFileLock(filename, readOnly: true, create: false, allowHostLocalFallback))
                         if (!probe.Conflicts(DatabaseFileLock.Admission))
                             throw new IOException("The filesystem did not enforce the database admission lock.");
                     SharedCoordinationFile.Observe(filename, "mode-locked");
                     entry = new Entry { Current = file, Filename = filename, Family = family };
-                    if (family < 0) entry.Legacy = OpenLegacy(filename);
+                    if (family < 0 && !file.HostLocal) entry.Legacy = OpenLegacy(filename);
                     entry.Files.Add(file);
                     Entries.Add(file.Identity, entry);
                     file = null;

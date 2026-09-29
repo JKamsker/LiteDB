@@ -29,7 +29,19 @@ namespace LiteDB.Tests.Internals
         [InlineData("after-source-backup", "secret")]
         [InlineData("after-temp-install", "secret")]
         [InlineData("before-recovery-marker-delete", "secret")]
-        public async Task Death_during_handoff_releases_native_locks_and_preserves_recoverable_data(string stage, string password)
+        [InlineData("before-recovery-marker", null, true)]
+        [InlineData("before-recovery-marker-flush", null, true)]
+        [InlineData("after-log-backup", null, true)]
+        [InlineData("after-source-backup", null, true)]
+        [InlineData("after-temp-install", null, true)]
+        [InlineData("before-recovery-marker-delete", null, true)]
+        [InlineData("before-recovery-marker", "secret", true)]
+        [InlineData("before-recovery-marker-flush", "secret", true)]
+        [InlineData("after-log-backup", "secret", true)]
+        [InlineData("after-source-backup", "secret", true)]
+        [InlineData("after-temp-install", "secret", true)]
+        [InlineData("before-recovery-marker-delete", "secret", true)]
+        public async Task Death_during_handoff_releases_native_locks_and_preserves_recoverable_data(string stage, string password, bool fallback = false)
         {
             var directory = Path.Combine(Path.GetTempPath(), "litedb-native-crash-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
@@ -38,7 +50,8 @@ namespace LiteDB.Tests.Internals
             try
             {
                 NativeAdmission_Tests.Seed(filename, password);
-                using (var child = new MvccProcess("native-rebuild-hold", filename, password, stage))
+                using var volume = fallback ? new NativeAdmissionFallback_Tests.UnqualifiedVolume(filename) : null;
+                using (var child = new MvccProcess("native-rebuild-hold", filename, password, stage + (fallback ? "|fallback" : "")))
                 {
                     phase = "wait for child boundary";
                     await child.Expect("ready");
@@ -46,7 +59,7 @@ namespace LiteDB.Tests.Internals
                     await child.Kill();
                 }
                 phase = "verify recovery marker, refusal and candidate";
-                VerifyRecovery(directory, filename, stage, password);
+                VerifyRecovery(directory, filename, stage, password, fallback);
                 phase = "cleanup after all recovery assertions passed";
                 // Process termination and successful recovery assertions do not
                 // prevent a separate Windows handle from briefly denying deletion.
@@ -62,13 +75,13 @@ namespace LiteDB.Tests.Internals
             }
         }
 
-        private static void VerifyRecovery(string directory, string filename, string stage, string password)
+        private static void VerifyRecovery(string directory, string filename, string stage, string password, bool fallback)
         {
             var marker = RebuildRecovery.GetMarkerFilename(filename);
             if (stage == "before-recovery-marker")
             {
                 File.Exists(marker).Should().BeFalse();
-                NativeAdmission_Tests.Verify(filename, password);
+                NativeAdmission_Tests.Verify(filename, password, fallback);
                 return;
             }
             var files = Directory.GetFiles(directory);
@@ -80,7 +93,7 @@ namespace LiteDB.Tests.Internals
                     Action open = () =>
                     {
                         using var db = new LiteDatabase(new ConnectionString
-                            { Filename = filename, Password = password, Connection = connection });
+                            { Filename = filename, Password = password, Connection = connection, AllowHostLocalAdmissionFallback = fallback });
                         db.GetCollection("rows").Count();
                     };
                     open.Should().Throw<LiteException>().Which.ErrorCode.Should().Be(LiteException.REBUILD_INCOMPLETE);
@@ -92,8 +105,9 @@ namespace LiteDB.Tests.Internals
                 ? filename : FileHelper.GetSuffixFile(filename, "-temp", false);
             var recovered = Path.Combine(directory, "recovered.db");
             File.Copy(candidate, recovered);
-            NativeAdmission_Tests.Verify(recovered, password);
-            NativeAdmission_Tests.Verify(recovered, password);
+            using var recoveredVolume = fallback ? new NativeAdmissionFallback_Tests.UnqualifiedVolume(recovered) : null;
+            NativeAdmission_Tests.Verify(recovered, password, fallback);
+            NativeAdmission_Tests.Verify(recovered, password, fallback);
             // Recovery at a separate path needs no stale-admission cleanup.
             Directory.GetFiles(directory, "*-shared-mode").Should().BeEmpty();
         }

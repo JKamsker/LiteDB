@@ -14,6 +14,9 @@ namespace LiteDB
 
         private void OpenEngine(bool recoveredAbandonedOwner, bool final = false, bool writing = false)
         {
+            lock (_useLock)
+                if (_settings.HostLocalAdmissionActive && _mutexSnapshots.Count != 0)
+                    throw new InvalidOperationException("Dispose host-local streaming readers before opening a writable operation on this connection.");
             LiteDB.Engine.RebuildRecovery.EnsureAvailable(_settings);
             // Admission must span fallback revocation and the operation engine's open.
             // Even a transient conflict cannot permit an unadmitted writer to revoke peers.
@@ -27,7 +30,7 @@ namespace LiteDB
             // mutations announce their own structural regions before touching storage.
             var recovering = _coordination?.BeginOpenRecovery() ?? false;
 #else
-            if (!_settings.SharedModeReadOnly) SharedCoordinationFallback.RevokeIfPresent(_settings.Filename);
+            if (!_settings.SharedModeReadOnly && !_settings.HostLocalAdmissionActive) SharedCoordinationFallback.RevokeIfPresent(_settings.Filename);
 #endif
             LiteDB.Engine.LiteEngine opened = null;
             try

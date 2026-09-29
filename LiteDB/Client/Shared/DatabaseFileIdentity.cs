@@ -126,35 +126,8 @@ namespace LiteDB.Client.Shared
 
         internal static void RequireLocalVolume(SafeFileHandle handle, string filename)
         {
-#if DEBUG || TESTING
-            if (UnsupportedVolume?.Invoke(filename) == true) throw new IOException("Unsupported database locking filesystem.");
-#endif
-            if (Windows)
-            {
-                var root = new StringBuilder(32768);
-                var format = new StringBuilder(64);
-                if (!GetVolumePathNameW(WindowsPath(filename), root, root.Capacity) || GetDriveTypeW(root.ToString()) == 4 ||
-                    !GetVolumeInformationW(root.ToString(), null, 0, out _, out _, out _, format, format.Capacity) ||
-                    (format.ToString() != "NTFS" && format.ToString() != "ReFS"))
-                    throw new IOException("Database admission requires a local NTFS or ReFS volume.");
-                return;
-            }
-            var bytes = new byte[4096];
-            var result = DatabaseUnixNative.Api.FileSystemStat(handle, bytes);
-            if (result != 0) throw DatabaseFileLock.Error("fstatfs");
-            if (Darwin)
-            {
-                var type = Encoding.ASCII.GetString(bytes, 72, 16).TrimEnd('\0');
-                if (type == "apfs" || type == "hfs") return;
-            }
-            else
-            {
-                var type = BitConverter.ToUInt32(bytes, 0);
-                // Local filesystems with OFD locking, including local test/scratch storage.
-                if (type == 0xef53 || type == 0x58465342 || type == 0x9123683e ||
-                    type == 0x01021994 || type == 0x794c7630) return;
-            }
-            throw new IOException("Database admission is unsupported on this filesystem; use a supported local volume.");
+            if (!DatabaseVolumePolicy.IsNative(handle, filename, allowFallback: false))
+                throw new IOException("Unsupported database locking filesystem.");
         }
 
         private static void RequirePlatform()
@@ -166,7 +139,7 @@ namespace LiteDB.Client.Shared
                 throw new PlatformNotSupportedException("Database admission requires Windows, or 64-bit Linux/macOS with OFD locks.");
         }
 
-        private static string WindowsPath(string filename) => filename.StartsWith(@"\\?\", StringComparison.Ordinal)
+        internal static string WindowsPath(string filename) => filename.StartsWith(@"\\?\", StringComparison.Ordinal)
             ? filename : filename.StartsWith(@"\\", StringComparison.Ordinal)
             ? @"\\?\UNC\" + filename.Substring(2) : @"\\?\" + filename;
 
@@ -192,14 +165,5 @@ namespace LiteDB.Client.Shared
         private static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, int infoClass, [Out] byte[] info, int size);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern uint GetFinalPathNameByHandleW(SafeFileHandle handle, StringBuilder path, int size, int flags);
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool GetVolumePathNameW(string filename, StringBuilder root, int size);
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-        private static extern uint GetDriveTypeW(string root);
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool GetVolumeInformationW(string root, StringBuilder name, int size,
-            out uint serial, out uint componentLength, out uint flags, StringBuilder format, int formatSize);
     }
 }

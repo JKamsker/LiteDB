@@ -97,9 +97,10 @@ thread and are never the connection's lifetime admission lease.
 
 Supported filesystem policy is deliberately conservative: local NTFS/ReFS on
 Windows; ext2/3/4, XFS, Btrfs, tmpfs and local overlayfs on Linux; APFS/HFS on macOS.
-Network shares and unrecognized filesystems are refused. Unix currently requires
+Network shares and unrecognized filesystems are refused by default. The explicit
+host-local fallback described below does not rely on database-file admission locks. Unix currently requires
 x64 or arm64 and a kernel implementing OFD locks. Windows uses its native ABI on
-both x86 and x64. Overlayfs requires local backing storage with functioning OFD
+x86, x64 and ARM64 (the full CI tier includes the standard Windows ARM64 runner). Overlayfs requires local backing storage with functioning OFD
 locks; a successful local probe cannot certify remote-server or device behavior.
 The independent Shared coordination protocol still requires .NET file-sharing
 locks to be enabled. All Shared participants must also observe the same OS/runtime
@@ -115,6 +116,44 @@ resolution, including netstandard hosts without a libc alias. On glibc before
 Sources: [LockFileEx](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex),
 [Linux OFD locking](https://man7.org/linux/man-pages/man2/F_OFD_SETLK.2const.html),
 [Darwin fcntl definitions](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/fcntl.h).
+
+## Explicit host-local fallback
+
+`AllowHostLocalAdmissionFallback=true` is available on `ConnectionString` and
+`EngineSettings`. Qualified volumes still use native database-file admission.
+There is no fallback after lock conflicts, permission failures, failed identity
+checks or ineffective locks. An unqualified volume must first be established as
+local: Windows fixed/removable/RAM volumes, Darwin `MNT_LOCAL`, or Linux kernel
+ZFS / recognized single-host formats backed by a kernel block device. Unknown
+locality, FUSE, network and clustered filesystems remain refused. Locality is a
+separate condition from qualification of a filesystem's admission primitive.
+
+The authority is a host-local file keyed by the database's physical identity;
+the same native path-fingerprint protocol binds the canonical data/WAL namespace.
+Its bytes and existence are never authority, and it is never deleted on release.
+The root is fixed, independent of `TMPDIR`, home, working directory and caller:
+`/var/tmp/litedb-admission-v1` on Linux, `/private/var/tmp/litedb-admission-v1` on
+macOS, and `CommonApplicationData\litedb-admission-v1` on Windows. The first user
+creates a private directory; other users fail closed rather than choosing a
+second authority. The directory, ancestors, files and local locking filesystem
+are checked. Do not externally clean, unlink, rename or remount this namespace
+while participants exist. Containers must share both this directory and the
+runtime's named-mutex namespace; sharing only the database is insufficient.
+
+Fallback Shared connections use fully mutex-protected reads. They do not trust
+mapped coordination or reader-lease liveness on the database volume. Streaming
+readers keep writer ownership until disposal; an independent writable operation
+on that connection is refused while a protected snapshot exists, including
+recursive callbacks. Dispose the reader before writing, checkpointing or
+rebuilding. Compatible idle Shared connections can still coexist. Read-only
+fallback requires write access to the host coordination directory, not to the
+database. Replacement holds the old and candidate authorities until installation
+or rollback settles, and process death releases their OS locks.
+
+All processes must use the same library admission policy. Stop every user before
+upgrading or changing mounts. The fallback does not support old concurrent
+LiteDB versions, hardlinks, file-only bind mounts, network or multi-host storage.
+Linux file-only mounts are rejected before admission even on native volumes.
 
 ## Paths and replacement
 

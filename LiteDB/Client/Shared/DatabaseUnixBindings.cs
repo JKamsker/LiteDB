@@ -12,6 +12,10 @@ namespace LiteDB.Client.Shared
         {
             [DllImport("libc", EntryPoint = "open", SetLastError = true)]
             internal static extern int Open(string path, int flags, int mode);
+            [DllImport("libc", EntryPoint = "mkdir", SetLastError = true)]
+            internal static extern int MakeDirectory(string path, int mode);
+            [DllImport("libc", EntryPoint = "geteuid")]
+            internal static extern uint EffectiveUser();
             [DllImport("libc", EntryPoint = "fstat", SetLastError = true)]
             internal static extern int Stat(SafeFileHandle handle, [Out] byte[] data);
             [DllImport("libc", EntryPoint = "fstatfs", SetLastError = true)]
@@ -44,6 +48,10 @@ namespace LiteDB.Client.Shared
         {
             [DllImport("libc.so.6", EntryPoint = "open", SetLastError = true)]
             internal static extern int Open(string path, int flags, int mode);
+            [DllImport("libc.so.6", EntryPoint = "mkdir", SetLastError = true)]
+            internal static extern int MakeDirectory(string path, int mode);
+            [DllImport("libc.so.6", EntryPoint = "geteuid")]
+            internal static extern uint EffectiveUser();
             [DllImport("libc.so.6", EntryPoint = "fstat", SetLastError = true)]
             internal static extern int Stat(SafeFileHandle handle, [Out] byte[] data);
             [DllImport("libc.so.6", EntryPoint = "fstatfs", SetLastError = true)]
@@ -64,6 +72,10 @@ namespace LiteDB.Client.Shared
         {
             [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "open", SetLastError = true)]
             internal static extern int Open(string path, int flags, int mode);
+            [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "mkdir", SetLastError = true)]
+            internal static extern int MakeDirectory(string path, int mode);
+            [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "geteuid")]
+            internal static extern uint EffectiveUser();
             [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "fstat", SetLastError = true)]
             internal static extern int Stat(SafeFileHandle handle, [Out] byte[] data);
             [DllImport("/usr/lib/libSystem.B.dylib", EntryPoint = "fstatfs", SetLastError = true)]
@@ -92,6 +104,10 @@ namespace LiteDB.Client.Shared
         {
             [DllImport("libc.musl-x86_64.so.1", EntryPoint = "open", SetLastError = true)]
             internal static extern int Open(string path, int flags, int mode);
+            [DllImport("libc.musl-x86_64.so.1", EntryPoint = "mkdir", SetLastError = true)]
+            internal static extern int MakeDirectory(string path, int mode);
+            [DllImport("libc.musl-x86_64.so.1", EntryPoint = "geteuid")]
+            internal static extern uint EffectiveUser();
             [DllImport("libc.musl-x86_64.so.1", EntryPoint = "fstat", SetLastError = true)]
             internal static extern int Stat(SafeFileHandle handle, [Out] byte[] data);
             [DllImport("libc.musl-x86_64.so.1", EntryPoint = "fstatfs", SetLastError = true)]
@@ -112,6 +128,10 @@ namespace LiteDB.Client.Shared
         {
             [DllImport("libc.musl-aarch64.so.1", EntryPoint = "open", SetLastError = true)]
             internal static extern int Open(string path, int flags, int mode);
+            [DllImport("libc.musl-aarch64.so.1", EntryPoint = "mkdir", SetLastError = true)]
+            internal static extern int MakeDirectory(string path, int mode);
+            [DllImport("libc.musl-aarch64.so.1", EntryPoint = "geteuid")]
+            internal static extern uint EffectiveUser();
             [DllImport("libc.musl-aarch64.so.1", EntryPoint = "fstat", SetLastError = true)]
             internal static extern int Stat(SafeFileHandle handle, [Out] byte[] data);
             [DllImport("libc.musl-aarch64.so.1", EntryPoint = "fstatfs", SetLastError = true)]

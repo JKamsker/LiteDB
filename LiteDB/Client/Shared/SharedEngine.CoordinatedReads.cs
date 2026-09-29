@@ -46,6 +46,12 @@ namespace LiteDB
         // The caller owns the database mutex, so nobody can create a competing authority.
         private void EnsureCoordination(bool allowCreate = true, bool writing = false)
         {
+            if (_settings.HostLocalAdmissionActive)
+            {
+                _coordinationUnavailable = true;
+                this.RecordCoordinationFallback("host-local admission: streaming reads retain the writer mutex");
+                return;
+            }
             if (_coordination != null) return;
             if (!SharedCoordinationFallback.SupportsNames(_settings.Filename))
             {

@@ -55,10 +55,10 @@ namespace LiteDB
             _settings.SharedAdmission = new SharedModeAdmission(_settings);
             _settings.SharedDurability = new SharedDurabilityState();
             _readers = new SharedReaderRegistry(_settings.Filename, _settings.SharedReaderFiles);
-            _settings.SharedReaderVersions = _readers.LiveVersions;
+            _settings.SharedReaderVersions = () => _settings.HostLocalAdmissionActive ? new int[0] : _readers.LiveVersions();
             // A rebuild would replace the files under live snapshot readers. Scan the
             // registry only when an open is about to rebuild, not on every operation.
-            _settings.AutoRebuildAllowed = () => !_readers.OldestVersion().HasValue;
+            _settings.AutoRebuildAllowed = () => _settings.HostLocalAdmissionActive || !_readers.OldestVersion().HasValue;
             // Each operation opens and closes an engine. Share one back-off so a
             // long-lived reader cannot make every close pay for partial checkpoint.
             _settings.CheckpointBackoff = new CheckpointBackoff();
@@ -356,7 +356,7 @@ namespace LiteDB
                 _settings.CoordinationSignals?.StructuralBegin();
                 try
                 {
-                    if (_readers.OldestVersion().HasValue)
+                    if (!_settings.HostLocalAdmissionActive && _readers.OldestVersion().HasValue)
                         throw new LiteException(0, "Close shared readers before rebuilding the database.");
                     _handles?.CloseIdle();
                     return _engine.Rebuild(options);
