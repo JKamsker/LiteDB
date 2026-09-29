@@ -38,7 +38,7 @@ namespace LiteDB
             try
             {
                 admission.Acquired("local-acquired");
-                var settings = _settings.Clone();
+                var settings = _settings.SnapshotForTransactionHolder();
                 // The holder thread must not root application callbacks that can capture the
                 // facade/handle. The external resource owner retains the delegate while live.
                 if (policyAnchor != null)
