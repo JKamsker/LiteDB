@@ -24,16 +24,18 @@ namespace LiteDB.Tests.Engine
             var engine = NativeAdmissionDirectPool_Tests.Engine(first);
             engine.SimulateBeforeExclusiveAdmission = () => waiting.Set();
             var exclusive = Task.Run(() => second.Rebuild());
+            var rolledBack = false;
             try
             {
                 Assert.True(waiting.Wait(TimeSpan.FromSeconds(10)));
                 Assert.False(exclusive.IsCompleted);
-                Assert.True(first.Rollback());
+                rolledBack = first.Rollback();
+                Assert.True(rolledBack);
             }
             finally
             {
                 engine.SimulateBeforeExclusiveAdmission = null;
-                first.Rollback();
+                if (!rolledBack) first.Rollback();
                 await exclusive;
             }
             Assert.Equal(1, first.GetCollection("rows").Count());

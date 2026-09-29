@@ -45,8 +45,7 @@ namespace LiteDB.Client.Shared
                 if (!IsFile(settings)) return;
                 var original = Path.GetFullPath(settings.Filename);
                 var canonical = DatabaseFileIdentity.CanonicalPath(original);
-                if (!string.Equals(original, canonical, DatabaseFileIdentity.Windows
-                    ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                if (!string.Equals(original, canonical, StringComparison.Ordinal))
                 {
                     // Older executables could have selected sidecars beside a file
                     // symlink. Never abandon that WAL or bypass its recovery marker.
@@ -57,12 +56,11 @@ namespace LiteDB.Client.Shared
                     // length read-only database merely because its parent moved.
                     var resolvedParent = Path.Combine(DatabaseFileIdentity.CanonicalPath(Path.GetDirectoryName(original)),
                         Path.GetFileName(original));
-                    if (!string.Equals(resolvedParent, canonical, DatabaseFileIdentity.Windows
-                        ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal) &&
+                    if (!string.Equals(resolvedParent, canonical, StringComparison.Ordinal) &&
                         FileHelper.ExistsOrThrow(aliasLog) && !string.Equals(
                         DatabaseFileIdentity.CanonicalPath(aliasLog),
                         DatabaseFileIdentity.CanonicalPath(FileHelper.GetLogFile(canonical)),
-                        DatabaseFileIdentity.Windows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                        StringComparison.Ordinal))
                         throw new DatabaseAdmissionException(original, new IOException(
                             "The alias has a separate WAL. Recover the data and matching WAL together at one canonical path before opening."));
                 }

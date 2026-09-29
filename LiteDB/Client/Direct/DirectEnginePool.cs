@@ -12,8 +12,9 @@ namespace LiteDB.Client.Direct
     {
         private static readonly object Gate = new object();
         // Never root an engine graph: a query callback can itself retain a database lease.
-        private static readonly Dictionary<string, Slot> Entries = new Dictionary<string, Slot>(
-            DatabaseFileIdentity.Windows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        // Existing paths have their filesystem spelling after canonicalization. Windows
+        // directories may be case-sensitive: never merge distinct canonical filenames.
+        private static readonly Dictionary<string, Slot> Entries = new Dictionary<string, Slot>(StringComparer.Ordinal);
 
         private sealed class Slot
         {

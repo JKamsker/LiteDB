@@ -5,7 +5,10 @@ or `LiteDatabase(ConnectionString)` share one live `LiteEngine` for their
 canonical database path. This shares transaction locks, caches, WAL state and
 native lifetime admission, rather than opening independent writable engines.
 The static pool belongs to one loaded LiteDB assembly; separately loaded copies
-still exclude one another through native admission.
+still exclude one another through native admission. Canonical filenames retain the
+filesystem's stored spelling and are compared exactly: Windows case-sensitive
+directories can contain distinct database names differing only by case. Ordinary
+case-insensitive aliases normalize to the same stored filename.
 
 Each database owns an independently disposable engine lease, an engine-layer
 `EngineContext`, and its own mapper and client context. The storage engine does
