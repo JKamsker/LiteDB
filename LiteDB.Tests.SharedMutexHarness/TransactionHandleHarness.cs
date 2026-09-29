@@ -20,6 +20,22 @@ internal static class TransactionHandleHarness
             Console.WriteLine("done");
             return true;
         }
+        if (mode == "handle-close-idle" || mode == "handle-close-active")
+        {
+            if (!ThreadPool.SetMinThreads(1, 1) || !ThreadPool.SetMaxThreads(1, 1))
+                throw new InvalidOperationException("Could not constrain the isolated worker pool");
+            Task.Run(() =>
+            {
+                if (mode == "handle-close-active")
+                {
+                    var tx = db.BeginTransaction();
+                    tx.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 2, ["value"] = 84 });
+                }
+                db.Dispose();
+            }).GetAwaiter().GetResult();
+            Console.WriteLine("done");
+            return true;
+        }
         if (mode == "handle-writer")
         {
             Console.WriteLine("attempting");

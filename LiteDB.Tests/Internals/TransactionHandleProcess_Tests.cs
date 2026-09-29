@@ -26,6 +26,20 @@ namespace LiteDB.Tests.Internals
         }
 
         [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task Session_close_progresses_while_callers_exhaust_the_thread_pool(bool shared, bool active)
+        {
+            using var file = new TempFile();
+            Seed(file, null);
+            await MvccProcess.Run(active ? "handle-close-active" : "handle-close-idle", file, null,
+                shared ? "shared" : "direct");
+            Verify(file, null, new[] { 1 });
+        }
+
+        [Theory]
         [InlineData(false, null)]
         [InlineData(false, "secret")]
         [InlineData(true, null)]

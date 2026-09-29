@@ -18,12 +18,14 @@ namespace LiteDB
         private readonly List<Exception> _errors = new List<Exception>();
         private Action _release;
         private Thread _requestThread, _cleanupThread;
+        private LiteTransaction[] _pendingRequests;
         private int _active, _reportedErrors;
         private bool _closeRequested, _cleanupStarted, _closed, _requesting;
         internal CancellationToken Closing => _closing.Token;
         internal readonly object DependencyToken = new object();
 #if DEBUG || TESTING
         internal TimeSpan? CloseWaitOverride;
+        internal Action<Thread> StartCloseOverride;
         internal int ActiveHandles { get { lock (_gate) return _transactions.Count; } }
 #endif
 
@@ -70,7 +72,6 @@ namespace LiteDB
         internal void Close(Action release, TimeSpan? wait = null)
         {
             var elapsed = Stopwatch.StartNew();
-            LiteTransaction[] transactions = null;
             lock (_gate)
             {
                 if (_threads.ContainsKey(Thread.CurrentThread) || _requestThread == Thread.CurrentThread ||
@@ -81,27 +82,29 @@ namespace LiteDB
                     _closeRequested = true;
                     _requesting = true;
                     _release = release;
-                    transactions = _transactions.ToArray();
+                    _pendingRequests = _transactions.ToArray();
                 }
-            }
-            if (transactions != null)
-            {
-                var pending = transactions;
-                ThreadPool.QueueUserWorkItem(_ =>
+                if (_requesting && _requestThread == null)
                 {
-                    lock (_gate) _requestThread = Thread.CurrentThread;
+                    // Dispose may itself run on a saturated thread pool. Cleanup must
+                    // progress independently while this caller waits for its deadline.
+                    _requestThread = new Thread(RequestClose) { IsBackground = true, Name = "LiteDB session close" };
                     try
                     {
-                        _closing.Cancel();
-                        foreach (var transaction in pending) transaction.RequestClose();
+#if DEBUG || TESTING
+                        if (StartCloseOverride != null) StartCloseOverride(_requestThread);
+                        else
+#endif
+                        _requestThread.Start();
                     }
-                    catch (Exception error) { Report(error); }
-                    finally
+                    catch
                     {
-                        lock (_gate) { _requesting = false; _requestThread = null; }
-                        TryFinish();
+                        // Keep Closing and all ownership intact. A later Dispose retries
+                        // dispatch rather than leaving an unscheduled request forever.
+                        _requestThread = null;
+                        throw;
                     }
-                });
+                }
             }
             var timeout = wait ?? CloseWait;
 #if DEBUG || TESTING
@@ -124,6 +127,21 @@ namespace LiteDB
                     _reportedErrors = _errors.Count;
                     ExceptionDispatchInfo.Capture(failure).Throw();
                 }
+            }
+        }
+
+        private void RequestClose()
+        {
+            try
+            {
+                _closing.Cancel();
+                foreach (var transaction in _pendingRequests) transaction.RequestClose();
+            }
+            catch (Exception error) { Report(error); }
+            finally
+            {
+                lock (_gate) { _requesting = false; _requestThread = null; _pendingRequests = null; }
+                TryFinish();
             }
         }
 
