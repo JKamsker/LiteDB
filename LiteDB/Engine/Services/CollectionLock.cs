@@ -12,6 +12,9 @@ namespace LiteDB.Engine
         private object _owner;
         private Thread _thread;
         private int _depth;
+#if DEBUG || TESTING
+        internal Action BeforeWait;
+#endif
 
         public bool TryEnter(object owner, TimeSpan timeout)
         {
@@ -24,7 +27,11 @@ namespace LiteDB.Engine
                     if (ReferenceEquals(_thread, Thread.CurrentThread)) return false;
                     var elapsed = (System.Diagnostics.Stopwatch.GetTimestamp() - started) / (double)System.Diagnostics.Stopwatch.Frequency;
                     var remaining = timeout - TimeSpan.FromSeconds(elapsed);
-                    if (remaining <= TimeSpan.Zero || !Monitor.Wait(_lock, remaining)) return false;
+                    if (remaining <= TimeSpan.Zero) return false;
+#if DEBUG || TESTING
+                    BeforeWait?.Invoke();
+#endif
+                    if (!Monitor.Wait(_lock, remaining)) return false;
                 }
                 _owner = owner;
                 _thread = Thread.CurrentThread;

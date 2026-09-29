@@ -72,6 +72,25 @@ namespace LiteDB.Tests.Engine
             Assert.Equal(3, cold.GetCollection("rows").FindOne("value = 30")["_id"].AsInt32);
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void Invalid_context_page_limit_is_rejected_on_creation_and_attachment(int limit)
+        {
+            using var file = new TempFile();
+            var invalid = new ConnectionString { Filename = file, TransactionPageLimit = limit };
+            Assert.Throws<ArgumentOutOfRangeException>(() => new LiteDatabase(invalid));
+            using (var retained = new LiteDatabase(file))
+            {
+                retained.GetCollection("rows").Insert(Row(1));
+                Assert.Throws<ArgumentOutOfRangeException>(() => new LiteDatabase(invalid));
+                retained.GetCollection("rows").Insert(Row(2));
+                Assert.Equal(2, retained.GetCollection("rows").Count());
+            }
+            using var cold = new LiteDatabase(file);
+            Assert.Equal(new[] { 1, 2 }, cold.GetCollection("rows").FindAll().Select(row => row["_id"].AsInt32));
+        }
+
         [Fact]
         public void Read_only_existing_index_does_not_checkpoint_a_writable_hosts_eligible_wal()
         {

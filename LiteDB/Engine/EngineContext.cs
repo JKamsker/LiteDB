@@ -20,8 +20,9 @@ namespace LiteDB.Engine
 
         internal EngineContext(LiteEngine engine, EngineSettings settings)
         {
+            if (settings.TransactionPageLimit <= 0) throw new ArgumentOutOfRangeException(nameof(settings.TransactionPageLimit));
             _engine = engine;
-            Policy = settings.Clone();
+            Policy = settings;
         }
 
         internal static EngineContext CurrentFor(LiteEngine engine) =>

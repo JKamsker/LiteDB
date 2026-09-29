@@ -14,7 +14,7 @@ namespace LiteDB.Client.Direct
 
         internal DirectEngineLease(DirectEnginePool.Entry entry, EngineSettings settings)
         {
-            _context = new EngineContext(entry.Engine, settings);
+            _context = new EngineContext(entry.Engine, settings.Clone());
             entry.Retain();
             _entry = entry;
         }

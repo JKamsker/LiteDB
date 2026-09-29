@@ -118,6 +118,86 @@ namespace LiteDB.Tests.Engine
             Assert.Equal(new[] { 1, 3 }, cold.GetCollection("other").FindAll().Select(row => row["_id"].AsInt32));
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Foreign_reader_disposal_preserves_each_contexts_transaction(bool closeOwner)
+        {
+            using var file = new TempFile();
+            using (var first = new LiteDatabase(file))
+            using (var second = new LiteDatabase(file))
+            {
+                Seed(first);
+                first.BeginTrans();
+                first.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 3, ["value"] = 30 });
+                using var reader = first.Execute("SELECT $ FROM rows");
+                Assert.True(reader.Read());
+                if (closeOwner) first.Dispose();
+                var cleanup = Task.Run(() =>
+                {
+                    Assert.True(second.BeginTrans());
+                    second.GetCollection("other").Insert(new BsonDocument { ["_id"] = 7 });
+                    var monitor = NativeAdmissionDirectPool_Tests.Engine(second).GetMonitor();
+                    Assert.Equal(2, monitor.Transactions.Count);
+                    reader.Dispose();
+                    reader.Dispose();
+                    Assert.Equal(closeOwner ? 1 : 2, monitor.Transactions.Count);
+                    Assert.Null(second.GetCollection("rows").FindById(3));
+                    Assert.NotNull(second.GetCollection("other").FindById(7));
+                    Assert.True(second.Commit());
+                });
+                Assert.True(cleanup.Wait(TimeSpan.FromSeconds(10)));
+                // A's completion stays on its actual opening thread; B completed on its worker.
+                if (!closeOwner) Assert.True(first.Rollback());
+                Assert.Null(second.GetCollection("rows").FindById(3));
+                await cleanup;
+            }
+            for (var i = 0; i < 2; i++)
+            {
+                Verify(file, committedThird: false);
+                using var cold = new LiteDatabase(file);
+                Assert.NotNull(cold.GetCollection("other").FindById(7));
+            }
+        }
+
+        [Fact]
+        public async Task Foreign_context_disposal_wakes_a_sibling_already_waiting_for_its_collection()
+        {
+            using var file = new TempFile();
+            using (var first = new LiteDatabase(new ConnectionString { Filename = file, TransactionPageLimit = 1 }))
+            using (var second = new LiteDatabase(file))
+            {
+                Seed(first);
+                WriteUncommitted(first);
+                var engine = NativeAdmissionDirectPool_Tests.Engine(first);
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var locker = (LockService)typeof(LiteEngine).GetField("_locker", flags).GetValue(engine);
+                var locks = (System.Collections.Concurrent.ConcurrentDictionary<string, CollectionLock>)
+                    typeof(LockService).GetField("_collections", flags).GetValue(locker);
+                using var waiting = new ManualResetEventSlim();
+                locks["rows"].BeforeWait = () => waiting.Set();
+                var writer = Task.Run(() => second.GetCollection("rows").Insert(
+                    new BsonDocument { ["_id"] = 3, ["value"] = 30 }));
+                try
+                {
+                    Assert.True(waiting.Wait(TimeSpan.FromSeconds(10)));
+                    Assert.False(writer.IsCompleted);
+                    await Task.Run(() => first.Dispose());
+                    await writer;
+                }
+                finally
+                {
+                    locks["rows"].BeforeWait = null;
+                    first.Dispose();
+                    await writer;
+                }
+                Assert.Empty(engine.GetMonitor().Transactions);
+                second.Checkpoint();
+            }
+            Verify(file, committedThird: true);
+            Verify(file, committedThird: true);
+        }
+
         [Fact]
         public void Failed_context_rollback_stops_all_contexts_and_preserves_committed_state()
         {
@@ -174,6 +254,7 @@ namespace LiteDB.Tests.Engine
                 database.GetCollection("rows").FindAll().Select(row => row["_id"].AsInt32));
             Assert.NotNull(database.GetCollection("rows").FindOne("value = 10"));
             Assert.Null(database.GetCollection("rows").FindOne("value = 20"));
+            Assert.Equal(committedThird, database.GetCollection("rows").FindOne("value = 30") != null);
             Assert.NotNull(database.GetCollection("sentinel").FindById(9));
         }
     }
