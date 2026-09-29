@@ -5,22 +5,30 @@ import hashlib
 import importlib.util
 import json
 import os
+import platform
 from pathlib import Path
 import subprocess
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--framework', default='net8.0')
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--architecture', default={'amd64': 'x64', 'x86_64': 'x64', 'aarch64': 'arm64'}.get(platform.machine().lower(), platform.machine().lower()))
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 root = args.output.resolve()
 env = dict(os.environ, LITEDB_RETAINED_FIXTURES=str(root), LITEDB_GRAPH_RETENTION_SENTINEL='1')
-result = subprocess.run(['dotnet', 'test', 'LiteDB.Tests/LiteDB.Tests.csproj', '-c', 'Release',
-                         '-f', args.framework, '--no-build', '-p:TestingEnabled=true', '--settings', 'tests.runsettings',
-                         '--filter', 'FullyQualifiedName~NativeAdmissionGraphFinalizer_Tests'],
+# Execute the downloaded assembly directly: packaged CI outputs intentionally do
+# not include root obj/project.assets.json, so a no-build project test invocation
+# can silently do no work when its imported IsTestProject property is unavailable.
+assembly = Path('LiteDB.Tests/bin/Release') / args.framework / 'LiteDB.Tests.dll'
+major = int(args.framework.removeprefix('net').split('.')[0])
+result = subprocess.run(['dotnet', 'vstest', str(assembly),
+                         f'/Framework:.NETCoreApp,Version=v{major}.0', f'/Platform:{args.architecture}',
+                         '/Settings:tests.runsettings',
+                         '/TestCaseFilter:FullyQualifiedName~NativeAdmissionGraphFinalizer_Tests'],
                         env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=90)
 (root / 'expected-failing-test-host.log').write_text(result.stdout, encoding='utf-8')
-assert result.returncode != 0, 'The deliberately failing graph test unexpectedly passed'
+assert result.returncode != 0, 'The deliberately failing graph test unexpectedly passed or did not execute:\n' + result.stdout
 manifests = list(root.glob('*.json'))
 assert len(manifests) == 6, f'Expected six actual C# graph manifests, got {len(manifests)}'
 for manifest in manifests:
