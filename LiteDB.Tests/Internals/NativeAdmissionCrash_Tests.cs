@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using FluentAssertions;
 using LiteDB.Engine;
+using LiteDB.Client.Shared;
 using LiteDB.Internals;
 using LiteDB.Tests.Engine;
 using Xunit;
@@ -47,18 +48,37 @@ namespace LiteDB.Tests.Internals
             Directory.CreateDirectory(directory);
             var filename = Path.Combine(directory, "data.db");
             var phase = "seed";
+            var childPid = 0;
+            var childExited = false;
             try
             {
                 NativeAdmission_Tests.Seed(filename, password);
                 using var volume = fallback ? new NativeAdmissionFallback_Tests.UnqualifiedVolume(filename) : null;
                 using (var child = new MvccProcess("native-rebuild-hold", filename, password, stage + (fallback ? "|fallback" : "")))
                 {
+                    childPid = child.Id;
                     phase = "wait for child boundary";
                     await child.Expect("ready");
+                    if (stage == "before-recovery-marker-flush")
+                    {
+                        phase = "prove live child owns the exclusive recovery marker";
+                        Action readLiveMarker = () => File.ReadAllBytes(RebuildRecovery.GetMarkerFilename(filename));
+                        readLiveMarker.Should().Throw<IOException>();
+                    }
                     phase = "kill and await child exit";
                     await child.Kill();
+                    childExited = true;
+                    _output.WriteLine("Child {0} exit observed, exit code {1}", childPid, child.ExitCode);
                 }
+                phase = "probe native admission after child exit";
+                var authority = File.Exists(filename) ? filename : FileHelper.GetSuffixFile(filename, "-temp", false);
+                using (var probe = new DatabaseFileLock(authority, readOnly: true, create: false, fallback))
+                    probe.Conflicts(DatabaseFileLock.Admission).Should().BeFalse("the exited child must release native admission");
+                _output.WriteLine("Native admission released for {0}; marker exists={1}", authority,
+                    File.Exists(RebuildRecovery.GetMarkerFilename(filename)));
                 phase = "verify recovery marker, refusal and candidate";
+                if (Environment.GetEnvironmentVariable("LITEDB_NATIVE_CRASH_RETENTION_SENTINEL") == "1")
+                    throw new InvalidOperationException("native crash retention sentinel after child exit");
                 VerifyRecovery(directory, filename, stage, password, fallback);
                 phase = "cleanup after all recovery assertions passed";
                 // Process termination and successful recovery assertions do not
@@ -70,7 +90,8 @@ namespace LiteDB.Tests.Internals
             {
                 _output.WriteLine("Crash case stage={0}, encrypted={1}, phase={2}\nRetained fixture: {3}\n{4}",
                     stage, password != null, phase, directory, error);
-                PreserveEvidence(directory, phase, error);
+                RetainedTestFixture.PublishNativeCrash(directory, $"stage={stage}; encrypted={password != null}; fallback={fallback}; phase={phase}",
+                    childPid, childExited, error, _output);
                 throw;
             }
         }
@@ -112,28 +133,6 @@ namespace LiteDB.Tests.Internals
             Directory.GetFiles(directory, "*-shared-mode").Should().BeEmpty();
         }
 
-        private void PreserveEvidence(string directory, string phase, Exception error)
-        {
-            // Keep the exercised directory on its original system-temp volume.
-            // CI uploads copies only after the child's using scope has exited.
-            var destination = Environment.GetEnvironmentVariable("LITEDB_SHARED_DIAGNOSTICS");
-            if (string.IsNullOrEmpty(destination)) return;
-            try
-            {
-                destination = Path.Combine(destination, Path.GetFileName(directory));
-                Directory.CreateDirectory(destination);
-                File.WriteAllText(Path.Combine(destination, "failure.txt"),
-                    "Original fixture: " + directory + "\nPhase: " + phase + "\n" + error);
-                foreach (var source in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
-                {
-                    var target = Path.Combine(destination, Path.GetRelativePath(directory, source));
-                    Directory.CreateDirectory(Path.GetDirectoryName(target));
-                    try { File.Copy(source, target); }
-                    catch (Exception copyError) { _output.WriteLine("Could not copy {0}: {1}", source, copyError); }
-                }
-            }
-            catch (Exception copyError) { _output.WriteLine("Could not copy retained fixture: {0}", copyError); }
-        }
     }
 }
 #endif

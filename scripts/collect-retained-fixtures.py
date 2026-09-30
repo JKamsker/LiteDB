@@ -55,17 +55,27 @@ def collect(directory):
             report['primaryFailure'] = source['failure']
             if running(int(source['processId'])):
                 raise RuntimeError('Fixture host is still running; refusing to copy')
-            database = Path(source['database'])
-            # TempFile owns a GUID basename. Include its WAL, coordination files,
-            # reader directory and replacement evidence, never a neighboring GUID.
-            stem = database.stem
-            if not database.is_absolute() or not stem.startswith('litedb-') or len(stem) != 39:
-                raise ValueError('Expected an absolute GUID TempFile database path')
-            int(stem[7:], 16)
-            for item in sorted(database.parent.iterdir()):
-                if not (item.name == database.name or item.name.startswith(stem + '-') or
-                        item.name.startswith(stem + '.')):
-                    continue
+            if source.get('fixtureKind') == 'native-crash-directory':
+                fixture = Path(source['directory'])
+                prefix = 'litedb-native-crash-'
+                if not fixture.is_absolute() or not fixture.name.startswith(prefix) or len(fixture.name) != len(prefix) + 32:
+                    raise ValueError('Expected an absolute GUID native-crash directory')
+                int(fixture.name[len(prefix):], 16)
+                if fixture.is_symlink():
+                    raise ValueError('Refusing to follow a fixture directory symlink')
+                if source.get('childPid', 0) and running(int(source['childPid'])):
+                    raise RuntimeError('Fixture child is still running; refusing to copy')
+                items = sorted(fixture.iterdir())
+            else:
+                database = Path(source['database'])
+                # TempFile owns a GUID basename. Never capture a neighboring GUID.
+                stem = database.stem
+                if not database.is_absolute() or not stem.startswith('litedb-') or len(stem) != 39:
+                    raise ValueError('Expected an absolute GUID TempFile database path')
+                int(stem[7:], 16)
+                items = [item for item in sorted(database.parent.iterdir())
+                         if item.name == database.name or item.name.startswith(stem + '-') or item.name.startswith(stem + '.')]
+            for item in items:
                 try:
                     if item.is_symlink():
                         raise ValueError('Refusing to follow a fixture symlink')
