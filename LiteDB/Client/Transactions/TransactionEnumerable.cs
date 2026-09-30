@@ -19,16 +19,20 @@ namespace LiteDB
             private IEnumerator<T> _inner;
             internal Enumerator(LiteTransaction owner, IEnumerator<T> inner) { _owner = owner; _inner = inner; }
             private IEnumerator<T> Inner => _inner ?? throw new ObjectDisposedException(nameof(IEnumerator<T>));
-            public T Current { get { var inner = Inner; return _owner.Run(() => inner.Current); } }
+            private void Validate() { if (_inner == null) throw new ObjectDisposedException(nameof(IEnumerator<T>)); }
+            public T Current { get { var inner = Inner; return _owner.Run(() => inner.Current, Validate); } }
             object IEnumerator.Current => Current;
-            public bool MoveNext() { var inner = Inner; return _owner.Run(() => inner.MoveNext()); }
+            public bool MoveNext() { var inner = Inner; return _owner.Run(() => inner.MoveNext(), Validate); }
             public void Reset() => throw new NotSupportedException();
             public void Dispose()
             {
                 if (_inner == null) return;
-                _owner.DisposeBoundObject(() => _inner.Dispose());
-                // Terminal/session cleanup owns every tracked engine cursor.
-                _inner = null;
+                if (!_owner.DisposeBoundObject(() =>
+                {
+                    var inner = _inner;
+                    _inner = null;
+                    inner?.Dispose();
+                })) _inner = null; // Session close owns cleanup; admitted calls retained their inner.
             }
         }
     }
@@ -39,16 +43,21 @@ namespace LiteDB
         private IBsonDataReader _inner;
         internal GuardedTransactionReader(LiteTransaction owner, IBsonDataReader inner) { _owner = owner; _inner = inner; }
         private IBsonDataReader Inner => _inner ?? throw new ObjectDisposedException(nameof(IBsonDataReader));
-        public BsonValue Current { get { var inner = Inner; return _owner.Run(() => inner.Current); } }
-        public BsonValue this[string field] { get { var inner = Inner; return _owner.Run(() => inner[field]); } }
-        public string Collection { get { var inner = Inner; return _owner.Run(() => inner.Collection); } }
-        public bool HasValues { get { var inner = Inner; return _owner.Run(() => inner.HasValues); } }
-        public bool Read() { var inner = Inner; return _owner.Run(() => inner.Read()); }
+        private void Validate() { if (_inner == null) throw new ObjectDisposedException(nameof(IBsonDataReader)); }
+        public BsonValue Current { get { var inner = Inner; return _owner.Run(() => inner.Current, Validate); } }
+        public BsonValue this[string field] { get { var inner = Inner; return _owner.Run(() => inner[field], Validate); } }
+        public string Collection { get { var inner = Inner; return _owner.Run(() => inner.Collection, Validate); } }
+        public bool HasValues { get { var inner = Inner; return _owner.Run(() => inner.HasValues, Validate); } }
+        public bool Read() { var inner = Inner; return _owner.Run(() => inner.Read(), Validate); }
         public void Dispose()
         {
             if (_inner == null) return;
-            _owner.DisposeBoundObject(() => _inner.Dispose());
-            _inner = null;
+            if (!_owner.DisposeBoundObject(() =>
+            {
+                var inner = _inner;
+                _inner = null;
+                inner?.Dispose();
+            })) _inner = null;
         }
     }
 }

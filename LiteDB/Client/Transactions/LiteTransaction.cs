@@ -84,16 +84,19 @@ namespace LiteDB
             if (close) RequestClose();
         }
 
-        internal T Run<T>(Func<T> action)
+        internal T Run<T>(Func<T> action, Action validate = null)
         {
             using var admission = Enter();
+            // Child lifetime misuse is an admission refusal, not a statement failure.
+            try { validate?.Invoke(); }
+            catch { Exit(); throw; }
             return RunCore(action);
         }
 
-        internal void DisposeBoundObject(Action action)
+        internal bool DisposeBoundObject(Action action)
         {
             using var admission = EnterCleanup();
-            if (admission.HasValue) RunCore(() => { action(); return true; });
+            return admission.HasValue && RunCore(() => { action(); return true; });
         }
 
         private T RunCore<T>(Func<T> action)
