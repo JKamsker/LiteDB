@@ -2,11 +2,13 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <EnableDefaultItems>false</EnableDefaultItems>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>0618;LITEDB_EXPERIMENTAL_COORDINATOR</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="*.cs" />
     <Reference Include="LiteDB"><HintPath>$(LibraryPath)</HintPath></Reference>
   </ItemGroup>
 </Project>

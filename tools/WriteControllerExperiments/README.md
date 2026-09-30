@@ -52,6 +52,12 @@ deduplication, durable inbox, security boundary against malicious same-user code
 or takeover protocol. Reconcile the request ID before retrying; a durable inbox
 would be needed for a stronger retry contract.
 
+The IPC process owns a Direct database for its lifetime. Other processes cannot
+open the database independently in Direct or Shared mode while it runs. This
+proof's protocol only serves writes; a usable multiprocess service would also
+need a read/snapshot API or integration with the existing coordinator. It is not
+a transparent replacement for Shared connections.
+
 Existing collection/header locks cover commit and fsync. Moving independent
 transactions behind a shared flush would require changing publication and lock
 lifetimes, handling a whole cohort after failed fsync, and validating recovery of
@@ -75,7 +81,7 @@ are excluded from throughput. Raw outputs retain these distinctions.
 Safety probes force a batch to block at durable sync and check no early success,
 exactly one commit sync for eight requests (encrypted streams also sync their
 preamble), rollback and later progress, bounded queue
-rejection and close/drain ordering, short writes and failed/ambiguous sync, plain
+rejection and close/drain ordering, partial writes followed by I/O errors and failed/ambiguous sync, plain
 and encrypted durable-image recovery, process death around fsync/acknowledgement,
 concurrent indexed IPC writes, truncated IPC requests, and a durable IPC write
 whose acknowledgement is lost when the host dies. FileStream subclasses
