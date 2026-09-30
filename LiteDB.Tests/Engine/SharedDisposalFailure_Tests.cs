@@ -21,12 +21,13 @@ namespace LiteDB.Tests.Engine
         [InlineData("secret", 0)]
         [InlineData("secret", 1)]
         [InlineData("secret", 2)]
+        [InlineData(null, 3)]
+        [InlineData("secret", 3)]
         public void Pin_close_failure_finishes_connection_cleanup_and_preserves_leased_reader(string password, int failures)
         {
             using var file = new TempFile();
             var settings = new EngineSettings { Filename = file, Password = password };
             var shared = new SharedEngine(settings);
-            settings = (EngineSettings)Field(shared, "_settings");
             var db = new LiteDatabase(shared);
             var rows = db.GetCollection("rows");
             rows.EnsureIndex("value");
@@ -45,6 +46,11 @@ namespace LiteDB.Tests.Engine
             Assert.NotNull(slots);
             var primary = new IOException("pin core cleanup failed");
             var secondary = new InvalidOperationException("parent cleanup failed");
+            var retained = new IOException("previous cleanup detail");
+            primary.Data["LiteDB.SharedCleanup.0"] = retained;
+            if (failures == 3)
+                typeof(SharedEngine).GetField("_cachedTransactionChild", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(shared, new ThrowAfterSharedDispose(new EngineSettings { Filename = file, Password = password }, secondary));
             using var reached = new ManualResetEventSlim();
             using var release = new ManualResetEventSlim();
             var core = (LiteEngine)Field(shared, "_engine");
@@ -65,7 +71,9 @@ namespace LiteDB.Tests.Engine
                 Assert.True(close.Wait(TimeSpan.FromSeconds(10)));
                 if (failures == 0) Assert.Null(close.Result);
                 else Assert.Same(primary, close.Result);
-                if (failures == 2) Assert.Contains(secondary, primary.Data.Values.Cast<object>());
+                if (failures >= 2) Assert.Contains(secondary, primary.Data.Values.Cast<object>());
+                Assert.Same(retained, primary.Data["LiteDB.SharedCleanup.0"]);
+                Assert.Null(Field(shared, "_cachedTransactionChild"));
                 Assert.True((bool)Field(registry, "_disposed"));
                 Assert.False((bool)Field(slots, "_closed"));
                 var handles = Field(shared, "_handles");
@@ -74,14 +82,20 @@ namespace LiteDB.Tests.Engine
                 Assert.Null(Field(shared, "_coordination"));
 #endif
                 db.Dispose();
+                shared.SimulateOpenEngine = null;
+                // A surviving leased snapshot must retain its view while another
+                // connection makes progress after the failed connection close.
+                var writing = Task.Run(() =>
+                {
+                    using var peer = new LiteDatabase(new ConnectionString { Filename = file, Password = password, Connection = ConnectionType.Shared });
+                    peer.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 300, ["value"] = 300 });
+                });
+                Assert.True(writing.Wait(TimeSpan.FromSeconds(10)));
                 var count = 1;
                 while (reader.Read()) count++;
                 Assert.Equal(150, count);
                 reader.Dispose();
                 Assert.True((bool)Field(slots, "_closed"));
-                shared.SimulateOpenEngine = null;
-                using (var peer = new LiteDatabase(new ConnectionString { Filename = file, Password = password, Connection = ConnectionType.Shared }))
-                    peer.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 300, ["value"] = 300 });
                 for (var repeat = 0; repeat < 2; repeat++)
                 {
                     using var cold = new LiteDatabase(new ConnectionString { Filename = file, Password = password });
@@ -104,6 +118,17 @@ namespace LiteDB.Tests.Engine
                 shared.SimulateOpenEngine = null;
                 reader.Dispose();
                 db.Dispose();
+            }
+        }
+
+        private sealed class ThrowAfterSharedDispose : SharedEngine
+        {
+            private readonly Exception _failure;
+            internal ThrowAfterSharedDispose(EngineSettings settings, Exception failure) : base(settings) { _failure = failure; }
+            protected override void Dispose(bool disposing)
+            {
+                base.Dispose(disposing);
+                if (disposing) throw _failure;
             }
         }
 
