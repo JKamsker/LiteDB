@@ -66,5 +66,28 @@
       "LiteDB.Tests/Engine/TransactionHandleDisposeSafety_Tests.cs#Deferred_fatal_teardown_does_not_repeat_peer_error_on_healthy_disposal",
       "LiteDB.Tests/Engine/TransactionHandleFatalCleanupRace_Tests.cs#Cleanup_discriminates_published_peer_failure_from_its_own_failure"
     ]
+  },
+  "Issue_133_RawCloseCallbackDependency": {
+    "reason": "The dedicated Regression proof workflow packs the pinned known-bad commit and verifies both before/after variants; permanent guards run in the normal suites. Ordinary ReproRunner jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/TransactionHandleRawCloseDependency_Tests.cs#Raw_close_rejects_fresh_callback_dependency_before_draining_callback",
+      "LiteDB.Tests/Engine/TransactionHandleRawCloseDependency_Tests.cs#Close_wakes_fresh_work_already_waiting_behind_rebuild"
+    ]
+  },
+  "Issue_3067_SharedPinCleanup": {
+    "reason": "The dedicated Regression proof workflow packs the pinned known-bad commit and verifies both before/after variants; permanent guards run in the normal suites. Ordinary ReproRunner jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/SharedDisposalFailure_Tests.cs#Pin_close_failure_finishes_connection_cleanup_and_preserves_leased_reader",
+      "LiteDB.Tests/Engine/SharedCallbackClose_Tests.cs#Refused_raw_callback_close_keeps_native_ownership_until_operation_returns"
+    ]
+  },
+  "Issue_3067_HandleCallbackSelfWait": {
+    "reason": "The dedicated Regression proof workflow packs the pinned known-bad commit and verifies both before/after variants; permanent guards run in the normal suites. Ordinary ReproRunner jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/TransactionHandleCallbackLock_Tests.cs#Same_collection_callback_refuses_self_wait_without_enlisting_independent_work",
+      "LiteDB.Tests/Engine/TransactionHandleCallbackLock_Tests.cs#Original_thread_may_wait_for_idle_handle_completed_by_another_thread",
+      "LiteDB.Tests/Engine/TransactionHandleCallbackLock_Tests.cs#Repeated_public_handoff_restores_binding_before_admitting_next_callback",
+      "LiteDB.Tests/Engine/TransactionHandleCallbackHandoff_Tests.cs#Public_admission_handoff_preserves_current_callback_marker"
+    ]
   }
 }
