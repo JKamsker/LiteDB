@@ -131,7 +131,7 @@ static int PeerWrite(string filename, string password)
 {
     try
     {
-        using (var db = new LiteDatabase(new ConnectionString { Filename = filename, Password = password, Connection = ConnectionType.Shared }))
+        using (var db = new LiteDatabase(new ConnectionString { Filename = filename, Password = password.Length == 0 ? null : password, Connection = ConnectionType.Shared }))
             db.GetCollection("rows").Insert(Row(50));
         Console.WriteLine("PEER_COMMITTED");
         return 0;
