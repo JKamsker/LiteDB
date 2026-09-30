@@ -8,6 +8,8 @@ namespace LiteDB.Engine
     /// <summary>Retains a service generation through execution and its completion tail.</summary>
     internal sealed class OperationLifetime
     {
+        private readonly Func<bool> _ownsTransaction;
+        internal OperationLifetime(Func<bool> ownsTransaction = null) { _ownsTransaction = ownsTransaction; }
         private readonly object _gate = new object();
         private readonly Dictionary<Thread, int> _threads = new Dictionary<Thread, int>();
         private int _active;
@@ -27,7 +29,7 @@ namespace LiteDB.Engine
                 // existing transaction/cursor completion must still drain its dependencies.
                 while ((_exclusive != null && _exclusive != thread) ||
                     (_exclusive == null && _waitingExclusive != 0 && !continuation &&
-                        !_threads.ContainsKey(thread)))
+                        !_threads.ContainsKey(thread) && !(_ownsTransaction?.Invoke() ?? false)))
                 {
 #if DEBUG || TESTING
                     WaitingForMaintenance?.Invoke();
@@ -82,9 +84,14 @@ namespace LiteDB.Engine
                 _waitingExclusive++;
                 try
                 {
-                    stopWaiters?.Invoke();
-                    while (_exclusive != null || _active != 0 || !dependenciesDrained())
+                    while (true)
                     {
+                        // Never interrupt the service generation used by another maintenance owner.
+                        if (_exclusive == null)
+                        {
+                            stopWaiters?.Invoke();
+                            if (_active == 0 && dependenciesDrained()) break;
+                        }
                         if (timeout.HasValue && elapsed.Elapsed >= timeout.Value)
                             throw LiteException.LockTimeout("operation/maintenance", timeout.Value);
                         Monitor.Wait(_gate, 10);
