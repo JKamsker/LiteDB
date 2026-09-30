@@ -125,3 +125,10 @@ The updated test now requires the exact injected IOException; all original WAL
 retention, committed-state/index recovery and subsequent checkpoint assertions
 remain. This is a documented semantic difference, not suppression of a safety
 failure. The failing candidate `1eaeaf092` and corrected run are retained.
+
+Windows qualification found a second test-harness portability issue: a raw native
+lock probe bypasses engine path normalization, so a lexical `.` alias is not a
+valid extended Windows filename. The raw probe now uses the normalized data path,
+with both released-before and released-after controls. Public engine and child
+admission still use the alias and must reject it while the owner is live; scratch
+bytes and committed data remain checked. No production behavior changed.
