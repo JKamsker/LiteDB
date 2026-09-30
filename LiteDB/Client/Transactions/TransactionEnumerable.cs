@@ -18,16 +18,17 @@ namespace LiteDB
             private readonly LiteTransaction _owner;
             private IEnumerator<T> _inner;
             internal Enumerator(LiteTransaction owner, IEnumerator<T> inner) { _owner = owner; _inner = inner; }
-            public T Current => _owner.Run(() => _inner.Current);
+            private IEnumerator<T> Inner => _inner ?? throw new ObjectDisposedException(nameof(IEnumerator<T>));
+            public T Current { get { var inner = Inner; return _owner.Run(() => inner.Current); } }
             object IEnumerator.Current => Current;
-            public bool MoveNext() => _owner.Run(() => _inner.MoveNext());
+            public bool MoveNext() { var inner = Inner; return _owner.Run(() => inner.MoveNext()); }
             public void Reset() => throw new NotSupportedException();
             public void Dispose()
             {
                 if (_inner == null) return;
-                // Terminal cleanup already closed the underlying tracked engine cursor.
-                if (_owner.State != LiteTransactionState.Active) { _inner = null; return; }
-                _owner.Run(() => { _inner.Dispose(); _inner = null; return true; });
+                _owner.DisposeBoundObject(() => _inner.Dispose());
+                // Terminal/session cleanup owns every tracked engine cursor.
+                _inner = null;
             }
         }
     }
@@ -37,16 +38,17 @@ namespace LiteDB
         private readonly LiteTransaction _owner;
         private IBsonDataReader _inner;
         internal GuardedTransactionReader(LiteTransaction owner, IBsonDataReader inner) { _owner = owner; _inner = inner; }
-        public BsonValue Current => _owner.Run(() => _inner.Current);
-        public BsonValue this[string field] => _owner.Run(() => _inner[field]);
-        public string Collection => _owner.Run(() => _inner.Collection);
-        public bool HasValues => _owner.Run(() => _inner.HasValues);
-        public bool Read() => _owner.Run(() => _inner.Read());
+        private IBsonDataReader Inner => _inner ?? throw new ObjectDisposedException(nameof(IBsonDataReader));
+        public BsonValue Current { get { var inner = Inner; return _owner.Run(() => inner.Current); } }
+        public BsonValue this[string field] { get { var inner = Inner; return _owner.Run(() => inner[field]); } }
+        public string Collection { get { var inner = Inner; return _owner.Run(() => inner.Collection); } }
+        public bool HasValues { get { var inner = Inner; return _owner.Run(() => inner.HasValues); } }
+        public bool Read() { var inner = Inner; return _owner.Run(() => inner.Read()); }
         public void Dispose()
         {
             if (_inner == null) return;
-            if (_owner.State != LiteTransactionState.Active) { _inner = null; return; }
-            _owner.Run(() => { _inner.Dispose(); _inner = null; return true; });
+            _owner.DisposeBoundObject(() => _inner.Dispose());
+            _inner = null;
         }
     }
 }

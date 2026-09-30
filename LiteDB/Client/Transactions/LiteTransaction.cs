@@ -87,6 +87,17 @@ namespace LiteDB
         internal T Run<T>(Func<T> action)
         {
             using var admission = Enter();
+            return RunCore(action);
+        }
+
+        internal void DisposeBoundObject(Action action)
+        {
+            using var admission = EnterCleanup();
+            if (admission.HasValue) RunCore(() => { action(); return true; });
+        }
+
+        private T RunCore<T>(Func<T> action)
+        {
             using var context = _resources.Session.Enter();
             using var binding = TransactionContext.Enter(_transaction);
             try { return action(); }
@@ -235,18 +246,39 @@ namespace LiteDB
             finally { Exit(); }
         }
 
-        private void RollbackCore()
+        private void RollbackCore(bool onlyIfActive = false)
         {
             using var context = _resources.Session.Enter();
             using var binding = TransactionContext.Enter(_transaction);
             Exception failure = null;
             try
             {
-                CloseReadersAndRollback();
+                CloseReadersAndRollback(onlyIfActive);
                 _transaction.Outcome = LiteTransactionState.RolledBack;
             }
             catch (Exception error) { failure = error; _transaction.Outcome = LiteTransactionState.Failed; throw; }
             finally { ReleaseResources(failure); }
+        }
+
+        // Closing already owns rollback. Cleanup is idempotent across that handoff,
+        // but normal overlapping/reentrant user operations remain invalid.
+        private SessionLifetime.Lease? EnterCleanup()
+        {
+            lock (_gate)
+            {
+                if (_closing || _disposed || State != LiteTransactionState.Active) return null;
+                SessionLifetime.Lease admission;
+                try { admission = _session.Enter(); }
+                catch (ObjectDisposedException) { return null; }
+                if (_executing != null)
+                {
+                    admission.Dispose();
+                    LiteDB.Utils.Reachability.Sometimes("refusal:handle-overlapping-dispose");
+                    throw new InvalidOperationException("Overlapping transaction disposal is not supported.");
+                }
+                _executing = Thread.CurrentThread;
+                return admission;
+            }
         }
 
         [LiteDB.Utils.TeardownPath("LiteTransaction.Dispose", LiteDB.Utils.TeardownDisposition.Propagated,
@@ -255,16 +287,9 @@ namespace LiteDB
         public void Dispose()
         {
             lock (_gate)
-            {
-                if (_disposed) return;
-                if (_executing != null)
-                {
-                    LiteDB.Utils.Reachability.Sometimes("refusal:handle-overlapping-dispose");
-                    throw new InvalidOperationException("Overlapping transaction disposal is not supported.");
-                }
                 if (State != LiteTransactionState.Active) { _disposed = true; return; }
-            }
-            using var admission = Enter();
+            using var admission = EnterCleanup();
+            if (!admission.HasValue) return;
             try { DisposeCore(); }
             finally { Exit(); }
         }
@@ -293,7 +318,7 @@ namespace LiteDB
             {
                 var active = State == LiteTransactionState.Active;
                 LiteDB.Utils.TeardownSteps.Before("LiteTransaction.Dispose.rollback", active);
-                if (active) RollbackCore();
+                if (active) RollbackCore(onlyIfActive: true);
                 LiteDB.Utils.TeardownSteps.After("LiteTransaction.Dispose.rollback", active);
             }
             finally { lock (_gate) _disposed = true; }
