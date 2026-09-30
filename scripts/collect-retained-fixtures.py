@@ -55,11 +55,13 @@ def collect(directory):
             report['primaryFailure'] = source['failure']
             if running(int(source['processId'])):
                 raise RuntimeError('Fixture host is still running; refusing to copy')
-            if source.get('fixtureKind') == 'native-crash-directory':
+            directory_prefixes = {'native-crash-directory': 'litedb-native-crash-',
+                                  'shared-followup-directory': 'litedb-followup-'}
+            if source.get('fixtureKind') in directory_prefixes:
                 fixture = Path(source['directory'])
-                prefix = 'litedb-native-crash-'
+                prefix = directory_prefixes[source['fixtureKind']]
                 if not fixture.is_absolute() or not fixture.name.startswith(prefix) or len(fixture.name) != len(prefix) + 32:
-                    raise ValueError('Expected an absolute GUID native-crash directory')
+                    raise ValueError(f'Expected an absolute GUID {source["fixtureKind"]} directory')
                 int(fixture.name[len(prefix):], 16)
                 if fixture.is_symlink():
                     raise ValueError('Refusing to follow a fixture directory symlink')

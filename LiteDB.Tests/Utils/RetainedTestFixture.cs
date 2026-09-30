@@ -24,6 +24,20 @@ namespace LiteDB.Tests
             catch (Exception diagnostic) { ReportFailure(output, diagnostic); }
         }
 
+        internal static void PublishSharedFollowup(string directory, string phase, Exception primary, ITestOutputHelper output)
+        {
+            try
+            {
+                PublishManifest(new BsonDocument
+                {
+                    ["fixtureKind"] = "shared-followup-directory",
+                    ["directory"] = Path.GetFullPath(directory),
+                    ["phase"] = phase
+                }, primary, output);
+            }
+            catch (Exception diagnostic) { ReportFailure(output, diagnostic); }
+        }
+
         // Publish only a manifest in the test host. Copying must wait until the
         // host exits; a failing finalizer assertion can leave live native handles.
         internal static void Publish(string filename, Exception primary, ITestOutputHelper output)
