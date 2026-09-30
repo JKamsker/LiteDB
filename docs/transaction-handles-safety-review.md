@@ -355,3 +355,32 @@ took 325ms overall; the specific scheduling or drain duration is unknown. This
 correction removes an accidental 100ms normal-cleanup budget, without asserting a
 production timing cause. The revised test still rejects real e821 source in all
 six plain/encrypted self-dependent callback cases.
+
+## Ordinary reader cleanup dependencies
+
+Review5366098967 identified two additional paths on f95f0b0cd. Last-leased-reader
+retirement could join a forced pin whose core was draining that same callback;
+the non-pin owner-exit path could similarly wait before an optional checkpoint.
+Actual f95 reproductions cover both plain/encrypted paths, a nonempty committed
+WAL, native exclusion before callback unwind, and indexed cold recovery without
+uncommitted writes. Retirement now requests release as before but skips a dependent
+join; the existing concurrent connection disposer still reports the exact pin-close
+failure. Non-dependent last-reader disposal continues to join normally. No core
+drain or native-ownership lifetime is shortened, and no new cleanup scheduler is
+introduced. The optional checkpoint leaves the authoritative WAL for later recovery.
+
+A leased reader's self-disposal could close its cursor and latch disposal before
+snapshot-core close refused the executing callback, permanently preventing retry.
+Both leased snapshot construction paths now provide the owned core to a disposal
+preflight before mutation. Plain/encrypted tests retain the reader strongly, retry
+after callback unwind, assert actual core closure and acquire fresh Direct admission.
+Normal leased and existing unleased controls retain their behavior. Actual f95
+fails all four leased leak cases; independent review also uses an alternate
+QueryCore setup with a retained FOR UPDATE reader.
+
+One draft non-dependent pin test probed native ownership with an immediate zero
+wait after an optional checkpoint had posted its asynchronous release. Its net8
+encrypted control failed that probe. The final guard keeps zero-wait exclusion
+while the callback is blocked, then permits a bounded three-second native acquire
+after completion. It still requires actual acquisition and cold-state checks;
+there is no fixed sleep or assertion retry. The original local failure is retained.
