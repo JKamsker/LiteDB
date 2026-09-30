@@ -70,8 +70,23 @@ namespace LiteDB
         });
 
         /// <summary>Run a public call; the admission it made, if any, ends when it returns.</summary>
-        private T Call<T>(Func<T> call)
+        private T Call<T>(Func<T> call, bool rollback = false)
         {
+            // A late reader callback must be refused before waiting for either
+            // connection bookkeeping or writer ownership that close is draining.
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                if (rollback) return default;
+                throw new ObjectDisposedException(nameof(SharedEngine));
+            }
+            if (this.IsForeignReaderCallback())
+            {
+                // A handed-off reader can still be running when its original owner
+                // exits. Its callback cannot wait for the native owner draining it.
+                // Unrelated new callers retain their normal admission wait/recovery.
+                if (rollback) return default;
+                throw new InvalidOperationException("Cannot wait for shared ownership from inside a reader executing on another ownership thread.");
+            }
             var depth = this.AdmittedDepth();
 #if DEBUG || TESTING
             // Wait-for graph: this connection's ownership executes on this thread during the call.

@@ -157,8 +157,11 @@ namespace LiteDB
             "Runs on the pin holder: a failure becomes the pin's error, rethrown by WaitReleased to a waiter; dropped when nobody waits.")]
         private void ClosePin(SharedMutexPin pin, bool abandoned)
         {
-            if (ReferenceEquals(_pin, pin)) _pin = null;
-            if (!pin.Counted) return;
+            if (!pin.Counted)
+            {
+                if (ReferenceEquals(_pin, pin)) _pin = null;
+                return;
+            }
 
             if (abandoned)
             {
@@ -178,11 +181,16 @@ namespace LiteDB
             if (_databaseUsers == 0 && (abandoned || !_transactionRunning) && _engine != null)
             {
                 var engine = _engine;
-                _engine = null;
                 var close = Stopwatch.StartNew();
-                cleanup.Catch(() => this.ObservedClose(engine, () => engine.Dispose()));
+                // The core remains visible until its reader operations have drained.
+                // Foreign reader callbacks must be able to detect this dependency.
+                System.Collections.Generic.List<Exception> closeErrors = null;
+                this.ObservedClose(engine, () => closeErrors = engine.Close());
+                cleanup.Exceptions.AddRange(closeErrors);
+                if (ReferenceEquals(_engine, engine)) _engine = null;
                 _lastPinClose = close.Elapsed;
             }
+            if (ReferenceEquals(_pin, pin)) _pin = null;
             var disposed = Volatile.Read(ref _disposed) != 0;
             cleanup.Step("SharedEngine.ClosePin.coordination", disposed);
             if (disposed) cleanup.Catch(this.DisposeCoordination);

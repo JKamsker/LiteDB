@@ -309,8 +309,7 @@ namespace LiteDB
                     release = false;
                     var unleased = new SharedDataReader(continued, () =>
                     {
-                        try { this.CloseMutexSnapshot(locked); }
-                        finally { _owner.Exit(generation); }
+                        this.CloseMutexSnapshot(locked, () => _owner.Exit(generation));
                     });
 #if DEBUG || TESTING
                     unleased.GraphOwner = this;
@@ -428,13 +427,23 @@ namespace LiteDB
         /// Close a snapshot that streamed under the mutex, unless the connection's
         /// Dispose or an exited mutex owner already closed it.
         /// </summary>
-        private void CloseMutexSnapshot(LiteEngine snapshot)
+        private void CloseMutexSnapshot(LiteEngine snapshot, Action closed = null)
         {
             lock (_useLock)
             {
-                if (!_mutexSnapshots.Remove(snapshot)) return;
+                if (!_mutexSnapshots.Contains(snapshot))
+                {
+                    closed?.Invoke();
+                    return;
+                }
             }
-            this.ObservedClose(snapshot, snapshot.Dispose);
+            // Close returns cleanup errors only after teardown completes. A thrown
+            // admission refusal must leave both snapshot and native owner published.
+            System.Collections.Generic.List<Exception> errors = null;
+            this.ObservedClose(snapshot, () => errors = snapshot.Close());
+            lock (_useLock) _mutexSnapshots.Remove(snapshot);
+            closed?.Invoke();
+            LiteEngine.ThrowCleanupErrors(errors);
         }
 
         /// <summary>
