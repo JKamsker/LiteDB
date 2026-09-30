@@ -28,6 +28,16 @@ namespace LiteDB
             }
         }
 
+        private void ReleaseTransactionChildAdmission()
+        {
+            // The original per-handle child released its own mode admission too.
+            // In particular a handle-only facade must still permit a Direct owner
+            // between handles. Retain metadata, not idle data/log handles or leases.
+            _handles?.CloseIdle();
+            _settings.SharedAdmission.Dispose();
+            _settings.SharedAdmission = new SharedModeAdmission(_settings);
+        }
+
         internal TransactionResources OpenTransactionResources(TransactionAdmission admission, object sessionToken)
         {
             // A caller stream can capture the facade; a native holder must not root that
@@ -165,6 +175,7 @@ namespace LiteDB
                     _admission = null;
                     if (acquired) Cleanup(() => _child.CloseDatabase(reportErrors: true));
                     Cleanup(() => _child.EndAdmissions(0));
+                    if (_error == null) Cleanup(_child.ReleaseTransactionChildAdmission);
                     if (_error != null || !_cacheOwner.TryGetTarget(out var owner) || !owner.ReturnTransactionChild(_child))
                     {
                         Cleanup(_child.Dispose);

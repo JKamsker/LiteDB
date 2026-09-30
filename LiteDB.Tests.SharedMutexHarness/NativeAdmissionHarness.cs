@@ -92,6 +92,12 @@ internal static class NativeAdmissionHarness
             if (db.GetCollection("rows").FindById(1)?["value"].AsInt32 != 42)
                 throw new Exception("Acknowledged record missing");
             if (mode == "native-rejected") throw new Exception("Incompatible engine was admitted");
+            if (mode == "native-write")
+            {
+                var row = db.GetCollection("rows").FindById(1);
+                row["value"] = 84;
+                if (!db.GetCollection("rows").Update(row)) throw new Exception("Direct handoff update missed its row");
+            }
             if (mode == "native-hold")
             {
                 Console.WriteLine("ready");

@@ -129,6 +129,42 @@ namespace LiteDB.Tests.Engine
             Assert.NotSame(cached, Cached(shared));
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("secret")]
+        public async Task Handle_only_facade_preserves_direct_process_admission_between_handles(string password)
+        {
+            using var file = new TempFile();
+            using (var shared = new SharedEngine(new EngineSettings { Filename = file, Password = password }))
+            using (var db = new LiteDatabase(shared, disposeOnClose: false))
+            {
+                using (var warm = db.BeginTransaction())
+                {
+                    warm.GetCollection("rows").EnsureIndex("value");
+                    warm.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1, ["value"] = 42 });
+                    warm.GetCollection("sentinel").Insert(new BsonDocument { ["_id"] = 9 });
+                    warm.Commit();
+                }
+                var cached = Cached(shared);
+                Assert.NotNull(cached);
+                // Do not open the parent through an ordinary operation: that would
+                // acquire its independent Shared lifetime admission and hide a leak.
+                await MvccProcess.Run("native-write", file, password, "direct");
+                using var next = db.BeginTransaction(TimeSpan.FromSeconds(5));
+                Assert.Equal(84, next.GetCollection("rows").FindById(1)["value"].AsInt32);
+                Assert.Single(next.GetCollection("rows").Find(Query.EQ("value", 84)));
+                Assert.NotNull(next.GetCollection("sentinel").FindById(9));
+                next.Commit();
+                Assert.Same(cached, Cached(shared));
+            }
+            for (var repeat = 0; repeat < 2; repeat++)
+            {
+                using var cold = new LiteDatabase(new ConnectionString { Filename = file, Password = password });
+                Assert.Equal(84, cold.GetCollection("rows").FindById(1)["value"].AsInt32);
+                Assert.NotNull(cold.GetCollection("sentinel").FindById(9));
+            }
+        }
+
         private static void Verify(ILiteTransaction tx, int value)
         {
             VerifyRows(tx.GetCollection("docs"), value);
