@@ -24,13 +24,15 @@ namespace LiteDB.Tests
             catch (Exception diagnostic) { ReportFailure(output, diagnostic); }
         }
 
-        internal static void PublishSharedFollowup(string directory, string phase, Exception primary, ITestOutputHelper output)
+        internal static void PublishSharedFollowup(string directory, string phase, Exception primary, ITestOutputHelper output,
+            int[] childPids = null)
         {
             try
             {
                 PublishManifest(new BsonDocument
                 {
                     ["fixtureKind"] = "shared-followup-directory",
+                    ["childPids"] = new BsonArray(Array.ConvertAll(childPids ?? new int[0], pid => new BsonValue(pid))),
                     ["directory"] = Path.GetFullPath(directory),
                     ["phase"] = phase
                 }, primary, output);

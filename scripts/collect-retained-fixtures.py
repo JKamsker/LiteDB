@@ -65,8 +65,12 @@ def collect(directory):
                 int(fixture.name[len(prefix):], 16)
                 if fixture.is_symlink():
                     raise ValueError('Refusing to follow a fixture directory symlink')
-                if source.get('childPid', 0) and running(int(source['childPid'])):
-                    raise RuntimeError('Fixture child is still running; refusing to copy')
+                child_pids = list(source.get('childPids', []))
+                if source.get('childPid', 0):
+                    child_pids.append(source['childPid'])
+                for child_pid in child_pids:
+                    if running(int(child_pid)):
+                        raise RuntimeError(f'Fixture child {child_pid} is still running; refusing to copy')
                 items = sorted(fixture.iterdir())
             else:
                 database = Path(source['database'])
