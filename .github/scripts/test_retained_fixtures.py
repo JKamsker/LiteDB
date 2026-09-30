@@ -139,6 +139,44 @@ sys.stdin.readline()
                     host.kill()
                     host.communicate()
 
+    def test_shared_followup_waits_for_every_child_after_host_exit(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            fixture = root / ('litedb-followup-' + 'f' * 32)
+            fixture.mkdir()
+            database = fixture / 'data.db'
+            database.write_bytes(b'raw database sentinel')
+            artifacts = root / 'artifacts'
+            artifacts.mkdir()
+            children = []
+            try:
+                for _ in range(2):
+                    child = subprocess.Popen([sys.executable, '-u', '-c',
+                        'import sys; held = open(sys.argv[1], "rb"); print("ready", flush=True); sys.stdin.readline()',
+                        str(database)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+                    children.append(child)
+                    self.assertEqual(child.stdout.readline().strip(), 'ready')
+                manifest = {'fixtureKind': 'shared-followup-directory', 'directory': str(fixture),
+                            'processId': 1, 'childPids': [child.pid for child in children], 'failure': 'primary cleanup failure'}
+                (artifacts / 'failed.json').write_text(json.dumps(manifest))
+                actual_running = retained.running
+                with patch.object(retained, 'running', side_effect=lambda pid: False if pid == 1 else actual_running(pid)):
+                    for child in children:
+                        self.assertEqual(retained.collect(artifacts), 1)
+                        self.assertFalse((artifacts / 'failed/data.db').exists())
+                        report = json.loads((artifacts / 'failed/collection-report.json').read_text())
+                        self.assertEqual(report['primaryFailure'], manifest['failure'])
+                        self.assertIn(str(child.pid), report['errors'][0])
+                        child.communicate('\n', timeout=10)
+                    self.assertEqual(retained.collect(artifacts), 0)
+                self.assertEqual(database.read_bytes(), b'raw database sentinel')
+                self.assertEqual((artifacts / 'failed/data.db').read_bytes(), database.read_bytes())
+            finally:
+                for child in children:
+                    if child.poll() is None:
+                        child.kill()
+                        child.communicate()
+
     def test_shared_followup_cannot_capture_other_fixture_kinds_or_arbitrary_directories(self):
         for name in ('arbitrary', 'litedb-native-crash-' + 'e' * 32, 'litedb-followup-not-a-guid'):
             with self.subTest(name=name), tempfile.TemporaryDirectory() as root:
