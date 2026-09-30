@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using FluentAssertions;
 using LiteDB.Engine;
 using Xunit;
@@ -44,7 +45,7 @@ namespace LiteDB.Tests.Engine
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void Failed_alias_admission_cannot_delete_live_owners_sort_file(bool encrypted)
+        public async Task Failed_alias_admission_cannot_delete_live_owners_sort_file(bool encrypted)
         {
             using var file = new TempFile();
             var password = encrypted ? "sort-cleanup" : null;
@@ -63,8 +64,10 @@ namespace LiteDB.Tests.Engine
                     };
                     rejected.Should().Throw<DatabaseAdmissionException>();
 #if !NETFRAMEWORK
-                    MvccProcess.Run("native-raw-probe", alias, password, "held").GetAwaiter().GetResult();
-                    MvccProcess.Run("native-rejected", alias, password, "direct").GetAwaiter().GetResult();
+                    await MvccProcess.Run("native-raw-probe", alias, password, "held");
+                    await MvccProcess.Run("native-rejected", alias, password, "direct");
+#else
+                    await Task.CompletedTask;
 #endif
                     File.ReadAllBytes(temp).Should().Equal(sentinel);
                     Verify(owner);
