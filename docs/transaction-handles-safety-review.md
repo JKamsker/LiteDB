@@ -523,3 +523,29 @@ The synchronous scope also has permanent plain/encrypted retention guards: after
 successful and throwing ordinary work, the original caller thread stays alive
 while the database, Shared engine, settings and callback state must be collectible.
 These checks supplement ordinary-operation, handle, abandonment and handoff tests.
+
+## Callback handoff progress observation
+
+The `e8559b642` macOS Intel/net10 job `110008599282` reported four
+"handoff deadline" errors in the callback-marker test. Its fixed fifteen-second
+budget combined scheduling, overlap refusals and four thousand successful calls;
+the original log recorded no completed counts. It cannot establish whether the
+cause was throughput, starvation or a swallowed unexpected exception. Preserve
+that failure as unclassified even if subsequent runs pass.
+
+The test retains four concurrent workers with one thousand successful calls each,
+both marker assertions, commit and two cold indexed/sentinel checks. A forced
+interleaving holds the handle admission gate while allowing the callback to return:
+its context must restore while the next admission is still blocked. This directly
+detects releasing admission before restoring the callback marker. Only the exact
+pre-callback overlap refusal is retried; all other exceptions are failures.
+
+Each worker now has a fifteen-second no-success deadline, renewed solely by its own
+completed call, within a sixty-second total cap. An independent monitor can detect
+a worker blocked inside the operation. Reports include completed and rejected
+counts, the last successful timestamp and current stage. Bounded joins precede
+cleanup; a worker that cannot drain causes the fixture graph and original path to
+be retained until host exit, rather than racing engine close or file deletion.
+Deterministic controls require failure for stalled or unstarted workers despite
+peer progress, and enforce the total cap despite continued successes. These are
+test-only oracle and diagnostic changes; they do not change transaction behavior.
