@@ -81,7 +81,10 @@ internal sealed class SharedLifecycleFuzzer : IFuzzTarget
                         committed = null;
                         owner.Send("commit"); await owner.Expect("hook:" + boundary);
                         VerifyMarker("owner", "hook:" + boundary);
-                        committed = null; await owner.Kill();
+                        // The after-flush hook proves the confirmation and preceding pages were
+                        // flushed. Even without an API acknowledgement, recovery must expose them.
+                        committed = boundary == "wal-after-durable-flush" ? true : null;
+                        await owner.Kill();
                     }
                     else if (boundary == "uncommitted")
                     {
