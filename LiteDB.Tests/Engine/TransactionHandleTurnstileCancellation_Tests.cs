@@ -123,6 +123,9 @@ namespace LiteDB.Tests.Engine
                 endOwner.Set();
                 Assert.True(owner.Join(TimeSpan.FromSeconds(5)));
                 Assert.True(acquired.Wait(TimeSpan.FromSeconds(5)));
+                // A completed wait has retired its cancellation callback/event;
+                // later cancellation must not signal a disposed event or release ownership.
+                cancellation.Cancel();
                 if (abandon && !holdTurn) Assert.IsType<AbandonedMutexException>(error);
                 else Assert.Null(error);
                 Assert.False(AcquireOnAnotherThread(mutex));

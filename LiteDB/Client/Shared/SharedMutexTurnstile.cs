@@ -107,7 +107,12 @@ namespace LiteDB.Client.Shared
             {
                 // Keep a contended waiter in the kernel queue until ownership or
                 // cancellation. The uncontended path needs no event or array.
-                if (WaitHandle.WaitAny(new WaitHandle[] { closing.WaitHandle, mutex }) == 0)
+                // Dispose registration before its event, including an in-flight
+                // cancellation callback. Do not cache a native event on the session.
+                using var cancelled = new ManualResetEvent(false);
+                using var registration = closing.Register(state => ((EventWaitHandle)state).Set(),
+                    cancelled, useSynchronizationContext: false);
+                if (WaitHandle.WaitAny(new WaitHandle[] { cancelled, mutex }) == 0)
                     throw new OperationCanceledException(closing);
                 return;
             }
