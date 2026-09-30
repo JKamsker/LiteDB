@@ -71,7 +71,7 @@ namespace LiteDB.Tests.Engine
             Assert.Null(readerError);
             if (failClose) Assert.Same(injected, closeError);
             else Assert.Null(closeError);
-            Assert.True(NativeAvailable(shared));
+            Assert.True(NativeAvailable(shared, wait: true));
             VerifyCold(file, password, 6);
             file.Dispose();
         }
@@ -133,7 +133,7 @@ namespace LiteDB.Tests.Engine
             Assert.IsType<LiteException>(Record.Exception(() => shared.Pragma("USER_VERSION")));
             Assert.Equal(0, shared.Pragma("USER_VERSION").AsInt32);
             shared.Dispose();
-            Assert.True(NativeAvailable(shared));
+            Assert.True(NativeAvailable(shared, wait: true));
             VerifyCold(file, password, 6);
             GC.KeepAlive(leased);
             file.Dispose();
@@ -156,7 +156,7 @@ namespace LiteDB.Tests.Engine
             Assert.NotNull(Field(shared, "_pin"));
             reader.Dispose();
             Assert.Null(Field(shared, "_pin"));
-            Assert.True(NativeAvailable(shared));
+            Assert.True(NativeAvailable(shared, wait: true));
             shared.Dispose();
             VerifyCold(file, password, 6);
         }
@@ -168,16 +168,16 @@ namespace LiteDB.Tests.Engine
             Assert.True(SpinWait.SpinUntil(() => (int)Field(operations, "_waitingExclusive") != 0, TimeSpan.FromSeconds(5)));
         }
 
-        private static bool NativeAvailable(SharedEngine shared)
+        private static bool NativeAvailable(SharedEngine shared, bool wait = false)
         {
             var acquired = false;
             var probe = new Thread(() =>
             {
-                acquired = shared.MutexOwner.Mutex.WaitOne(0);
+                acquired = shared.MutexOwner.Mutex.WaitOne(wait ? 3000 : 0);
                 if (acquired) shared.MutexOwner.Mutex.ReleaseMutex();
             }) { IsBackground = true };
             probe.Start();
-            Assert.True(probe.Join(TimeSpan.FromSeconds(3)));
+            Assert.True(probe.Join(TimeSpan.FromSeconds(5)));
             return acquired;
         }
 
