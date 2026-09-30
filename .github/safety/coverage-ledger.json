@@ -171,6 +171,27 @@
       "coveredBy": [
         ".github/workflows/regression-proof.yml"
       ]
+    },
+    {
+      "id": "133-retained-recovery-evidence-harness-changed",
+      "kind": "harness-changed",
+      "subjects": [
+        "scripts/test-index-migration-recovery.py",
+        "tools/IndexMigrationRecovery/Program.cs"
+      ],
+      "disposition": "strengthened",
+      "invariant": "The existing plain/encrypted index-migration fault and repeated-recovery matrix remains executed with unchanged assertions.",
+      "reason": "The stacked branch retains failure databases and configuration for investigation and uploads them when present. This adds evidence retention without narrowing the eight boundary scenarios or making test failures optional."
+    },
+    {
+      "id": "133-retained-recovery-evidence-ci-test-config-changed",
+      "kind": "ci-test-config-changed",
+      "subjects": [
+        ".github/workflows/index-migration-compatibility.yml"
+      ],
+      "disposition": "strengthened",
+      "invariant": "The existing plain/encrypted index-migration fault and repeated-recovery matrix remains executed with unchanged assertions.",
+      "reason": "The stacked branch retains failure databases and configuration for investigation and uploads them when present. This adds evidence retention without narrowing the eight boundary scenarios or making test failures optional."
     }
   ]
 }
