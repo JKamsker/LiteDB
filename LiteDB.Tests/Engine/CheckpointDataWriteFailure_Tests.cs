@@ -99,6 +99,7 @@ namespace LiteDB.Tests.Engine
         {
             using var file = new DatabaseFiles(password);
             var writes = 0;
+            var failure = new IOException(Failure);
             using (var engine = file.OpenEngine())
             using (var db = new LiteDatabase(engine, disposeOnClose: false))
             {
@@ -107,10 +108,12 @@ namespace LiteDB.Tests.Engine
                 engine.SimulateDataWriteFail = page =>
                 {
                     writes++;
-                    throw new IOException(Failure);
+                    throw failure;
                 };
+                // The handle/session lifetime contract surfaces close failures instead of
+                // silently swallowing them. Preserve the original cause and recovery WAL.
+                Assert.Same(failure, Record.Exception(engine.Dispose));
             }
-            // Dispose returned normally although the close failed: #3047 tracks surfacing it.
             writes.Should().Be(1, "the close checkpoint reached the data write and stopped at its failure");
             new FileInfo(file.Log).Length.Should().BeGreaterThan(0, "the WAL must survive a failed close checkpoint");
 

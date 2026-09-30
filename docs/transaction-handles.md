@@ -242,6 +242,13 @@ Projects using `TreatWarningsAsErrors` may migrate incrementally with a targeted
 or a narrow `#pragma warning disable CS0618` around intentional legacy calls.
 Do not disable unrelated warnings.
 
+Close/checkpoint cleanup failures now propagate from `LiteEngine.Dispose` and
+session disposal instead of being silently swallowed. The engine still completes
+resource cleanup and preserves the WAL needed to recover acknowledged commits.
+An injected close-checkpoint data-write error is asserted by identity, followed by
+plain/encrypted recovery of every committed row and index; see
+`CheckpointDataWriteFailure_Tests.FailedCloseCheckpoint_LeavesTheWalToRecoverEveryCommit`.
+
 Using a disposed `LiteDatabase` now throws `ObjectDisposedException` naming
 `LiteDatabase`, instead of `LiteException` with `ENGINE_DISPOSED`. Callers that
 catch the old error code for facade use-after-dispose must catch
