@@ -32,6 +32,8 @@
         "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
+        {"test": "LiteDB.Tests/Internals/TransactionHandleProcess_Tests.cs#Acknowledged_shared_commit_survives_death_before_session_checkpoint", "proves": "A child acknowledges commit with a nonempty WAL, is killed without session cleanup, and two cold reopens verify documents, index results and sentinel.", "model": "process-death"},
+        {"test": "LiteDB.Tests/Engine/TransactionHandleDisposeSafety_Tests.cs#Disposed_bound_objects_refuse_use_without_aborting_prior_writes", "proves": "Disposed reader/enumerator access rejects before execution; earlier writes remain active and are committed with cold indexed verification.", "model": "exception"},
         {"fuzz": "power-loss", "model": "modeled-power-loss", "proves": "Each operation's acknowledgment is recorded outside the engine; after a cut only the in-flight operation may resolve to old or new, and complete documents and FileStorage bytes are compared."},
         {"test": "LiteDB.Tests/Internals/WalPowerLoss_Tests.cs#SectorTearsOfNewAppends_PreserveAcknowledgedPrefix", "model": "modeled-power-loss", "proves": "Sector tears of new WAL appends keep every acknowledged commit before them."},
         {"test": "LiteDB.Tests/Internals/MvccRootedCheckpoint_Tests.cs#RootedFullCheckpoint_PowerLossPreservesPayloadsAndIndexes", "model": "modeled-power-loss", "proves": "A rooted full checkpoint cut at each phase keeps complete payloads, secondary-index results and untouched data."},
@@ -64,6 +66,7 @@
         "LiteDB/Client/Shared/SharedCoordination*.cs"
       ],
       "evidence": [
+        {"test": "LiteDB.Tests/Engine/TransactionHandleChildSettings_Tests.cs#Rebuild_invalidates_cached_child_when_password_or_collation_changes", "proves": "Wrapper invalidation after password/collation rebuild prevents reuse of stale settings; subsequent writes and indexed cold reopen verify the installed state.", "model": "exception"},
         {"test": "LiteDB.Tests/Engine/Rebuild_InstallFaultMatrix_Tests.cs#Every_reachable_fault_combination_honours_the_rollback_contract", "model": "exception", "proves": "Every reachable combination of install faults ends in the original pair, the complete replacement, or a guarded incomplete state (#2978)."},
         {"test": "LiteDB.Tests/Engine/Rebuild_InstallFaultMatrix_Tests.cs#Successful_rebuild_passes_every_install_fault_point", "model": "exception", "proves": "Escape guard: the hit list of a successful rebuild equals the registered install faults, so a new fault point cannot be left out of the matrix."},
         {"test": "LiteDB.Tests/Issues/Issue2967_Tests.cs#Failed_password_rebuild_restores_the_original_data_and_wal_pair", "model": "exception", "proves": "A failed password rebuild restores the original data file together with its own WAL."},
@@ -98,6 +101,9 @@
         "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
+        {"test": "LiteDB.Tests/Engine/TransactionHandleChildReuse_Tests.cs#Reused_holder_and_wrapper_release_writer_and_refresh_after_external_commit", "proves": "Worker and wrapper identities repeat while core identities change; three independent process writes are observed via exact indexed models and two cold reopens."},
+        {"test": "LiteDB.Tests/Engine/TransactionHandleFeatureCoverage_Tests.cs#Independent_direct_handles_overlap_and_preserve_each_others_commit_and_rollback", "proves": "Four real threads hold uncommitted writes concurrently; ordinary reads see none, then independent commit/rollback outcomes are verified on two cold reopens."},
+        {"test": "LiteDB.Tests/Engine/TransactionHandleMaintenanceProgress_Tests.cs#Maintenance_progresses_under_sustained_ordinary_reads", "proves": "Sustained overlapping ordinary reads cannot starve queued Rebuild or raw engine close."},
         {"test": "LiteDB.Tests/Internals/MvccReclamationRace_Tests.cs#AResolvedButUnreadWalOffsetCannotBeReclaimed", "model": "exception", "proves": "A WAL offset a reader resolved but has not read yet is never reclaimed under a concurrent checkpoint."},
         {"test": "LiteDB.Tests/Internals/MvccCursorModel_Tests.cs#LongLivedCursorsAcrossCheckpoints_MatchModel", "proves": "Long-lived cursors across partial checkpoints return exactly what an independent model predicts."},
         {"test": "LiteDB.Tests/Engine/SharedReaderModel_Tests.cs#InterleavedSharedInstances_ReadersMatchModel", "proves": "Held readers of interleaved Shared instances match an independent model."},
@@ -175,6 +181,8 @@
         "LiteDB/Client/Database/LiteGrouping.cs"
       ],
       "evidence": [
+        {"test": "LiteDB.Tests/Engine/TransactionHandleModel_Tests.cs#Seeded_handoffs_match_committed_model_after_each_cold_reopen", "proves": "Independent dictionary model covers insert/update/delete, thread handoff, rollback/disposal/commit, exact records and secondary-index results."},
+        {"test": "LiteDB.Tests/Engine/TransactionHandleFeatureCoverage_Tests.cs#Handle_metadata_queries_read_existing_collections_and_bound_uncommitted_indexes", "proves": "Bound metadata sees its uncommitted index and rollback removes it while preserving the seeded collection and row."},
         {"test": "LiteDB.Tests/Query/RangeUnionOptimization_Tests.cs#Merged_ranges_match_unindexed_results_in_both_directions", "proves": "Merged index ranges return exactly the unindexed results in both directions."},
         {"fuzz": "query", "proves": "Generated queries compare indexed and unindexed plans against an independent model."},
         {"fuzz": "linq-cache", "proves": "Cached and direct LINQ translation are compared concurrently, including rebinding."},

@@ -89,6 +89,20 @@
       "disposition": "strengthened",
       "invariant": "Every existing test workload and native-platform qualification remains mandatory, with runtime guards and complete candidate-matched results.",
       "reason": "Registers inherited glibc/macOS Intel/Windows ARM64/f2fs jobs in the upstream aggregate; native filtered legs add provenance and discovery without narrowing their executed filters. TransactionHandle coverage is added to native filters. Missing or stale evidence now fails the aggregate."
+    },
+    {
+      "id": "133-disposed-reader-exception",
+      "kind": "assertions-reduced",
+      "subjects": [
+        "LiteDB.Tests/Engine/TransactionHandleBinding_Tests.cs"
+      ],
+      "disposition": "intentional-change",
+      "invariant": "Bound readers never resume engine work after either explicit reader disposal or transaction completion.",
+      "reason": "An explicitly disposed reader now consistently throws ObjectDisposedException before entering the transaction guard, preserving earlier writes; the existing terminal rejection assertion changes exception type without being removed.",
+      "decision": "docs/transaction-handles.md#outcome-and-cleanup",
+      "coveredBy": [
+        "LiteDB.Tests/Engine/TransactionHandleDisposeSafety_Tests.cs#Disposed_bound_objects_refuse_use_without_aborting_prior_writes"
+      ]
     }
   ]
 }
