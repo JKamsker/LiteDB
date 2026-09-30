@@ -12,14 +12,16 @@ namespace LiteDB
     {
         internal static readonly TimeSpan CloseWait = TimeSpan.FromSeconds(10);
         private readonly object _gate = new object();
-        private readonly Dictionary<Thread, int> _threads = new Dictionary<Thread, int>();
+        [ThreadStatic] private static List<SessionLifetime> _entered;
+        // High bit permanently closes admission; remaining bits count leases.
+        private int _admission;
         private readonly HashSet<LiteTransaction> _transactions = new HashSet<LiteTransaction>();
         private readonly CancellationTokenSource _closing = new CancellationTokenSource();
         private readonly List<Exception> _errors = new List<Exception>();
         private Action _release;
         private Thread _requestThread, _cleanupThread;
         private LiteTransaction[] _pendingRequests;
-        private int _active, _reportedErrors;
+        private int _reportedErrors;
         private bool _closeRequested, _cleanupStarted, _closed, _requesting;
         internal CancellationToken Closing => _closing.Token;
         internal readonly object DependencyToken = new object();
@@ -31,15 +33,17 @@ namespace LiteDB
 
         internal Lease Enter()
         {
-            var thread = Thread.CurrentThread;
-            lock (_gate)
+            var entered = _entered ?? (_entered = new List<SessionLifetime>());
+            while (true)
             {
-                if (_closeRequested) throw new ObjectDisposedException(nameof(LiteDatabase));
-                _threads.TryGetValue(thread, out var depth);
-                _threads[thread] = depth + 1;
-                _active++;
+                var state = Volatile.Read(ref _admission);
+                if (state < 0) throw new ObjectDisposedException(nameof(LiteDatabase));
+                if (state == int.MaxValue) throw new InvalidOperationException("Too many session operations.");
+                if (Interlocked.CompareExchange(ref _admission, state + 1, state) == state) break;
             }
-            return new Lease(this, thread);
+            try { entered.Add(this); }
+            catch { if (Interlocked.Decrement(ref _admission) < 0) TryFinish(); throw; }
+            return new Lease(this, Thread.CurrentThread);
         }
 
         internal void Register(LiteTransaction transaction)
@@ -62,14 +66,13 @@ namespace LiteDB
 
         private void Exit(Thread thread)
         {
-            bool closing;
-            lock (_gate)
-            {
-                if (--_threads[thread] == 0) _threads.Remove(thread);
-                _active--;
-                closing = _closeRequested;
-            }
-            if (closing) TryFinish();
+            // Session leases cover synchronous calls, not returned readers. Thread
+            // handoff is between calls, after the previous lease has been released.
+            if (!ReferenceEquals(thread, Thread.CurrentThread) || _entered == null ||
+                _entered.Count == 0 || !ReferenceEquals(_entered[_entered.Count - 1], this))
+                throw new InvalidOperationException("Session leases require ordered synchronous release.");
+            _entered.RemoveAt(_entered.Count - 1);
+            if (Interlocked.Decrement(ref _admission) < 0) TryFinish();
         }
 
         internal void Close(Action release, TimeSpan? wait = null)
@@ -77,11 +80,14 @@ namespace LiteDB
             var elapsed = Stopwatch.StartNew();
             lock (_gate)
             {
-                if (_threads.ContainsKey(Thread.CurrentThread) || _requestThread == Thread.CurrentThread ||
+                if ((_entered != null && _entered.Contains(this)) || _requestThread == Thread.CurrentThread ||
                     _cleanupThread == Thread.CurrentThread || SessionCloseDependency.Contains(DependencyToken))
                     throw new InvalidOperationException("Cannot close a session from inside its executing operation.");
                 if (!_closeRequested)
                 {
+                    int state;
+                    do { state = Volatile.Read(ref _admission); }
+                    while (Interlocked.CompareExchange(ref _admission, state | int.MinValue, state) != state);
                     _closeRequested = true;
                     _requesting = true;
                     _release = release;
@@ -151,7 +157,7 @@ namespace LiteDB
             Action release;
             lock (_gate)
             {
-                if (!_closeRequested || _requesting || _cleanupStarted || _active != 0 || _transactions.Count != 0) return;
+                if (!_closeRequested || _requesting || _cleanupStarted || (Volatile.Read(ref _admission) & int.MaxValue) != 0 || _transactions.Count != 0) return;
                 _cleanupStarted = true;
                 _cleanupThread = Thread.CurrentThread;
                 release = _release;
