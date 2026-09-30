@@ -246,9 +246,23 @@ Projects using `TreatWarningsAsErrors` may migrate incrementally with a targeted
 or a narrow `#pragma warning disable CS0618` around intentional legacy calls.
 Do not disable unrelated warnings.
 
-Close/checkpoint cleanup failures now propagate from `LiteEngine.Dispose` and
-session disposal instead of being silently swallowed. The engine still completes
-resource cleanup and preserves the WAL needed to recover acknowledged commits.
+Close/checkpoint cleanup failures now propagate from `LiteEngine.Dispose`, Direct
+session disposal, and a Shared handle child's close. If session disposal waits
+for a Shared pin, its core-close failure propagates after the connection finishes
+independent resource cleanup.
+The engine preserves the WAL needed to recover acknowledged commits.
+
+The Shared parent's final checkpoint retains its historical best-effort policy:
+returned core-close errors, and expected I/O/access/database errors opening or
+checkpointing that final core, do not make session disposal throw. This applies
+both to an already-open parent core and a fresh core opened solely for final
+checkpointing; it does not suppress handle-child or pin-core disposal errors.
+Successful session disposal therefore does not establish that a Shared WAL was
+fully checkpointed. A retained WAL remains authoritative, and a later open
+recovers its acknowledged commits. The plain/encrypted parent-only failure and
+cold-recovery test is
+`SharedFinalCheckpointContract_Tests.Parent_final_checkpoint_remains_best_effort_and_failed_attempt_keeps_committed_wal`.
+
 An injected close-checkpoint data-write error is asserted by identity, followed by
 plain/encrypted recovery of every committed row and index; see
 `CheckpointDataWriteFailure_Tests.FailedCloseCheckpoint_LeavesTheWalToRecoverEveryCommit`.
