@@ -31,14 +31,23 @@ namespace LiteDB.Tests.Engine
                 if (value.IsDocument && value["_id"] == 2)
                 {
                     callbacks++;
-                    closeError = Record.Exception(db.Dispose);
+                    var lifetime = Lifetime(db);
+                    var previousWait = lifetime.CloseWaitOverride;
+                    try
+                    {
+                        // Bound only the deliberate callback self-drain probe. Ordinary
+                        // teardown must retain its default scheduling/drain allowance.
+                        if (mode == 0 || mode == 4 || mode == 5)
+                            lifetime.CloseWaitOverride = TimeSpan.FromMilliseconds(100);
+                        closeError = Record.Exception(db.Dispose);
+                    }
+                    finally { lifetime.CloseWaitOverride = previousWait; }
                 }
                 return value;
             });
             using var engine = Open(settings, mode);
             using (db = new LiteDatabase(engine, disposeOnClose: mode != 1))
             {
-                Lifetime(db).CloseWaitOverride = TimeSpan.FromMilliseconds(100);
                 using (var reader = db.Execute(mode == 5 ? "SELECT $ FROM rows FOR UPDATE" : "SELECT $ FROM rows"))
                 {
                     Assert.True(reader.Read());

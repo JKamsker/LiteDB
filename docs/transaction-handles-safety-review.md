@@ -339,3 +339,19 @@ failed at 24,000 bytes. Independent review confirmed those boundaries. The new
 class passes on the local runtimes, but successor ARM64 CI remains required.
 This is a measurement-hardening change, not a proven explanation for the old
 6,056-byte observation or an allocation waiver.
+
+## Late callback close test budget
+
+The callback self-drain regression keeps its 100ms close probe for raw owning
+Direct, unleased Shared, and Shared writer readers. Its required outcome remains
+`InvalidOperationException` before session closing, followed by successful writes.
+The fixture restores the prior timeout in `finally` before normal teardown.
+Independently retained and non-owning reader controls perform legitimate close
+and use the default deadline throughout. No production close limit changes.
+
+Windows x64 net8 job 109871740658 failed at the outer `using` disposal on the
+19065cc1e candidate, after the callback/refusal/write assertions passed. The case
+took 325ms overall; the specific scheduling or drain duration is unknown. This
+correction removes an accidental 100ms normal-cleanup budget, without asserting a
+production timing cause. The revised test still rejects real e821 source in all
+six plain/encrypted self-dependent callback cases.
