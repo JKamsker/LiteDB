@@ -7,6 +7,7 @@ param(
     [string]$RuntimeDirectory,
     [switch]$PartitionSuite,
     [switch]$RecordEvidence,
+    [switch]$PartitionFiltered,
     [string]$VerifyPartitions,
     [string]$DiscoveryFile
 )
@@ -145,17 +146,32 @@ if ($VerifyPartitions) {
 $results = Join-Path $repoRoot 'LiteDB.Tests/TestResults'
 $resultPath = Join-Path $results $ResultFile
 if (Test-Path $resultPath) { Remove-Item $resultPath }
-if ($RecordEvidence) {
+if ($RecordEvidence -or $PartitionFiltered) {
+    if ($PartitionFiltered -and !$Filter) { throw 'PartitionFiltered requires a nonempty native selection.' }
     New-Item -ItemType Directory -Force $results | Out-Null
     $listing = Join-Path $results 'discovered-tests.txt'
     & dotnet vstest $assembly "/Framework:.NETCoreApp,Version=v$RuntimeMajor.0" "/Platform:$Architecture" `
         /ListFullyQualifiedTests "/ListTestsTargetPath:$listing" -- "RunConfiguration.DotNetHostPath=$testHost" | Out-Null
     if ($LASTEXITCODE -ne 0 -or !(Test-Path $listing)) { throw 'Could not discover the native test leg.' }
     $python = if ($IsWindows) { 'python' } else { 'python3' }
-    & $python (Join-Path $repoRoot '.github/scripts/record_test_leg.py') --root $repoRoot --results $results `
-        --discovery $listing --filter "$Filter" --result $ResultFile --framework $Framework `
-        --runtime $RuntimeMajor --architecture $Architecture
+    $evidenceArguments = @((Join-Path $repoRoot '.github/scripts/record_test_leg.py'), '--root', $repoRoot,
+        '--results', $results, '--discovery', $listing, '--filter', $Filter, '--result', $ResultFile,
+        '--framework', $Framework, '--runtime', $RuntimeMajor, '--architecture', $Architecture)
+    if ($PartitionFiltered) { $evidenceArguments += '--partition' }
+    & $python @evidenceArguments
     if ($LASTEXITCODE -ne 0) { throw 'Could not record native test evidence.' }
+    if ($PartitionFiltered) {
+        $plan = Get-Content (Join-Path $results 'native-partitions.json') -Raw | ConvertFrom-Json
+        $failed = @()
+        foreach ($partition in $plan.PSObject.Properties) {
+            Write-Host "Running native selection partition: $($partition.Name)"
+            & $PSCommandPath -RuntimeMajor $RuntimeMajor -Framework $Framework -Architecture $Architecture `
+                -RuntimeDirectory $RuntimeDirectory -Filter $partition.Value.filter -ResultFile $partition.Value.result
+            if ($LASTEXITCODE -ne 0) { $failed += $partition.Name }
+        }
+        if ($failed.Count) { throw "Native test partitions failed: $($failed -join ', ')" }
+        exit 0
+    }
 }
 $arguments = @(
     'vstest', $assembly,

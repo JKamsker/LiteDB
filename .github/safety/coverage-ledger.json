@@ -192,6 +192,18 @@
       "disposition": "strengthened",
       "invariant": "The existing plain/encrypted index-migration fault and repeated-recovery matrix remains executed with unchanged assertions.",
       "reason": "The stacked branch retains failure databases and configuration for investigation and uploads them when present. This adds evidence retention without narrowing the eight boundary scenarios or making test failures optional."
+    },
+    {
+      "id": "133-partition-native-capacity",
+      "kind": "ci-test-config-changed",
+      "subjects": [
+        ".github/workflows/_reusable-ci.yml",
+        "scripts/run-ci-tests.ps1",
+        "scripts/test-native-admission-glibc.sh"
+      ],
+      "disposition": "strengthened",
+      "invariant": "Every test selected by the native platform filters executes with runtime and hook guards; each session remains limited to 300 seconds and complete current-candidate evidence remains mandatory.",
+      "reason": "Run 36691368391 on 3b60d5aea exhausted the 300-second macOS Intel net10 session after 638 results with continued progress and no failed assertions; same-head net8 finished all 642 cases. Divide the unchanged selection into disjoint handles/admission/remainder sessions. Discovery verifies exactly one workload partition with no empty or aliased results; all sessions are declared in aggregate evidence and the runtime/hook guards execute in each. The discovery matcher also now follows VSTest case-insensitive FQN filtering so lowercase rebuild methods are accounted for. No tests or platforms are omitted."
     }
   ]
 }

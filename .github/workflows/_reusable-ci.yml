@@ -263,6 +263,7 @@ jobs:
             LiteDB.Tests/TestResults/NativeAdmission-bind-*
             LiteDB.Tests/TestResults/evidence-leg.json
             LiteDB.Tests/TestResults/discovered-tests.txt
+            LiteDB.Tests/TestResults/native-partitions.json
           if-no-files-found: warn
 
       - name: Upload retained container graph fixtures
@@ -440,7 +441,7 @@ jobs:
           -Architecture x64
           -Filter 'FullyQualifiedName~TransactionHandle|FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~SharedMode|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~Issue2979|FullyQualifiedName~SharedCoordinated'
           -ResultFile 'NativeAdmission.trx'
-          -RecordEvidence
+          -PartitionFiltered
       - name: Upload native admission results
         if: always()
         uses: actions/upload-artifact@v4
@@ -450,6 +451,7 @@ jobs:
             LiteDB.Tests/TestResults/*.trx
             LiteDB.Tests/TestResults/evidence-leg.json
             LiteDB.Tests/TestResults/discovered-tests.txt
+            LiteDB.Tests/TestResults/native-partitions.json
           if-no-files-found: warn
 
       - name: Preserve failed graph fixtures after test-host exit
@@ -880,7 +882,7 @@ jobs:
           -Architecture arm64
           -Filter 'FullyQualifiedName~TransactionHandle|FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~SharedMode|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~SharedCoordinated'
           -ResultFile 'NativeAdmission-arm64.trx'
-          -RecordEvidence
+          -PartitionFiltered
       - name: Verify Windows fixture collector and actual failing graph host
         shell: pwsh
         run: |
@@ -897,6 +899,7 @@ jobs:
             LiteDB.Tests/TestResults/*.trx
             LiteDB.Tests/TestResults/evidence-leg.json
             LiteDB.Tests/TestResults/discovered-tests.txt
+            LiteDB.Tests/TestResults/native-partitions.json
             artifacts_temp/graph-retention-contract/
           if-no-files-found: warn
       - name: Preserve failed graph fixtures after test-host exit
