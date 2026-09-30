@@ -478,3 +478,48 @@ An independent forced-stall mutation verifies that child timeouts retain output 
 fixture paths and return failure rather than a fixed/reproduced marker. This proof
 covers bounded liveness and cleanup; it does not simulate power loss. Exact source,
 binary, local and hosted results belong to the revision-specific evidence archive.
+
+## Pin and ordinary callback admission (review 5368851720)
+
+The green `569ba13c3` matrix did not cover two additional admission branches.
+A handle callback with an ordinary leased anchor reader could start a new write
+pin without passing through the native-dependency guards. Conversely, an ordinary
+pinned write callback could begin its first handle because its pin had an active
+operation but no transaction or locking-reader holds. A transferred mutex-backed
+reader callback had the same begin dependency. Both original and second-connection
+begin cases reproduce on the reviewed revision; these are bounded-liveness defects,
+not evidence of acknowledged-commit loss.
+
+Write entry now checks the executing handle dependency before choosing an existing
+pin, starting a pin or opening the ordinary engine. The check runs on the calling
+thread before retirement or native acquisition. Handle admission also identifies
+ordinary execution that depends on the target writer namespace, including callbacks
+reached after Query returns. Independent leased snapshots and independently
+completable idle handles remain valid callers. The execution marker is synchronous
+and is removed when the call unwinds; it does not transfer ownership or enlist work.
+
+Regression evidence must establish the leased anchor, the pin's operation/hold
+counts, and actual acquisition/admission boundaries. Caught refusals must preserve
+the outer operation, native exclusion, commit/rollback results, peer progress and
+cold indexed records plus unrelated sentinels. Plain/encrypted positive controls
+cover normal pin creation, independent databases, leased callbacks and idle-handle
+completion. The PR description records the exact tested candidate, production
+proofs against `569ba13c3`, hosted results and fresh performance measurements.
+
+Two separate production proofs pin the real `569ba13c3` package:
+`Issue_3067_SharedPinCallbackWrite` observes the parent's waiter and occupied
+turnstile; `Issue_3067_SharedOrdinaryCallbackBegin` first creates an inert cached
+child, then observes that exact child checked out and waiting for native ownership.
+The latter exercises default unbounded begin in an isolated process; permanent
+tests separately cover the first-handle path. A timeout or occupied local gate
+alone is insufficient proof, because holder startup can consume a deadline.
+Both proofs require native exclusion before and after fixed refusals, real peer
+process writes, independent controls and repeated cold indexed/sentinel models.
+An oracle mutation that suppresses the native-boundary observation must fail the
+proof rather than report reproduction. The shared proof fixture is registered as
+proving harness so changing it re-runs the historical comparisons.
+
+The synchronous scope also has permanent plain/encrypted retention guards: after
+successful and throwing ordinary work, the original caller thread stays alive
+while the database, Shared engine, settings and callback state must be collectible.
+These checks supplement ordinary-operation, handle, abandonment and handoff tests.

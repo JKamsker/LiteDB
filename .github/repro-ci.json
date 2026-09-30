@@ -136,5 +136,26 @@
       "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Uncaught_callback_refusal_rolls_back_and_releases_execution_dependency",
       "LiteDB.Tests/Engine/TransactionHandleSharedCallbackBegin_Tests.cs#Callback_begin_refuses_same_namespace_before_local_admission"
     ]
+  },
+  "Issue_3067_SharedPinCallbackWrite": {
+    "reason": "The dedicated Regression proof workflow packs the pinned known-bad commit and verifies both before/after variants; permanent guards run in the normal suites. Ordinary ReproRunner jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/TransactionHandleSharedPinCallback_Tests.cs#Leased_anchor_does_not_allow_handle_callback_to_start_a_self_dependent_pin",
+      "LiteDB.Tests/Engine/TransactionHandleSharedPinCallback_Tests.cs#Ordinary_write_with_leased_anchor_still_starts_and_releases_a_pin",
+      "LiteDB.Tests/Engine/TransactionHandleSharedPinCallback_Tests.cs#Handle_callback_can_start_an_independent_other_database_pin",
+      "LiteDB.Tests/Engine/TransactionHandleSharedPinCallback_Tests.cs#Leased_anchor_pin_start_may_wait_for_an_idle_handle_completed_elsewhere"
+    ]
+  },
+  "Issue_3067_SharedOrdinaryCallbackBegin": {
+    "reason": "The dedicated Regression proof workflow packs the pinned known-bad commit and verifies both before/after variants; permanent guards run in the normal suites. Ordinary ReproRunner jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/TransactionHandleOrdinaryCallbackBegin_Tests.cs#Pinned_input_without_holds_refuses_handle_before_admission",
+      "LiteDB.Tests/Engine/TransactionHandleOrdinaryCallbackBegin_Tests.cs#Transferred_mutex_reader_refuses_handle_before_admission",
+      "LiteDB.Tests/Engine/TransactionHandleOrdinaryCallbackBegin_Tests.cs#Independent_leased_reader_callback_can_begin_handle",
+      "LiteDB.Tests/Engine/TransactionHandleOrdinaryCallbackControl_Tests.cs#Nested_other_database_calls_restore_outer_ownership_after_exception",
+      "LiteDB.Tests/Engine/TransactionHandleOrdinaryCallbackControl_Tests.cs#Throwing_transferred_reader_callback_restores_scope_and_releases_owner",
+      "LiteDB.Tests/Engine/TransactionHandleOrdinaryCallbackControl_Tests.cs#Initial_query_callback_refuses_peer_before_snapshot_publication",
+      "LiteDB.Tests/Engine/TransactionHandleCallbackScopeRetention_Tests.cs#Idle_caller_thread_does_not_root_completed_application_graph"
+    ]
   }
 }
