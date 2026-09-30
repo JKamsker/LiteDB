@@ -118,3 +118,10 @@ Checkpoint CI also exposed caller-owned streams retained by the new fatal-error
 tests across a native-admitted cold reopen on macOS and Windows. The test now
 closes those streams before reopening. This is a harness ownership correction:
 assertions, fault injection, transaction outcomes and cold-state checks remain.
+
+The full integrated suite exposed one upstream-test expectation that predates this
+PR's error contract: a failed close checkpoint was expected to return normally.
+The updated test now requires the exact injected IOException; all original WAL
+retention, committed-state/index recovery and subsequent checkpoint assertions
+remain. This is a documented semantic difference, not suppression of a safety
+failure. The failing candidate `1eaeaf092` and corrected run are retained.
