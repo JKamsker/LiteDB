@@ -4,7 +4,10 @@
   "proofs": [
     {
       "repro": "Issue_2586_RollbackTransaction",
-      "knownBad": {"kind": "package", "version": "5.0.20"},
+      "knownBad": {
+        "kind": "package",
+        "version": "5.0.20"
+      },
       "permanentGuard": [
         "LiteDB.Tests/Engine/Transactions_Tests.cs#Transaction_Rollback_Should_Skip_ReadOnly_Buffers_From_Safepoint",
         "LiteDB.Tests/Engine/Transactions_Tests.cs#Transaction_Rollback_Should_Discard_Writable_Dirty_Pages",
@@ -13,10 +16,73 @@
     },
     {
       "repro": "Issue_2614_DiskServiceDispose",
-      "knownBad": {"kind": "package", "version": "5.0.21"},
+      "knownBad": {
+        "kind": "package",
+        "version": "5.0.21"
+      },
       "permanentGuard": [
         "LiteDB.Tests/Issues/Issue2614_InitializationCleanup_Tests.cs#FailedInitialization_ReleasesFileHandle_AndAllowsRetry",
         "LiteDB.Tests/Internals/StreamOwnership_Tests.cs#DiskServiceCtor_Failure_DisposesWrappers_ButNotCallerStreams"
+      ]
+    },
+    {
+      "repro": "Issue_133_MaintenanceProgress",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "560529066aeda64c24d5cdd32d34a8aca12695ae",
+        "reason": "The operation-lifetime drain was introduced on fork PR #133 and was never released in a package or merged to upstream dev.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleMaintenanceProgress_Tests.cs#Maintenance_progresses_under_sustained_ordinary_reads"
+      ]
+    },
+    {
+      "repro": "Issue_133_CloseCollectionWait",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "560529066aeda64c24d5cdd32d34a8aca12695ae",
+        "reason": "The operation-lifetime drain was introduced on fork PR #133 and was never released in a package or merged to upstream dev.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleMaintenanceProgress_Tests.cs#Raw_close_interrupts_collection_waiter_and_cold_reopen_keeps_only_committed_rows"
+      ]
+    },
+    {
+      "repro": "Issue_3034_Pr133StaleSortCleanup",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "560529066aeda64c24d5cdd32d34a8aca12695ae",
+        "reason": "Introduced in unmerged transaction-handle PR 133 by conditional SortDisk cleanup.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/SortDiskCleanup_Tests.cs#Writable_open_reclaims_stale_sort_file_without_a_new_spill"
+      ]
+    },
+    {
+      "repro": "Issue_3067_SharedCloseWait",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "560529066aeda64c24d5cdd32d34a8aca12695ae",
+        "reason": "Introduced in fork PR133 before upstream integration; no published package contains this implementation.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleSharedAdmission_Tests.cs#Closing_cancels_waiting_shared_call_before_draining_legacy_owner"
+      ]
+    },
+    {
+      "repro": "Issue_3067_SharedNestedBegin",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "560529066aeda64c24d5cdd32d34a8aca12695ae",
+        "reason": "Introduced in fork PR133 before upstream integration; no published package contains this implementation.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleSharedNested_Tests.cs#Handle_begin_rejects_callers_locking_reader_or_pinned_legacy_transaction"
       ]
     }
   ]
