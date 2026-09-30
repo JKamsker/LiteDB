@@ -88,8 +88,11 @@ namespace LiteDB
             lock (_gate)
                 if (!ReferenceEquals(_executing, Thread.CurrentThread))
                     throw new InvalidOperationException("A bound engine call requires its transaction operation.");
-            using var context = _resources.Session.Enter();
-            using var binding = TransactionContext.Enter(_transaction);
+            // Run/Commit/RollbackCore already established both scopes. Keep the
+            // one-use engine ticket: callbacks must never inherit authorization.
+            if (!ReferenceEquals(EngineContext.CurrentFor(_resources.Engine), _resources.Session) ||
+                !ReferenceEquals(TransactionContext.For(_resources.Session), _transaction))
+                throw new InvalidOperationException("Bound dispatch lost its execution scope.");
             using var dispatch = TransactionContext.Dispatch(authorizeEngine ? _resources.Engine : null);
             return action();
         }

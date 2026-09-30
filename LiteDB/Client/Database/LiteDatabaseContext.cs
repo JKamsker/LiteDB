@@ -17,7 +17,10 @@ namespace LiteDB
         public LiteDatabaseContext(ILiteEngine engine, BsonMapper mapper, SessionLifetime lifetime = null)
         {
             RawEngine = engine;
-            this.Engine = new SessionEngine(engine ?? throw new ArgumentNullException(nameof(engine)), lifetime);
+            if (engine == null) throw new ArgumentNullException(nameof(engine));
+            // Internal bound adapters already run under LiteTransaction.Run. Ordinary
+            // database calls still clear any ambient binding through SessionEngine.
+            this.Engine = engine is TransactionEngine ? engine : new SessionEngine(engine, lifetime);
             this.Mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
     }
