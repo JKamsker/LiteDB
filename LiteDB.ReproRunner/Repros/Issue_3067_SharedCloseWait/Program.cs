@@ -68,7 +68,8 @@ internal static class Program
         catch (TimeoutException)
         {
             // Both symptoms are required: close cannot drain and its peer still cannot finish.
-            return !ended.Wait(TimeSpan.FromSeconds(1));
+            if (!ended.Wait(TimeSpan.FromSeconds(1))) return true;
+            throw new InvalidOperationException("Close timed out even though the waiting peer completed; this is not a verified fix.");
         }
         if (!ended.Wait(TimeSpan.FromSeconds(5)) || peerError is not OperationCanceledException)
             throw new InvalidOperationException("Close did not cancel and drain the waiting call.", peerError);
