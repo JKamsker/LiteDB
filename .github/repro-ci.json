@@ -101,5 +101,12 @@
     "tests": [
       "LiteDB.Tests/Engine/SharedLateReaderClose_Tests.cs#Late_reader_callback_can_reenter_after_foreign_close_starts_draining"
     ]
+  },
+  "Issue_3067_LateCallbackClose": {
+    "reason": "The dedicated Regression proof workflow packs the pinned known-bad commit and verifies both before/after variants; permanent guards run in the normal suites. Ordinary ReproRunner jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/TransactionHandleLateCallbackClose_Tests.cs#Late_callback_close_refuses_only_a_self_dependent_drain",
+      "LiteDB.Tests/Engine/TransactionHandleLateCallbackClose_Tests.cs#Cross_thread_close_drains_late_callback_without_refusing_it"
+    ]
   }
 }
