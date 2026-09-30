@@ -70,6 +70,15 @@ namespace LiteDB
                     child = _cachedTransactionChild;
                     _cachedTransactionChild = null;
                 }
+                // Rebuild updates the parent's effective password/collation. A
+                // derived collation can also change its serialized policy. Reuse
+                // only a wrapper configured for this begin's detached snapshot.
+                if (child != null && (child._settings.Password != settings.Password ||
+                    child._settings.Collation?.ToString() != settings.Collation?.ToString()))
+                {
+                    child.Dispose();
+                    child = null;
+                }
                 child = child ?? new SharedEngine(settings) { _transactionChild = true };
                 child._settings.SharedDurability = _settings.SharedDurability;
                 child._settings.CheckpointBackoff = _settings.CheckpointBackoff;
