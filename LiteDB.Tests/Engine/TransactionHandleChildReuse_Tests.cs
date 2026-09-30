@@ -146,7 +146,11 @@ namespace LiteDB.Tests.Engine
             });
             if (indexed)
             {
-                Assert.Equal(64, rows.Find(Query.EQ("value", value)).Count());
+                var query = rows.Query().Where(Query.EQ("value", value));
+                var index = query.GetPlan()["index"];
+                Assert.Equal("value", index["name"].AsString);
+                Assert.StartsWith("INDEX SEEK", index["mode"].AsString);
+                Assert.Equal(Enumerable.Range(0, 64), query.ToArray().Select(row => row["_id"].AsInt32).OrderBy(id => id));
                 Assert.Empty(rows.Find(Query.EQ("value", 99)));
             }
         }
