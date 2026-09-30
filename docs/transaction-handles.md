@@ -145,7 +145,7 @@ retained coherent engine/cache state is [#3004](https://github.com/litedb-org/Li
 
 A reused wrapper closes its underlying `LiteEngine` after every handle and opens a
 fresh core after reacquiring native ownership. Its page/cache/WAL view is never
-retained across external writers. Open or cleanup failures discard the wrapper;
+retained across external writers. Open or cleanup failures and changed effective password/collation discard the wrapper;
 session disposal also disposes an idle wrapper. The holder has only a weak link to
 the owning Shared connection, so abandoned handles can still release storage through
 finalization without retaining the application graph. Completed handles release their
@@ -154,8 +154,11 @@ session and resource references as before.
 The separate holder pool retains at most two idle background threads for one second;
 busy holders do not prevent another database from obtaining a worker. An idle worker
 retains neither its last callback nor its execution context. The live Shared connection
-retains at most one child wrapper (including its existing coordination/file-handle
-resources), but no native writer ownership or live storage core. This trades bounded
+retains at most one child wrapper and its ownership infrastructure. Idle data/log
+handles, coordination participation and the child's mode-admission lease are released
+along with native writer ownership and the storage core. A handle-only facade therefore still permits a
+Direct process between handles; an ordinary operation on the parent retains that
+parent's independent Shared lifetime admission as before. This trades bounded
 idle infrastructure for lower setup cost; it introduces no batching or durability change.
 See [Shared holder reuse validation](transaction-handles-shared-reuse.md) for evidence.
 The child closes its operation engine using normal WAL/checkpoint thresholds;

@@ -1,5 +1,10 @@
 # Transaction handle validation
 
+The original measurements below predate holder/wrapper reuse. See
+[Shared holder reuse validation](transaction-handles-shared-reuse.md) for the
+current Shared-handle implementation, new safety coverage and fresh comparison
+against the previous PR head.
+
 This report covers the handle/lifetime changes layered on PR132. The parent is
 `49c327cf1926fa300f9eb7477eb4bcb404f75c43`; production changes measured below end at
 `d3ddd94f2279facba4107487b1da2c7f8ccf1b0f`. Consult PR133 for the final tested head and
