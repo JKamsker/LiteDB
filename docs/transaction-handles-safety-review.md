@@ -397,7 +397,9 @@ binaries, independent controls and repeated attempts remain revision-specific.
 
 Windows ARM64/net8 job109884239520 failed a strict raw read of the recovery marker
 after child death at the before-marker-flush boundary, encrypted with fallback.
-Its 847ms result did not establish the sharing-lock owner. The original fixture
+The initial `File.ReadAllBytes` snapshot failed after awaited child Kill/Dispose,
+before any Direct/Shared recovery reopen or replacement copy. Its 847ms result
+did not establish the sharing-lock owner. The original fixture
 was missing from the uploaded artifact: the test used a diagnostic variable which
 native CI did not set, and the configured collector accepted individual GUID
 basenames rather than this test's GUID directory. That confirmed capture defect
@@ -412,3 +414,27 @@ the success path were removed because their extra I/O could alter reproduction
 timing. No retry, delay, threshold relaxation or production fix is used here.
 The old fixture cannot be reconstructed and the original lock owner remains
 unknown; a later passing run must not be described as explaining that failure.
+
+## Pinned writer progress observation
+
+Windows x64/net8 job109884239743 timed out waiting for the Shared follow-up
+writer's final output. The original test had no child-ready or native-wait
+boundary, so the failing phase cannot be reconstructed. This is distinct from
+the earlier SharedReaderPin fixture failure; no common cause is established.
+
+The revised fixture initializes the writer before establishing the pin and
+observes native admission followed by all twenty separately committed records
+within the unchanged ten-second post-go budget. The owner retains its active
+update loop and one-minute hold settings. Its process must remain alive before
+intentional termination, so a crash cannot masquerade as successful yielding.
+Plain/encrypted held-legacy-pin controls require a timeout before the first
+commit, then verify no attempted write survived; successful cases verify exact
+cold indexed records and an unrelated sentinel. Failure diagnostics preserve the
+last observed phase, child output and original exception, with database files
+retained on their original temporary volume for post-host collection.
+
+Independent review found and corrected the owner-exit false-pass risk and a
+failure-capture gap when stopping a child itself fails. Collection must refuse
+any still-live recorded child as well as a live test host. The old timeout remains
+unclassified; these changes improve its oracle and evidence, not production
+behavior.
