@@ -39,7 +39,7 @@ namespace LiteDB.Engine
             // A later enqueue can be handled by the next call, just as it can arrive
             // after the final TryDequeue below. An empty queue touches no engine state.
             if (_abandonedContexts.IsEmpty) return;
-            using var operation = EnterOperation();
+            using var operation = EnterOperation(continuation: true);
             if (_state.Disposed) return;
             // A live caller keeps storage rooted. Never resurrect an unreachable
             // engine on a finalizer worker while its streams may be finalizing.
@@ -55,7 +55,7 @@ namespace LiteDB.Engine
 
         internal void ReleaseContext(EngineContext context)
         {
-            using var operation = EnterOperation();
+            using var operation = EnterOperation(continuation: true);
             if (_state.Disposed) return;
             try { _monitor.ReleaseContext(context); }
             catch (Exception error) { _state.Stop(error); throw; }

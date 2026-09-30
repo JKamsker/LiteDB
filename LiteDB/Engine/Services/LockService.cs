@@ -16,6 +16,7 @@ namespace LiteDB.Engine
     internal class LockService : IDisposable
     {
         private readonly EnginePragmas _pragmas;
+        private volatile bool _stopping;
 
         private readonly TransactionGate _transaction;
         private readonly Func<object> _owner;
@@ -96,6 +97,7 @@ namespace LiteDB.Engine
             // get collection lock from dictionary (or create new if it does not exist)
             var collection = _collections.GetOrAdd(collectionName, (s) => new CollectionLock());
 
+            if (_stopping) throw LiteException.EngineDisposed();
             if (collection.TryEnter(owner, _pragmas.Timeout) == false) throw LiteException.LockTimeout("write", collectionName, _pragmas.Timeout);
         }
 
@@ -170,6 +172,14 @@ namespace LiteDB.Engine
         public void ExitExclusive()
         {
             _transaction.ExitWriteLock();
+        }
+
+        // Wake operations waiting for an idle transaction owner before close drains
+        // active operations. Releasing pages/transactions still happens after the drain.
+        internal void StopWaiters()
+        {
+            _stopping = true;
+            foreach (var collection in _collections.Values) collection.StopWaiters();
         }
 
         public void Dispose()

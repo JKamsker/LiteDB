@@ -12,17 +12,22 @@ namespace LiteDB.Engine
         private readonly Dictionary<Thread, int> _threads = new Dictionary<Thread, int>();
         private int _active;
         private Thread _exclusive;
+        private int _waitingExclusive;
         private Action _deferredClose;
 #if DEBUG || TESTING
         internal Action WaitingForMaintenance;
 #endif
 
-        internal Lease Enter()
+        internal Lease Enter(bool continuation = false)
         {
             var thread = Thread.CurrentThread;
             lock (_gate)
             {
-                while (_exclusive != null && _exclusive != thread)
+                // A queued maintenance owner fences new work, while nested calls and
+                // existing transaction/cursor completion must still drain its dependencies.
+                while ((_exclusive != null && _exclusive != thread) ||
+                    (_exclusive == null && _waitingExclusive != 0 && !continuation &&
+                        !_threads.ContainsKey(thread)))
                 {
 #if DEBUG || TESTING
                     WaitingForMaintenance?.Invoke();
@@ -65,7 +70,7 @@ namespace LiteDB.Engine
             finally { lock (_gate) { _exclusive = null; Monitor.PulseAll(_gate); } }
         }
 
-        internal Lease Exclusive(Func<bool> dependenciesDrained, TimeSpan? timeout = null)
+        internal Lease Exclusive(Func<bool> dependenciesDrained, TimeSpan? timeout = null, Action stopWaiters = null)
         {
             var thread = Thread.CurrentThread;
             var elapsed = Stopwatch.StartNew();
@@ -74,13 +79,23 @@ namespace LiteDB.Engine
                 if (_exclusive == thread) return default;
                 if (_threads.ContainsKey(thread))
                     throw new InvalidOperationException("Cannot close or rebuild from inside an executing engine operation.");
-                while (_exclusive != null || _active != 0 || !dependenciesDrained())
+                _waitingExclusive++;
+                try
                 {
-                    if (timeout.HasValue && elapsed.Elapsed >= timeout.Value)
-                        throw LiteException.LockTimeout("operation/maintenance", timeout.Value);
-                    Monitor.Wait(_gate, 10);
+                    stopWaiters?.Invoke();
+                    while (_exclusive != null || _active != 0 || !dependenciesDrained())
+                    {
+                        if (timeout.HasValue && elapsed.Elapsed >= timeout.Value)
+                            throw LiteException.LockTimeout("operation/maintenance", timeout.Value);
+                        Monitor.Wait(_gate, 10);
+                    }
+                    _exclusive = thread;
                 }
-                _exclusive = thread;
+                finally
+                {
+                    _waitingExclusive--;
+                    Monitor.PulseAll(_gate);
+                }
             }
             return new Lease(this, thread, true);
         }

@@ -22,7 +22,8 @@ namespace LiteDB.Engine
 
         private LockService _locker;
         private readonly OperationLifetime _operations = new OperationLifetime();
-        internal OperationLifetime.Lease EnterOperation() => _operations.Enter();
+        internal OperationLifetime.Lease EnterOperation(bool continuation = false) =>
+            _operations.Enter(continuation || _locker?.IsInTransaction == true);
         private void ValidatePublicDispatch()
         {
             var authorized = TransactionContext.ConsumeDispatch(this);
@@ -233,7 +234,7 @@ namespace LiteDB.Engine
 
         internal List<Exception> Close(bool checkpoint = true, bool final = false, bool releaseMode = true)
         {
-            using var exclusive = _operations.Exclusive(() => true);
+            using var exclusive = _operations.Exclusive(() => true, stopWaiters: () => _locker?.StopWaiters());
             if (_state.Disposed) return new List<Exception>();
 
             _state.Disposed = true;

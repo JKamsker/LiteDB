@@ -12,6 +12,7 @@ namespace LiteDB.Engine
         private object _owner;
         private Thread _thread;
         private int _depth;
+        private bool _stopping;
 #if DEBUG || TESTING
         internal Action BeforeWait;
 #endif
@@ -21,6 +22,7 @@ namespace LiteDB.Engine
             var started = System.Diagnostics.Stopwatch.GetTimestamp();
             lock (_lock)
             {
+                if (_stopping) throw LiteException.EngineDisposed();
                 while (_owner != null && !ReferenceEquals(_owner, owner))
                 {
                     // Waiting for another session on this thread cannot make progress.
@@ -32,11 +34,21 @@ namespace LiteDB.Engine
                     BeforeWait?.Invoke();
 #endif
                     if (!Monitor.Wait(_lock, remaining)) return false;
+                    if (_stopping) throw LiteException.EngineDisposed();
                 }
                 _owner = owner;
                 _thread = TransactionContext.AdmissionOwner as Thread;
                 _depth++;
                 return true;
+            }
+        }
+
+        internal void StopWaiters()
+        {
+            lock (_lock)
+            {
+                _stopping = true;
+                Monitor.PulseAll(_lock);
             }
         }
 
