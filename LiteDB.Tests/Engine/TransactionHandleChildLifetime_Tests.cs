@@ -65,6 +65,49 @@ namespace LiteDB.Tests.Engine
         }
 
         [Theory]
+        [InlineData(null)]
+        [InlineData("secret")]
+        public void Reused_wrapper_after_failed_wal_write_reopens_without_unconfirmed_rows(string password)
+        {
+            using var file = new TempFile();
+            using (var shared = new SharedEngine(new EngineSettings { Filename = file, Password = password }))
+            using (var db = new LiteDatabase(shared, disposeOnClose: false))
+            {
+                using (var warm = db.BeginTransaction())
+                {
+                    warm.GetCollection("rows").EnsureIndex("value");
+                    warm.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1, ["value"] = "kept" });
+                    warm.GetCollection("sentinel").Insert(new BsonDocument { ["_id"] = 9 });
+                    warm.Commit();
+                }
+                var cached = TransactionHandleChildReuse_Tests.Cached(shared);
+                Assert.NotNull(cached);
+                using var failed = db.BeginTransaction();
+                failed.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 2, ["value"] = "unconfirmed" });
+                var core = TransactionHandleChildReuse_Tests.Core(failed);
+                var reached = false;
+                core.SimulateDiskWriteFail = page => { reached = true; throw new IOException("failed WAL write"); };
+                Assert.Throws<IOException>(failed.Commit);
+                Assert.True(reached);
+                Assert.Equal(LiteTransactionState.Indeterminate, failed.State);
+                using var retry = db.BeginTransaction(TimeSpan.FromSeconds(5));
+                Assert.NotSame(core, TransactionHandleChildReuse_Tests.Core(retry));
+                Assert.NotNull(retry.GetCollection("rows").FindOne("value = 'kept'"));
+                Assert.Empty(retry.GetCollection("rows").Find("value = 'unconfirmed'"));
+                retry.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 3, ["value"] = "after failure" });
+                retry.Commit();
+            }
+            for (var repeat = 0; repeat < 2; repeat++)
+            {
+                using var cold = new LiteDatabase(new ConnectionString { Filename = file, Password = password });
+                Assert.Equal(new[] { 1, 3 }, cold.GetCollection("rows").FindAll().Select(row => row["_id"].AsInt32).OrderBy(id => id));
+                Assert.NotNull(cold.GetCollection("rows").FindOne("value = 'kept'"));
+                Assert.NotNull(cold.GetCollection("rows").FindOne("value = 'after failure'"));
+                Assert.NotNull(cold.GetCollection("sentinel").FindById(9));
+            }
+        }
+
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public void Retained_completed_handle_and_idle_worker_do_not_root_cached_or_abandoned_session(bool abandonActive)
