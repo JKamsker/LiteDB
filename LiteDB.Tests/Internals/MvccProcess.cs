@@ -103,9 +103,10 @@ namespace LiteDB.Internals
             await _process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(20));
         }
 
-        internal static async Task Run(string mode, string filename, string password, string value = null)
+        internal static async Task Run(string mode, string filename, string password, string value = null, Action<int> started = null)
         {
             using var process = new MvccProcess(mode, filename, password, value);
+            started?.Invoke(process.Id);
             await process.Expect("done");
             await process.Finish();
         }
