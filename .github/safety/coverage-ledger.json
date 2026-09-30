@@ -284,6 +284,19 @@
       "invariant": "A live one-minute pin owner running ordinary updates yields to an external writer which commits all twenty records within the unchanged ten-second post-go limit; cold indexed records and unrelated sentinel remain correct. A genuinely held legacy pin permits no committed write.",
       "reason": "Windows x64/net8 job109884239743 timed out waiting for done without a child-ready or native-admission boundary, so startup, admission and commit progress cannot be distinguished retrospectively. Initialize the writer before establishing the pin, observe native-wait and each real commit, and keep the active owner loop, all twenty separate commits and ten-second budget. Require owner still alive before intentional kill so an owner crash cannot mimic yielding. Adds plain/encrypted blocked controls, cold indexed verification and original-volume post-host failure capture. No production change, assertion retry or speculative classification of the original timeout.",
       "decision": "docs/transaction-handles-safety-review.md#pinned-writer-progress-observation"
+    },
+    {
+      "id": "133-callback-handoff-progress",
+      "kind": "harness-changed",
+      "subjects": [
+        "LiteDB.Tests/Engine/TransactionHandleCallbackHandoff_Tests.cs",
+        "LiteDB.Tests/Engine/TransactionHandoffProgress.cs",
+        "LiteDB.Tests/Engine/TransactionHandleHandoffProgress_Tests.cs"
+      ],
+      "disposition": "strengthened",
+      "invariant": "Transaction callback context restores before public admission transfers. All four workers must finish 1000 calls, with correct context before/after yielding, then commit and pass two cold indexed/sentinel checks.",
+      "reason": "Exact e855 macOS Intel/net10 job 110008599282 recorded four fixed 15s workload deadlines without completed counts; throughput exhaustion, starvation and unexpected rejection cannot be distinguished retrospectively. Add forced gate-order oracle, retry only exact pre-callback overlap refusal, and report worker-specific completed/rejected/last-success state. Replace the 15s total-work limit with 15s without that worker completing real work plus a 60s absolute cap; peer progress and retries cannot renew it. External monitoring detects a worker blocked inside Run; bounded joins retain live fixtures instead of disposing storage beneath workers. Deterministic watchdog controls cover stalled, unstarted and continually progressing workers. No production change or assertion retry. Original cause remains unknown.",
+      "decision": "docs/transaction-handles-safety-review.md#callback-handoff-progress-observation"
     }
   ]
 }
