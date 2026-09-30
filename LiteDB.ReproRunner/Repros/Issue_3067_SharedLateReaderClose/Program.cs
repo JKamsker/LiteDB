@@ -37,7 +37,7 @@ internal static class Program
 
     private static bool Reproduce(string filename, string password)
     {
-        using (var seed = new LiteDatabase(new ConnectionString { Filename = filename, Password = password }))
+        using (var seed = new LiteDatabase(new ConnectionString { Filename = filename, Password = password.Length == 0 ? null : password }))
         {
             var rows = seed.GetCollection("rows");
             rows.EnsureIndex("value");
@@ -54,7 +54,7 @@ internal static class Program
         SharedEngine? shared = null;
         shared = new SharedEngine(new EngineSettings
         {
-            Filename = filename, Password = password,
+            Filename = filename, Password = password.Length == 0 ? null : password,
             ReadTransform = (collection, value) =>
             {
                 if (!armed || collection != "rows") return value;
@@ -134,7 +134,7 @@ internal static class Program
     {
         try
         {
-            using (var db = new LiteDatabase(new ConnectionString { Filename = filename, Password = password, Connection = ConnectionType.Shared }))
+            using (var db = new LiteDatabase(new ConnectionString { Filename = filename, Password = password.Length == 0 ? null : password, Connection = ConnectionType.Shared }))
                 db.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 900, ["value"] = 9000 });
             Console.WriteLine("PEER_COMMITTED");
             return 0;
@@ -144,7 +144,7 @@ internal static class Program
 
     private static void VerifyCold(string filename, string password)
     {
-        using var cold = new LiteDatabase(new ConnectionString { Filename = filename, Password = password });
+        using var cold = new LiteDatabase(new ConnectionString { Filename = filename, Password = password.Length == 0 ? null : password });
         var rows = cold.GetCollection("rows");
         if (rows.Count() != 9 || rows.FindById(99) != null || rows.FindById(900)?["value"].AsInt32 != 9000 ||
             cold.GetCollection("sentinel").FindById(42)?["value"].AsString != "untouched")
