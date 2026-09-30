@@ -52,6 +52,9 @@ namespace LiteDB.Tests.Engine
             Seed(file, password);
             var temp = FileHelper.GetTempFile(file);
             var sentinel = new byte[] { 4, 8, 15, 16, 23, 42 };
+#if !NETFRAMEWORK
+            await MvccProcess.Run("native-raw-probe", file, password, "released");
+#endif
             try
             {
                 using (var owner = new LiteDatabase(new ConnectionString { Filename = file, Password = password }))
@@ -64,7 +67,9 @@ namespace LiteDB.Tests.Engine
                     };
                     rejected.Should().Throw<DatabaseAdmissionException>();
 #if !NETFRAMEWORK
-                    await MvccProcess.Run("native-raw-probe", alias, password, "held");
+                    // Raw native probes bypass engine path normalization. Windows extended
+                    // paths do not accept the lexical dot component in alias.
+                    await MvccProcess.Run("native-raw-probe", file, password, "held");
                     await MvccProcess.Run("native-rejected", alias, password, "direct");
 #else
                     await Task.CompletedTask;
@@ -73,6 +78,9 @@ namespace LiteDB.Tests.Engine
                     Verify(owner);
                 }
                 File.Exists(temp).Should().BeFalse();
+#if !NETFRAMEWORK
+                await MvccProcess.Run("native-raw-probe", file, password, "released");
+#endif
                 using var cold = new LiteDatabase(new ConnectionString { Filename = file, Password = password });
                 Verify(cold);
             }
