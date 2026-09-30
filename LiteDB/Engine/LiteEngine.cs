@@ -235,7 +235,7 @@ namespace LiteDB.Engine
 
         internal List<Exception> Close(bool checkpoint = true, bool final = false, bool releaseMode = true)
         {
-            using var exclusive = _operations.Exclusive(() => true, stopWaiters: () => _locker?.StopWaiters());
+            using var exclusive = _operations.Exclusive(() => true, stopWaiters: () => _locker?.StopWaiters(), closing: true);
             if (_state.Disposed) return new List<Exception>();
 
             _state.Disposed = true;

@@ -15,6 +15,7 @@ namespace LiteDB.Engine
         private int _active;
         private Thread _exclusive;
         private int _waitingExclusive;
+        private bool _closingRequested;
         private Action _deferredClose;
 #if DEBUG || TESTING
         internal Action WaitingForMaintenance;
@@ -31,6 +32,12 @@ namespace LiteDB.Engine
                     (_exclusive == null && _waitingExclusive != 0 && !continuation &&
                         !_threads.ContainsKey(thread) && !(_ownsTransaction?.Invoke() ?? false)))
                 {
+                    // A close cannot wait for fresh work that an active callback is
+                    // synchronously awaiting. Reject it instead of queueing behind
+                    // that same callback's drain. Existing owners still finish safely.
+                    if (_closingRequested && !continuation && !_threads.ContainsKey(thread) &&
+                        !(_ownsTransaction?.Invoke() ?? false))
+                        throw LiteException.EngineDisposed();
 #if DEBUG || TESTING
                     WaitingForMaintenance?.Invoke();
 #endif
@@ -72,7 +79,7 @@ namespace LiteDB.Engine
             finally { lock (_gate) { _exclusive = null; Monitor.PulseAll(_gate); } }
         }
 
-        internal Lease Exclusive(Func<bool> dependenciesDrained, TimeSpan? timeout = null, Action stopWaiters = null)
+        internal Lease Exclusive(Func<bool> dependenciesDrained, TimeSpan? timeout = null, Action stopWaiters = null, bool closing = false)
         {
             var thread = Thread.CurrentThread;
             var elapsed = Stopwatch.StartNew();
@@ -81,6 +88,11 @@ namespace LiteDB.Engine
                 if (_exclusive == thread) return default;
                 if (_threads.ContainsKey(thread))
                     throw new InvalidOperationException("Cannot close or rebuild from inside an executing engine operation.");
+                if (closing)
+                {
+                    _closingRequested = true;
+                    Monitor.PulseAll(_gate);
+                }
                 _waitingExclusive++;
                 try
                 {
