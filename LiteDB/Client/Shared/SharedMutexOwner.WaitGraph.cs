@@ -35,15 +35,17 @@ namespace LiteDB.Client.Shared
         /// </summary>
         internal object GraphOwner => _ownerExited?.Target as SharedEngine ?? (object)this;
 
-        private WaitGraph.WaitScope GraphWait(GraphWaitSite site)
+        private WaitGraph.WaitScope GraphWait(GraphWaitSite site, System.Threading.CancellationToken closing = default)
         {
+            // Proof overlay (PR #133): a wait that a session close can cancel is cancellation-bounded.
+            var bound = closing.CanBeCanceled ? WaitBound.Cancellation : WaitBound.Unbounded;
             switch (site)
             {
                 case GraphWaitSite.Gate:
-                    return WaitGraph.Wait(_graphOwnership, WaitBound.Unbounded, "SharedMutexOwner.Enter (gate)", this.GraphOwner);
+                    return WaitGraph.Wait(_graphOwnership, bound, "SharedMutexOwner.Enter (gate)", this.GraphOwner);
                 case GraphWaitSite.ViaHolder:
                     // The holder blocks on the OS mutex for this thread: it is this thread's wait.
-                    return WaitGraph.Wait(this.GraphMutex, WaitBound.Unbounded, "SharedMutexOwner.Enter (via holder)", this.GraphOwner, viaHandoff: true);
+                    return WaitGraph.Wait(this.GraphMutex, bound, "SharedMutexOwner.Enter (via holder)", this.GraphOwner, viaHandoff: true);
                 case GraphWaitSite.Handoff:
                     // An acquisition is registered by its caller as a wait on the mutex itself (ViaHolder).
                     return WaitGraph.Wait(_graphHandoff, WaitBound.Unbounded, "SharedMutexOwner.Send (holder handoff)", this.GraphOwner);

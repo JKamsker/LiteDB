@@ -40,23 +40,24 @@ namespace LiteDB.Client.Shared
         /// Block until <paramref name="mutex"/> is owned, queued at the turnstile.
         /// Throws <see cref="AbandonedMutexException"/> as <see cref="WaitHandle.WaitOne()"/> does.
         /// </summary>
-        public void Wait(Mutex mutex)
+        public void Wait(Mutex mutex, CancellationToken closing = default)
         {
 #if DEBUG || TESTING
             bool queued;
-            using (WaitGraph.Wait(_graphTurn, WaitBound.Unbounded, "SharedMutexTurnstile.Wait (turn)"))
-                queued = this.Enter();
+            var graphBound = closing.CanBeCanceled ? WaitBound.Cancellation : WaitBound.Unbounded;
+            using (WaitGraph.Wait(_graphTurn, graphBound, "SharedMutexTurnstile.Wait (turn)"))
+                queued = this.Enter(closing);
             if (queued) WaitGraph.Acquired(_graphTurn, site: "SharedMutexTurnstile.Wait (turn)");
 #else
-            var queued = this.Enter();
+            var queued = this.Enter(closing);
 #endif
             try
             {
 #if DEBUG || TESTING
                 this.BeforeMainWait?.Invoke();
-                using (WaitGraph.Wait(WaitGraph.Of(mutex, "named-mutex", WaitPrimitive.NamedMutex), WaitBound.Unbounded, "SharedMutexTurnstile.Wait"))
+                using (WaitGraph.Wait(WaitGraph.Of(mutex, "named-mutex", WaitPrimitive.NamedMutex), graphBound, "SharedMutexTurnstile.Wait"))
 #endif
-                mutex.WaitOne();
+                WaitCancellable(mutex, closing);
             }
             finally
             {
@@ -91,11 +92,20 @@ namespace LiteDB.Client.Shared
             return false;
         }
 
-        private bool Enter()
+        private static void WaitCancellable(Mutex mutex, CancellationToken closing)
+        {
+            if (!closing.CanBeCanceled) { mutex.WaitOne(); return; }
+            // Retain the turnstile while waiting on the writer mutex: cancellation
+            // must not turn a queued waiter into a polling contender that can starve.
+            do { closing.ThrowIfCancellationRequested(); } while (!mutex.WaitOne(10));
+        }
+
+        private bool Enter(CancellationToken closing)
         {
             try
             {
-                return _turn.WaitOne();
+                WaitCancellable(_turn, closing);
+                return true;
             }
             catch (AbandonedMutexException)
             {

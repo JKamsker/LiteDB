@@ -32,6 +32,7 @@ namespace LiteDB.Client.Shared
         private readonly Mutex _mutex;
         private readonly SharedMutexTurnstile _turnstile;
         private readonly Func<bool> _localWaiters;
+        private CancellationToken _opening;
         private readonly TimeSpan _idleLimit;
         private readonly TimeSpan _holdLimit;
         private readonly Action<SharedMutexPin, bool> _close;
@@ -99,9 +100,10 @@ namespace LiteDB.Client.Shared
         /// the holder, before release; its flag reports an abandoned or forced end.
         /// </summary>
         public static SharedMutexPin Acquire(Mutex mutex, SharedMutexTurnstile turnstile, Func<bool> localWaiters,
-            Action<SharedMutexPin, bool> close, TimeSpan idleLimit, TimeSpan holdLimit)
+            Action<SharedMutexPin, bool> close, TimeSpan idleLimit, TimeSpan holdLimit, CancellationToken closing = default)
         {
             var pin = new SharedMutexPin(mutex, turnstile, localWaiters, close, idleLimit, holdLimit);
+            pin._opening = closing;
             var holder = new Thread(pin.Hold) { IsBackground = true, Name = "LiteDB shared mutex holder" };
             holder.Start();
 #if DEBUG || TESTING
@@ -219,17 +221,19 @@ namespace LiteDB.Client.Shared
         {
             try
             {
-                try { _turnstile.Wait(_mutex); }
+                try { _turnstile.Wait(_mutex, _opening); }
                 catch (AbandonedMutexException) { this.RecoveredAbandonedOwner = true; }
             }
             catch (Exception ex)
             {
+                _opening = default;
                 _error = ex;
                 _acquired.Set();
                 _released.Set();
                 return;
             }
 
+            _opening = default;
             _lastUse = _clock.Elapsed;
             _acquired.Set();
             var abandoned = this.WaitForEnd();
