@@ -73,8 +73,10 @@ claimed as executed campaigns.
 
 A fresh disposal review reproduced the peer-fatal error again while an unrelated
 ordinary read delayed core teardown: fatal state was published before IsDisposed
-became true. This reopens that regression until the deferred-teardown and
-check/dispatch race are covered. The same review passed its other bounded controls.
+became true. Cleanup now checks the published fatal state while retaining an operation, and
+recognizes only the already-published peer exception if failure races rollback.
+The deferred-teardown and check/dispatch cases have separate controls requiring
+the handle's own IOException and INVALID_DATAFILE_STATE to propagate unchanged. The same review passed its other bounded controls.
 
 The broader process suite exposed two harness failures after cancellable admission
 added a parameter: reflection invocations still supplied the old argument count.
