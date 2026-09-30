@@ -20,6 +20,44 @@ namespace LiteDB
         // publication to retire before opening/counting a replacement core.
         private Engine.LiteEngine _closingCore;
 
+        // Synchronous callbacks can enter another facade for the same native
+        // namespace. Keep only executing calls, not idle owners or leased readers.
+        [ThreadStatic] private static List<SharedEngine> _executingCalls;
+
+        internal readonly struct CallbackScope : IDisposable
+        {
+            private readonly bool _entered;
+            internal CallbackScope(SharedEngine engine)
+            {
+                _entered = engine != null;
+                if (!_entered) return;
+                var calls = _executingCalls ?? (_executingCalls = new List<SharedEngine>());
+                calls.Add(engine);
+            }
+            public void Dispose()
+            {
+                // RemoveAt clears the reference as well as restoring nested scopes.
+                if (_entered) _executingCalls.RemoveAt(_executingCalls.Count - 1);
+            }
+        }
+
+        private bool CannotWaitForOwnershipOnCurrentThread() =>
+            _owner.IsOwnedByCurrentThread || _pin?.IsHeldByCurrentThread == true ||
+            this.IsExecutingOwnedCoreOnCurrentThread();
+
+        private void ThrowIfCallbackOwnershipWait()
+        {
+            var calls = _executingCalls;
+            if (calls == null) return;
+            for (var i = calls.Count - 1; i >= 0; i--)
+            {
+                var caller = calls[i];
+                if (StringComparer.Ordinal.Equals(caller._mutexName, _mutexName) &&
+                    caller.CannotWaitForOwnershipOnCurrentThread())
+                    throw new InvalidOperationException("Cannot open a transaction handle from inside an operation retaining its shared writer ownership.");
+            }
+        }
+
         /// <summary>
         /// Under _useLock, with the mutex owned: refuse a call once Dispose started, else count
         /// it. Dispose closes the engine only after every counted call of another thread
@@ -97,6 +135,7 @@ namespace LiteDB
                 if (rollback) return default;
                 throw new InvalidOperationException("Cannot wait for shared ownership from inside a reader executing on another ownership thread.");
             }
+            using var callback = new CallbackScope(this);
             var depth = this.AdmittedDepth();
 #if DEBUG || TESTING
             // Wait-for graph: this connection's ownership executes on this thread during the call.

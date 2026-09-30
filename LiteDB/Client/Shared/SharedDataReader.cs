@@ -13,6 +13,7 @@ namespace LiteDB
         private readonly IBsonDataReader _reader;
         private readonly Action _dispose;
         private readonly LiteEngine _ownedSnapshot;
+        private readonly SharedEngine _mutexOwner;
 
         private int _disposed;
 
@@ -20,11 +21,12 @@ namespace LiteDB
         {
         }
 
-        internal SharedDataReader(IBsonDataReader reader, Action dispose, LiteEngine ownedSnapshot)
+        internal SharedDataReader(IBsonDataReader reader, Action dispose, LiteEngine ownedSnapshot, SharedEngine mutexOwner = null)
         {
             _reader = reader;
             _dispose = dispose;
             _ownedSnapshot = ownedSnapshot;
+            _mutexOwner = mutexOwner;
         }
 
         public BsonValue this[string field] => _reader[field];
@@ -45,15 +47,13 @@ namespace LiteDB
 
         public bool Read()
         {
+            using var callback = new SharedEngine.CallbackScope(_mutexOwner);
 #if DEBUG || TESTING
             LiteDB.Utils.WaitGraph.Enter(this.GraphOwner);
-            try
-            {
-#endif
-            return _reader.Read();
-#if DEBUG || TESTING
-            }
+            try { return _reader.Read(); }
             finally { LiteDB.Utils.WaitGraph.Exit(this.GraphOwner); }
+#else
+            return _reader.Read();
 #endif
         }
 

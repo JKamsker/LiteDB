@@ -58,13 +58,14 @@ namespace LiteDB
             TransactionHolderContext.Validate();
             // An executing callback cannot complete the owner while queued behind it.
             TransactionContext.ThrowIfSharedWait(_mutexName);
+            this.ThrowIfCallbackOwnershipWait();
             // First-use default collation must observe the caller's culture, while null
             // settings still accept an existing database's persisted collation.
             RuntimeHelpers.RunClassConstructor(typeof(Collation).TypeHandle);
             lock (_useLock)
             {
                 if (_disposed != 0) throw new ObjectDisposedException(nameof(SharedEngine));
-                if (_owner.IsOwnedByCurrentThread || _pin?.IsHeldByCurrentThread == true)
+                if (this.CannotWaitForOwnershipOnCurrentThread())
                     throw new InvalidOperationException("Complete the legacy transaction or close its locking reader before opening a transaction handle.");
             }
             var name = _mutexName;
