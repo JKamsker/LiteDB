@@ -105,7 +105,7 @@ namespace LiteDB.Tests.Engine
                 tx.Rollback();
                 Assert.Throws<InvalidOperationException>(() => deferred.ToArray());
                 Assert.Throws<InvalidOperationException>(() => rows.Query());
-                Assert.Throws<InvalidOperationException>(() => reader.Read());
+                Assert.Throws<ObjectDisposedException>(() => reader.Read());
             }
             using var reopened = Open(file, shared);
             Assert.Equal(0, reopened.GetCollection<Entity>("rows").Count());
