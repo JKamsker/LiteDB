@@ -229,6 +229,23 @@
       "permanentGuard": [
         "LiteDB.Tests/Engine/SharedLeasedReaderDispose_Tests.cs#Leased_snapshot_disposal_refuses_callback_before_mutation_and_can_retry"
       ]
+    },
+    {
+      "repro": "Issue_3067_SharedCallbackNativeWait",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "12a057424843d54bf10a53318433c889a7db025d",
+        "pr": 133,
+        "reason": "The ordinary Shared native-admission dependency from an executing explicit handle callback was introduced within unmerged fork PR133 and has not reached upstream dev or a published package."
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallback_Tests.cs#Input_callback_refuses_same_namespace_before_native_wait",
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallback_Tests.cs#Late_reader_callback_refuses_native_wait_after_handoff",
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Nested_other_database_handle_keeps_outer_dependency_and_restores_it",
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_other_database_callback_cannot_erase_enclosing_shared_dependency",
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_wait_for_idle_handle_can_finish_after_cross_thread_completion",
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_admission_cancellation_does_not_release_an_idle_handle"
+      ]
     }
   ]
 }

@@ -122,5 +122,16 @@
     "tests": [
       "LiteDB.Tests/Engine/SharedLeasedReaderDispose_Tests.cs#Leased_snapshot_disposal_refuses_callback_before_mutation_and_can_retry"
     ]
+  },
+  "Issue_3067_SharedCallbackNativeWait": {
+    "reason": "The dedicated Regression proof workflow packs the pinned known-bad commit and verifies both before/after variants; permanent guards run in the normal suites. Ordinary ReproRunner jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/TransactionHandleSharedCallback_Tests.cs#Input_callback_refuses_same_namespace_before_native_wait",
+      "LiteDB.Tests/Engine/TransactionHandleSharedCallback_Tests.cs#Late_reader_callback_refuses_native_wait_after_handoff",
+      "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Nested_other_database_handle_keeps_outer_dependency_and_restores_it",
+      "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_other_database_callback_cannot_erase_enclosing_shared_dependency",
+      "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_wait_for_idle_handle_can_finish_after_cross_thread_completion",
+      "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_admission_cancellation_does_not_release_an_idle_handle"
+    ]
   }
 }

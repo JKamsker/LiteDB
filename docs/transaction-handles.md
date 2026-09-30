@@ -26,12 +26,22 @@ before executing and do not abort the legitimate operation. This includes mappin
 query execution, enumeration, reader access, commit, rollback and disposal. The
 guard detects overlapping calls, not accidental sequential sharing by an application.
 Raw `LiteEngine` reentry from a bound mapper/input/read callback is rejected before
-side effects; use ordinary `LiteDatabase` objects for independent callback work.
-An ordinary callback write that needs a collection lock held by its executing
-handle fails immediately with the existing lock-timeout error. It cannot wait
-for that same callback to return. Work on unrelated collections remains
-independent; an idle handle can still be completed on another thread to release
-a legitimate waiter.
+side effects. Ordinary `LiteDatabase` objects keep callback work independent, but
+cannot wait for ownership held by the executing handle. In Direct mode, an ordinary
+callback write that needs the handle's collection lock fails immediately with the
+existing lock-timeout error; unrelated collections remain independent.
+
+In Shared mode, an ordinary callback operation requiring the same database's native
+writer ownership throws `InvalidOperationException` before waiting. This includes
+`db.UserVersion` and writes to unrelated collections, even through another facade
+using the same mutex namespace. Defer that work until the handle completes, or use
+the appropriate supported transaction-bound API explicitly. Ordinary coordinated
+reads that need no native writer ownership remain independent. Catching a refusal
+inside the callback leaves the handle Active and its previous writes intact. Work
+on another database remains independent, and an idle handle can still be completed
+on another thread to release a legitimate waiter. The dependency check lasts only
+for the synchronous handle operation; it neither enlists ordinary calls nor changes
+the general Shared admission timeout contract.
 Internal engine composition carries a one-use dispatch authorization, consumed
 before entering user callbacks. If a callback lets that refusal escape a statement
 whose engine transaction was rolled back, the handle becomes Failed.
