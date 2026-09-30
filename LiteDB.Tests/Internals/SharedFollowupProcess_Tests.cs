@@ -112,6 +112,7 @@ namespace LiteDB.Internals
                     await waiter.Finish();
                     ownerElapsed.Elapsed.Should().BeLessThan(TimeSpan.FromMinutes(1), "all twenty writes must finish before even the earliest possible pin hold limit");
                 }
+                owner.HasExited.Should().BeFalse("writer progress must occur while the pin owner remains alive: " + owner.DiagnosticSummary());
                 phase = "owner death and native release";
                 await owner.Kill();
                 phase = "cold indexed recovery";
