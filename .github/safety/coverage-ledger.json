@@ -143,6 +143,20 @@
       ],
       "invariant": "Every LiteDB.Tests method still runs in exactly one partition session on every leg; no test is filtered out, sampled or skipped.",
       "reason": "The concurrency explorer's tests (about 145 s) move from the engine partition into their own engine-explorer partition so the engine session stays below the 300 s per-session limit; the script's partition coverage check verifies 2318 methods, each in exactly one partition, and an isolated .NET 8 run passed every partition."
+    },
+    {
+      "id": "133-disposed-reader-exception",
+      "kind": "assertions-reduced",
+      "subjects": [
+        "LiteDB.Tests/Engine/TransactionHandleBinding_Tests.cs"
+      ],
+      "disposition": "intentional-change",
+      "invariant": "Bound readers never resume engine work after either explicit reader disposal or transaction completion.",
+      "reason": "An explicitly disposed reader now consistently throws ObjectDisposedException before entering the transaction guard, preserving earlier writes; the existing terminal rejection assertion changes exception type without being removed.",
+      "decision": "docs/transaction-handles.md#outcome-and-cleanup",
+      "coveredBy": [
+        "LiteDB.Tests/Engine/TransactionHandleDisposeSafety_Tests.cs#Disposed_bound_objects_refuse_use_without_aborting_prior_writes"
+      ]
     }
   ]
 }

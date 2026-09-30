@@ -57,12 +57,19 @@ it does not change ordinary Shared or Direct caller-stream ownership.
 
 `State` is `Active`, `Committed`, `RolledBack`, `Failed` or `Indeterminate`.
 `Commit()` and `Rollback()` return void. Repeated completion is a usage error;
-repeated disposal is safe. Commit with an open bound reader fails before mutation
+repeated disposal is safe. A disposed bound reader or enumerator throws
+`ObjectDisposedException` before transaction execution, leaving earlier writes
+intact. This takes precedence over transaction-completed errors for that disposed
+object. Commit with an open bound reader fails before mutation
 and leaves the transaction active: dispose the reader and retry commit.
 
 An executing statement failure aborts the handle; there is no statement savepoint.
 Read-only/capability refusals before mutation leave it active. Disposing a healthy
-active handle rolls it back. Terminal disposal never commits or claims rollback of
+active handle rolls it back. Disposal racing session close leaves rollback to the
+close owner and does not throw merely because admission closed. Normal overlapping
+user operations and callback reentry remain invalid. If another transaction has
+already fatally stopped the host, disposing a healthy peer releases its resources
+without rethrowing the other transaction's fatal error. Terminal disposal never commits or claims rollback of
 an indeterminate commit. A known committed result stays committed if later cleanup
 fails. A failed flush does not prove recovery will find the write absent.
 
@@ -80,7 +87,8 @@ that Direct host; recovery requires releasing its owners and opening a new host.
 ## Session close and resource topology
 
 Disposal moves a session from Open through Closing to Closed. It rejects new work,
-cancels pending handle admission, settles idle owned handles, and drains executing
+cancels pending handle admission and ordinary Shared owner/pin acquisition,
+settles idle owned handles, and drains executing
 work before releasing its engine lease. Each disposal call waits up to 10 seconds,
 including cleanup time. A timeout leaves the session Closing with needed resources
 retained; cleanup continues automatically when outstanding work finishes. A retry
@@ -167,7 +175,11 @@ does not force an extra final checkpoint. Acknowledged WAL commits remain durabl
 if the process dies before that session closes.
 
 Operation leases cover the full storage call and completion tail. Maintenance and
-close cannot replace/dispose the core until those calls finish. Cursor/snapshot
+close cannot replace/dispose the core until those calls finish. Pending maintenance
+fences new independent calls while permitting existing transaction and cursor
+continuations to drain. Raw engine close interrupts collection-lock waiters before
+waiting for active operations; it still releases transaction/page resources only
+after that drain. Cursor/snapshot
 leases separately protect idle readers. Existing native lock/MMF/sidecar protocols,
 filesystem support, file formats, WAL publication and configured durability remain
 those of [native admission](native-database-admission.md).
