@@ -304,4 +304,3 @@ schedules; they do not enumerate arbitrary user-defined callback programs.
 Native OS qualification and modeled-power-loss evidence remain distinct from
 actual process termination. Read-only source review is not a replacement for the
 recorded execution and mutation results in the companion audit reports.
-
