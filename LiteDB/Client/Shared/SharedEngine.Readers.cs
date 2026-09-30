@@ -75,6 +75,9 @@ namespace LiteDB
         /// </summary>
         private T WriteDatabase<T>(Func<T> write, bool scoped = false) => this.Call(() =>
         {
+            // Pin acquisition bypasses OpenDatabase and runs on a different thread.
+            // Refuse on the caller before choosing or changing native ownership.
+            Engine.TransactionContext.ThrowIfSharedWait(_mutexName);
             var pin = _pin;
             var use = pin != null && pin.TryEnter() ? pin
                 : this.CanPin() ? this.StartPin()
