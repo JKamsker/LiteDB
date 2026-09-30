@@ -256,3 +256,48 @@ two inherited proofs. Final integrated tests, platform evidence and new producti
 measurements must cover these corrections; eb01 and earlier measurements are
 interim evidence. The PR description and pinned artifact report record the
 accepted revision and results, rather than treating local review as final CI.
+
+## Follow-up review of e821ae747
+
+Review `5365276527` identified callbacks during later reader advances, after
+`Query()` admission has ended. Independent plain/encrypted reproductions confirmed
+both counterexamples on the real reviewed commit: refused close of a separate
+unleased snapshot released its native mutex, and foreign connection close waited
+for a callback while holding the connection lock that callback needed. The prior
+single-row callback controls exercised eager first-row materialization and did
+not establish safety for this later phase; they remain alongside the new cases.
+
+The correction includes every mutex-dependent core in the callback-close preflight,
+keeps those cores and pin ownership published until teardown completes, and drains
+outside connection bookkeeping locks. A thrown pre-teardown refusal must preserve
+native ownership; a returned cleanup-error list follows completed teardown and
+keeps the existing error contract. Genuinely leased snapshots retain their separate
+lifetime. Owner-exit and handed-off-reader variants exercise the same dependency
+without a disposed facade, including callers that trigger owner retirement
+rather than arriving after it starts. Valid own-pin callbacks and harmless raw
+rollback after disposal remain controls.
+
+Two public-API proofs pin actual `e821ae747`, with no internal hooks or reflection.
+`Issue_133_SharedSnapshotCloseRefusal` uses a real reader-registry filesystem
+obstacle, a different caller's bounded writer admission, leased controls, and
+plain/encrypted indexed cold-state checks.
+`Issue_3067_SharedLateReaderClose` requires the later-row callback and both sides
+of the blocked close dependency, then requires the corrected run to finish,
+permit an external writer process, exclude uncommitted rows, and preserve exact
+records/indexes/sentinel. A setup error or generic process timeout cannot satisfy
+either known-bad proof. Both dedicated-feed comparisons and matching permanent
+suite guards are registered; their ordinary repro substitutions are checked.
+
+The e821 hosted matrix also found an older open-failure test expecting callback
+`Dispose()` to succeed. Its replacement explicitly requires the documented
+refusal, retains incompatible-writer exclusion, preserves the exact injected
+IOException, then disposes outside the callback and verifies all references retire.
+Plain/encrypted indexed cold-state and unrelated-sentinel controls remain. This
+is an intentional exception-contract update recorded in the coverage ledger;
+failed hosted attempts are retained rather than reclassified as successful.
+
+The later comment `5910144864` accepts the earlier pin-close, checkpoint-contract,
+Windows cancellation-wait and callback-scope resolutions. Idle pin-core errors
+may surface from the last ordinary reader's `Dispose()`; the migration guide now
+states that path explicitly. Revision-specific evidence, subsequent review
+findings and the current completion status remain in the PR and immutable audit.

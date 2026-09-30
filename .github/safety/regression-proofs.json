@@ -166,6 +166,30 @@
         "LiteDB.Tests/Engine/TransactionHandleCallbackLock_Tests.cs#Repeated_public_handoff_restores_binding_before_admitting_next_callback",
         "LiteDB.Tests/Engine/TransactionHandleCallbackHandoff_Tests.cs#Public_admission_handoff_preserves_current_callback_marker"
       ]
+    },
+    {
+      "repro": "Issue_133_SharedSnapshotCloseRefusal",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "e821ae7479dcb83570031180b0c0e3f4fd167793",
+        "reason": "The follow-up Shared cleanup change in fork PR133 released native protection after a late unleased snapshot refused self-close; this revision was not published or merged to dev.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/SharedLateReaderClose_Tests.cs#Late_reader_self_close_preserves_unleased_protection_or_leased_independence"
+      ]
+    },
+    {
+      "repro": "Issue_3067_SharedLateReaderClose",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "e821ae7479dcb83570031180b0c0e3f4fd167793",
+        "reason": "The Shared cleanup path held its connection lock while draining a late reader operation whose callback required that same lock; introduced in unmerged fork PR133.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/SharedLateReaderClose_Tests.cs#Late_reader_callback_can_reenter_after_foreign_close_starts_draining"
+      ]
     }
   ]
 }
