@@ -133,7 +133,7 @@ namespace LiteDB.Internals
                 {
                     if (process == null) continue;
                     try { await process.Kill(); } catch (InvalidOperationException) { }
-                    catch (Exception cleanup) { error.Data["child-stop:" + process.DiagnosticSummary()] = cleanup; }
+                    catch (Exception cleanup) { error.Data[ReferenceEquals(process, waiter) ? "writer-stop" : "owner-stop"] = cleanup; }
                 }
                 try
                 {
