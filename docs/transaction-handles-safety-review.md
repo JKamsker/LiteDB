@@ -301,3 +301,23 @@ Windows cancellation-wait and callback-scope resolutions. Idle pin-core errors
 may surface from the last ordinary reader's `Dispose()`; the migration guide now
 states that path explicitly. Revision-specific evidence, subsequent review
 findings and the current completion status remain in the PR and immutable audit.
+
+The facade variant in comment `5910144864` was independently reproduced: a late
+ordinary reader holds a core operation but no session-call lease, so an owning
+facade previously started shutdown and timed out waiting for its own callback.
+A facade preflight now refuses that self-dependent close before session state
+changes. It does not add a read-path lease or change the close scheduler. Pooled
+Direct, genuinely leased Shared and non-owning facade controls still permit
+independent disposal; foreign-thread close still drains correctly.
+`Issue_3067_LateCallbackClose` pins the actual reviewed commit and requires the
+specific old timeout versus the corrected refusal and usable facade, followed by
+peer progress and exact cold state.
+
+Independent review of the first drain correction also caught a fresh-operation
+race with off-thread last-reader disposal. The original head passed that forced
+interleaving while the intermediate correction failed. Core retirement now fences
+new admissions until the old core is retired without holding the callback-needed
+lock during drain. The actual intermediate failure and passing controls remain
+retained. Strict proof validation also caught an empty-password/plain mismatch;
+empty password enables encryption. Corrected proofs use null for truly plain
+databases on every local/peer open, with the earlier harness failures preserved.

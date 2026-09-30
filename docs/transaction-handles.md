@@ -260,7 +260,11 @@ The engine preserves the WAL needed to recover acknowledged commits.
 Raw Shared disposal from an executing callback is refused before changing the
 connection state or writer ownership. The current call may finish, and disposal
 may be retried afterward. This also covers reader callbacks whose original Query
-call has already returned.
+call has already returned. An owning facade also refuses a late-reader callback
+close before publishing session shutdown when its storage teardown would wait for
+that callback. Independently retained pooled Direct and leased Shared snapshots
+keep their supported facade-close behavior; disposal from another thread still
+drains the active operation.
 
 The Shared parent's final checkpoint retains its historical best-effort policy:
 returned core-close errors, and expected I/O/access/database errors opening or

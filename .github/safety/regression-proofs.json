@@ -190,6 +190,19 @@
       "permanentGuard": [
         "LiteDB.Tests/Engine/SharedLateReaderClose_Tests.cs#Late_reader_callback_can_reenter_after_foreign_close_starts_draining"
       ]
+    },
+    {
+      "repro": "Issue_3067_LateCallbackClose",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "e821ae7479dcb83570031180b0c0e3f4fd167793",
+        "pr": 133,
+        "reason": "The facade session-drain timeout from a late reader callback was introduced within fork PR #133 and has not reached upstream dev or any published package."
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleLateCallbackClose_Tests.cs#Late_callback_close_refuses_only_a_self_dependent_drain",
+        "LiteDB.Tests/Engine/TransactionHandleLateCallbackClose_Tests.cs#Cross_thread_close_drains_late_callback_without_refusing_it"
+      ]
     }
   ]
 }
