@@ -62,7 +62,7 @@ namespace LiteDB
                 if (_owner.IsOwnedByCurrentThread || _pin?.IsHeldByCurrentThread == true)
                     throw new InvalidOperationException("Complete the legacy transaction or close its locking reader before opening a transaction handle.");
             }
-            var name = SharedMutexNameFactory.Create(_settings.Filename, _settings.SharedMutexNameStrategy);
+            var name = _mutexName;
             var gate = TransactionWriters.GetOrAdd(name, _ => new SemaphoreSlim(1, 1));
             // Pending begins use their caller's synchronous wait, never a holder thread/engine.
             admission.WaitLocal(gate);
@@ -149,7 +149,7 @@ namespace LiteDB
                 }
                 _opened.Wait();
                 if (_error != null) Release();
-                return new TransactionResources(_engine, _engine.CurrentContext, Release, () => _close.Set(), policyAnchor);
+                return new TransactionResources(_engine, _engine.CurrentContext, Release, () => _close.Set(), policyAnchor, _child._mutexName);
             }
 
             private void Cleanup(Action action)

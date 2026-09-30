@@ -16,6 +16,7 @@ namespace LiteDB
 
         private readonly EngineSettings _settings;
         private readonly Mutex _mutex;
+        private readonly string _mutexName;
         private readonly SharedMutexTurnstile _turnstile;
         private readonly SharedMutexOwner _owner;
         // Guards the engine's user count, which a reader disposed on another thread also updates.
@@ -70,7 +71,7 @@ namespace LiteDB
                 SharedFileHandles.IsSupportedFor(_settings.Filename))
                 _settings.SharedFileHandles = _handles = new SharedFileHandles();
 
-            var name = SharedMutexNameFactory.Create(_settings.Filename, _settings.SharedMutexNameStrategy);
+            var name = _mutexName = SharedMutexNameFactory.Create(_settings.Filename, _settings.SharedMutexNameStrategy);
             try
             {
                 _mutex = SharedMutexFactory.Create(name);
@@ -96,6 +97,9 @@ namespace LiteDB
         /// </summary>
         private SharedMutexPin OpenDatabase(bool scoped = false, bool writing = false, CancellationToken closing = default, TransactionAdmission admission = null)
         {
+            // Refuse before retiring snapshots or entering a pin: neither may wait on
+            // ownership retained by an enclosing executing transaction handle.
+            TransactionContext.ThrowIfSharedWait(_mutexName);
             // Writers retire idle read handles before _useLock, preserving lock order.
             if (writing) this.RetireCoordinatedReads();
             var pin = _pin;

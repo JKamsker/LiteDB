@@ -23,7 +23,7 @@ namespace LiteDB
         {
             _resources = resources;
             _session = session;
-            _transaction = new TransactionContext(resources.Engine, resources.Session);
+            _transaction = new TransactionContext(resources.Engine, resources.Session, resources.SharedMutexName);
             _client = new LiteDatabaseContext(new TransactionEngine(this, resources.Engine), mapper);
             try
             {
