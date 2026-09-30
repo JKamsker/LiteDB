@@ -174,18 +174,19 @@ namespace LiteDB
             }
             else _databaseUsers--;
 
+            var cleanup = new TryCatch();
             if (_databaseUsers == 0 && (abandoned || !_transactionRunning) && _engine != null)
             {
                 var engine = _engine;
                 _engine = null;
                 var close = Stopwatch.StartNew();
-                this.ObservedClose(engine, () => engine.Dispose());
+                cleanup.Catch(() => this.ObservedClose(engine, () => engine.Dispose()));
                 _lastPinClose = close.Elapsed;
             }
             var disposed = Volatile.Read(ref _disposed) != 0;
-            TeardownSteps.Before("SharedEngine.ClosePin.coordination", disposed);
-            if (disposed) this.DisposeCoordination();
-            TeardownSteps.After("SharedEngine.ClosePin.coordination", disposed);
+            cleanup.Step("SharedEngine.ClosePin.coordination", disposed);
+            if (disposed) cleanup.Catch(this.DisposeCoordination);
+            ThrowSharedCleanupErrors(cleanup);
         }
 
         /// <summary>
