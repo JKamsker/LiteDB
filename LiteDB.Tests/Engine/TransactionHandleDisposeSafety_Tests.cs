@@ -146,6 +146,9 @@ namespace LiteDB.Tests.Engine
                 Assert.Equal(LiteTransactionState.RolledBack, healthy.State);
             }
             log.Fail = false;
+            // Caller-owned streams also retain platform file-sharing locks.
+            log.Dispose();
+            data.Dispose();
             // Failure happens before writing any peer WAL bytes; both pending writes are absent.
             Verify(new ConnectionString { Filename = file, Password = password }, new[] { 1 });
         }
@@ -236,6 +239,9 @@ namespace LiteDB.Tests.Engine
                 }
             }
             log.Fail = false;
+            // Caller-owned streams also retain platform file-sharing locks.
+            log.Dispose();
+            data.Dispose();
             // Failure happens before writing any peer WAL bytes; both pending writes are absent.
             Verify(new ConnectionString { Filename = file, Password = password }, new[] { 1 });
         }
