@@ -58,7 +58,8 @@ namespace LiteDB.ConcurrencyTesting
             }
             var work = actor.Invoke("ordinary-input-callback", () => shared.Insert("rows", Input(), BsonAutoId.Int32));
             entered.Wait();
-            schedule.Until(() => finished.IsSet || (int)Field(peerEngine, "_mutexWaiters") > 0,
+            var sameFilePeer = variant == 1 || variant == 3;
+            schedule.Until(() => finished.IsSet || (sameFilePeer && (int)Field(peerEngine, "_mutexWaiters") > 0),
                 "callback must complete/refuse or expose native ownership wait");
             var cycle = !finished.IsSet;
             if (cycle)

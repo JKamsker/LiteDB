@@ -68,7 +68,11 @@ namespace LiteDB.ConcurrencyTesting
             {
                 TransactionAdmission.Observe = null;
                 var stopped = run._schedule.Stop();
-                if (!stopped && failure == null) failure = new TimeoutException("A worker did not terminate; retained " + file);
+                if (!stopped)
+                {
+                    if (failure == null) failure = new TimeoutException("A worker did not terminate; retained " + file);
+                    failure.Data["ExplorerLiveWorker"] = true;
+                }
                 if (stopped)
                 {
                     for (var i = run._resources.Count - 1; i >= 0; i--)

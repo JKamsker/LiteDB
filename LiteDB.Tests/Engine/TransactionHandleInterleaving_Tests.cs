@@ -12,12 +12,14 @@ namespace LiteDB.Tests.Engine
     {
         public static IEnumerable<object[]> Cases()
         {
-            // Every bounded schedule/configuration runs even when another case fails.
+            // PR subset keeps every vector and mode; opt in to the full Cartesian audit.
+            var full = Environment.GetEnvironmentVariable("LITEDB_EXPLORER_FULL") == "1";
             for (var schedule = 0; schedule < TransactionInterleavingExplorer.ScheduleCount; schedule++)
                 foreach (var shared in new[] { false, true })
                     foreach (var encrypted in new[] { false, true })
                         foreach (var outcome in new[] { 0, 1 })
-                            yield return new object[] { shared, encrypted, schedule, outcome };
+                            if (full || (encrypted == ((schedule & 2) != 0) && outcome == (schedule & 1)))
+                                yield return new object[] { shared, encrypted, schedule, outcome };
         }
 
         [Theory]

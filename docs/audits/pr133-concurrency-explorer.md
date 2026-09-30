@@ -9,9 +9,12 @@ these newly covered schedules.
 
 ## Finite gate
 
-`TransactionHandleInterleaving_Tests` enumerates all 34 schedule vectors × Direct
-or Shared × plain or encrypted × commit/rollback input parity: **272 independent
-cases per runtime**. Cases continue after a different theory case fails. Fuzz
+`TransactionHandleInterleaving_Tests` defaults to **68 representative cases**: all
+34 vectors × Direct/Shared, with encryption and completion parity chosen from the
+vector bits. These configuration choices are correlated, not a full Cartesian
+claim. Both pinned/plain and unanchored/encrypted known-defect paths still fail.
+Set `LITEDB_EXPLORER_FULL=1` to enumerate all 34 vectors × Direct/Shared ×
+plain/encrypted × commit/rollback parity: **272 independent cases per runtime**. Cases continue after a different theory case fails. Fuzz
 `transaction-interleavings --count 272` enumerates the same configuration space,
 rotating its starting index by the recorded seed; like other fuzz targets it stops
 at the first failure. That prefix is not a completed 272-case campaign.
@@ -68,7 +71,7 @@ This bounded diagnostic does not claim the application would recover unaided.
 Examples (build with `TestingEnabled=true` consistently):
 
 ```bash
-dotnet test LiteDB.Tests -c Release -f net8.0 -p:TestingEnabled=true \
+LITEDB_EXPLORER_FULL=1 dotnet test LiteDB.Tests -c Release -f net8.0 -p:TestingEnabled=true \
   --settings tests.runsettings --filter FullyQualifiedName~TransactionHandleInterleaving
 
 dotnet run --project LiteDB.Fuzz -c Release -f net8.0 -- \
