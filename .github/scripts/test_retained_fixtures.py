@@ -55,6 +55,53 @@ sys.stdin.readline()
                     child.kill()
                     child.communicate()
 
+    def test_native_crash_directory_waits_for_child_and_retains_exact_recovery_set(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            fixture = root / ('litedb-native-crash-' + 'c' * 32)
+            fixture.mkdir()
+            artifacts = root / 'artifacts'
+            artifacts.mkdir()
+            for name in ('data.db', 'data-log.db', 'data-temp.db', 'data-rebuild.db'):
+                (fixture / name).write_bytes(name.encode())
+            unrelated = root / 'neighbor.db'
+            unrelated.write_bytes(b'untouched')
+            child = subprocess.Popen([sys.executable, '-u', '-c',
+                'import sys; held = open(sys.argv[1], "rb"); print("ready", flush=True); sys.stdin.readline()',
+                str(fixture / 'data-rebuild.db')], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            try:
+                self.assertEqual(child.stdout.readline().strip(), 'ready')
+                manifest = {'fixtureKind': 'native-crash-directory', 'directory': str(fixture),
+                            'processId': 1, 'childPid': child.pid, 'failure': 'primary marker sharing failure'}
+                (artifacts / 'failed.json').write_text(json.dumps(manifest))
+                actual_running = retained.running
+                with patch.object(retained, 'running', side_effect=lambda pid: False if pid == 1 else actual_running(pid)):
+                    self.assertEqual(retained.collect(artifacts), 1)
+                    self.assertFalse((artifacts / 'failed/data.db').exists())
+                    child.communicate('\n', timeout=10)
+                    self.assertEqual(retained.collect(artifacts), 0)
+                report = json.loads((artifacts / 'failed/collection-report.json').read_text())
+                self.assertEqual(report['primaryFailure'], manifest['failure'])
+                self.assertEqual(len(report['files']), 4)
+                for source in fixture.iterdir():
+                    self.assertEqual((artifacts / 'failed' / source.name).read_bytes(), source.read_bytes())
+                self.assertFalse((artifacts / 'failed/neighbor.db').exists())
+                self.assertEqual(unrelated.read_bytes(), b'untouched')
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                    child.communicate()
+
+    def test_native_crash_manifest_cannot_capture_an_arbitrary_directory(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            (root / 'unrelated.db').write_bytes(b'untouched')
+            (root / 'failed.json').write_text(json.dumps({'fixtureKind': 'native-crash-directory',
+                'directory': str(root), 'processId': 1, 'failure': 'primary'}))
+            with patch.object(retained, 'running', return_value=False):
+                self.assertEqual(retained.collect(root), 1)
+            self.assertFalse((root / 'failed/unrelated.db').exists())
+
     def test_copy_failure_is_separate_and_remaining_files_are_collected(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)

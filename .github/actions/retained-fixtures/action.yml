@@ -1,4 +1,4 @@
-name: Retain failed graph fixtures
+name: Retain failed database fixtures
 description: Collect after test-host exit without changing the exercised storage volume
 runs:
   using: composite

@@ -162,12 +162,17 @@ jobs:
       - name: Verify real graph-failure fixture retention
         run: python3 scripts/test-graph-retention.py --output artifacts_temp/graph-retention-contract
 
+      - name: Verify real killed-child fixture retention
+        run: python3 scripts/test-native-crash-retention.py --output artifacts_temp/native-crash-retention-contract
+
       - name: Upload graph retention contract evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: graph-retention-contract-linux
-          path: artifacts_temp/graph-retention-contract/
+          path: |
+            artifacts_temp/graph-retention-contract/
+            artifacts_temp/native-crash-retention-contract/
           if-no-files-found: warn
 
       - name: Verify prerelease database acknowledgement guard
@@ -890,6 +895,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test-graph-retention.py --framework '${{ matrix.framework }}' --architecture arm64 --output artifacts_temp/graph-retention-contract
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-native-crash-retention.py --framework '${{ matrix.framework }}' --architecture arm64 --output artifacts_temp/native-crash-retention-contract
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload native and retention contract results
         if: always()
         uses: actions/upload-artifact@v4
@@ -901,6 +908,7 @@ jobs:
             LiteDB.Tests/TestResults/discovered-tests.txt
             LiteDB.Tests/TestResults/native-partitions.json
             artifacts_temp/graph-retention-contract/
+            artifacts_temp/native-crash-retention-contract/
           if-no-files-found: warn
       - name: Preserve failed graph fixtures after test-host exit
         if: always()
