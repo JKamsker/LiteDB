@@ -149,13 +149,17 @@ namespace LiteDB.Tests.Engine
                 Assert.NotNull(cached);
                 // Do not open the parent through an ordinary operation: that would
                 // acquire its independent Shared lifetime admission and hide a leak.
-                await MvccProcess.Run("native-write", file, password, "direct");
-                using var next = db.BeginTransaction(TimeSpan.FromSeconds(5));
-                Assert.Equal(84, next.GetCollection("rows").FindById(1)["value"].AsInt32);
-                Assert.Single(next.GetCollection("rows").Find(Query.EQ("value", 84)));
-                Assert.NotNull(next.GetCollection("sentinel").FindById(9));
-                next.Commit();
-                Assert.Same(cached, Cached(shared));
+                for (var cycle = 0; cycle < 3; cycle++)
+                {
+                    await MvccProcess.Run("native-write", file, password, "direct");
+                    using var next = db.BeginTransaction(TimeSpan.FromSeconds(5));
+                    Assert.Equal(84, next.GetCollection("rows").FindById(1)["value"].AsInt32);
+                    Assert.Single(next.GetCollection("rows").Find(Query.EQ("value", 84)));
+                    Assert.NotNull(next.GetCollection("sentinel").FindById(9));
+                    if (cycle < 2) next.GetCollection("rows").Update(new BsonDocument { ["_id"] = 1, ["value"] = 42 });
+                    next.Commit();
+                    Assert.Same(cached, Cached(shared));
+                }
             }
             for (var repeat = 0; repeat < 2; repeat++)
             {

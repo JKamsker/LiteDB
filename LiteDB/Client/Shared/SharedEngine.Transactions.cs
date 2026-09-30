@@ -34,6 +34,14 @@ namespace LiteDB
             // In particular a handle-only facade must still permit a Direct owner
             // between handles. Retain metadata, not idle data/log handles or leases.
             _handles?.CloseIdle();
+            this.DisposeCoordination();
+#if NET8_0_OR_GREATER
+            // Each original child was a one-operation participant. Do not let
+            // wrapper reuse create or retain a mapped authority between handles.
+            _coordinationDemand = 0;
+            _coordinationUnavailable = false;
+            CoordinationFallbackReason = null;
+#endif
             _settings.SharedAdmission.Dispose();
             _settings.SharedAdmission = new SharedModeAdmission(_settings);
         }
