@@ -1,3 +1,5 @@
+using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 #if DEBUG || TESTING
 using LiteDB.Utils;
@@ -21,6 +23,7 @@ namespace LiteDB.Client.Shared
         private readonly Mutex _turn;
 #if DEBUG || TESTING
         internal System.Action BeforeMainWait { get; set; }
+        internal Action<Mutex> BeforeContendedWait;
 #endif
 
         public SharedMutexTurnstile(Mutex turn)
@@ -92,11 +95,26 @@ namespace LiteDB.Client.Shared
             return false;
         }
 
-        private static void WaitCancellable(Mutex mutex, CancellationToken closing)
+        private void WaitCancellable(Mutex mutex, CancellationToken closing)
         {
             if (!closing.CanBeCanceled) { mutex.WaitOne(); return; }
-            // Retain the turnstile while waiting on the writer mutex: cancellation
-            // must not turn a queued waiter into a polling contender that can starve.
+            closing.ThrowIfCancellationRequested();
+            if (mutex.WaitOne(0)) return;
+#if DEBUG || TESTING
+            this.BeforeContendedWait?.Invoke(mutex);
+#endif
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // Keep a contended waiter in the kernel queue until ownership or
+                // cancellation. The uncontended path needs no event or array.
+                if (WaitHandle.WaitAny(new WaitHandle[] { closing.WaitHandle, mutex }) == 0)
+                    throw new OperationCanceledException(closing);
+                return;
+            }
+            // Unix does not support WaitAny containing a named mutex. Each timed
+            // wait still wakes immediately on release; this is not a 10 ms sleep.
+            // Once acquired, the turnstile stays owned throughout the main wait,
+            // preventing cooperating writers from barging ahead of this waiter.
             do { closing.ThrowIfCancellationRequested(); } while (!mutex.WaitOne(10));
         }
 
