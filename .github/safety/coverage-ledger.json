@@ -271,6 +271,19 @@
       "disposition": "strengthened",
       "invariant": "Killed-child recovery fixtures remain on their original system-temp volume; failed assertions and complete data/WAL/replacement/marker evidence survive the test host. Existing24crash cases retain strict byte equality/refusal/recovery checks.",
       "reason": "Fixes confirmed failure-capture gap: NativeAdmissionCrash used LITEDB_SHARED_DIAGNOSTICS, while native CI defines LITEDB_RETAINED_FIXTURES and its collector only accepted GUID basenames. Adds typed GUID directory manifests and post-host copies, refuses live hosts/children, and schedules a deliberately failing 24-case real process-death retention control on Linux and Windows ARM. Follow-up cff298b38 removes ordinary-path marker/probe I/O introduced in d9: the original child Kill/Dispose to strict VerifyRecovery sequence is preserved. Native authority diagnostics run only after failure, are exception-safe, and cannot suppress primary-failure retention. No assertion relaxation, retries, delay, threshold changes, or production changes. The original 847ms Windows ARM8 sharing failure remains unclassified: original fixture was not uploaded, so its lock owner cannot be reconstructed."
+    },
+    {
+      "id": "133-followup-pin-progress-boundary",
+      "kind": "harness-changed",
+      "subjects": [
+        "LiteDB.Tests/Internals/SharedFollowupProcess_Tests.cs",
+        "LiteDB.Tests/Internals/MvccProcess.cs",
+        "LiteDB.Tests.SharedMutexHarness/SharedFollowupHarness.cs"
+      ],
+      "disposition": "strengthened",
+      "invariant": "A live one-minute pin owner running ordinary updates yields to an external writer which commits all twenty records within the unchanged ten-second post-go limit; cold indexed records and unrelated sentinel remain correct. A genuinely held legacy pin permits no committed write.",
+      "reason": "Windows x64/net8 job109884239743 timed out waiting for done without a child-ready or native-admission boundary, so startup, admission and commit progress cannot be distinguished retrospectively. Initialize the writer before establishing the pin, observe native-wait and each real commit, and keep the active owner loop, all twenty separate commits and ten-second budget. Require owner still alive before intentional kill so an owner crash cannot mimic yielding. Adds plain/encrypted blocked controls, cold indexed verification and original-volume post-host failure capture. No production change, assertion retry or speculative classification of the original timeout.",
+      "decision": "docs/transaction-handles-safety-review.md#pinned-writer-progress-observation"
     }
   ]
 }
