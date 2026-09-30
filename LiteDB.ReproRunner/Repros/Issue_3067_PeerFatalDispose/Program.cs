@@ -15,7 +15,9 @@ Directory.CreateDirectory(root);
 var path = Path.Combine(root, "case-" + Guid.NewGuid().ToString("N") + ".db");
 try
 {
-    var reproduced = Run(path);
+    var immediate = Run(path, false);
+    var deferred = Run(path + ".deferred.db", true);
+    var reproduced = immediate || deferred;
     Console.WriteLine(reproduced ? "REGRESSION_REPRODUCED" : "FIXED_STATE_VERIFIED");
     host.SendResult(reproduced, reproduced ? "Reported disposal regression reproduced." : "Disposal preserved outcome and cold state.");
     return reproduced ? 0 : 10;
@@ -47,12 +49,24 @@ static void Verify(string path, params int[] ids)
             throw new Exception("Cold record/index/sentinel state disagrees with model");
     }
 }
-static bool Run(string path)
+static bool Run(string path, bool deferred)
 {
+    using var enteredRead = new ManualResetEventSlim();
+    using var releaseRead = new ManualResetEventSlim();
+    var holdRead = false;
     bool reproduced;
     using (var data = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
     using (var log = new FailingLog(Path.ChangeExtension(path, null) + "-log.db"))
-    using (var engine = new LiteEngine(new EngineSettings { DataStream = data, LogStream = log, DurableCommits = true }))
+    using (var engine = new LiteEngine(new EngineSettings { DataStream = data, LogStream = log, DurableCommits = true,
+        ReadTransform = (collection, value) =>
+        {
+            if (holdRead && collection == "sentinel")
+            {
+                enteredRead.Set();
+                if (!releaseRead.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("read barrier");
+            }
+            return value;
+        } }))
     using (var db = new LiteDatabase(engine, disposeOnClose: false))
     {
         Seed(db);
@@ -60,17 +74,33 @@ static bool Run(string path)
         healthy.GetCollection("other").Insert(Row(3));
         using var failed = db.BeginTransaction();
         failed.GetCollection("rows").Insert(Row(2));
-        log.Fail = true;
-        try { failed.Commit(); throw new Exception("Expected injected peer write failure"); }
-        catch (IOException error) when (ReferenceEquals(error, log.Failure)) { }
-        if (!log.Reached || failed.State != LiteTransactionState.Indeterminate)
-            throw new Exception("Peer fault did not hit expected WAL transition");
-        Exception? observed = null;
-        try { healthy.Dispose(); } catch (Exception error) { observed = error; }
-        reproduced = observed is IOException io && ReferenceEquals(io.InnerException, log.Failure);
-        if (!reproduced && (observed != null || healthy.State != LiteTransactionState.RolledBack))
-            throw new Exception("Unexpected healthy disposal outcome", observed);
-        log.Fail = false;
+        Task<BsonDocument>? reading = null;
+        if (deferred)
+        {
+            holdRead = true;
+            reading = Task.Run(() => db.GetCollection("sentinel").FindById(9));
+        }
+        try
+        {
+            if (deferred && !enteredRead.Wait(TimeSpan.FromSeconds(5))) throw new Exception("read did not enter");
+            log.Fail = true;
+            try { failed.Commit(); throw new Exception("Expected injected peer write failure"); }
+            catch (IOException error) when (ReferenceEquals(error, log.Failure)) { }
+            if (!log.Reached || failed.State != LiteTransactionState.Indeterminate)
+                throw new Exception("Peer fault did not hit expected WAL transition");
+            Exception? observed = null;
+            try { healthy.Dispose(); } catch (Exception error) { observed = error; }
+            reproduced = observed is IOException io && ReferenceEquals(io.InnerException, log.Failure);
+            if (!reproduced && (observed != null || healthy.State != LiteTransactionState.RolledBack))
+                throw new Exception("Unexpected healthy disposal outcome", observed);
+            log.Fail = false;
+        }
+        finally
+        {
+            releaseRead.Set();
+            if (reading != null)
+                try { reading.GetAwaiter().GetResult(); } catch (IOException) { }
+        }
     }
     Verify(path, 1);
     return reproduced;
