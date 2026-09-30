@@ -63,16 +63,26 @@ namespace LiteDB.Engine
         /// <summary>
         /// Do rollback to current transaction. Clear dirty pages in memory and return new pages to main empty linked-list
         /// </summary>
-        public bool Rollback()
+        public bool Rollback() => Rollback(cleanup: false);
+
+        internal bool RollbackHandleOnDispose() => Rollback(cleanup: true);
+
+        private bool Rollback(bool cleanup)
         {
             using var operation = EnterPublicOperation();
-            _state.Validate();
+            if (cleanup)
+            {
+                // Fatal publication makes the core unusable before retained readers
+                // allow physical teardown. The fatal owner already owns this cleanup.
+                if (_state.IsUnavailable) return false;
+            }
+            else _state.Validate();
 
             var transaction = this.GetTransactionForCompletion(commit: false);
 
             if (transaction != null && transaction.State == TransactionState.Active)
             {
-                this.RollbackAndReleaseTransaction(transaction);
+                this.RollbackAndReleaseTransaction(transaction, cleanup);
 
                 return true;
             }
@@ -145,7 +155,7 @@ namespace LiteDB.Engine
             }
         }
 
-        private void RollbackAndReleaseTransaction(TransactionService transaction)
+        private void RollbackAndReleaseTransaction(TransactionService transaction, bool cleanup = false)
         {
             try
             {
@@ -154,6 +164,10 @@ namespace LiteDB.Engine
             }
             catch (Exception ex)
             {
+                // A peer can publish failure after the initial availability check.
+                // Compare BEFORE Stop: Stop may publish this operation's own error
+                // unchanged (e.g. INVALID_DATAFILE_STATE), which must still escape.
+                if (cleanup && _state.IsPublishedFailure(ex)) return;
                 _state.Stop(ex);
                 throw;
             }

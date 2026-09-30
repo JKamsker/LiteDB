@@ -200,8 +200,9 @@ namespace LiteDB
             catch (Exception error) { failure = error; }
             try
             {
-                if (!onlyIfActive || (!_resources.Engine.IsDisposed && _transaction.Slot.Transaction != null))
-                    Dispatch(() => _resources.Engine.Rollback());
+                if (!onlyIfActive) Dispatch(() => _resources.Engine.Rollback());
+                else if (_transaction.Slot.Transaction != null)
+                    Dispatch(() => _resources.Engine.RollbackHandleOnDispose());
             }
             catch (Exception error)
             {
