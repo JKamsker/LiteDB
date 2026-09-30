@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using FluentAssertions;
 
@@ -12,11 +13,16 @@ namespace LiteDB.Internals
     {
         private readonly Process _process;
         private readonly Task<string> _errors;
+        private readonly string _mode;
+        private readonly Stopwatch _elapsed = Stopwatch.StartNew();
+        private readonly StringBuilder _output = new StringBuilder();
+        private readonly object _diagnosticGate = new object();
 
         internal int Id => _process.Id;
 
         internal MvccProcess(string mode, string filename, string password, string value = null, bool disableFileLocking = false, bool disableMappedReads = false)
         {
+            _mode = mode;
             // Use the host beside the runtime executing this test, including
             // isolated CI installations and Windows x86. PATH may select x64
             // or a newer major runtime even when the parent guard is correct.
@@ -46,14 +52,40 @@ namespace LiteDB.Internals
 
         internal async Task Expect(string expected)
         {
-            var line = await _process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(20));
+            var line = await ReadLine(TimeSpan.FromSeconds(20));
             if (line == null) throw new Exception(await _errors);
             line.Should().Be(expected);
         }
 
         /// <summary>Next output line, or null once the process closed its output.</summary>
-        internal Task<string> ReadLine(TimeSpan timeout) =>
-            _process.StandardOutput.ReadLineAsync().WaitAsync(timeout);
+        internal async Task<string> ReadLine(TimeSpan timeout)
+        {
+            try
+            {
+                var line = await _process.StandardOutput.ReadLineAsync().WaitAsync(timeout);
+                lock (_diagnosticGate)
+                {
+                    _output.AppendLine($"{_elapsed.Elapsed}: {line ?? "<stdout closed>"}");
+                    if (_output.Length > 65536) _output.Remove(0, _output.Length - 65536);
+                }
+                return line;
+            }
+            catch (TimeoutException error)
+            {
+                throw new TimeoutException("MVCC child output deadline: " + DiagnosticSummary(), error);
+            }
+        }
+
+        internal string DiagnosticSummary()
+        {
+            lock (_diagnosticGate)
+            {
+                var state = _process.HasExited ? "exited:" + _process.ExitCode : "running";
+                var errors = _errors.IsCompletedSuccessfully ? _errors.Result : "<stderr still open>";
+                return $"mode={_mode}; pid={_process.Id}; state={state}; elapsed={_elapsed.Elapsed}; " +
+                    $"runtime={Environment.Version}; architecture={RuntimeInformation.ProcessArchitecture}\nstdout:\n{_output}stderr:\n{errors}";
+            }
+        }
 
         internal void Send(string command) => _process.StandardInput.WriteLine(command);
 
