@@ -125,6 +125,47 @@
         "LiteDB.Tests/Engine/TransactionHandleDisposeSafety_Tests.cs#Deferred_fatal_teardown_does_not_repeat_peer_error_on_healthy_disposal",
         "LiteDB.Tests/Engine/TransactionHandleFatalCleanupRace_Tests.cs#Cleanup_discriminates_published_peer_failure_from_its_own_failure"
       ]
+    },
+    {
+      "repro": "Issue_133_RawCloseCallbackDependency",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "eb01f346eb7d8d51925a45c2f87ef40e1c3984ee",
+        "reason": "Introduced in fork PR133 maintenance drain before upstream integration; no published package contains this behavior.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleRawCloseDependency_Tests.cs#Raw_close_rejects_fresh_callback_dependency_before_draining_callback",
+        "LiteDB.Tests/Engine/TransactionHandleRawCloseDependency_Tests.cs#Close_wakes_fresh_work_already_waiting_behind_rebuild"
+      ]
+    },
+    {
+      "repro": "Issue_3067_SharedPinCleanup",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "eb01f346eb7d8d51925a45c2f87ef40e1c3984ee",
+        "reason": "Pin-close failures became propagated by fork PR133 before upstream integration; no released package contains this regression.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/SharedDisposalFailure_Tests.cs#Pin_close_failure_finishes_connection_cleanup_and_preserves_leased_reader",
+        "LiteDB.Tests/Engine/SharedCallbackClose_Tests.cs#Refused_raw_callback_close_keeps_native_ownership_until_operation_returns"
+      ]
+    },
+    {
+      "repro": "Issue_3067_HandleCallbackSelfWait",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "eb01f346eb7d8d51925a45c2f87ef40e1c3984ee",
+        "reason": "Handle-owned collection locks and callback binding suppression were introduced on fork PR #133 and have not reached upstream dev or a published package.",
+        "pr": 133
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleCallbackLock_Tests.cs#Same_collection_callback_refuses_self_wait_without_enlisting_independent_work",
+        "LiteDB.Tests/Engine/TransactionHandleCallbackLock_Tests.cs#Original_thread_may_wait_for_idle_handle_completed_by_another_thread",
+        "LiteDB.Tests/Engine/TransactionHandleCallbackLock_Tests.cs#Repeated_public_handoff_restores_binding_before_admitting_next_callback",
+        "LiteDB.Tests/Engine/TransactionHandleCallbackHandoff_Tests.cs#Public_admission_handoff_preserves_current_callback_marker"
+      ]
     }
   ]
 }

@@ -191,3 +191,68 @@ prevent the progress protocol from treating an indefinitely blocked writer as
 success. This correction changes test discrimination and diagnostics only; it
 makes no production-code change and does not resolve the original opaque
 failure's phase retrospectively.
+
+## Follow-up reviews of 010821392 and eb01f346e
+
+[Review 5364329616](https://github.com/JKamsker/LiteDB/pull/133#pullrequestreview-5364329616)
+and [comment 5908951510](https://github.com/JKamsker/LiteDB/pull/133#issuecomment-5908951510)
+reopened the gate. Their static findings were tested separately:
+
+- A surfaced pin-core close failure could skip independent Shared cleanup.
+  Connection cleanup now preserves the primary error, attaches secondary failures
+  and completes reader-registry, cached-child and admission retirement. A legitimate
+  reader keeps its lease until it finishes; another writer can progress meanwhile.
+  A further forced callback check caught premature native release in an
+  intermediate cleanup correction. Raw callback disposal now rejects before the
+  disposed transition; a core close that refuses admission stops dependent
+  ownership cleanup. Six plain/encrypted paths keep native exclusion until the
+  operation returns, then prove subsequent writes and disposal.
+  Plain/encrypted guards check exact snapshot and indexed cold state. A black-box
+  Linux RLIMIT_FSIZE proof reproduces the lease leak on eb01 using a real OS write
+  failure. This is an exception test, not a power-loss test.
+- The Shared parent's final checkpoint historically ignores returned close errors
+  and expected I/O/access/database exceptions. The migration guide now states that
+  precise best-effort contract instead of claiming universal propagation. Separate
+  parent-only faults verify retained WAL bytes and committed indexed recovery;
+  pin/child errors remain observable after independent cleanup.
+- A raw close could fence fresh work awaited by an admitted callback. Close now
+  refuses those fresh dependencies while allowing existing work to drain. Rebuild
+  retains its waiting semantics. Real eb01 fails; the stacked pre-PR parent does
+  not reproduce the public callback scenario.
+- An ordinary callback write could wait on the handle executing that callback.
+  Collection ownership now records the currently executing context thread solely
+  for self-wait detection; idle handles and sequential handoff remain supported.
+  Independent review caught admission released before scope restoration in the
+  first fix. A real four-thread handoff test detects that intermediate bug; the
+  corrected order restores all execution scopes before releasing admission.
+- Contended Windows waits now use a single cancellable kernel wait. Its event and
+  cancellation registration belong to that wait and are disposed in safe order;
+  uncontended waits allocate neither. Unix rejects WaitAny containing a named
+  mutex, as an actual runtime probe confirms, so it retains bounded kernel waits
+  while holding an acquired turnstile. WaitOne(10) wakes on release; it is not a
+  fixed ten-millisecond sleep. The review's performance attribution remains a
+  hypothesis, not a measured explanation of the read regression. Tests observe
+  entry into the contended path and verify cancellation, release and owner death.
+
+The proposed stale ReadTransform policy is refuted for the supported API:
+SharedEngine clones constructor settings, ordinary reads and reused handles retain
+that same policy, and mutations of the original delegate target remain visible.
+Four replacement/target-state controls agree on the original and current builds.
+The hypothesized pre-persist Commit lock leak has no demonstrated reachable path;
+open-reader preconditions reject before terminal completion, and explicit retry,
+outcome and subsequent-writer controls pass without changing Commit semantics.
+
+ThreadID zero is diagnostic; handle ownership uses context identity. The existing
+per-path TransactionWriters metadata registry is not newly introduced by reuse;
+its unpruned managed metadata is not claimed to be bounded, but does not retain
+native writer ownership or the application graph. Scheduler duplication, unsupported
+Drop/Rename API shape and existing encoding are unchanged within this scoped fix.
+Unsupported operations retain documented rejection tests. These dispositions do
+not turn unrelated cleanup proposals into completed work.
+
+The three confirmed follow-up regressions have separate proofs against actual
+`eb01f346eb7d8d51925a45c2f87ef40e1c3984ee`, in addition to the original eight and
+two inherited proofs. Final integrated tests, platform evidence and new production
+measurements must cover these corrections; eb01 and earlier measurements are
+interim evidence. The PR description and pinned artifact report record the
+accepted revision and results, rather than treating local review as final CI.
