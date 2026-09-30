@@ -45,7 +45,7 @@ internal static class SharedFollowupHarness
             var turn = typeof(SharedEngine).GetField("_turnstile", Private)!.GetValue(engine)!;
             var mutex = (Mutex)typeof(SharedEngine).GetField("_mutex", Private)!.GetValue(engine)!;
             turn.GetType().GetProperty("BeforeMainWait", Private)!.SetValue(turn, (Action)(() => Console.WriteLine("ready")));
-            try { turn.GetType().GetMethod("Wait")!.Invoke(turn, new object[] { mutex }); }
+            try { turn.GetType().GetMethod("Wait")!.Invoke(turn, new object[] { mutex, CancellationToken.None }); }
             catch (TargetInvocationException ex) when (ex.InnerException is AbandonedMutexException) { }
             mutex.ReleaseMutex();
         }
@@ -53,7 +53,7 @@ internal static class SharedFollowupHarness
         {
             engine.Insert("ack", new[] { new BsonDocument { ["_id"] = 1, ["value"] = 42 } }, BsonAutoId.Int32);
             var owner = typeof(SharedEngine).GetField("_owner", Private)!.GetValue(engine)!;
-            owner.GetType().GetMethod("Enter")!.Invoke(owner, new object[] { true });
+            owner.GetType().GetMethod("Enter")!.Invoke(owner, new object[] { true, CancellationToken.None });
             Console.WriteLine("ready");
             Console.ReadLine();
             owner.GetType().GetMethod("Exit")!.Invoke(owner, new object[] { -1 });
