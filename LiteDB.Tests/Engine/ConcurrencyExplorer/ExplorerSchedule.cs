@@ -62,7 +62,8 @@ namespace LiteDB.ConcurrencyTesting
                 var work = actor.Current;
                 if (work == null) continue;
                 if (work.Failure != null) throw new InvalidOperationException(actor.Name + ": " + work.Name, work.Failure);
-                if (!work.Done.IsSet && Stopwatch.GetTimestamp() - work.Started > Deadline.TotalSeconds * Stopwatch.Frequency)
+                var completed = Interlocked.Read(ref work.Completed);
+                if ((completed == 0 ? Stopwatch.GetTimestamp() : completed) - work.Started > Deadline.TotalSeconds * Stopwatch.Frequency)
                     throw new TimeoutException("Worker stalled: " + actor.Name + "/" + work.Name);
             }
         }
@@ -114,6 +115,7 @@ namespace LiteDB.ConcurrencyTesting
 
             internal Work Invoke(string name, Action action)
             {
+                _schedule.CheckActors();
                 if (Current != null && !Current.Done.IsSet) throw new InvalidOperationException("Actor already busy: " + Name);
                 if (Current?.Failure != null) throw new InvalidOperationException("Previous actor failure", Current.Failure);
                 var work = Current = new Work(name);

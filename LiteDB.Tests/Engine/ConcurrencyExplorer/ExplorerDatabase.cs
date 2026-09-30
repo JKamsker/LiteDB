@@ -58,8 +58,14 @@ namespace LiteDB.ConcurrencyTesting
                     while (indexes.Read()) names.Add(indexes.Current["name"].AsString);
                     Require(names.OrderBy(x => x).SequenceEqual(new[] { "_id", "value" }), "exact index catalog " + entry.Key);
                     foreach (var value in new[] { 10, 20, 30, 40, 50, 60 })
-                        Require(rows.Find(Query.EQ("value", value)).Select(x => x["_id"].AsInt32).OrderBy(x => x)
+                    {
+                        var query = rows.Query().Where(Query.EQ("value", value));
+                        var plan = query.GetPlan()["index"];
+                        Require(plan["name"] == "value" && plan["mode"].AsString.StartsWith("INDEX SEEK", StringComparison.Ordinal),
+                            "cold value query did not exercise its index " + entry.Key);
+                        Require(query.ToEnumerable().Select(x => x["_id"].AsInt32).OrderBy(x => x)
                             .SequenceEqual(entry.Value.Where(x => x.Value == value).Select(x => x.Key).OrderBy(x => x)), "cold indexed state " + entry.Key);
+                    }
                 }
                 var sentinels = db.GetCollection("sentinel").FindAll().ToArray();
                 Require(sentinels.Length == 1 && BsonSerializer.Serialize(sentinels[0]).SequenceEqual(
