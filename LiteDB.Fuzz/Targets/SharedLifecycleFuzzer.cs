@@ -167,7 +167,8 @@ internal sealed class SharedLifecycleFuzzer : IFuzzTarget
 
             SharedLifecycleProcess Start(string name)
             {
-                var actor = new SharedLifecycleProcess(actorPath, directory, name, encrypted);
+                var selectedPath = name == "owner" ? path : actorPath;
+                var actor = new SharedLifecycleProcess(selectedPath, directory, name, encrypted);
                 actors.Add(actor); return actor;
             }
             void Acknowledge(string transaction)

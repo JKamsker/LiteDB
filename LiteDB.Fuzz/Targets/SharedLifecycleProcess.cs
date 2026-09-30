@@ -36,6 +36,7 @@ internal sealed class SharedLifecycleProcess : IAsyncDisposable
         _process = Process.Start(start) ?? throw new InvalidOperationException("Child did not start.");
         _stderr = _process.StandardError.ReadToEndAsync();
         _stdout = ReadOutput();
+        Record("database", database);
         Record("spawn", _process.Id.ToString());
         void Add(string name, string value) { start.ArgumentList.Add(name); start.ArgumentList.Add(value); }
     }
@@ -67,7 +68,7 @@ internal sealed class SharedLifecycleProcess : IAsyncDisposable
             if (actual != expected)
                 throw new FuzzFailureException("SHARED_LIFECYCLE_PROTOCOL",
                     $"Actor {_actor}: expected {expected}, received {actual ?? "EOF"}.");
-            if (expected != "native-wait") { _completed++; _lastCompletedAt = Stopwatch.GetTimestamp(); }
+            if (expected != "native-wait") { _completed++; _lastCompletedAt = observation.At; }
             return;
         }
         FuzzFailureException Stalled() => new("SHARED_LIFECYCLE_ACTOR_STALLED",
