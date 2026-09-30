@@ -291,4 +291,3 @@ pass again. Summarize the packed evidence with
 `scripts/summarize-write-controller.py`. Rebuild each isolated library branch with
 `TestingEnabled=false`, supply its DLL through `LibraryPath`, and run the commands
 from the respective manifests after replacing machine-specific absolute paths.
-
