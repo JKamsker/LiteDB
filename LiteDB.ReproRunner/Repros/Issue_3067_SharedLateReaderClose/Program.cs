@@ -15,8 +15,10 @@ internal static class Program
         ReproConfigurationReporter.SendConfiguration(host);
         try
         {
-            var context = ReproContext.FromEnvironment();
-            var root = context.SharedDatabaseRoot ?? Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            // Keep the legacy mutex name below its platform limit independently of
+            // the runner's long evidence directory. Both variants use this same volume.
+            var root = Path.Combine(Path.GetTempPath(), "p133-late-" + Guid.NewGuid().ToString("N"));
+            Console.WriteLine("DATABASE_ROOT " + root);
             Directory.CreateDirectory(root);
             var plain = Reproduce(Path.Combine(root, "plain.db"), "");
             var encrypted = Reproduce(Path.Combine(root, "encrypted.db"), "reader-proof");
@@ -119,7 +121,7 @@ internal static class Program
     private static void RunPeer(string filename, string password)
     {
         var start = new ProcessStartInfo(Environment.ProcessPath!) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
-        if (string.Equals(Path.GetFileNameWithoutExtension(Environment.ProcessPath),"dotnet", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(Path.GetFileNameWithoutExtension(Environment.ProcessPath), "dotnet", StringComparison.OrdinalIgnoreCase))
             start.ArgumentList.Add(Environment.GetCommandLineArgs()[0]);
         start.ArgumentList.Add("--writer"); start.ArgumentList.Add(filename); start.ArgumentList.Add(password);
         using var peer = Process.Start(start) ?? throw new Exception("Peer failed to start.");

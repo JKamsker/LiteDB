@@ -8,7 +8,9 @@ the program arm `ReadTransform`. The second-row callback pauses; a dedicated
 thread calls only `Dispose`, and its `WaitSleepJoin` state establishes that it
 has reached a wait while that callback is live. The callback then calls the raw
 Shared `Pragma` method. No product hooks, private reflection, or test assemblies
-are used.
+are used. Both variants place databases in a short path on the system temporary
+volume and print that path; long runner artifact paths can exceed the legacy
+native-mutex name limit and are not used as database paths.
 
 The known-bad result requires both callback and disposer to remain alive and
 waiting after the bounded joins, with no callback/read/close error. A setup
