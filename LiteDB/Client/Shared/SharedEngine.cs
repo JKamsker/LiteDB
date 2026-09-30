@@ -190,32 +190,41 @@ namespace LiteDB
                 return;
             }
 
+            var release = true;
+            LiteEngine engine = null;
             try
             {
                 lock (_useLock)
                 {
-                    // A reader of an ownership that already ended (Dispose, exited
-                    // owner) was counted by that ownership, which reset the count.
                     if (generation >= 0 && generation != _owner.Generation) return;
-                    if (_databaseUsers > 0 && --_databaseUsers == 0 && !_transactionRunning && _engine != null)
+                    if (_databaseUsers > 0 && --_databaseUsers == 0 && !_transactionRunning)
+                        engine = _engine;
+                }
+                if (engine != null)
+                {
+                    // Keep the core discoverable by callbacks throughout its drain.
+                    // Never hold connection bookkeeping while waiting for a reader.
+                    System.Collections.Generic.List<Exception> errors;
+                    try { errors = engine.Close(); }
+                    catch
                     {
-                        var engine = _engine;
-                        _engine = null;
-                        try
-                        {
-                            var errors = engine.Close();
-                            if (reportErrors) LiteEngine.ThrowCleanupErrors(errors);
-                        }
-                        finally { this.EndWriterPressure(); }
+                        lock (_useLock) _databaseUsers++;
+                        release = false;
+                        throw;
                     }
+                    lock (_useLock)
+                        if (ReferenceEquals(_engine, engine)) _engine = null;
+                    this.EndWriterPressure();
+                    if (reportErrors) LiteEngine.ThrowCleanupErrors(errors);
                 }
             }
             finally
             {
-                if (!_transactionRunning) _transactionThreadId = 0;
-                // Every OpenDatabase call acquires a recursion, even when it borrows.
-                // Any thread may end it, for example when disposing a reader.
-                _owner.Exit(generation);
+                if (release)
+                {
+                    if (!_transactionRunning) _transactionThreadId = 0;
+                    _owner.Exit(generation);
+                }
             }
         }
 
@@ -227,14 +236,7 @@ namespace LiteDB
         /// </summary>
         private void OnOwnerExited()
         {
-            lock (_useLock)
-            {
-                _databaseUsers = 0;
-                var engine = _engine;
-                _engine = null;
-                engine?.Close(checkpoint: false);
-                this.CloseMutexSnapshotsLocked();
-            }
+            this.CloseOwnedCores(checkpoint: false);
             _handles?.CloseIdle();
         }
 
@@ -271,7 +273,7 @@ namespace LiteDB
 
         public bool Commit() => this.Call(() => CompleteTransaction(commit: true));
 
-        public bool Rollback() => this.Call(() => CompleteTransaction(commit: false));
+        public bool Rollback() => this.Call(() => CompleteTransaction(commit: false), rollback: true);
 
         private bool CompleteTransaction(bool commit)
         {

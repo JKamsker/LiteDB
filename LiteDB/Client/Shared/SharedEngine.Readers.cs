@@ -155,8 +155,11 @@ namespace LiteDB
         /// </summary>
         private void ClosePin(SharedMutexPin pin, bool abandoned)
         {
-            if (ReferenceEquals(_pin, pin)) _pin = null;
-            if (!pin.Counted) return;
+            if (!pin.Counted)
+            {
+                if (ReferenceEquals(_pin, pin)) _pin = null;
+                return;
+            }
 
             if (abandoned)
             {
@@ -176,11 +179,14 @@ namespace LiteDB
             if (_databaseUsers == 0 && (abandoned || !_transactionRunning) && _engine != null)
             {
                 var engine = _engine;
-                _engine = null;
                 var close = Stopwatch.StartNew();
-                cleanup.Catch(engine.Dispose);
+                // The core remains visible until its reader operations have drained.
+                // Foreign reader callbacks must be able to detect this dependency.
+                cleanup.Exceptions.AddRange(engine.Close());
+                if (ReferenceEquals(_engine, engine)) _engine = null;
                 _lastPinClose = close.Elapsed;
             }
+            if (ReferenceEquals(_pin, pin)) _pin = null;
             if (Volatile.Read(ref _disposed) != 0) cleanup.Catch(this.DisposeCoordination);
             ThrowSharedCleanupErrors(cleanup);
         }
