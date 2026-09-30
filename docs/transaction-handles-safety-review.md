@@ -142,3 +142,17 @@ enumerator cases require the transaction to stay active and its earlier writes t
 commit and survive two indexed cold reopens. Separate controls still require real
 reader and disposal failures to abort. This production change invalidates the
 prior benchmark candidate; the PR's final comparison is rerun after this fix.
+
+The next full candidate run (`36691368391`, production revision `3b60d5aea`)
+exposed native-suite capacity exhaustion on macOS Intel/.NET 10. Its 300-second
+session completed 637 passing cases and one existing platform skip, with results
+continuing until 19 ms before the timeout; four discovered methods had not run.
+The same candidate's .NET 8 leg completed all 642 cases. This is a CI harness
+capacity failure, not passing evidence or an unexplained transaction hang.
+The unchanged native selection now runs in three disjoint sessions (handles,
+admission, and the remainder), each retaining the 300-second limit and runtime
+and hook guards. Discovery checks exact coverage, nonempty workloads and distinct
+result files before execution; aggregate evidence requires every result. The
+recorder also now matches VSTest's case-insensitive FQN filtering, so lowercase
+`rebuild` methods already executed by the old filter are included in truncation
+accounting. This harness correction changes no library code or benchmark binary.
