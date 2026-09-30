@@ -132,3 +132,13 @@ valid extended Windows filename. The raw probe now uses the normalized data path
 with both released-before and released-after controls. Public engine and child
 admission still use the alias and must reject it while the owner is live; scratch
 bytes and committed data remain checked. No production behavior changed.
+
+A final source check found a child-disposal admission race: a call could capture
+its inner reader, then enter after disposal and throw inside the transaction abort
+handler. Four forced cases failed on actual candidate `3e88454e2`. The fix validates
+child lifetime after admission but outside that handler, and publishes child
+disposal before releasing admission. Direct/Shared and plain/encrypted reader and
+enumerator cases require the transaction to stay active and its earlier writes to
+commit and survive two indexed cold reopens. Separate controls still require real
+reader and disposal failures to abort. This production change invalidates the
+prior benchmark candidate; the PR's final comparison is rerun after this fix.
