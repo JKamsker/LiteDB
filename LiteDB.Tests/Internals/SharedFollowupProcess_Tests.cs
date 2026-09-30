@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -135,7 +136,8 @@ namespace LiteDB.Internals
                         $"writer:\n{waiter?.DiagnosticSummary()}\nowner:\n{owner?.DiagnosticSummary()}\n{error}";
                     _output.WriteLine(diagnostic);
                     File.WriteAllText(Path.Combine(_directory, "failure-diagnostics.txt"), diagnostic);
-                    RetainedTestFixture.PublishSharedFollowup(_directory, phase, error, _output);
+                    RetainedTestFixture.PublishSharedFollowup(_directory, phase, error, _output,
+                        new[] { waiter, owner }.Where(process => process != null).Select(process => process.Id).ToArray());
                 }
                 catch (Exception diagnostic) { error.Data["failure-diagnostics"] = diagnostic; }
                 throw;
