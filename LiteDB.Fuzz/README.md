@@ -119,6 +119,7 @@ using the same artifact root automatically replays the retained coverage corpus.
 | `threaded-snapshot` | barrier-forced same-process writer/checkpoint overlap with multiple live snapshots |
 | `concurrent` | one-database multithreaded commits, unique contention, cursors, checkpoint, and rebuild |
 | `transaction-gate` | modeled reader counts, retired owners, foreign releases, and exclusive admission |
+| `transaction-interleavings` | forced concurrent actor schedules, callback dependencies, per-worker deadlines, exact cold transaction-state oracle; see [bounded explorer](../docs/audits/pr133-concurrency-explorer.md) |
 | `cursor-handoff` | retired-thread cursor snapshots, independent foreign transactions, and overlapping checkpoints |
 | `conflict` | barrier-forced writer/schema/drop/storage/rebuild conflicts with acknowledged-state checks |
 | `power-loss` | volatile/durable device model cut at every internal WAL/checkpoint phase |
