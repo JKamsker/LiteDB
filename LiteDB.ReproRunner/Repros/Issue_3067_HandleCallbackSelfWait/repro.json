@@ -1,0 +1,34 @@
+{
+  "id": "Issue_3067_HandleCallbackSelfWait",
+  "title": "Independent callback write waits on its executing transaction handle",
+  "issues": [
+    "https://github.com/litedb-org/LiteDB/issues/3067"
+  ],
+  "failingSince": "0.0.0-knownbad.eb01f346eb7d",
+  "timeoutSeconds": 90,
+  "requiresParallel": false,
+  "defaultInstances": 1,
+  "sharedDatabaseKey": "pr133-callback-self-wait",
+  "args": [],
+  "tags": [
+    "transactions",
+    "callback",
+    "locking"
+  ],
+  "supports": [
+    "any"
+  ],
+  "state": "green",
+  "expectedOutcomes": {
+    "package": {
+      "kind": "reproduce",
+      "exitCode": 0,
+      "logContains": "REGRESSION_REPRODUCED"
+    },
+    "latest": {
+      "kind": "noRepro",
+      "exitCode": 10,
+      "logContains": "FIXED_STATE_VERIFIED"
+    }
+  }
+}

@@ -14,6 +14,7 @@ namespace LiteDB.Engine
         private readonly object _lock = new object();
         private object _owner;
         private Thread _thread;
+        private TransactionContext _handle;
         private int _depth;
         private bool _stopping;
 #if DEBUG || TESTING
@@ -41,7 +42,8 @@ namespace LiteDB.Engine
                 while (_owner != null && !ReferenceEquals(_owner, owner))
                 {
                     // Waiting for another session on this thread cannot make progress.
-                    if (ReferenceEquals(_thread, Thread.CurrentThread)) return false;
+                    if (ReferenceEquals(_thread, Thread.CurrentThread) ||
+                        ReferenceEquals(_handle?.ExecutingThread, Thread.CurrentThread)) return false;
                     var elapsed = (System.Diagnostics.Stopwatch.GetTimestamp() - started) / (double)System.Diagnostics.Stopwatch.Frequency;
                     var remaining = timeout - TimeSpan.FromSeconds(elapsed);
                     if (remaining <= TimeSpan.Zero) return false;
@@ -59,6 +61,7 @@ namespace LiteDB.Engine
                 }
                 _owner = owner;
                 _thread = TransactionContext.AdmissionOwner as Thread;
+                _handle = TransactionContext.AdmissionOwner as TransactionContext;
                 _depth++;
 #if DEBUG || TESTING
                 if (_depth == 1) this.GraphAcquired(owner);
@@ -95,6 +98,7 @@ namespace LiteDB.Engine
 #endif
                 _owner = null;
                 _thread = null;
+                _handle = null;
                 Monitor.PulseAll(_lock);
             }
         }
