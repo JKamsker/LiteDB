@@ -256,7 +256,17 @@ session disposal, and a Shared handle child's close. If session disposal waits
 for a Shared pin, its core-close failure propagates after the connection finishes
 independent resource cleanup. If the last ordinary reader releases an idle pin,
 a pin-core close error can instead surface from that reader's `Dispose()`.
+If that disposal runs inside another reader callback which forced pin close is
+already draining, it does not join its own drain: the concurrent Shared connection
+disposer remains responsible for reporting the pin-close error. An optional
+last-reader checkpoint also skips a dependent owner-retirement wait; the committed
+WAL remains authoritative for the next open.
 The engine preserves the WAL needed to recover acknowledged commits.
+A leased Shared reader refuses disposal from inside its own executing callback
+before changing its cursor or ownership. Catching that refusal and retrying after
+the callback returns completes snapshot and admission cleanup. Disposing a different,
+independent leased reader from a callback remains supported.
+
 Raw Shared disposal from an executing callback is refused before changing the
 connection state or writer ownership. The current call may finish, and disposal
 may be retried afterward. This also covers reader callbacks whose original Query
