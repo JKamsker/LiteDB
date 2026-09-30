@@ -89,7 +89,7 @@ dotnet test LiteDB.Fuzz.Tests/LiteDB.Fuzz.Tests.csproj -c Release \
 # Extended campaign uses existing epoch/replay machinery:
 dotnet LiteDB.Fuzz/bin/Release/net10.0/LiteDB.Fuzz.dll \
   --target shared-lifecycle --seed 233098 --duration 30m --workers 2 \
-  --artifact-dir artifacts_temp/shared-lifecycle-nightly
+  --artifact-dir artifacts_temp/shared-lifecycle-nightly --max-artifact-mb 0
 ```
 
 These are process deaths with surviving OS caches, **not power loss**. Existing

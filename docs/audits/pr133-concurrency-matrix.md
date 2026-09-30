@@ -9,12 +9,12 @@ bounded source audit, not exhaustive enumeration of arbitrary application code.
 
 | Boundary | Held resources/state | Competing operation | Required behavior | Existing/new deterministic evidence | Disposition |
 | --- | --- | --- | --- | --- | --- |
-| C01 H | executing handle callback | second bound read/commit/rollback | Immediate exact refusal; Active preserved | Explorer00–11; existing binding/handoff tests | Final integrated results pending; baseline guards green |
+| C01 H | executing handle callback | second bound read/commit/rollback | Immediate exact refusal; Active preserved | Explorer00–11; existing binding/handoff tests | Final full matrix qualified; C12 failures remain |
 | C02 C[n] | executing handle owns collection | ordinary same-collection callback write | Immediate lock refusal; ordinary objects remain independent | TransactionHandleCallbackLock_Tests | 98a baseline CI |
 | C03 C[n] | idle handle owns collection | ordinary write while peer completes handle | Legitimate wait then progress | Original_thread_may_wait_for_idle_handle_completed_by_another_thread | 98a baseline CI |
 | C04 C[a]/C[b] | two Direct writers own opposite collections | each writes the other collection | Configured timeout breaks cycle; full losing transaction rolls back | Explorer32–33; actual BeforeWait markers on both collection locks | Included in full272 and representative68 |
 | C05 E | active ordinary call | queued rebuild and late ordinary reader | Drain current work; fence fresh entry until exclusive retires | Explorer24–25 Direct; TransactionHandleMaintenanceProgress_Tests | Positive maintenance reservation/fence observations |
-| C06 E | ordinary callback awaiting fresh actor | rebuild fence blocks awaited actor | Permitted configured maintenance timeout; eventual successful retry | TransactionHandleMaintenanceCycle_Tests | 4 focused C06/C22 rows pass net8/net10 before retention-only correction |
+| C06 E | ordinary callback awaiting fresh actor | rebuild fence blocks awaited actor | Permitted configured maintenance timeout; eventual successful retry | TransactionHandleMaintenanceCycle_Tests | 4 focused C06/C22 rows pass final net8/net10 after retention correction |
 | C07 E | callback awaiting fresh actor | raw close awaits callback | Fresh call refuses ENGINE_DISPOSED; drain completes | TransactionHandleRawCloseDependency_Tests | 98a baseline CI |
 | C08 S | legacy owner and blocked peer | session close | Cancel admission then drain/rollback | TransactionHandleCloseCleanup_Tests; explorer Shared admission | Observed local/native wait and close publication |
 | C09 G/N | executing explicit handle | same-file ordinary callback work | Reject self-dependent acquisition before pin/native wait | Explorer bound callback controls; TransactionHandleSharedPinCallback_Tests | Pinned historical production proofs plus baseline CI |
