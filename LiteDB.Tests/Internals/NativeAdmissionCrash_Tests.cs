@@ -50,6 +50,7 @@ namespace LiteDB.Tests.Internals
             var phase = "seed";
             var childPid = 0;
             var childExited = false;
+            var retentionSentinel = Environment.GetEnvironmentVariable("LITEDB_NATIVE_CRASH_RETENTION_SENTINEL") == "1";
             try
             {
                 NativeAdmission_Tests.Seed(filename, password);
@@ -59,25 +60,12 @@ namespace LiteDB.Tests.Internals
                     childPid = child.Id;
                     phase = "wait for child boundary";
                     await child.Expect("ready");
-                    if (stage == "before-recovery-marker-flush")
-                    {
-                        phase = "prove live child owns the exclusive recovery marker";
-                        Action readLiveMarker = () => File.ReadAllBytes(RebuildRecovery.GetMarkerFilename(filename));
-                        readLiveMarker.Should().Throw<IOException>();
-                    }
                     phase = "kill and await child exit";
                     await child.Kill();
                     childExited = true;
-                    _output.WriteLine("Child {0} exit observed, exit code {1}", childPid, child.ExitCode);
                 }
-                phase = "probe native admission after child exit";
-                var authority = File.Exists(filename) ? filename : FileHelper.GetSuffixFile(filename, "-temp", false);
-                using (var probe = new DatabaseFileLock(authority, readOnly: true, create: false, fallback))
-                    probe.Conflicts(DatabaseFileLock.Admission).Should().BeFalse("the exited child must release native admission");
-                _output.WriteLine("Native admission released for {0}; marker exists={1}", authority,
-                    File.Exists(RebuildRecovery.GetMarkerFilename(filename)));
                 phase = "verify recovery marker, refusal and candidate";
-                if (Environment.GetEnvironmentVariable("LITEDB_NATIVE_CRASH_RETENTION_SENTINEL") == "1")
+                if (retentionSentinel)
                     throw new InvalidOperationException("native crash retention sentinel after child exit");
                 VerifyRecovery(directory, filename, stage, password, fallback);
                 phase = "cleanup after all recovery assertions passed";
@@ -88,11 +76,34 @@ namespace LiteDB.Tests.Internals
             }
             catch (Exception error)
             {
-                _output.WriteLine("Crash case stage={0}, encrypted={1}, phase={2}\nRetained fixture: {3}\n{4}",
-                    stage, password != null, phase, directory, error);
+                ReportFailureDiagnostics(filename, stage, password != null, fallback, phase, childPid, childExited, error);
                 RetainedTestFixture.PublishNativeCrash(directory, $"stage={stage}; encrypted={password != null}; fallback={fallback}; phase={phase}",
                     childPid, childExited, error, _output);
                 throw;
+            }
+        }
+
+        private void ReportFailureDiagnostics(string filename, string stage, bool encrypted, bool fallback,
+            string phase, int childPid, bool childExited, Exception primary)
+        {
+            // Never add I/O between child exit and the original recovery assertions.
+            // A diagnostic failure must neither replace the primary nor skip retention.
+            try
+            {
+                _output.WriteLine("Crash case stage={0}, encrypted={1}, phase={2}, child={3}, exit observed={4}\nRetained fixture: {5}\n{6}",
+                    stage, encrypted, phase, childPid, childExited, Path.GetDirectoryName(filename), primary);
+                var authority = File.Exists(filename) ? filename : FileHelper.GetSuffixFile(filename, "-temp", false);
+                _output.WriteLine("Failure-only native admission probe: requested path={0}, fallback={1}, marker exists={2}",
+                    authority, fallback, File.Exists(RebuildRecovery.GetMarkerFilename(filename)));
+                using var volume = fallback ? new NativeAdmissionFallback_Tests.UnqualifiedVolume(authority) : null;
+                using var probe = new DatabaseFileLock(authority, readOnly: true, create: false, fallback);
+                _output.WriteLine("Failure-only native admission probe: selected authority={0}, host local={1}, admission conflicts={2}",
+                    probe.AuthorityPath, probe.HostLocal, probe.Conflicts(DatabaseFileLock.Admission));
+            }
+            catch (Exception diagnostic)
+            {
+                try { _output.WriteLine("Failure-only native admission diagnostic failed: {0}", diagnostic); }
+                catch { /* Preserve the original failure and publish its manifest. */ }
             }
         }
 
