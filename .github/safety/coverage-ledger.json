@@ -204,6 +204,23 @@
       "disposition": "strengthened",
       "invariant": "Every test selected by the native platform filters executes with runtime and hook guards; each session remains limited to 300 seconds and complete current-candidate evidence remains mandatory.",
       "reason": "Run 36691368391 on 3b60d5aea exhausted the 300-second macOS Intel net10 session after 638 results with continued progress and no failed assertions; same-head net8 finished all 642 cases. Divide the unchanged selection into disjoint handles/admission/remainder sessions. Discovery verifies exactly one workload partition with no empty or aliased results; all sessions are declared in aggregate evidence and the runtime/hook guards execute in each. The discovery matcher also now follows VSTest case-insensitive FQN filtering so lowercase rebuild methods are accounted for. No tests or platforms are omitted."
+    },
+    {
+      "id": "133-pin-progress-budget",
+      "kind": "harness-changed",
+      "subjects": [
+        "LiteDB.Tests/Engine/SharedReaderPin_Tests.cs",
+        "LiteDB.Tests/Internals/SharedPinProgressProbe.cs",
+        "LiteDB.Tests.SharedMutexHarness/SharedPinProgressHarness.cs"
+      ],
+      "disposition": "intentional-change",
+      "invariant": "A live idle Shared pin owner must release native ownership for every one of twenty separately committed child writes; a held transaction must still block those writes, and cold database/index state must match the complete model.",
+      "reason": "The Windows x86/net8 failure on 010821392 exposed an opaque combined startup-plus-twenty-commit deadline; its failing phase remains unknown. Child ready/go and actual native-admission/commit markers separate startup from write progress. The original twenty-second cumulative throughput budget intentionally becomes twenty seconds per completed-write progress interval (diagnostic markers never renew it), plus a strict sixty-second overall cap and unchanged 300-second session cap. All twenty ordinary insert commits and the parent update remain. Dedicated live owner threads prevent async owner-exit abandonment from satisfying either oracle; plain/encrypted held-pin negative controls must reject the missing first commit, with exact cold ID/payload/index/sentinel verification.",
+      "decision": "docs/transaction-handles-safety-review.md#cross-process-pin-progress-budget",
+      "coveredBy": [
+        "LiteDB.Tests/Engine/SharedReaderPin_Tests.cs#Another_process_waits_only_while_the_pin_is_in_use",
+        "LiteDB.Tests/Engine/SharedPinProgress_Tests.cs#Progress_oracle_rejects_a_writer_blocked_by_a_held_pin"
+      ]
     }
   ]
 }
