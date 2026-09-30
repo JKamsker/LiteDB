@@ -56,6 +56,8 @@ namespace LiteDB
                 throw new NotSupportedException("Shared transaction handles require filename-backed storage without caller streams.");
             }
             TransactionHolderContext.Validate();
+            // An executing callback cannot complete the owner while queued behind it.
+            TransactionContext.ThrowIfSharedWait(_mutexName);
             // First-use default collation must observe the caller's culture, while null
             // settings still accept an existing database's persisted collation.
             RuntimeHelpers.RunClassConstructor(typeof(Collation).TypeHandle);

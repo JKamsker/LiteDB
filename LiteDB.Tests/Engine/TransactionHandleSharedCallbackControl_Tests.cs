@@ -11,6 +11,68 @@ namespace LiteDB.Tests.Engine
 {
     public class TransactionHandleSharedCallbackControl_Tests
     {
+#if NET8_0_OR_GREATER
+        [MappedTheory]
+        [InlineData(null)] [InlineData("secret")]
+        public void Coordinated_same_database_read_stays_independent_inside_shared_callback(string password)
+        {
+            using var file = new MappedTestFile();
+            Seed(file, password);
+            using (var receiver = new SharedEngine(Settings(file, password))
+                { CoordinatedIdleLimit = TimeSpan.FromMinutes(1) })
+            using (var ordinary = new LiteDatabase(receiver))
+            using (var owner = new LiteDatabase(new SharedEngine(Settings(file, password))))
+            {
+                for (var i = 0; i < 4; i++) Assert.NotNull(ordinary.GetCollection("rows").FindById(1));
+                Assert.True(receiver.CoordinatedReadHits > 0);
+                Assert.True(receiver.HasCachedSnapshot);
+                Turnstile(receiver).BeforeContendedWait = _ => throw new OperationCanceledException("Unexpected native admission");
+                using (var tx = owner.BeginTransaction())
+                {
+                    tx.GetCollection("rows").Insert(Row(3));
+                    var hits = receiver.CoordinatedReadHits;
+                    IEnumerable<BsonDocument> Input()
+                    {
+                        Assert.Equal(10, ordinary.GetCollection("rows").FindById(1)["value"].AsInt32);
+                        Assert.Null(ordinary.GetCollection("rows").FindById(3));
+                        yield return Row(4);
+                    }
+                    tx.GetCollection("rows").Insert(Input());
+                    Assert.Equal(hits + 2, receiver.CoordinatedReadHits);
+                    Assert.Equal(LiteTransactionState.Active, tx.State);
+                    tx.Rollback();
+                }
+                PeerWrite(owner);
+            }
+            Verify(file, password, new[] { 1, 2, 5 });
+        }
+#endif
+
+        [Theory]
+        [InlineData(null)] [InlineData("secret")]
+        public void Uncaught_callback_refusal_rolls_back_and_releases_execution_dependency(string password)
+        {
+            using var file = new TempFile();
+            Seed(file, password);
+            using (var shared = new SharedEngine(Settings(file, password)))
+            using (var db = new LiteDatabase(shared))
+            using (var tx = db.BeginTransaction())
+            {
+                Turnstile(shared).BeforeContendedWait = _ => throw new OperationCanceledException("Unexpected native admission");
+                tx.GetCollection("rows").Insert(Row(3));
+                IEnumerable<BsonDocument> Input()
+                {
+                    var version = db.UserVersion;
+                    yield return Row(version + 4);
+                }
+                Assert.Throws<InvalidOperationException>(() => tx.GetCollection("rows").Insert(Input()));
+                Assert.Equal(LiteTransactionState.Failed, tx.State);
+                Assert.Equal(0, db.UserVersion);
+                PeerWrite(db);
+            }
+            Verify(file, password, new[] { 1, 2, 5 });
+        }
+
         [Theory]
         [InlineData(null, false)] [InlineData("secret", false)]
         [InlineData(null, true)] [InlineData("secret", true)]
