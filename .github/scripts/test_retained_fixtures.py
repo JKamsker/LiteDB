@@ -102,6 +102,57 @@ sys.stdin.readline()
                 self.assertEqual(retained.collect(root), 1)
             self.assertFalse((root / 'failed/unrelated.db').exists())
 
+    def test_shared_followup_waits_for_host_and_keeps_raw_files_and_diagnostics(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            fixture = root / ('litedb-followup-' + 'd' * 32)
+            fixture.mkdir()
+            artifacts = root / 'artifacts'
+            artifacts.mkdir()
+            files = {'data.db': b'database sentinel', 'data-log.db': b'wal sentinel',
+                     'failure-diagnostics.txt': b'child exited; native-wait; last commit 19'}
+            for name, data in files.items():
+                (fixture / name).write_bytes(data)
+            (root / 'neighbor.db').write_bytes(b'untouched')
+            host = subprocess.Popen([sys.executable, '-u', '-c',
+                'import sys; held = open(sys.argv[1], "rb"); print("ready", flush=True); sys.stdin.readline()',
+                str(fixture / 'data.db')], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            try:
+                self.assertEqual(host.stdout.readline().strip(), 'ready')
+                manifest = {'fixtureKind': 'shared-followup-directory', 'directory': str(fixture),
+                            'phase': 'writer progress', 'processId': host.pid, 'failure': 'original progress failure'}
+                (artifacts / 'failed.json').write_text(json.dumps(manifest))
+                self.assertEqual(retained.collect(artifacts), 1)
+                self.assertFalse((artifacts / 'failed/data.db').exists())
+                host.communicate('\n', timeout=10)
+                self.assertEqual(retained.collect(artifacts), 0)
+                report = json.loads((artifacts / 'failed/collection-report.json').read_text())
+                self.assertEqual(report['primaryFailure'], manifest['failure'])
+                self.assertEqual(len(report['files']), len(files))
+                for name, data in files.items():
+                    self.assertEqual((fixture / name).read_bytes(), data)
+                    self.assertEqual((artifacts / 'failed' / name).read_bytes(), data)
+                self.assertFalse((artifacts / 'failed/neighbor.db').exists())
+                self.assertEqual((root / 'neighbor.db').read_bytes(), b'untouched')
+            finally:
+                if host.poll() is None:
+                    host.kill()
+                    host.communicate()
+
+    def test_shared_followup_cannot_capture_other_fixture_kinds_or_arbitrary_directories(self):
+        for name in ('arbitrary', 'litedb-native-crash-' + 'e' * 32, 'litedb-followup-not-a-guid'):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as root:
+                root = Path(root)
+                fixture = root / name
+                fixture.mkdir()
+                (fixture / 'data.db').write_bytes(b'untouched')
+                (root / 'failed.json').write_text(json.dumps({'fixtureKind': 'shared-followup-directory',
+                    'directory': str(fixture), 'processId': 1, 'failure': 'primary'}))
+                with patch.object(retained, 'running', return_value=False):
+                    self.assertEqual(retained.collect(root), 1)
+                self.assertFalse((root / 'failed/data.db').exists())
+                self.assertEqual((fixture / 'data.db').read_bytes(), b'untouched')
+
     def test_copy_failure_is_separate_and_remaining_files_are_collected(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)
