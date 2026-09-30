@@ -22,6 +22,9 @@ namespace LiteDB
 
         private void DisposeConnection()
         {
+            SharedEngine cached;
+            lock (_useLock) { cached = _cachedTransactionChild; _cachedTransactionChild = null; }
+            cached?.Dispose();
             this.RetireCoordinatedReads();
             // Any thread can end a pin; its holder closes the engine and releases. Read
             // under the lock that orders a starting pin's publication with this Dispose.
