@@ -52,7 +52,11 @@ namespace LiteDB.Tests.Engine
             {
                 using var cold = new LiteDatabase(new ConnectionString { Filename = file, Password = password });
                 var indexed = cold.GetCollection("rows").Query().Where("value >= 0");
-                Assert.StartsWith("INDEX SEEK", indexed.GetPlan()["index"]["mode"].AsString);
+                Assert.Equal("value", indexed.GetPlan()["index"]["name"].AsString);
+                Assert.StartsWith("INDEX SCAN", indexed.GetPlan()["index"]["mode"].AsString);
+                var seek = cold.GetCollection("rows").Query().Where(Query.EQ("value", 0));
+                Assert.StartsWith("INDEX SEEK", seek.GetPlan()["index"]["mode"].AsString);
+                Assert.Equal(0, Assert.Single(seek.ToArray())["_id"].AsInt32);
                 Assert.Equal(Enumerable.Range(0, 32), indexed.ToEnumerable().Select(row => row["_id"].AsInt32).OrderBy(id => id));
                 Assert.Equal("untouched", cold.GetCollection("sentinel").FindById(7)["value"].AsString);
                 cold.Checkpoint();
