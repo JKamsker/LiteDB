@@ -65,25 +65,40 @@ namespace LiteDB.Tests.Engine
             cold.GetCollection("untouched").FindById(1)["value"].AsInt32.Should().Be(42);
         }
 
-        [Fact]
-        public void Open_retains_admission_when_a_callback_disposes_the_connection()
+        [Theory]
+        [InlineData(null)]
+        [InlineData("secret")]
+        public void Open_retains_admission_when_a_callback_disposes_the_connection(string password)
         {
             using var file = new TempFile();
-            using (var seed = new LiteDatabase(file.Filename))
+            using (var seed = new LiteDatabase(new ConnectionString { Filename = file.Filename, Password = password }))
+            {
                 seed.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1, ["value"] = 42 });
-            using var engine = new SharedEngine(new EngineSettings { Filename = file.Filename });
-            Action direct = () => { using var writer = new LiteEngine(file.Filename); };
+                seed.GetCollection("rows").EnsureIndex("value");
+                seed.GetCollection("untouched").Insert(new BsonDocument { ["_id"] = 1, ["value"] = "sentinel" });
+            }
+            using var engine = new SharedEngine(new EngineSettings { Filename = file.Filename, Password = password });
+            Action direct = () => { using var writer = new LiteEngine(new EngineSettings { Filename = file.Filename, Password = password }); };
+            var failure = new IOException("injected open failure");
             engine.SimulateOpenEngine = () =>
             {
-                engine.Dispose();
-                direct.Should().Throw<DatabaseAdmissionException>("setup still owns admission after reentrant connection disposal");
-                throw new IOException("injected open failure");
+                Action close = engine.Dispose;
+                close.Should().Throw<InvalidOperationException>("an executing callback cannot drain its own operation");
+                direct.Should().Throw<DatabaseAdmissionException>("refused close must preserve setup ownership");
+                throw failure;
             };
             Action open = () => engine.Pragma(Pragmas.USER_VERSION);
-            open.Should().Throw<IOException>().WithMessage("injected open failure");
-            direct.Should().NotThrow("failed setup releases its temporary reference");
-            using var cold = new LiteDatabase(file.Filename);
-            cold.GetCollection("rows").FindById(1)["value"].AsInt32.Should().Be(42);
+            open.Should().Throw<IOException>().Which.Should().BeSameAs(failure);
+            direct.Should().Throw<DatabaseAdmissionException>("refused close leaves the connection alive after failed setup");
+            engine.SimulateOpenEngine = null;
+            engine.Dispose();
+            direct.Should().NotThrow("valid disposal releases both connection and failed-setup references");
+            using var cold = new LiteDatabase(new ConnectionString { Filename = file.Filename, Password = password });
+            var indexed = cold.GetCollection("rows").Query().Where(Query.EQ("value", 42));
+            indexed.GetPlan()["index"]["mode"].AsString.Should().StartWith("INDEX SEEK");
+            indexed.ToArray().Should().ContainSingle().Which["_id"].AsInt32.Should().Be(1);
+            cold.GetCollection("rows").Count().Should().Be(1);
+            cold.GetCollection("untouched").FindById(1)["value"].AsString.Should().Be("sentinel");
         }
 
         [Fact]

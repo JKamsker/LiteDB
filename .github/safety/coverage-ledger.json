@@ -221,6 +221,20 @@
         "LiteDB.Tests/Engine/SharedReaderPin_Tests.cs#Another_process_waits_only_while_the_pin_is_in_use",
         "LiteDB.Tests/Engine/SharedPinProgress_Tests.cs#Progress_oracle_rejects_a_writer_blocked_by_a_held_pin"
       ]
+    },
+    {
+      "id": "133-shared-open-callback-refusal-contract",
+      "kind": "harness-changed",
+      "subjects": [
+        "LiteDB.Tests/Engine/SharedAdmissionLifetime_Tests.cs"
+      ],
+      "disposition": "intentional-change",
+      "invariant": "Failed inner setup never relinquishes connection admission from its executing callback, preserves the original I/O failure, and releases all references after valid disposal outside the callback. Committed indexed data and unrelated state survive.",
+      "reason": "The e821 hosted net462/macOS suites retained the pre-guard expectation that raw Shared Dispose succeeds inside SimulateOpenEngine. The documented executing-callback close refusal now happens before the injected IOException. Catch and assert that refusal inside the callback, preserve the existing incompatible-writer exclusion, require the exact injected exception, then verify the still-live connection retains admission until valid disposal. Plain/encrypted cases add indexed cold-state and sentinel checks; no prior protection assertion is removed.",
+      "decision": "docs/transaction-handles.md",
+      "coveredBy": [
+        "LiteDB.Tests/Engine/SharedAdmissionLifetime_Tests.cs#Open_retains_admission_when_a_callback_disposes_the_connection"
+      ]
     }
   ]
 }
