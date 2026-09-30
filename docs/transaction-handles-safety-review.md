@@ -89,3 +89,32 @@ verification. That outcome now fails the proof; only successful Dispose plus pee
 cancellation and indexed cold state can report fixed. Dedicated before/after proof
 jobs provide their known-bad package feed; ordinary regression suites retain the
 permanent tests rather than trying to restore a local-only package from NuGet.
+
+## Evidence locations and interpretation
+
+The five contract families are mapped to executable methods in
+[contracts.json](../.github/safety/contracts.json). The eight review scenarios
+and their real known-bad revision `560529066` are registered in
+[regression-proofs.json](../.github/safety/regression-proofs.json). Ordinary
+suites retain each permanent guard; dedicated proof jobs build the pinned package.
+The two inherited published-package proofs remain required when the shared
+proof harness changes.
+
+The [PR description](https://github.com/JKamsker/LiteDB/pull/133) links the accepted
+candidate's hosted runs and immutable raw evidence, including every prior failed
+attempt and its classification. Use those revision-specific results for the
+completion decision. The original reuse report contains historical measurements;
+new production measurements belong to the review evidence and PR description.
+
+The new safety aggregate checks the actual candidate and binary identities,
+expected jobs and legs, discovery versus completed results, runtime guards and
+unscheduled tests. Its successful result is required alongside all ordinary,
+fuzz and compatibility checks. Existing quarantines remain explicit limits;
+this review adds none. Repository protection settings and unrelated global audit
+roadmap work are outside this PR; no claim is made that a green advisory check
+prevents a maintainer from bypassing it.
+
+Checkpoint CI also exposed caller-owned streams retained by the new fatal-error
+tests across a native-admitted cold reopen on macOS and Windows. The test now
+closes those streams before reopening. This is a harness ownership correction:
+assertions, fault injection, transaction outcomes and cold-state checks remain.
