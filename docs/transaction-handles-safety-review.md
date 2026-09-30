@@ -384,3 +384,31 @@ encrypted control failed that probe. The final guard keeps zero-wait exclusion
 while the callback is blocked, then permits a bounded three-second native acquire
 after completion. It still requires actual acquisition and cold-state checks;
 there is no fixed sleep or assertion retry. The original local failure is retained.
+
+The two further comparisons are registered against actual f95f0b0cd as
+`Issue_3067_SharedReaderRetirement` and `Issue_3067_LeasedReaderSelfDispose`,
+bringing the dedicated proof set to 18. The public forced-pin proof requires a
+bounded setup window shorter than the pin's minimum idle lifetime and records its
+measured setup; slow setup is refused, never called fixed. Permanent tests force
+the core-drain boundary directly and also cover owner exit. Exact public proof
+binaries, independent controls and repeated attempts remain revision-specific.
+
+## Native crash fixture capture
+
+Windows ARM64/net8 job109884239520 failed a strict raw read of the recovery marker
+after child death at the before-marker-flush boundary, encrypted with fallback.
+Its 847ms result did not establish the sharing-lock owner. The original fixture
+was missing from the uploaded artifact: the test used a diagnostic variable which
+native CI did not set, and the configured collector accepted individual GUID
+basenames rather than this test's GUID directory. That confirmed capture defect
+is corrected with typed directory manifests and post-host copies, refusing live
+hosts and children. Actual deliberately failing crash tests verify all 24 fixture
+sets and 20 recovery markers byte-for-byte, alongside existing graph retention.
+
+The original Kill/Dispose to strict recovery-verification sequence and raw byte
+assertions remain. Native-authority observations run only after failure and cannot
+replace the primary exception or suppress fixture publication. Interim probes on
+the success path were removed because their extra I/O could alter reproduction
+timing. No retry, delay, threshold relaxation or production fix is used here.
+The old fixture cannot be reconstructed and the original lock owner remains
+unknown; a later passing run must not be described as explaining that failure.
