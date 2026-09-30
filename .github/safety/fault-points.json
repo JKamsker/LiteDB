@@ -1754,7 +1754,8 @@
     "LifetimeObserver": "Observes Shared file-handle open/close and lease lifetime; does not change persisted bytes or file identity.",
     "Observe": "Observes handle admission boundaries local-wait/local-acquired/native-wait/storage-opened for deterministic cancellation and ownership tests.",
     "WaitingForClose": "Observes a Direct pool opener waiting for a retiring host; does not mutate storage.",
-    "WaitingForMaintenance": "Observes operation admission blocked by maintenance; verifies ordering and progress without changing persistence."
+    "WaitingForMaintenance": "Observes operation admission blocked by maintenance; verifies ordering and progress without changing persistence.",
+    "BeforeContendedWait": "Observes failed zero-wait Shared mutex acquisition before the platform-specific cancellable wait; proves turn/main cancellation, release and owner-death paths without changing persistence."
   },
   "unhookedTransitions": [
     {
