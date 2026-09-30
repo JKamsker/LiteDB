@@ -150,7 +150,7 @@ namespace LiteDB
                         }
                         finally { this.RemoveLocalReader(owner); }
                     }
-                });
+                }, ownedSnapshot);
                 snapshot = null;
                 lease = null;
 #if DEBUG || TESTING
@@ -333,7 +333,7 @@ namespace LiteDB
                         }
                         finally { this.RemoveLocalReader(owner); }
                     }
-                });
+                }, ownedSnapshot);
                 snapshot = null;
                 lease = null;
                 reader = null;
