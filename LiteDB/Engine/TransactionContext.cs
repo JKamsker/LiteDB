@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace LiteDB.Engine
 {
@@ -13,6 +14,9 @@ namespace LiteDB.Engine
         internal readonly EngineContext.TransactionSlot Slot = new EngineContext.TransactionSlot();
         internal TransactionService Transaction;
         internal volatile LiteTransactionState Outcome = LiteTransactionState.Active;
+        // Ordinary callbacks suppress binding, but still depend on this executing
+        // handle returning before its locks can be released.
+        internal volatile Thread ExecutingThread;
 
         internal TransactionContext(LiteEngine engine, EngineContext session)
         { Engine = engine; Session = session; Policy = session.Policy.Clone(); }
@@ -40,9 +44,21 @@ namespace LiteDB.Engine
 
         internal readonly struct Scope : IDisposable
         {
-            private readonly TransactionContext _previous;
-            internal Scope(TransactionContext transaction) { _previous = _executing; _executing = transaction; }
-            public void Dispose() => _executing = _previous;
+            private readonly TransactionContext _previous, _transaction;
+            private readonly Thread _previousThread;
+            internal Scope(TransactionContext transaction)
+            {
+                _previous = _executing;
+                _transaction = transaction;
+                _previousThread = transaction?.ExecutingThread;
+                if (transaction != null) transaction.ExecutingThread = Thread.CurrentThread;
+                _executing = transaction;
+            }
+            public void Dispose()
+            {
+                _executing = _previous;
+                if (_transaction != null) _transaction.ExecutingThread = _previousThread;
+            }
         }
     }
 }
