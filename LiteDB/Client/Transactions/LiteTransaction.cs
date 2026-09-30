@@ -101,16 +101,19 @@ namespace LiteDB
 
         private T RunCore<T>(Func<T> action)
         {
-            using var context = _resources.Session.Enter();
-            using var binding = TransactionContext.Enter(_transaction);
-            try { return action(); }
-            catch (Exception error)
+            try
             {
-                var intact = ReferenceEquals(_transaction.Slot.Transaction, _transaction.Transaction) &&
-                    _transaction.Transaction.State == TransactionState.Active;
-                if (!intact || (!(error is TransactionCapabilityException) && !(error is ReadOnlyContextException) &&
-                    !(_transaction.Policy.ReadOnly && error is NotSupportedException))) Abort(error);
-                throw;
+                using var context = _resources.Session.Enter();
+                using var binding = TransactionContext.Enter(_transaction);
+                try { return action(); }
+                catch (Exception error)
+                {
+                    var intact = ReferenceEquals(_transaction.Slot.Transaction, _transaction.Transaction) &&
+                        _transaction.Transaction.State == TransactionState.Active;
+                    if (!intact || (!(error is TransactionCapabilityException) && !(error is ReadOnlyContextException) &&
+                        !(_transaction.Policy.ReadOnly && error is NotSupportedException))) Abort(error);
+                    throw;
+                }
             }
             finally { Exit(); }
         }
@@ -219,10 +222,10 @@ namespace LiteDB
         {
             LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.Commit");
             using var admission = Enter();
-            using var context = _resources.Session.Enter();
-            using var binding = TransactionContext.Enter(_transaction);
             try
             {
+                using var context = _resources.Session.Enter();
+                using var binding = TransactionContext.Enter(_transaction);
                 if (_readers.Count != 0)
                 {
                     LiteDB.Utils.Reachability.Sometimes("refusal:handle-commit-with-open-reader");

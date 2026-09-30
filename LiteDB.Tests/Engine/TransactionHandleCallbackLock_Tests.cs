@@ -97,6 +97,62 @@ namespace LiteDB.Tests.Engine
             Verify(settings, new[] { 1, 2, 3 }, false);
         }
 
+        [Fact]
+        public void Repeated_public_handoff_restores_binding_before_admitting_next_callback()
+        {
+            using var file = new TempFile();
+            var settings = new ConnectionString { Filename = file };
+            using (var db = new LiteDatabase(settings))
+            {
+                Seed(db);
+                using var tx = db.BeginTransaction();
+                tx.GetCollection("rows").Insert(Row(2));
+                var rows = tx.GetCollection<CallbackRow>("rows");
+                RowsLock(db).BeforeWait = () => throw new InvalidOperationException("Callback attempted self-wait");
+                using var ready = new AutoResetEvent(false);
+                using var completed = new AutoResetEvent(false);
+                Exception failure = null;
+                var worker = new Thread(() =>
+                {
+                    try
+                    {
+                        for (var i = 0; i < 200; i++)
+                        {
+                            Assert.True(ready.WaitOne(TimeSpan.FromSeconds(5)));
+                            var callbackRan = false;
+                            while (!callbackRan)
+                            {
+                                try
+                                {
+                                    rows.Insert(new CallbackRow { Id = 10 + i, Callback = () =>
+                                    {
+                                        callbackRan = true;
+                                        Assert.Equal(LiteException.LOCK_TIMEOUT,
+                                            Assert.Throws<LiteException>(() => db.GetCollection("rows").Insert(Row(999))).ErrorCode);
+                                    }});
+                                }
+                                catch (InvalidOperationException) when (!callbackRan && tx.State == LiteTransactionState.Active)
+                                { Thread.Yield(); } // The preceding operation has not released admission yet.
+                            }
+                            completed.Set();
+                        }
+                    }
+                    catch (Exception error) { failure = error; completed.Set(); }
+                }) { IsBackground = true };
+                worker.Start();
+                for (var i = 0; i < 200; i++)
+                {
+                    ((LiteTransaction)tx).Run(() => { ready.Set(); return true; });
+                    Assert.True(completed.WaitOne(TimeSpan.FromSeconds(5)));
+                    Assert.Null(failure);
+                }
+                Assert.True(worker.Join(TimeSpan.FromSeconds(5)));
+                Assert.Equal(LiteTransactionState.Active, tx.State);
+                tx.Rollback();
+            }
+            Verify(settings, new[] { 1 }, false);
+        }
+
         private static CollectionLock RowsLock(LiteDatabase db)
         {
             var engine = NativeAdmissionDirectPool_Tests.Engine(db);
