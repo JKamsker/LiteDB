@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Xunit;
@@ -38,6 +39,8 @@ namespace LiteDB.Tests.Engine
             var callbackCounts = new int[2];
             var refused = new int[2];
             var originalObserver = TransactionAdmission.Observe;
+            Exception failure = null;
+            var verified = false;
             try
             {
                 for (var i = 0; i < 2; i++)
@@ -142,11 +145,19 @@ namespace LiteDB.Tests.Engine
                         Assert.Equal(expected.Length, cold.GetCollection("rows").Count());
                         Assert.Equal(90 + i, cold.GetCollection("sentinel").FindById(9)["value"].AsInt32);
                     }
+                verified = true;
             }
+            catch (Exception error) { failure = error; throw; }
             finally
             {
+                var cleanupErrors = new List<Exception>();
+                void Cleanup(Action action)
+                {
+                    try { action(); }
+                    catch (Exception error) { cleanupErrors.Add(error); }
+                }
                 start.Set();
-                foreach (var cancellation in cancellations) cancellation.Cancel();
+                foreach (var cancellation in cancellations) Cleanup(cancellation.Cancel);
                 foreach (var worker in workers) if (worker?.IsAlive == true) worker.Join(TimeSpan.FromSeconds(2));
                 TransactionAdmission.Observe = originalObserver;
                 _output.WriteLine("Schedule C22/1; fixtures=" + string.Join(",", files.Select(file => file.Filename)) + "; " + string.Join(" -> ", history));
@@ -159,14 +170,27 @@ namespace LiteDB.Tests.Engine
                 {
                     for (var i = 0; i < 2; i++)
                     {
-                        try { handles[i]?.Dispose(); }
-                        finally
-                        {
-                            try { databases[i]?.Dispose(); }
-                            finally { cancellations[i].Dispose(); waiting[i].Dispose(); finished[i].Dispose(); files[i].Dispose(); }
-                        }
+                        var actor = i;
+                        Cleanup(() => handles[actor]?.Dispose());
+                        Cleanup(() => databases[actor]?.Dispose());
+                        Cleanup(cancellations[actor].Dispose); Cleanup(waiting[actor].Dispose); Cleanup(finished[actor].Dispose);
                     }
-                    start.Dispose();
+                    Cleanup(start.Dispose);
+                    if (failure == null && verified && cleanupErrors.Count == 0)
+                        foreach (var file in files) Cleanup(file.Dispose);
+                    else
+                    {
+                        foreach (var file in files) GC.SuppressFinalize(file); // TempFile finalization deletes files too.
+                        _output.WriteLine("Failed scenario: original fixtures retained; cold verification completed=" + verified +
+                            ". Cleanup errors may leave admission unavailable; no reopen is attempted while ownership is uncertain.");
+                    }
+                }
+                if (cleanupErrors.Count != 0)
+                {
+                    var cleanup = new AggregateException("Concurrency scenario cleanup failed; original fixtures retained.", cleanupErrors);
+                    _output.WriteLine(cleanup.ToString());
+                    if (failure != null) failure.Data["LiteDB.AuditCleanup"] = cleanup;
+                    else throw cleanup;
                 }
             }
         }

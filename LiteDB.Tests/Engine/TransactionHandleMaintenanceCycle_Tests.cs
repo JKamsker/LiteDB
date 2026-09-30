@@ -33,6 +33,8 @@ namespace LiteDB.Tests.Engine
             LiteDatabase db = null;
             LiteEngine engine = null;
             var armed = false;
+            Exception failure = null;
+            var verified = false;
             try
             {
                 engine = new LiteEngine(new EngineSettings
@@ -129,9 +131,17 @@ namespace LiteDB.Tests.Engine
                     Assert.Equal(1, cold.GetCollection("rows").Count());
                     Assert.Equal(90, cold.GetCollection("sentinel").FindById(9)["value"].AsInt32);
                 }
+                verified = true;
             }
+            catch (Exception error) { failure = error; throw; }
             finally
             {
+                var cleanupErrors = new List<Exception>();
+                void Cleanup(Action action)
+                {
+                    try { action(); }
+                    catch (Exception error) { cleanupErrors.Add(error); }
+                }
                 startDependency.Set();
                 allowWait.Set();
                 Thread[] all;
@@ -145,16 +155,24 @@ namespace LiteDB.Tests.Engine
                 }
                 else
                 {
-                    try { db?.Dispose(); }
-                    finally
+                    Cleanup(() => db?.Dispose());
+                    Cleanup(() => engine?.Dispose());
+                    Cleanup(callbackEntered.Dispose); Cleanup(startDependency.Dispose); Cleanup(freshBlocked.Dispose);
+                    Cleanup(allowWait.Dispose); Cleanup(freshDone.Dispose);
+                    if (failure == null && verified && cleanupErrors.Count == 0) Cleanup(file.Dispose);
+                    else
                     {
-                        try { engine?.Dispose(); }
-                        finally
-                        {
-                            callbackEntered.Dispose(); startDependency.Dispose(); freshBlocked.Dispose();
-                            allowWait.Dispose(); freshDone.Dispose(); file.Dispose();
-                        }
+                        GC.SuppressFinalize(file); // TempFile's finalizer also deletes the original fixture.
+                        _output.WriteLine("Failed scenario: original fixture retained at " + file.Filename +
+                            "; cold verification completed=" + verified + ". Cleanup errors may leave admission unavailable; no reopen is attempted while ownership is uncertain.");
                     }
+                }
+                if (cleanupErrors.Count != 0)
+                {
+                    var cleanup = new AggregateException("Concurrency scenario cleanup failed; fixture retained at " + file.Filename, cleanupErrors);
+                    _output.WriteLine(cleanup.ToString());
+                    if (failure != null) failure.Data["LiteDB.AuditCleanup"] = cleanup;
+                    else throw cleanup;
                 }
             }
         }
