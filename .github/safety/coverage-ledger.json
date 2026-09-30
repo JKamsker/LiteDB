@@ -157,6 +157,20 @@
       "coveredBy": [
         "LiteDB.Tests/Engine/TransactionHandleDisposeSafety_Tests.cs#Disposed_bound_objects_refuse_use_without_aborting_prior_writes"
       ]
+    },
+    {
+      "id": "133-commit-proof-scheduling",
+      "kind": "ci-test-config-changed",
+      "subjects": [
+        ".github/repro-ci.json",
+        ".github/scripts/test_generate_repro_matrix.py"
+      ],
+      "disposition": "covered-elsewhere",
+      "invariant": "All eight known-bad comparisons run with their required packed-commit feed, while permanent regression guards remain in ordinary runtime/platform tests. Unknown new repros remain scheduled.",
+      "reason": "Commit-pinned packages cannot restore in the ordinary repro matrix. The dedicated Regression proof workflow packs the real known-bad revision, executes strict before/after comparisons and validates provenance. Each substitution lists its permanent guard; matrix tests enforce that mapping.",
+      "coveredBy": [
+        ".github/workflows/regression-proof.yml"
+      ]
     }
   ]
 }
