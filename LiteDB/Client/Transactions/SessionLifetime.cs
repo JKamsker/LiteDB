@@ -96,7 +96,14 @@ namespace LiteDB
 #if DEBUG || TESTING
                         BeforeCloseDispatch?.Invoke();
 #endif
-                        _requestThread = SessionCloseScheduler.Queue(RequestClose);
+                        // REJECTED EXPERIMENT: zero managed work does not prove the
+                        // final resource release cannot block. Benchmark upper bound only.
+                        if (_active == 0 && _transactions.Count == 0)
+                        {
+                            _requestThread = Thread.CurrentThread;
+                            RequestClose();
+                        }
+                        else _requestThread = SessionCloseScheduler.Queue(RequestClose);
                     }
                     catch
                     {
