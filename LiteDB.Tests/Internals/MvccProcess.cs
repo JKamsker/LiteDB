@@ -14,7 +14,6 @@ namespace LiteDB.Internals
         private readonly Task<string> _errors;
 
         internal int Id => _process.Id;
-        internal int ExitCode => _process.ExitCode;
 
         internal MvccProcess(string mode, string filename, string password, string value = null, bool disableFileLocking = false, bool disableMappedReads = false)
         {
