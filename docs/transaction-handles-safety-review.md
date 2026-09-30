@@ -438,3 +438,43 @@ failure-capture gap when stopping a child itself fails. Collection must refuse
 any still-live recorded child as well as a live test host. The old timeout remains
 unclassified; these changes improve its oracle and evidence, not production
 behavior.
+
+## Shared handle callback native ownership (review 5367523337)
+
+The reviewed `12a057424` could block an executing handle callback when it called
+an ordinary Shared pragma getter or wrote an unrelated collection in the same
+file. The ordinary facade correctly suppressed transaction binding, but lost the
+information that its native writer wait depended on that callback returning.
+Actual-before tests reached the native contention boundary; this was not a process
+startup timeout or evidence of acknowledged-commit loss.
+
+An execution-scoped dependency chain now survives ordinary binding suppression.
+Shared operations compare their construction-time mutex namespace before entering
+native ownership, retiring writer-side snapshots, or joining a pin. A matching
+executing handle causes `InvalidOperationException` before those side effects.
+The same check prevents a callback from starting another same-namespace handle and
+waiting on its own local admission gate. The chain restores on every synchronous
+exit and before another thread can acquire the handle's public-operation guard.
+It does not flow across tasks or retain idle/completed handles. General Shared
+admission deadlines and cancellation remain unchanged.
+
+Permanent plain/encrypted guards cover input callbacks, late reader callbacks,
+sequential thread handoff, another facade with a normalized alias, nested other
+database handles and ordinary calls that suppress binding. Caught refusals leave
+the handle Active with earlier writes intact. Positive controls cover ordinary
+coordinated reads without implicit enlistment, Direct independent work, another
+database, idle-handle completion and cancellation of a different waiting session.
+Committed and rolled-back outcomes are checked by cold index/record/sentinel models.
+
+`Issue_3067_SharedCallbackNativeWait` is the nineteenth dedicated regression proof,
+pinned to the actual unmodified `12a057424` production package. Six isolated
+plain/encrypted cases observe a positive parent waiter count and occupied native
+turnstile from another thread after callback entry. Reproduction additionally
+requires continued blocking, then successful external session cancellation and
+unwind. Fixed cases catch the refusal inside the callback and complete normally.
+Both variants require independent controls, real peer-process commits, and two
+cold indexed/sentinel reopens. Setup failures and ambiguous waits fail the proof.
+An independent forced-stall mutation verifies that child timeouts retain output and
+fixture paths and return failure rather than a fixed/reproduced marker. This proof
+covers bounded liveness and cleanup; it does not simulate power loss. Exact source,
+binary, local and hosted results belong to the revision-specific evidence archive.

@@ -214,6 +214,9 @@ tx.Commit();
 The `sharedAdmissionTimeout` overload uses one monotonic budget for the combined
 local handle-gate and native writer-mutex waits. `TimeSpan.Zero` attempts immediate
 admission at both stages; `Timeout.InfiniteTimeSpan` keeps the unbounded default.
+Starting another handle from an executing Shared handle callback in the same mutex
+namespace is refused with `InvalidOperationException` before the local gate wait.
+An idle handle still permits a new caller to wait while another thread completes it.
 Other values must be nonnegative and at most `Int32.MaxValue` milliseconds.
 Expiration throws `TimeoutException`; caller cancellation throws
 `OperationCanceledException` carrying the supplied token. Partial ownership and
