@@ -194,7 +194,8 @@ namespace LiteDB.Engine
                 this.ValidateCollationStamp();
 
                 // initialize sort temp disk
-                _sortDisk = new SortDisk(_settings.CreateTempFactory(), CONTAINER_SORT_SIZE, _header.Pragmas);
+                _sortDisk = new SortDisk(_settings.CreateTempFactory(), CONTAINER_SORT_SIZE, _header.Pragmas,
+                    cleanupExistingFile: !_settings.ReadOnly);
 
                 // initialize transaction monitor as last service
                 _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _settings.TransactionPageLimit, () => CurrentContext);

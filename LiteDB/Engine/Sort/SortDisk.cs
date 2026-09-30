@@ -23,19 +23,21 @@ namespace LiteDB.Engine
         private long _lastContainerPosition = 0;
         private readonly int _containerSize;
         private readonly EnginePragmas _pragmas;
+        private readonly bool _cleanupExistingFile;
 
         public int ContainerSize => _containerSize;
 
         // Containers and their backing file survive query completion until disposal.
         internal bool HasSpilled => Interlocked.Read(ref _lastContainerPosition) >= 0;
 
-        public SortDisk(IStreamFactory factory, int containerSize, EnginePragmas pragmas)
+        public SortDisk(IStreamFactory factory, int containerSize, EnginePragmas pragmas, bool cleanupExistingFile = false)
         {
             ENSURE(containerSize % PAGE_SIZE == 0, "size must be PAGE_SIZE multiple");
 
             _factory = factory;
             _containerSize = containerSize;
             _pragmas = pragmas;
+            _cleanupExistingFile = cleanupExistingFile;
 
             _lastContainerPosition = -containerSize;
 
@@ -111,11 +113,14 @@ namespace LiteDB.Engine
             _pool.Dispose();
             TeardownSteps.After("SortDisk.Dispose.pool");
 
-            // A never-used sort disk owns no file (its derived name may not even be
-            // creatable for a maximum-length read-only database filename).
-            TeardownSteps.Before("SortDisk.Dispose.delete", this.HasSpilled);
-            if (this.HasSpilled) _factory.Delete();
-            TeardownSteps.After("SortDisk.Dispose.delete", this.HasSpilled);
+            // Only an admitted writable core can reclaim a previous owner's scratch
+            // file. Read-only peers may still have a live sort using this name.
+            // Exists also avoids deleting an impossible, unused sidecar name.
+            var delete = this.HasSpilled || (_cleanupExistingFile && _factory is FileStreamFactory && _factory.Exists());
+            TeardownSteps.Before("SortDisk.Dispose.delete", delete);
+            if (delete)
+                _factory.Delete();
+            TeardownSteps.After("SortDisk.Dispose.delete", delete);
         }
     }
 }
