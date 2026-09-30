@@ -19,6 +19,7 @@ namespace LiteDB.Internals
         private readonly object _diagnosticGate = new object();
 
         internal int Id => _process.Id;
+        internal bool HasExited => _process.HasExited;
 
         internal MvccProcess(string mode, string filename, string password, string value = null, bool disableFileLocking = false, bool disableMappedReads = false)
         {
