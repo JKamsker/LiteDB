@@ -67,8 +67,8 @@ boundary markers, parent acknowledgements, stderr, schedule, seed/input and repl
 metadata remain with the run.
 
 The generic runner's artifact-budget failure path can delete databases. Use
-`--max-artifact-mb 0` for investigations requiring every failure fixture. Bounded
-CI creates small files; successful nightly epochs retain existing compaction.
+`--max-artifact-mb 0` for investigations requiring every failure fixture. The new concurrency CI shard passes `--max-artifact-mb 0` explicitly; successful
+nightly epochs retain existing compaction. Other shards keep their prior budget.
 
 `SharedLifecycleOracle_Tests` rejects seven controlled bad states: acknowledged
 loss, partial insert/update/delete/peer groups, missing sentinel and missing index.
