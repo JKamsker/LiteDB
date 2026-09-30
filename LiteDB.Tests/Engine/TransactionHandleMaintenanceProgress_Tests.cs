@@ -46,6 +46,27 @@ namespace LiteDB.Tests.Engine
         }
 
         [Fact]
+        public async Task Close_waiter_does_not_interrupt_the_current_maintenance_generation()
+        {
+            var operations = new OperationLifetime();
+            using var interrupted = new ManualResetEventSlim();
+            var rebuilding = operations.Exclusive(() => true);
+            var close = Task.Run(() =>
+            { using (operations.Exclusive(() => true, stopWaiters: interrupted.Set)) { } });
+            try
+            {
+                Pending(operations);
+                // Acquiring the gate observes the waiter after it has run its admission
+                // code and released the gate to wait for the rebuilding owner.
+                lock (typeof(OperationLifetime).GetField("_gate", Fields).GetValue(operations))
+                    Assert.False(interrupted.IsSet);
+            }
+            finally { rebuilding.Dispose(); }
+            await close;
+            Assert.True(interrupted.IsSet);
+        }
+
+        [Fact]
         public async Task Maintenance_timeout_removes_pending_admission_and_reader_can_retry()
         {
             var operations = new OperationLifetime();
