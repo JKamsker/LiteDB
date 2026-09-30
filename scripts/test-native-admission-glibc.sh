@@ -20,6 +20,7 @@ case "$(docker info --format '{{json .SecurityOptions}}')" in
 esac
 # Use packaged outputs and the invoking host user's permissions; no network or
 # restore is needed. Parent and children assert actual runtime/architecture.
+test_filter='FullyQualifiedName~TransactionHandle|FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedMode|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~TestHost_Tests'
 set +e
 docker run --rm --network none --user "$container_user" \
     -e LITEDB_EXPECTED_RUNTIME_MAJOR=8 -e LITEDB_EXPECTED_ARCHITECTURE="$architecture" \
@@ -28,6 +29,9 @@ docker run --rm --network none --user "$container_user" \
     --mount "type=bind,src=$results,dst=/results" \
     --workdir /repo/LiteDB.Tests/bin/Release/net8.0 \
     "$image" sh -c '
+        dotnet vstest LiteDB.Tests.dll /ListFullyQualifiedTests /ListTestsTargetPath:/results/discovered-tests.txt
+        discovery_status=$?
+        if [ "$discovery_status" -ne 0 ]; then exit "$discovery_status"; fi
         dotnet "$@"
         test_status=$?
         python3 /repo/scripts/collect-retained-fixtures.py "$LITEDB_RETAINED_FIXTURES"
@@ -37,10 +41,13 @@ docker run --rm --network none --user "$container_user" \
     ' sh vstest LiteDB.Tests.dll \
     /Settings:/repo/tests.runsettings /ResultsDirectory:/results \
     "/Logger:trx;LogFileName=NativeAdmission-glibc231-$architecture.trx" \
-    '/TestCaseFilter:FullyQualifiedName~TransactionHandle|FullyQualifiedName~NativeAdmission|FullyQualifiedName~SharedMode|FullyQualifiedName~SharedAdmissionLifetime|FullyQualifiedName~DirectModeAdmission|FullyQualifiedName~Rebuild|FullyQualifiedName~TestHost_Tests'
+    "/TestCaseFilter:$test_filter"
 
 container_status=$?
 set -e
+python3 "$repo_root/.github/scripts/record_test_leg.py" --root "$repo_root" --results "$results" \
+    --discovery "$results/discovered-tests.txt" --filter "$test_filter" \
+    --result "NativeAdmission-glibc231-$architecture.trx" --framework net8.0 --runtime 8 --architecture "$architecture"
 if [ "$container_status" -ne 0 ]; then exit "$container_status"; fi
 
 python3 - "$results/NativeAdmission-glibc231-$architecture.trx" <<'PY'

@@ -25,6 +25,19 @@
       "tiers": ["full"],
       "legs": {"full": {"item.runtimeMajor": [8, 9, 10]}}
     },
+    "test-native-glibc231": {
+      "tiers": ["full"],
+      "legs": {"full": {"os": ["ubuntu-latest", "ubuntu-24.04-arm"]}}
+    },
+    "test-native-macos-intel": {
+      "tiers": ["full"],
+      "legs": {"full": {"framework": ["net8.0", "net10.0"]}}
+    },
+    "test-native-windows-arm64": {
+      "tiers": ["full"],
+      "legs": {"full": {"framework": ["net8.0", "net10.0"]}}
+    },
+    "test-host-local-filesystem": {"tiers": ["full"]},
     "test-linux-arm64": {
       "tiers": ["full"],
       "legs": {"full": {"item.runtimeMajor": [8, 9, 10]}}

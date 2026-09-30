@@ -6,6 +6,7 @@ param(
     [string]$ResultFile = 'TestResults.trx',
     [string]$RuntimeDirectory,
     [switch]$PartitionSuite,
+    [switch]$RecordEvidence,
     [string]$VerifyPartitions,
     [string]$DiscoveryFile
 )
@@ -142,6 +143,18 @@ if ($VerifyPartitions) {
 $results = Join-Path $repoRoot 'LiteDB.Tests/TestResults'
 $resultPath = Join-Path $results $ResultFile
 if (Test-Path $resultPath) { Remove-Item $resultPath }
+if ($RecordEvidence) {
+    New-Item -ItemType Directory -Force $results | Out-Null
+    $listing = Join-Path $results 'discovered-tests.txt'
+    & dotnet vstest $assembly "/Framework:.NETCoreApp,Version=v$RuntimeMajor.0" "/Platform:$Architecture" `
+        /ListFullyQualifiedTests "/ListTestsTargetPath:$listing" -- "RunConfiguration.DotNetHostPath=$testHost" | Out-Null
+    if ($LASTEXITCODE -ne 0 -or !(Test-Path $listing)) { throw 'Could not discover the native test leg.' }
+    $python = if ($IsWindows) { 'python' } else { 'python3' }
+    & $python (Join-Path $repoRoot '.github/scripts/record_test_leg.py') --root $repoRoot --results $results `
+        --discovery $listing --filter "$Filter" --result $ResultFile --framework $Framework `
+        --runtime $RuntimeMajor --architecture $Architecture
+    if ($LASTEXITCODE -ne 0) { throw 'Could not record native test evidence.' }
+}
 $arguments = @(
     'vstest', $assembly,
     "/Framework:.NETCoreApp,Version=v$RuntimeMajor.0", "/Platform:$Architecture",
