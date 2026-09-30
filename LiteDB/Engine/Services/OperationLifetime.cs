@@ -15,34 +15,43 @@ namespace LiteDB.Engine
         private readonly Dictionary<Thread, int> _threads = new Dictionary<Thread, int>();
         private int _active;
         private Thread _exclusive;
+        private int _waitingExclusive;
         private Action _deferredClose;
 #if DEBUG || TESTING
         internal Action WaitingForMaintenance;
         // Proof overlay (PR #133) wait-for graph: operation leases (thread-keyed, released by their
-        // thread) and the exclusive (close/rebuild/deferred close) slot, held by the thread that runs it.
+        // thread), the exclusive (close/rebuild/deferred close) slot held by the thread that runs it, and
+        // the fence: a thread queued for exclusive holds it, and fresh operations wait for it.
         private readonly WaitGraph.Resource _graphLeases = new WaitGraph.Resource("operation-lifetime", "leases", WaitPrimitive.Lease, ordered: false);
         private readonly WaitGraph.Resource _graphExclusive = new WaitGraph.Resource("operation-lifetime", "exclusive", WaitPrimitive.Gate);
+        private readonly WaitGraph.Resource _graphFence = new WaitGraph.Resource("operation-lifetime", "maintenance-fence", WaitPrimitive.Gate, ordered: false);
 #endif
 
-        internal Lease Enter()
+        internal Lease Enter(bool continuation = false)
         {
             var thread = Thread.CurrentThread;
             lock (_gate)
             {
+                // A queued maintenance owner fences new work, while nested calls and
+                // existing transaction/cursor completion must still drain its dependencies.
 #if DEBUG || TESTING
                 var graphWait = default(WaitGraph.WaitScope);
                 var graphWaiting = false;
                 try
                 {
 #endif
-                while (_exclusive != null && _exclusive != thread)
+                while ((_exclusive != null && _exclusive != thread) ||
+                    (_exclusive == null && _waitingExclusive != 0 && !continuation &&
+                        !_threads.ContainsKey(thread)))
                 {
 #if DEBUG || TESTING
                     WaitingForMaintenance?.Invoke();
                     if (!graphWaiting)
                     {
                         graphWaiting = true;
-                        graphWait = WaitGraph.Wait(_graphExclusive, WaitBound.Unbounded, "OperationLifetime.Enter");
+                        // A fenced fresh operation waits for the queued maintenance owner too.
+                        graphWait = WaitGraph.Wait(_graphExclusive, WaitBound.Unbounded, "OperationLifetime.Enter",
+                            also: _exclusive == null ? _graphFence : null);
                     }
                     else WaitGraph.Recheck();
 #endif
@@ -112,7 +121,7 @@ namespace LiteDB.Engine
             }
         }
 
-        internal Lease Exclusive(Func<bool> dependenciesDrained, TimeSpan? timeout = null)
+        internal Lease Exclusive(Func<bool> dependenciesDrained, TimeSpan? timeout = null, Action stopWaiters = null)
         {
             var thread = Thread.CurrentThread;
             var elapsed = Stopwatch.StartNew();
@@ -121,37 +130,46 @@ namespace LiteDB.Engine
                 if (_exclusive == thread) return default;
                 if (_threads.ContainsKey(thread))
                     throw new InvalidOperationException("Cannot close or rebuild from inside an executing engine operation.");
+                _waitingExclusive++;
 #if DEBUG || TESTING
+                WaitGraph.Acquired(_graphFence, site: "OperationLifetime.Exclusive (queued)");
                 var graphWait = default(WaitGraph.WaitScope);
                 var graphWaiting = false;
+#endif
                 try
                 {
-#endif
-                while (_exclusive != null || _active != 0 || !dependenciesDrained())
-                {
-                    if (timeout.HasValue && elapsed.Elapsed >= timeout.Value)
-                        throw LiteException.LockTimeout("operation/maintenance", timeout.Value);
-#if DEBUG || TESTING
-                    // A poll for the active leases and the exclusive slot; bounded only when a timeout is given.
-                    // The dependenciesDrained() predicate is not modelled (a miss, never an invented edge).
-                    if (!graphWaiting)
+                    stopWaiters?.Invoke();
+                    while (_exclusive != null || _active != 0 || !dependenciesDrained())
                     {
-                        graphWaiting = true;
-                        graphWait = WaitGraph.Wait(_graphLeases, timeout.HasValue ? WaitBound.After(timeout.Value) : WaitBound.Unbounded,
-                            "OperationLifetime.Exclusive", also: _graphExclusive);
+                        if (timeout.HasValue && elapsed.Elapsed >= timeout.Value)
+                            throw LiteException.LockTimeout("operation/maintenance", timeout.Value);
+#if DEBUG || TESTING
+                        // A poll for the active leases and the exclusive slot; bounded only when a timeout is given.
+                        // The dependenciesDrained() predicate is not modelled (a miss, never an invented edge).
+                        if (!graphWaiting)
+                        {
+                            graphWaiting = true;
+                            graphWait = WaitGraph.Wait(_graphLeases, timeout.HasValue ? WaitBound.After(timeout.Value) : WaitBound.Unbounded,
+                                "OperationLifetime.Exclusive", also: _graphExclusive);
+                        }
+                        else WaitGraph.Recheck();
+#endif
+                        Monitor.Wait(_gate, 10);
                     }
-                    else WaitGraph.Recheck();
-#endif
-                    Monitor.Wait(_gate, 10);
-                }
+                    _exclusive = thread;
 #if DEBUG || TESTING
+                    WaitGraph.Acquired(_graphExclusive, site: "OperationLifetime.Exclusive");
+#endif
                 }
-                finally { graphWait.Dispose(); }
-#endif
-                _exclusive = thread;
+                finally
+                {
 #if DEBUG || TESTING
-                WaitGraph.Acquired(_graphExclusive, site: "OperationLifetime.Exclusive");
+                    graphWait.Dispose();
+                    WaitGraph.Released(_graphFence);
 #endif
+                    _waitingExclusive--;
+                    Monitor.PulseAll(_gate);
+                }
             }
             return new Lease(this, thread, true);
         }

@@ -19,7 +19,8 @@ namespace LiteDB.Engine
         private Exception _exception;
         private readonly LiteEngine _engine; // can be null for unit tests
         private readonly EngineSettings _settings;
-        internal OperationLifetime.Lease EnterOperation() => _engine?.EnterOperation() ?? default;
+        // Readers already own a transaction, even when advanced/disposed on a new thread.
+        internal OperationLifetime.Lease EnterOperation() => _engine?.EnterOperation(continuation: true) ?? default;
         internal EngineContext Context => _engine?.CurrentContext;
 
 #if DEBUG || TESTING

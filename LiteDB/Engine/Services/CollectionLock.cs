@@ -15,6 +15,7 @@ namespace LiteDB.Engine
         private object _owner;
         private Thread _thread;
         private int _depth;
+        private bool _stopping;
 #if DEBUG || TESTING
         internal Action BeforeWait;
         /// <summary>Wait-for graph resource; the lock service names it after its collection.</summary>
@@ -30,6 +31,7 @@ namespace LiteDB.Engine
             var started = System.Diagnostics.Stopwatch.GetTimestamp();
             lock (_lock)
             {
+                if (_stopping) throw LiteException.EngineDisposed();
 #if DEBUG || TESTING
                 var graphWait = default(WaitGraph.WaitScope);
                 var graphWaiting = false;
@@ -53,6 +55,7 @@ namespace LiteDB.Engine
                     else WaitGraph.Recheck();
 #endif
                     if (!Monitor.Wait(_lock, remaining)) return false;
+                    if (_stopping) throw LiteException.EngineDisposed();
                 }
                 _owner = owner;
                 _thread = TransactionContext.AdmissionOwner as Thread;
@@ -71,6 +74,15 @@ namespace LiteDB.Engine
             }
         }
 
+        internal void StopWaiters()
+        {
+            lock (_lock)
+            {
+                _stopping = true;
+                Monitor.PulseAll(_lock);
+            }
+        }
+
         public void Exit(object owner)
         {
             lock (_lock)
@@ -86,8 +98,8 @@ namespace LiteDB.Engine
                 Monitor.PulseAll(_lock);
             }
         }
-
 #if DEBUG || TESTING
+
         /// <summary>
         /// A thread-owned transaction (legacy or auto) progresses only on its thread: thread-affine hold.
         /// An explicit transaction executes on whichever thread runs its handle call: a hold of its
