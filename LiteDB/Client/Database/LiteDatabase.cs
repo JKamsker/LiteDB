@@ -445,7 +445,17 @@ namespace LiteDB
             "Shared propagates or discards).")]
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing) _lifetime.Close(ReleaseOwnedEngine);
+            if (!disposing) return;
+            // A late ordinary reader no longer holds the session call lease. Refuse
+            // before publishing close when owned core teardown would drain this callback.
+            // Pooled Direct and independently leased Shared readers retain their own core.
+            if (_disposeOnClose)
+            {
+                if (_engine is LiteEngine engine && engine.IsExecutingOnCurrentThread)
+                    throw new InvalidOperationException("Cannot close a database from inside its executing operation.");
+                if (_engine is SharedEngine shared) shared.ThrowIfClosingFromOperation();
+            }
+            _lifetime.Close(ReleaseOwnedEngine);
         }
 
         private void ReleaseOwnedEngine()
