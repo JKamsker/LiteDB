@@ -1,9 +1,14 @@
 # Shared transaction holder and wrapper reuse
 
+The measurements and local counts below describe the original reuse integration
+through `560529066`. Subsequent review fixes and the merged upstream safety gates
+are recorded in [the integrated safety review](transaction-handles-safety-review.md);
+these historical numbers do not validate the later implementation.
+
 This is the narrowly scoped integration of `experiment/pr133-shared-child` into
 PR #133. The comparison baseline is PR head
 `c8c0cfab623a22880b1d71eb966b09e89f9153b9`; the measured production implementation is
-`8fb87fa123a88ef143e3fdfa1bae564032f9a941`. Later validation/report commits do not change
+`8fb87fa123a88ef143e3fdfa1bae564032f9a941`. Validation/report commits through `560529066` do not change
 that production source. The earlier experiment's measurements are historical;
 the results below come from this implementation.
 
@@ -111,7 +116,7 @@ All windows/processes are retained. Allocation uses process-wide
 of per-process aggregate transaction rates; speedups are medians of paired ratios.
 The host has uncontrolled unrelated load, so these are descriptive local results.
 
-## Final measured results
+## Original integration measurements
 
 | Reads/handle | Head tx/s | Reuse tx/s | Paired speedup | Head bytes/tx | Reuse bytes/tx |
 | --- | ---: | ---: | ---: | ---: | ---: |
