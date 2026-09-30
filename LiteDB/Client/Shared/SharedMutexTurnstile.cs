@@ -29,15 +29,15 @@ namespace LiteDB.Client.Shared
         /// Block until <paramref name="mutex"/> is owned, queued at the turnstile.
         /// Throws <see cref="AbandonedMutexException"/> as <see cref="WaitHandle.WaitOne()"/> does.
         /// </summary>
-        public void Wait(Mutex mutex)
+        public void Wait(Mutex mutex, CancellationToken closing = default)
         {
-            var queued = this.Enter();
+            var queued = this.Enter(closing);
             try
             {
 #if DEBUG || TESTING
                 this.BeforeMainWait?.Invoke();
 #endif
-                mutex.WaitOne();
+                WaitCancellable(mutex, closing);
             }
             finally
             {
@@ -69,11 +69,20 @@ namespace LiteDB.Client.Shared
             return false;
         }
 
-        private bool Enter()
+        private static void WaitCancellable(Mutex mutex, CancellationToken closing)
+        {
+            if (!closing.CanBeCanceled) { mutex.WaitOne(); return; }
+            // Retain the turnstile while waiting on the writer mutex: cancellation
+            // must not turn a queued waiter into a polling contender that can starve.
+            do { closing.ThrowIfCancellationRequested(); } while (!mutex.WaitOne(10));
+        }
+
+        private bool Enter(CancellationToken closing)
         {
             try
             {
-                return _turn.WaitOne();
+                WaitCancellable(_turn, closing);
+                return true;
             }
             catch (AbandonedMutexException)
             {

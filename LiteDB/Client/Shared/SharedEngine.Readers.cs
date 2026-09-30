@@ -114,7 +114,7 @@ namespace LiteDB
             this.AddMutexWaiter();
             try
             {
-                pin = SharedMutexPin.Acquire(_mutex, _turnstile, this.HasMutexWaiters, this.ClosePin, this.PinIdleLimit, this.PinHoldLimit);
+                pin = SharedMutexPin.Acquire(_mutex, _turnstile, this.HasMutexWaiters, this.ClosePin, this.PinIdleLimit, this.PinHoldLimit, SessionCallContext.Closing);
             }
             finally
             {

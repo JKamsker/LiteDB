@@ -24,12 +24,12 @@ namespace LiteDB.Client.Shared
             _turnstile = turnstile;
         }
 
-        internal bool Take(bool block, out bool abandoned)
+        internal bool Take(bool block, out bool abandoned, CancellationToken closing = default)
         {
             abandoned = false;
             try
             {
-                if (block) _turnstile.Wait(_mutex);
+                if (block) _turnstile.Wait(_mutex, closing);
                 else if (!_turnstile.TryWait(_mutex)) return false;
             }
             catch (AbandonedMutexException) { abandoned = true; }

@@ -11,13 +11,15 @@ namespace LiteDB
         private readonly ILiteEngine _inner;
         private readonly SessionLifetime _lifetime;
         internal SessionEngine(ILiteEngine inner, SessionLifetime lifetime = null) { _inner = inner; _lifetime = lifetime; }
-        private Call Enter() => new Call(_lifetime?.Enter() ?? default);
+        private Call Enter() => new Call(_lifetime?.Enter() ?? default, _lifetime?.Closing ?? default);
         private readonly struct Call : IDisposable
         {
             private readonly SessionLifetime.Lease _lease;
             private readonly TransactionContext.Scope _binding;
-            internal Call(SessionLifetime.Lease lease) { _lease = lease; _binding = TransactionContext.Enter(null); }
-            public void Dispose() { _binding.Dispose(); _lease.Dispose(); }
+            private readonly SessionCallContext _session;
+            internal Call(SessionLifetime.Lease lease, System.Threading.CancellationToken closing)
+            { _lease = lease; _binding = TransactionContext.Enter(null); _session = new SessionCallContext(closing); }
+            public void Dispose() { _session.Dispose(); _binding.Dispose(); _lease.Dispose(); }
         }
         public int Checkpoint()
         { using var call = Enter(); return _inner.Checkpoint(); }

@@ -46,6 +46,7 @@ namespace LiteDB.Client.Shared
         private readonly ManualResetEventSlim _released = new ManualResetEventSlim(true, SpinCount);
         private Thread _holder;
         private Command _command;
+        private CancellationToken _commandClosing;
         private bool _acquired;
         private bool _abandoned;
         private Exception _error;
@@ -67,11 +68,11 @@ namespace LiteDB.Client.Shared
             get { lock (_sync) return _owner != null && ReferenceEquals(_scope.Owner, Thread.CurrentThread); }
         }
 
-        private bool TakeDirect(bool block, out bool abandoned)
+        private bool TakeDirect(bool block, out bool abandoned, CancellationToken closing = default)
         {
             try
             {
-                if (!_scope.Take(block, out abandoned)) { _gate.Release(); return false; }
+                if (!_scope.Take(block, out abandoned, closing)) { _gate.Release(); return false; }
                 lock (_sync)
                 {
                     _owner = Thread.CurrentThread;
@@ -119,13 +120,13 @@ namespace LiteDB.Client.Shared
         /// Acquire, or enter recursively on the owner thread. Returns true when the
         /// OS reported the mutex abandoned by another process.
         /// </summary>
-        public bool Enter(bool scoped = false)
+        public bool Enter(bool scoped = false, CancellationToken closing = default)
         {
             if (this.TryRecurse()) return false;
-            while (!_gate.Wait(Poll)) this.ReleaseIfOwnerExited();
+            while (!_gate.Wait(Poll, closing)) this.ReleaseIfOwnerExited();
             bool abandoned;
-            if (scoped && SharedMutexScope.CanEnter) this.TakeDirect(block: true, out abandoned);
-            else this.TakeGate(Command.Acquire, out abandoned);
+            if (scoped && SharedMutexScope.CanEnter) this.TakeDirect(block: true, out abandoned, closing);
+            else this.TakeGate(Command.Acquire, out abandoned, closing);
             return abandoned;
         }
 
@@ -241,12 +242,12 @@ namespace LiteDB.Client.Shared
         }
 
         /// <summary>Acquire the OS mutex for the calling thread, which holds the gate.</summary>
-        private bool TakeGate(Command command, out bool abandoned)
+        private bool TakeGate(Command command, out bool abandoned, CancellationToken closing = default)
         {
             abandoned = false;
             try
             {
-                if (!this.Send(command)) { _gate.Release(); return false; }
+                if (!this.Send(command, closing)) { _gate.Release(); return false; }
                 abandoned = _abandoned;
                 lock (_sync)
                 {
@@ -327,7 +328,7 @@ namespace LiteDB.Client.Shared
         /// or a caller that finds the gate's owner exited, sends; a posted release
         /// opens the gate only after it completed, so one command is pending at most.
         /// </summary>
-        private bool Send(Command command)
+        private bool Send(Command command, CancellationToken closing = default)
         {
             lock (_send)
             {
@@ -335,6 +336,7 @@ namespace LiteDB.Client.Shared
                 {
                     this.EnsureHolder();
                     _command = command;
+                    _commandClosing = closing;
                     _done.Reset();
 #if DEBUG || TESTING
                     this.BeforeNotify?.Invoke();
@@ -418,6 +420,7 @@ namespace LiteDB.Client.Shared
                     _acquired = acquired;
                     _abandoned = abandoned;
                     _command = Command.None;
+                    _commandClosing = default;
                     if (command == Command.ReleaseAndOpenGate) posted = true;
                     else _error = error;
                 }
@@ -434,11 +437,10 @@ namespace LiteDB.Client.Shared
             abandoned = false;
             try
             {
-                // Block without polling: a polling waiter would lose its place among
-                // the OS mutex's waiters, such as a pin holder of this connection.
-                // Queued at the turnstile, a party that just released cannot barge ahead.
+                // Stay queued at the turnstile throughout the cancellable native wait:
+                // a party that just released cannot barge ahead of this connection.
                 if (!block) return _turnstile.TryWait(_mutex);
-                _turnstile.Wait(_mutex);
+                _turnstile.Wait(_mutex, _commandClosing);
                 return true;
             }
             catch (AbandonedMutexException)

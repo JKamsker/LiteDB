@@ -29,7 +29,7 @@ namespace LiteDB
             {
                 bool abandoned;
                 if (admission != null) abandoned = admission.EnterNative(_owner, scoped);
-                else if (!closing.CanBeCanceled) abandoned = _owner.Enter(scoped);
+                else if (!closing.CanBeCanceled) abandoned = _owner.Enter(scoped, SessionCallContext.Closing);
                 else
                 {
                     closing.ThrowIfCancellationRequested();
@@ -99,7 +99,11 @@ namespace LiteDB
         {
             lock (_waitersLock)
             {
-                while (_mutexWaiters > 0) Monitor.Wait(_waitersLock);
+                while (_mutexWaiters > 0)
+                {
+                    SessionCallContext.Closing.ThrowIfCancellationRequested();
+                    Monitor.Wait(_waitersLock, 10);
+                }
             }
         }
     }
