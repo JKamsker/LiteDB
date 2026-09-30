@@ -21,6 +21,11 @@ namespace LiteDB.Engine
         internal Action WaitingForMaintenance;
 #endif
 
+        internal bool IsExecutingOnCurrentThread
+        {
+            get { lock (_gate) return _threads.ContainsKey(Thread.CurrentThread); }
+        }
+
         internal Lease Enter(bool continuation = false)
         {
             var thread = Thread.CurrentThread;
