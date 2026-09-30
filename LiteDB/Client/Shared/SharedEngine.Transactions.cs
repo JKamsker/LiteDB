@@ -62,8 +62,8 @@ namespace LiteDB
             lock (_useLock)
             {
                 if (_disposed != 0) throw new ObjectDisposedException(nameof(SharedEngine));
-                if (_transactionRunning && _owner.IsOwnedByCurrentThread)
-                    throw new InvalidOperationException("Complete the legacy transaction before opening a transaction handle.");
+                if (_owner.IsOwnedByCurrentThread || _pin?.IsHeldByCurrentThread == true)
+                    throw new InvalidOperationException("Complete the legacy transaction or close its locking reader before opening a transaction handle.");
             }
             var name = SharedMutexNameFactory.Create(_settings.Filename, _settings.SharedMutexNameStrategy);
             var gate = TransactionWriters.GetOrAdd(name, _ => new SemaphoreSlim(1, 1));
