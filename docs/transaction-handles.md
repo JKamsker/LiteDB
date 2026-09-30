@@ -230,6 +230,12 @@ Projects using `TreatWarningsAsErrors` may migrate incrementally with a targeted
 or a narrow `#pragma warning disable CS0618` around intentional legacy calls.
 Do not disable unrelated warnings.
 
+Using a disposed `LiteDatabase` now throws `ObjectDisposedException` naming
+`LiteDatabase`, instead of `LiteException` with `ENGINE_DISPOSED`. Callers that
+catch the old error code for facade use-after-dispose must catch
+`ObjectDisposedException` instead. This is an intentional exception-contract
+change; it does not make concurrent use of a closing facade valid.
+
 ## Safety evidence and limits
 
 The transaction-handle test classes cover handoff/creator retirement, exact binding,

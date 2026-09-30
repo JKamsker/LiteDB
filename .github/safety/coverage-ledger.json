@@ -34,6 +34,48 @@
       "disposition": "strengthened",
       "invariant": "Every test leg's results are uploaded and judged; no existing timeout, filter or partition changes.",
       "reason": "Adds the Safety policy and Safety evidence jobs (10-minute limits) and a results upload for the .NET Framework leg, which uploaded nothing before; existing test steps keep their timeouts and filters."
+    },
+    {
+      "id": "133-reentrant-close",
+      "kind": "test-removed",
+      "subjects": [
+        "LiteDB.Tests.Engine.NativeAdmissionDirectPool_Tests.Reentrant_last_owner_disposal_keeps_operation_and_commit_protected"
+      ],
+      "disposition": "intentional-change",
+      "invariant": "An active operation and its committed data remain protected from reentrant facade disposal.",
+      "reason": "Session close now explicitly rejects reentrant disposal before state changes; the replacement asserts native exclusion, continued session usability, final release and cold committed data.",
+      "decision": "docs/transaction-handles.md#session-close-and-resource-topology",
+      "coveredBy": [
+        "LiteDB.Tests/Engine/NativeAdmissionDirectPool_Tests.cs#Reentrant_last_owner_disposal_is_rejected_before_affecting_the_session"
+      ]
+    },
+    {
+      "id": "133-rebuild-tail",
+      "kind": "test-removed",
+      "subjects": [
+        "LiteDB.Tests.Issues.Issue2965_Tests.Rebuild_can_finish_before_transaction_release_returns_without_disposing_owner_cleanup"
+      ],
+      "disposition": "intentional-change",
+      "invariant": "Rebuild must not dispose services still needed by a transaction cleanup tail.",
+      "reason": "The operation lease deliberately keeps maintenance out until cleanup returns; the replacement forces the cleanup interval and verifies cold committed data.",
+      "decision": "docs/transaction-handles.md#session-close-and-resource-topology",
+      "coveredBy": [
+        "LiteDB.Tests/Issues/Issue2965_Tests.cs#Rebuild_waits_until_transaction_release_cleanup_returns"
+      ]
+    },
+    {
+      "id": "133-rebuild-waiter",
+      "kind": "test-removed",
+      "subjects": [
+        "LiteDB.Tests.Issues.Issue2965_Tests.Operation_queued_behind_rebuild_fails_cleanly_and_can_be_retried"
+      ],
+      "disposition": "intentional-change",
+      "invariant": "An operation queued behind rebuild must not touch retired services or lose data.",
+      "reason": "Admission now waits before selecting services, so the operation succeeds against the replacement; both the queued write and a later write are verified after cold reopen.",
+      "decision": "docs/transaction-handles.md#session-close-and-resource-topology",
+      "coveredBy": [
+        "LiteDB.Tests/Issues/Issue2965_Tests.cs#Operation_queued_behind_rebuild_uses_the_new_services_safely"
+      ]
     }
   ]
 }
