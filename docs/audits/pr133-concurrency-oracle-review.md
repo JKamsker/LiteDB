@@ -13,7 +13,9 @@ correction and failing-before/passing-after evidence. No production code was
 changed by this reviewer.
 
 This independent review inspected the dependency inventory, deterministic actor
-explorer and multiprocess lifecycle campaign. It challenged hook reachability,
+explorer and multiprocess lifecycle campaign. A replacement reviewer completed
+the final source review; the retained earlier executions below were inspected
+as evidence and were not rerun or attributed to the replacement reviewer. It challenged hook reachability,
 actual overlap, transaction outcomes, individual progress, cleanup and fixture
 retention. It does not prove absence of every possible application wait cycle,
 platform-specific native defect or physical power-loss failure.
@@ -87,13 +89,19 @@ audit does not implement or pre-approve that change.
 | Initial process fixture copy could run after failed child termination | No copy/reopen without confirmed child termination; original path retained |
 | Pre-dispose pauses described as internal cleanup boundaries | Renamed as pre-API cuts and documented as a remaining internal-boundary gap |
 | WAL post-flush unknown outcome accepted old state | Strengthened: after confirmation flush returns, process death must recover complete new state; pre-flush remains complete old/new |
-| Focused C06/C22 tests deleted failed fixtures after workers stopped | Reviewer requested success-only deletion and independent cleanup of every owner; final disposition belongs to integrated revision |
+| Focused C06/C22 tests deleted failed fixtures after workers stopped | Final review reconfirmed the gap; author supplied success-only deletion, suppression of deleting `TempFile` finalizers on failure, and independently attempted owner cleanup. The replacement reviewer inspected that correction; integrated qualification remains with the audit report |
+| Explorer refusal helper accepted arbitrary `InvalidOperationException` | Final source requires the exact exception type/message and checks that each refused overlap leaves the legitimate transaction Active |
+| Explorer watchdog aged already completed work while other actors ran | Final source freezes each completion timestamp and measures invocation-to-completion duration; peer activity cannot advance another actor's deadline |
+| Explorer cold query only selected the index name | Final source also requires the actual `INDEX SEEK` plan mode |
 
 The final inspected multiprocess source includes the strengthened snapshot,
 index, deadline, quiescence and original-error handling. No further blocking
-false negative was identified in that bounded source review. The post-flush
-strengthening was requested before final qualification; execution evidence must
-name the final version rather than substitute an earlier passing campaign.
+false negative was identified in that bounded source review. The final inspected process source is `0494bd320`; after the observed WAL
+confirmation flush it requires the new state, while pre-flush uncertainty permits
+only complete old/new outcomes. Author-executed final campaigns and twelve
+controls remain attributed to the multiprocess campaign report. Execution
+evidence must name the final version rather than substitute an earlier passing
+campaign.
 
 ## Independent deliberate-fault evidence
 
@@ -120,6 +128,46 @@ complete unknown outcomes, missing native markers and individually stalled
 actors. Those are author-executed tests, separately reported in
 [the multiprocess campaign report](pr133-multiprocess-campaign.md); they must not
 be relabeled as independently executed reviewer evidence.
+
+## Final reviewer source and control qualification
+
+The replacement reviewer inspected explorer `c645c51b0` (including the strict
+refusal correction from `dc305`), process campaign `0494bd320`, and the C06/C22
+cleanup correction in the author's worktree. The explorer has 68 default theory
+rows and 272 rows with `LITEDB_EXPLORER_FULL=1`; the final integrated runs are the
+integrator's evidence, not executions by this reviewer. No further blocking
+false negative was identified within these reviewed boundaries. The confirmed
+ordinary Shared callback self-wait remains an unresolved product failure.
+
+The replacement reviewer executed three small standalone controls on Linux,
+.NET 8, using unchanged copies of the final `ExplorerSchedule.cs` and
+`ExplorerDatabase.cs`. The build references a copied test-hook library; it does
+not edit or rebuild production source. Sources, copied library, exact runnable
+binaries, command lines, SHA-256 identities, histories and results are retained
+under `final-oracle-controls` in this reviewer's evidence bundle.
+
+| Final helper control | Observed result |
+| --- | --- |
+| Exact overlap refusal plus unrelated and derived exceptions | Exact expected refusal accepted; unrelated `InvalidOperationException` and derived `ObjectDisposedException` propagated |
+| Actor completes, then remains idle for 16 seconds while a peer starts later | Pass: completed work does not acquire a false liveness failure |
+| Actor A stalls while B repeatedly completes operations | A-specific 15-second deadline detects the stall; B cannot mask it |
+
+These controls exercise the changed helper contracts, not every explorer
+schedule. The earlier wrong-value and missing-boundary mutations remain earlier
+reviewer evidence, with their original source snapshots and limits. All three
+new runners exit zero because they assert the intended oracle behavior; the
+stalled-actor runner succeeds only after observing the exact expected timeout.
+The final cold index-plan assertion was reviewed in source and is exercised by
+the integrator's complete schedule matrix; no independent index-plan mutation
+is claimed here.
+
+The C06/C22 cleanup correction does not manufacture a cold-check pass after a
+scenario failure. It preserves the original fixture and diagnostic path when
+quiescence or ownership is uncertain, attaches cleanup errors to the original
+failure, and avoids deleting retained files through `TempFile` finalization.
+This is failure-evidence preservation, not a product fix. The earlier proposed
+same-namespace callback admission correction remains a separate production
+change requiring its own failing-before/passing-after proof.
 
 ## Remaining boundaries and limits
 
