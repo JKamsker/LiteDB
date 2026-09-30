@@ -27,7 +27,9 @@
         "LiteDB/Engine/EngineSettings.cs",
         "LiteDB/Utils/NativeFileSync.cs",
         "LiteDB/Client/Shared/**",
-        "LiteDB/Client/Storage/**"
+        "LiteDB/Client/Storage/**",
+        "LiteDB/Client/Transactions/**",
+        "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
         {"fuzz": "power-loss", "model": "modeled-power-loss", "proves": "Each operation's acknowledgment is recorded outside the engine; after a cut only the in-flight operation may resolve to old or new, and complete documents and FileStorage bytes are compared."},
@@ -91,7 +93,9 @@
         "LiteDB/Engine/Disk/MemoryCache*.cs",
         "LiteDB/Client/Shared/**",
         "LiteDB/Client/Coordinated/**",
-        "LiteDB/Document/DataReader/**"
+        "LiteDB/Document/DataReader/**",
+        "LiteDB/Client/Transactions/**",
+        "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
         {"test": "LiteDB.Tests/Internals/MvccReclamationRace_Tests.cs#AResolvedButUnreadWalOffsetCannotBeReclaimed", "model": "exception", "proves": "A WAL offset a reader resolved but has not read yet is never reclaimed under a concurrent checkpoint."},
@@ -167,6 +171,7 @@
         "LiteDB/Client/Database/LiteQueryable*.cs",
         "LiteDB/Client/Database/LiteRepository*.cs",
         "LiteDB/Client/Database/QueryAggregateExpressions.cs",
+        "LiteDB/Client/Transactions/**",
         "LiteDB/Client/Database/LiteGrouping.cs"
       ],
       "evidence": [
