@@ -18,6 +18,7 @@ namespace LiteDB
         /// </summary>
         private bool EnterOwner(bool scoped = false, bool writing = false, CancellationToken closing = default, TransactionAdmission admission = null)
         {
+            Engine.TransactionContext.ThrowIfSharedWait(_mutexName);
             if (_owner.IsOwnedByCurrentThread) return _owner.Enter(scoped);
 #if NET8_0_OR_GREATER
             long request = 0;

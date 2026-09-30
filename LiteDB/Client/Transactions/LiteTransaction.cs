@@ -23,7 +23,7 @@ namespace LiteDB
         {
             _resources = resources;
             _session = session;
-            _transaction = new TransactionContext(resources.Engine, resources.Session);
+            _transaction = new TransactionContext(resources.Engine, resources.Session, resources.SharedMutexName);
 #if DEBUG || TESTING
             // Proof overlay (PR #133): only this handle's completion (a bound call, or the session's close
             // worker for an idle handle) lets its Shared holder finish.

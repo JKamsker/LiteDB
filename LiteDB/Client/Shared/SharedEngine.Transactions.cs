@@ -65,7 +65,7 @@ namespace LiteDB
                 if (_owner.IsOwnedByCurrentThread || _pin?.IsHeldByCurrentThread == true)
                     throw new InvalidOperationException("Complete the legacy transaction or close its locking reader before opening a transaction handle.");
             }
-            var name = SharedMutexNameFactory.Create(_settings.Filename, _settings.SharedMutexNameStrategy);
+            var name = _mutexName;
             var gate = TransactionWriters.GetOrAdd(name, _ => new SemaphoreSlim(1, 1));
 #if DEBUG || TESTING
             var graphGate = LiteDB.Utils.WaitGraph.Of(gate, "shared-handle-writer", LiteDB.Utils.WaitPrimitive.SemaphoreSlim);
@@ -182,10 +182,10 @@ namespace LiteDB
                 _opened.Wait();
                 if (_error != null) Release();
 #if DEBUG || TESTING
-                return new TransactionResources(_engine, _engine.CurrentContext, Release, () => { LiteDB.Utils.WaitGraph.ReleaseAll(_graphClose); _close.Set(); }, policyAnchor)
+                return new TransactionResources(_engine, _engine.CurrentContext, Release, () => { LiteDB.Utils.WaitGraph.ReleaseAll(_graphClose); _close.Set(); }, policyAnchor, _child._mutexName)
                 { GraphClose = _graphClose };
 #else
-                return new TransactionResources(_engine, _engine.CurrentContext, Release, () => _close.Set(), policyAnchor);
+                return new TransactionResources(_engine, _engine.CurrentContext, Release, () => _close.Set(), policyAnchor, _child._mutexName);
 #endif
             }
 

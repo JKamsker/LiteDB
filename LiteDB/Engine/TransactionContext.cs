@@ -8,6 +8,11 @@ namespace LiteDB.Engine
     {
         [ThreadStatic] private static TransactionContext _executing;
         [ThreadStatic] private static LiteEngine _dispatch;
+        // Unlike binding, execution dependencies survive ordinary facade calls. The
+        // chain is synchronous, restores on every exit, and never follows a Task.
+        [ThreadStatic] private static TransactionContext _dependency;
+        private TransactionContext _dependencyParent;
+        private readonly string _sharedMutexName;
         internal readonly LiteEngine Engine;
         internal readonly EngineContext Session;
         internal readonly EngineSettings Policy;
@@ -18,8 +23,15 @@ namespace LiteDB.Engine
         // handle returning before its locks can be released.
         internal volatile Thread ExecutingThread;
 
-        internal TransactionContext(LiteEngine engine, EngineContext session)
-        { Engine = engine; Session = session; Policy = session.Policy.Clone(); }
+        internal TransactionContext(LiteEngine engine, EngineContext session, string sharedMutexName = null)
+        { Engine = engine; Session = session; Policy = session.Policy.Clone(); _sharedMutexName = sharedMutexName; }
+
+        internal static void ThrowIfSharedWait(string mutexName)
+        {
+            for (var current = _dependency; current != null; current = current._dependencyParent)
+                if (string.Equals(current._sharedMutexName, mutexName, StringComparison.Ordinal))
+                    throw new InvalidOperationException("Cannot wait for shared writer ownership from inside a transaction handle callback for the same database.");
+        }
 
         internal static TransactionContext For(EngineContext session) =>
             ReferenceEquals(_executing?.Session, session) ? _executing : null;
@@ -46,11 +58,20 @@ namespace LiteDB.Engine
         {
             private readonly TransactionContext _previous, _transaction;
             private readonly Thread _previousThread;
+            private readonly TransactionContext _previousDependency, _previousParent;
             internal Scope(TransactionContext transaction)
             {
                 _previous = _executing;
                 _transaction = transaction;
                 _previousThread = transaction?.ExecutingThread;
+                _previousDependency = _dependency;
+                _previousParent = transaction?._dependencyParent;
+                // Composed dispatch nests the same handle. Do not link it to itself.
+                if (transaction != null && !ReferenceEquals(transaction, _dependency))
+                {
+                    transaction._dependencyParent = _dependency;
+                    _dependency = transaction;
+                }
                 if (transaction != null) transaction.ExecutingThread = Thread.CurrentThread;
                 _executing = transaction;
 #if DEBUG || TESTING
@@ -65,6 +86,8 @@ namespace LiteDB.Engine
                 LiteDB.Utils.WaitGraph.Exit(_transaction);
 #endif
                 _executing = _previous;
+                _dependency = _previousDependency;
+                if (_transaction != null) _transaction._dependencyParent = _previousParent;
                 if (_transaction != null) _transaction.ExecutingThread = _previousThread;
             }
         }
