@@ -185,9 +185,13 @@ namespace LiteDB.Tests.Engine
         }
 
         [Theory]
-        [InlineData(null)]
-        [InlineData("secret")]
-        public void Deferred_fatal_teardown_does_not_repeat_peer_error_on_healthy_disposal(string password)
+        [InlineData(null, 0)]
+        [InlineData("secret", 0)]
+        [InlineData(null, 1)]
+        [InlineData("secret", 1)]
+        [InlineData(null, 2)]
+        [InlineData("secret", 2)]
+        public void Deferred_fatal_teardown_does_not_repeat_peer_error_on_healthy_disposal(string password, int cleanupOrder)
         {
             using var file = new TempFile();
             using var enteredRead = new ManualResetEventSlim();
@@ -226,11 +230,19 @@ namespace LiteDB.Tests.Engine
                     Assert.Same(log.Failure, Assert.Throws<IOException>(failed.Commit));
                     Assert.True(log.Reached);
                     Assert.Equal(LiteTransactionState.Indeterminate, failed.State);
-                    healthy.Dispose();
+                    if (cleanupOrder == 1)
+                    {
+                        healthyReader.Dispose();
+                        healthyIterator.Dispose();
+                    }
+                    // Explicit completion still reports the fatal cause; only disposal
+                    // hands cleanup to the engine's already-published fatal stop.
+                    if (cleanupOrder == 2) Assert.Throws<IOException>(healthy.Rollback);
+                    else healthy.Dispose();
                     healthyReader.Dispose();
                     healthyIterator.Dispose();
                     healthy.Dispose();
-                    Assert.Equal(LiteTransactionState.RolledBack, healthy.State);
+                    Assert.Equal(cleanupOrder == 2 ? LiteTransactionState.Failed : LiteTransactionState.RolledBack, healthy.State);
                 }
                 finally
                 {
