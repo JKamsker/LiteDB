@@ -68,10 +68,15 @@ namespace LiteDB.ConcurrencyTesting
         }
         private static string Key(BsonDocument row) => row["_id"].AsInt32 + ":" + row["value"].AsInt32;
 
-        internal static void Refused(Action action)
+        internal const string OverlapRefusal = "Overlapping or reentrant transaction handle use is not supported.";
+        internal const string ReaderRefusal = "Close transaction-bound readers before committing.";
+        internal const string SharedCallbackRefusal = "Cannot wait for shared writer ownership from inside a transaction handle callback for the same database.";
+        internal const string OrdinaryCallbackRefusal = "Cannot wait for shared writer ownership from inside an ordinary callback for the same database.";
+
+        internal static void Refused(Action action, string expected = OverlapRefusal)
         {
             try { action(); }
-            catch (InvalidOperationException) { return; }
+            catch (InvalidOperationException error) when (error.GetType() == typeof(InvalidOperationException) && error.Message == expected) { return; }
             throw new InvalidOperationException("Expected immediate InvalidOperationException was not raised");
         }
     }

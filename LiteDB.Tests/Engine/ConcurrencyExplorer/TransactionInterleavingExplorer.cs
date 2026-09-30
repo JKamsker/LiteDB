@@ -120,7 +120,7 @@ namespace LiteDB.ConcurrencyTesting
                 // An ordinary call never silently enlists in the handle. Shared must
                 // refuse its native dependency, while Direct unrelated writes are legal.
                 Action ordinary = () => peer.GetCollection("other").Insert(ExplorerDatabase.Row(2, 50));
-                if (_shared) ExplorerDatabase.Refused(ordinary);
+                if (_shared) ExplorerDatabase.Refused(ordinary, ExplorerDatabase.SharedCallbackRefusal);
                 else { ordinary(); _model.Acknowledge("other", 2, 50); }
                 otherDatabase.GetCollection("rows").Insert(ExplorerDatabase.Row(2, 60));
                 _otherModel.Acknowledge("rows", 2, 60);
@@ -137,7 +137,12 @@ namespace LiteDB.ConcurrencyTesting
             };
             var permutations = new[] { new[] { 0, 1, 2 }, new[] { 0, 2, 1 }, new[] { 1, 0, 2 },
                 new[] { 1, 2, 0 }, new[] { 2, 0, 1 }, new[] { 2, 1, 0 } };
-            foreach (var operation in permutations[_order]) _b.Run("overlap-" + operation, actions[operation]);
+            foreach (var operation in permutations[_order])
+                _b.Run("overlap-" + operation, () =>
+                {
+                    actions[operation]();
+                    ExplorerDatabase.Require(tx.State == LiteTransactionState.Active, "individual overlap refusal changed transaction outcome");
+                });
             ExplorerDatabase.Require(tx.State == LiteTransactionState.Active, "overlap aborted legitimate writer");
             inside.Release(); _a.Complete(writing);
 
@@ -148,7 +153,11 @@ namespace LiteDB.ConcurrencyTesting
                 ExplorerDatabase.Require(cursor.MoveNext(), "bound cursor empty");
             });
             Keep(cursor);
-            _b.Run("commit-with-reader", () => ExplorerDatabase.Refused(tx.Commit));
+            _b.Run("commit-with-reader", () =>
+            {
+                ExplorerDatabase.Refused(tx.Commit, ExplorerDatabase.ReaderRefusal);
+                ExplorerDatabase.Require(tx.State == LiteTransactionState.Active, "reader refusal changed transaction outcome");
+            });
             _c.Run("transfer-read-dispose", () =>
             {
                 var ids = new List<int> { cursor.Current["_id"].AsInt32 };

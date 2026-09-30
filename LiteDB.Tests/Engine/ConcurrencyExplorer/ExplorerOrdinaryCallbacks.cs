@@ -51,8 +51,10 @@ namespace LiteDB.ConcurrencyTesting
                 }
                 entered.Observe();
                 try { peer.GetCollection("other").Insert(ExplorerDatabase.Row(2, 50)); }
-                catch (InvalidOperationException) when (variant == 1 || variant == 3) { refused = true; }
-                catch (OperationCanceledException) when (Volatile.Read(ref emergency) != 0) { }
+                catch (InvalidOperationException error) when ((variant == 1 || variant == 3) &&
+                    error.GetType() == typeof(InvalidOperationException) && error.Message == ExplorerDatabase.OrdinaryCallbackRefusal)
+                { refused = true; }
+                catch (OperationCanceledException error) when (Volatile.Read(ref emergency) != 0 && error.CancellationToken.IsCancellationRequested) { }
                 finally { finished.Set(); }
                 yield return ExplorerDatabase.Row(3, 30);
             }

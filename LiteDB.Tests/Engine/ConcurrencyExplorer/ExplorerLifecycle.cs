@@ -37,7 +37,11 @@ namespace LiteDB.ConcurrencyTesting
             input.Wait();
             var close = _b.Invoke("dispose-active-session", db.Dispose);
             closing.Wait();
-            _c.Run("overlap-during-close", () => ExplorerDatabase.Refused(tx.Commit));
+            _c.Run("overlap-during-close", () =>
+            {
+                ExplorerDatabase.Refused(tx.Commit);
+                ExplorerDatabase.Require(tx.State == LiteTransactionState.Active, "overlap during close changed active transaction outcome");
+            });
             if (releaseCallbackFirst) { input.Release(); closing.Release(); }
             else { closing.Release(); input.Release(); }
             _a.Complete(active); _b.Complete(close);
