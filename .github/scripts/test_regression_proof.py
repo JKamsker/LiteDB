@@ -97,6 +97,7 @@ class LedgerTests(unittest.TestCase):
                                       base_files={LEDGER: ledger(entry())})
         self.assertIn(f"`{REPRO}`", output)
         for harness in ("LiteDB.ReproRunner/LiteDB.ReproRunner.Cli/Evaluator.cs",
+                        "LiteDB.ReproRunner/Repros/SharedPinCallbackProof/Cases.cs",
                         ".github/workflows/regression-proof.yml", ".github/scripts/repro_scaffold.py"):
             with self.subTest(harness):
                 code, output = self.run_check({harness: "# changed"}, argv=("select",),
