@@ -12,7 +12,7 @@ internal sealed class TransactionInterleavingFuzzer : IFuzzTarget
         while (context.Next())
         {
             // Enumerate the complete finite matrix, with the seed rotating its start.
-            var index = (context.Steps - 1 + (context.Seed & int.MaxValue)) % (TransactionInterleavingExplorer.ScheduleCount * 8);
+            var index = (int)(((long)context.Steps - 1 + (context.Seed & int.MaxValue)) % (TransactionInterleavingExplorer.ScheduleCount * 8));
             var schedule = index / 8;
             var shared = (index & 1) != 0;
             var encrypted = (index / 2 & 1) != 0;
