@@ -16,6 +16,9 @@ namespace LiteDB
         // that have not returned yet, per thread. Guarded by _useLock.
         private readonly Dictionary<int, int> _admitted = new Dictionary<int, int>();
         private int _admittedCalls;
+        // A last-reader close drains outside _useLock. Fresh users wait for its
+        // publication to retire before opening/counting a replacement core.
+        private Engine.LiteEngine _closingCore;
 
         /// <summary>
         /// Under _useLock, with the mutex owned: refuse a call once Dispose started, else count
@@ -25,6 +28,13 @@ namespace LiteDB
         /// </summary>
         private void AdmitLocked()
         {
+            while (_closingCore != null)
+            {
+                if (_closingCore.IsExecutingOnCurrentThread)
+                    throw new InvalidOperationException("Cannot reenter a shared core while this reader is closing it.");
+                if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SharedEngine));
+                Monitor.Wait(_useLock);
+            }
             if (Volatile.Read(ref _disposed) != 0)
             {
                 Reachability.Sometimes("refusal:shared-call-after-dispose");

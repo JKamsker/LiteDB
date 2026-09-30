@@ -19,11 +19,7 @@ namespace LiteDB
             lock (_useLock)
             {
                 if (_disposed != 0) return;
-                // Later Read() callbacks can execute on a separate mutex-backed
-                // snapshot after Shared Query admission has ended. Leased snapshots
-                // are independent of this connection and are deliberately excluded.
-                if (this.AdmittedDepth() != 0 || this.IsExecutingOwnedCoreOnCurrentThread())
-                    throw new InvalidOperationException("Cannot close a shared connection from inside its executing operation.");
+                this.ThrowIfClosingFromOperation();
                 Volatile.Write(ref _disposed, 1);
             }
 
@@ -108,6 +104,16 @@ namespace LiteDB
             cleanup.Catch(_owner.WaitForRelease);
             cleanup.Step("SharedEngine.Dispose.coordination");
             cleanup.Catch(this.DisposeCoordination);
+        }
+
+        internal void ThrowIfClosingFromOperation()
+        {
+            lock (_useLock)
+            {
+                // Leased snapshots are independent and may outlive this facade.
+                if (this.AdmittedDepth() != 0 || this.IsExecutingOwnedCoreOnCurrentThread())
+                    throw new InvalidOperationException("Cannot close a shared connection from inside its executing operation.");
+            }
         }
 
         private bool IsForeignReaderCallback()

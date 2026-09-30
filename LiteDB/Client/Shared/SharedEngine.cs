@@ -186,7 +186,10 @@ namespace LiteDB
                 {
                     if (generation >= 0 && generation != _owner.Generation) return;
                     if (_databaseUsers > 0 && --_databaseUsers == 0 && !_transactionRunning)
+                    {
                         engine = _engine;
+                        _closingCore = engine;
+                    }
                 }
                 if (engine != null)
                 {
@@ -201,13 +204,22 @@ namespace LiteDB
                     }
                     catch
                     {
-                        lock (_useLock) _databaseUsers++;
+                        lock (_useLock)
+                        {
+                            _databaseUsers++;
+                            _closingCore = null;
+                            Monitor.PulseAll(_useLock);
+                        }
                         release = false;
                         throw;
                     }
                     lock (_useLock)
+                    {
                         if (ReferenceEquals(_engine, engine)) _engine = null;
-                    this.EndWriterPressure();
+                        this.EndWriterPressure();
+                        _closingCore = null;
+                        Monitor.PulseAll(_useLock);
+                    }
                     if (reportErrors) LiteEngine.ThrowCleanupErrors(errors);
                 }
             }
