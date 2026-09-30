@@ -11,13 +11,19 @@ namespace LiteDB
     {
         private readonly IBsonDataReader _reader;
         private readonly Action _dispose;
+        private readonly LiteEngine _ownedSnapshot;
 
         private int _disposed;
 
-        public SharedDataReader(IBsonDataReader reader, Action dispose)
+        public SharedDataReader(IBsonDataReader reader, Action dispose) : this(reader, dispose, null)
+        {
+        }
+
+        internal SharedDataReader(IBsonDataReader reader, Action dispose, LiteEngine ownedSnapshot)
         {
             _reader = reader;
             _dispose = dispose;
+            _ownedSnapshot = ownedSnapshot;
         }
 
         public BsonValue this[string field] => _reader[field];
@@ -43,6 +49,13 @@ namespace LiteDB
 
         protected virtual void Dispose(bool disposing)
         {
+            // A leased snapshot has no parent-owned fallback for a refused core close.
+            // Refuse before mutating the cursor or latching disposal, so the caller can
+            // retry after this snapshot's executing callback has unwound.
+            if (Volatile.Read(ref _disposed) != 0) return;
+            if (disposing && _ownedSnapshot?.IsExecutingOnCurrentThread == true)
+                throw new InvalidOperationException("Cannot dispose a leased reader from inside its executing operation.");
+
             // Atomic admission: the callback ends one mutex recursion and one engine user.
             // Two threads disposing at once must not both run it, or the second would end
             // another reader's ownership and could close the engine under it.
