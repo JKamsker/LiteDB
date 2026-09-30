@@ -105,9 +105,11 @@ namespace LiteDB.Tests.Internals
             using var holder = new MvccProcess("handle-hold", file, password, "shared");
             await holder.Expect("ready");
             using var writer = new MvccProcess("handle-writer", file, password, "shared");
-            await writer.Expect("attempting");
+            await writer.Expect("native-wait");
             var written = writer.Expect("done");
-            await Task.Delay(100);
+            // Start the exclusion window only after the child reaches native admission,
+            // rather than timing process/runtime startup before it attempts the lock.
+            await Task.Delay(1000);
             Assert.False(written.IsCompleted);
             holder.Send("commit");
             await holder.Expect("done");

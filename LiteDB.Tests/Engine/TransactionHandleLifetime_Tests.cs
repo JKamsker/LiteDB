@@ -4,10 +4,12 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using LiteDB.Tests.Issues;
 using Xunit;
 
 namespace LiteDB.Tests.Engine
 {
+    [Collection(NativeFileSyncCollection.Name)]
     public class TransactionHandleLifetime_Tests
     {
         private static SessionLifetime Lifetime(LiteDatabase db) => (SessionLifetime)typeof(LiteDatabase)
@@ -92,16 +94,19 @@ namespace LiteDB.Tests.Engine
             using var first = db.BeginTransaction();
             first.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1 });
             using var started = new CountdownEvent(12);
+            TransactionAdmission.Observe = stage => { if (stage == "local-wait") started.Signal(); };
             var pending = Enumerable.Range(0, 12).Select(_ => Task.Factory.StartNew(() =>
             {
-                started.Signal();
                 try { using var unexpected = db.BeginTransaction(); return false; }
                 catch (OperationCanceledException) { return true; }
-                catch (ObjectDisposedException) { return true; }
             }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
-            Assert.True(started.Wait(TimeSpan.FromSeconds(10)));
-            db.Dispose();
-            Assert.All(await Task.WhenAll(pending), Assert.True);
+            try
+            {
+                Assert.True(started.Wait(TimeSpan.FromSeconds(10)));
+                db.Dispose();
+                Assert.All(await Task.WhenAll(pending), Assert.True);
+            }
+            finally { TransactionAdmission.Observe = null; }
             Assert.Equal(LiteTransactionState.RolledBack, first.State);
             using var reopened = Open(file, true);
             Assert.Equal(0, reopened.GetCollection("rows").Count());
@@ -119,19 +124,20 @@ namespace LiteDB.Tests.Engine
             owner.BeginTrans();
             owner.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1 });
             using var started = new ManualResetEventSlim();
+            TransactionAdmission.Observe = stage => { if (stage == "native-wait") started.Set(); };
             var begin = Task.Factory.StartNew(() =>
             {
-                started.Set();
                 try { using var unexpected = waiter.BeginTransaction(); return false; }
                 catch (OperationCanceledException) { return true; }
-                catch (ObjectDisposedException) { return true; }
             }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
-            // Ensure native admission has an opportunity to block behind the independent owner.
-            Assert.False(begin.Wait(100));
-            waiter.Dispose();
-            Assert.True(owner.Commit());
-            Assert.True(await begin);
+            try
+            {
+                Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
+                waiter.Dispose();
+                Assert.True(owner.Commit());
+                Assert.True(await begin);
+            }
+            finally { TransactionAdmission.Observe = null; }
             Assert.Equal(1, owner.GetCollection("rows").Count());
         }
 

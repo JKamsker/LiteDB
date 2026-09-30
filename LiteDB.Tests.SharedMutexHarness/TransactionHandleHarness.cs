@@ -38,7 +38,12 @@ internal static class TransactionHandleHarness
         }
         if (mode == "handle-writer")
         {
-            Console.WriteLine("attempting");
+            var admission = typeof(LiteDatabase).Assembly.GetType("LiteDB.TransactionAdmission", throwOnError: true)!;
+            var observe = admission.GetField("Observe", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+            observe.SetValue(null, (Action<string>)(stage =>
+            {
+                if (stage == "native-wait") Console.WriteLine("native-wait");
+            }));
             using var writer = db.BeginTransaction();
             writer.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 3, ["value"] = 126 });
             writer.Commit();

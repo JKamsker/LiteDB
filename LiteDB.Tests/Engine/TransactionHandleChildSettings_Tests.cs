@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using LiteDB.Engine;
 using Xunit;
@@ -25,7 +24,7 @@ namespace LiteDB.Tests.Engine
                     warm.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1, ["word"] = "kept" });
                     warm.Commit();
                 }
-                var cached = TransactionHandleChildReuse_Tests.Cached(shared);
+                var cached = TransactionHandleChildTestAccess.Cached(shared);
                 Assert.NotNull(cached);
                 db.Rebuild(new RebuildOptions { Password = after, RemovePassword = before != null && after == null,
                     Collation = changeCollation ? new Collation("en-US/None") : null });
@@ -33,7 +32,7 @@ namespace LiteDB.Tests.Engine
                 Assert.NotNull(next.GetCollection("rows").FindOne("word = 'kept'"));
                 next.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 2, ["word"] = "after rebuild" });
                 next.Commit();
-                Assert.NotSame(cached, TransactionHandleChildReuse_Tests.Cached(shared));
+                Assert.NotSame(cached, TransactionHandleChildTestAccess.Cached(shared));
             }
             for (var repeat = 0; repeat < 2; repeat++)
             {
@@ -76,4 +75,3 @@ namespace LiteDB.Tests.Engine
         }
     }
 }
-#endif

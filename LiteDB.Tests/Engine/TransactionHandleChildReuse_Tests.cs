@@ -8,18 +8,13 @@ using LiteDB.Engine;
 using LiteDB.Internals;
 using LiteDB.Tests.Issues;
 using Xunit;
+using static LiteDB.Tests.Engine.TransactionHandleChildTestAccess;
 
 namespace LiteDB.Tests.Engine
 {
     [Collection(NativeFileSyncCollection.Name)]
     public class TransactionHandleChildReuse_Tests
     {
-        internal static SharedEngine Cached(SharedEngine shared) => (SharedEngine)typeof(SharedEngine)
-            .GetField("_cachedTransactionChild", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(shared);
-
-        internal static LiteEngine Core(ILiteTransaction tx) => ((TransactionResources)typeof(LiteTransaction)
-            .GetField("_resources", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(tx)).Engine;
-
         private static void Idle(Thread thread) => Assert.True(SpinWait.SpinUntil(
             () => SharedHolderScheduler.IsIdle(thread), TimeSpan.FromSeconds(5)));
 

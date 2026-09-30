@@ -1,4 +1,3 @@
-#if !NETFRAMEWORK
 using System;
 using System.IO;
 using System.Linq;
@@ -31,7 +30,7 @@ namespace LiteDB.Tests.Engine
                     warm.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1, ["value"] = "kept" });
                     warm.Commit();
                 }
-                var cached = TransactionHandleChildReuse_Tests.Cached(shared);
+                var cached = TransactionHandleChildTestAccess.Cached(shared);
                 Assert.NotNull(cached);
                 var failure = new IOException("reused child failure");
                 if (failOpen)
@@ -42,18 +41,18 @@ namespace LiteDB.Tests.Engine
                 else
                 {
                     using var tx = db.BeginTransaction();
-                    var core = TransactionHandleChildReuse_Tests.Core(tx);
+                    var core = TransactionHandleChildTestAccess.Core(tx);
                     var field = typeof(LiteEngine).GetField("_modeGuard", BindingFlags.Instance | BindingFlags.NonPublic);
                     field.SetValue(core, new FailAfterDispose((IDisposable)field.GetValue(core), failure));
                     Assert.Same(failure, Assert.Throws<IOException>(tx.Commit));
                     Assert.Equal(LiteTransactionState.Committed, tx.State);
                 }
-                Assert.Null(TransactionHandleChildReuse_Tests.Cached(shared));
+                Assert.Null(TransactionHandleChildTestAccess.Cached(shared));
                 using var retry = db.BeginTransaction(TimeSpan.FromSeconds(5));
                 Assert.NotNull(retry.GetCollection("rows").FindOne("value = 'kept'"));
                 retry.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 2, ["value"] = "after failure" });
                 retry.Commit();
-                Assert.NotSame(cached, TransactionHandleChildReuse_Tests.Cached(shared));
+                Assert.NotSame(cached, TransactionHandleChildTestAccess.Cached(shared));
             }
             for (var repeat = 0; repeat < 2; repeat++)
             {
@@ -80,18 +79,18 @@ namespace LiteDB.Tests.Engine
                     warm.GetCollection("sentinel").Insert(new BsonDocument { ["_id"] = 9 });
                     warm.Commit();
                 }
-                var cached = TransactionHandleChildReuse_Tests.Cached(shared);
+                var cached = TransactionHandleChildTestAccess.Cached(shared);
                 Assert.NotNull(cached);
                 using var failed = db.BeginTransaction();
                 failed.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 2, ["value"] = "unconfirmed" });
-                var core = TransactionHandleChildReuse_Tests.Core(failed);
+                var core = TransactionHandleChildTestAccess.Core(failed);
                 var reached = false;
                 core.SimulateDiskWriteFail = page => { reached = true; throw new IOException("failed WAL write"); };
                 Assert.Throws<IOException>(failed.Commit);
                 Assert.True(reached);
                 Assert.Equal(LiteTransactionState.Indeterminate, failed.State);
                 using var retry = db.BeginTransaction(TimeSpan.FromSeconds(5));
-                Assert.NotSame(core, TransactionHandleChildReuse_Tests.Core(retry));
+                Assert.NotSame(core, TransactionHandleChildTestAccess.Core(retry));
                 Assert.NotNull(retry.GetCollection("rows").FindOne("value = 'kept'"));
                 Assert.Empty(retry.GetCollection("rows").Find("value = 'unconfirmed'"));
                 retry.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 3, ["value"] = "after failure" });
@@ -167,7 +166,7 @@ namespace LiteDB.Tests.Engine
             completed.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1, ["value"] = "kept" });
             Assert.NotNull(completed.GetCollection("rows").FindById(1));
             completed.Commit();
-            var child = TransactionHandleChildReuse_Tests.Cached(shared);
+            var child = TransactionHandleChildTestAccess.Cached(shared);
             Assert.NotNull(child);
             if (abandonActive)
             {
@@ -188,4 +187,3 @@ namespace LiteDB.Tests.Engine
         }
     }
 }
-#endif
