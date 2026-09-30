@@ -30,6 +30,11 @@ namespace LiteDB.Engine
         private readonly WaitGraph.Resource _graphFence = new WaitGraph.Resource("operation-lifetime", "maintenance-fence", WaitPrimitive.Gate, ordered: false);
 #endif
 
+        internal bool IsExecutingOnCurrentThread
+        {
+            get { lock (_gate) return _threads.ContainsKey(Thread.CurrentThread); }
+        }
+
         internal Lease Enter(bool continuation = false)
         {
             var thread = Thread.CurrentThread;

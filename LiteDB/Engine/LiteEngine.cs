@@ -22,6 +22,7 @@ namespace LiteDB.Engine
 
         private LockService _locker;
         private readonly OperationLifetime _operations;
+        internal bool IsExecutingOnCurrentThread => _operations.IsExecutingOnCurrentThread;
         internal OperationLifetime.Lease EnterOperation(bool continuation = false) =>
             _operations.Enter(continuation);
         private void ValidatePublicDispatch()

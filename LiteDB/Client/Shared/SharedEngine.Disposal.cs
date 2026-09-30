@@ -13,7 +13,13 @@ namespace LiteDB
         [TeardownPath("SharedEngine.Dispose", TeardownDisposition.Propagated | TeardownDisposition.Discarded, "Steps propagate; core close list dropped.")]
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposing || Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            if (!disposing || Volatile.Read(ref _disposed) != 0) return;
+            // A callback cannot drain its own call or release that call's writer
+            // ownership. Refuse before changing the connection's lifetime state.
+            // Reader.Read can execute after SharedEngine.Query admission has ended.
+            if (this.AdmittedDepth() != 0 || _engine?.IsExecutingOnCurrentThread == true)
+                throw new InvalidOperationException("Cannot close a shared connection from inside its executing operation.");
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
             var cleanup = new TryCatch();
             cleanup.Catch(() => this.DisposeConnection(cleanup));
@@ -84,15 +90,12 @@ namespace LiteDB
                 {
                     // This parent's historical final checkpoint is best effort; its
                     // returned close errors do not change acknowledged WAL outcomes.
-                    // Keep the core published if close refuses an active raw callback;
-                    // that operation still owns its normal unwind/close path.
-                    cleanup.Catch(() =>
-                    {
-                        var engine = _engine;
-                        this.ObservedClose(engine, () => engine.Close(final: true));
-                        _engine = null;
-                        closed = true;
-                    });
+                    // A thrown admission/refusal error means this core has not closed:
+                    // do not continue into dependent native-ownership release below.
+                    var engine = _engine;
+                    this.ObservedClose(engine, () => engine.Close(final: true));
+                    _engine = null;
+                    closed = true;
                 }
                 cleanup.Catch(this.CloseMutexSnapshotsLocked);
                 _databaseUsers = 0;
