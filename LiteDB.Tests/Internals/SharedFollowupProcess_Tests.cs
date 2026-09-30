@@ -1,8 +1,8 @@
 #if !NETFRAMEWORK
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -77,19 +77,23 @@ namespace LiteDB.Internals
         private async Task RunPinnedWriter(string password, bool held)
         {
             MvccProcess owner = null, waiter = null;
+            var childPids = new List<int>();
+            Exception primary = null;
             var phase = "seed";
             try
             {
-                await MvccProcess.Run("seed", Filename, password);
-                await MvccProcess.Run("followup-seed-pin", Filename, password);
+                await MvccProcess.Run("seed", Filename, password, started: childPids.Add);
+                await MvccProcess.Run("followup-seed-pin", Filename, password, started: childPids.Add);
                 // Load and initialize the writer before establishing the pin. Its
                 // startup deadline never spends the existing ten-second yield budget.
                 phase = "writer startup (before pin)";
                 waiter = new MvccProcess("pin-insert-progress", Filename, password, "100");
+                childPids.Add(waiter.Id);
                 await waiter.Expect("ready");
                 phase = "owner pin establishment";
                 var ownerElapsed = Stopwatch.StartNew();
                 owner = new MvccProcess(held ? "followup-held-pin" : "followup-pin", Filename, password);
+                childPids.Add(owner.Id);
                 await owner.Expect("ready");
                 phase = "writer native admission";
                 var elapsed = Stopwatch.StartNew();
@@ -117,10 +121,11 @@ namespace LiteDB.Internals
                 phase = "owner death and native release";
                 await owner.Kill();
                 phase = "cold indexed recovery";
-                await MvccProcess.Run(held ? "followup-verify-blocked" : "followup-verify-pin", Filename, password);
+                await MvccProcess.Run(held ? "followup-verify-blocked" : "followup-verify-pin", Filename, password, started: childPids.Add);
             }
             catch (Exception error)
             {
+                primary = error;
                 _retain = true;
                 // Stop children before publishing the post-host copy manifest. Preserve
                 // both the original failure and the last observed semantic boundary.
@@ -136,13 +141,27 @@ namespace LiteDB.Internals
                         $"writer:\n{waiter?.DiagnosticSummary()}\nowner:\n{owner?.DiagnosticSummary()}\n{error}";
                     _output.WriteLine(diagnostic);
                     File.WriteAllText(Path.Combine(_directory, "failure-diagnostics.txt"), diagnostic);
-                    RetainedTestFixture.PublishSharedFollowup(_directory, phase, error, _output,
-                        new[] { waiter, owner }.Where(process => process != null).Select(process => process.Id).ToArray());
                 }
                 catch (Exception diagnostic) { error.Data["failure-diagnostics"] = diagnostic; }
+                try { RetainedTestFixture.PublishSharedFollowup(_directory, phase, error, _output, childPids.ToArray()); }
+                catch (Exception publication) { error.Data["failure-manifest"] = publication; }
                 throw;
             }
-            finally { waiter?.Dispose(); owner?.Dispose(); }
+            finally
+            {
+                var cleanupErrors = new List<Exception>();
+                foreach (var process in new[] { waiter, owner })
+                {
+                    try { process?.Dispose(); }
+                    catch (Exception cleanup) { cleanupErrors.Add(cleanup); }
+                }
+                if (cleanupErrors.Count != 0)
+                {
+                    var cleanup = new AggregateException("Pinned-writer child disposal failed", cleanupErrors);
+                    if (primary == null) throw cleanup;
+                    primary.Data["child-final-disposal"] = cleanup;
+                }
+            }
         }
 
         private static async Task CompleteWrites(MvccProcess waiter, Stopwatch elapsed, TimeSpan limit)
