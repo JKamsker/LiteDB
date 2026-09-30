@@ -244,7 +244,10 @@
         "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Nested_other_database_handle_keeps_outer_dependency_and_restores_it",
         "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_other_database_callback_cannot_erase_enclosing_shared_dependency",
         "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_wait_for_idle_handle_can_finish_after_cross_thread_completion",
-        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_admission_cancellation_does_not_release_an_idle_handle"
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Ordinary_admission_cancellation_does_not_release_an_idle_handle",
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Coordinated_same_database_read_stays_independent_inside_shared_callback",
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackControl_Tests.cs#Uncaught_callback_refusal_rolls_back_and_releases_execution_dependency",
+        "LiteDB.Tests/Engine/TransactionHandleSharedCallbackBegin_Tests.cs#Callback_begin_refuses_same_namespace_before_local_admission"
       ]
     }
   ]
