@@ -1,0 +1,28 @@
+{
+  "id": "Issue_133_RawCloseCallbackDependency",
+  "title": "Raw close blocks fresh work awaited by an active callback",
+  "issues": [
+    "https://github.com/JKamsker/LiteDB/pull/133"
+  ],
+  "failingSince": "0.0.0-knownbad.eb01f346eb7d",
+  "timeoutSeconds": 120,
+  "requiresParallel": false,
+  "defaultInstances": 1,
+  "args": [],
+  "tags": [
+    "regression-proof"
+  ],
+  "state": "green",
+  "expectedOutcomes": {
+    "package": {
+      "kind": "reproduce",
+      "exitCode": 0,
+      "logContains": "BUG_REPRODUCED"
+    },
+    "latest": {
+      "kind": "noRepro",
+      "exitCode": 10,
+      "logContains": "VERIFIED_FIXED"
+    }
+  }
+}

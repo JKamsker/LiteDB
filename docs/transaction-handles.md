@@ -177,9 +177,13 @@ if the process dies before that session closes.
 Operation leases cover the full storage call and completion tail. Maintenance and
 close cannot replace/dispose the core until those calls finish. Pending maintenance
 fences new independent calls while permitting existing transaction and cursor
-continuations to drain. Raw engine close interrupts collection-lock waiters before
-waiting for active operations; it still releases transaction/page resources only
-after that drain. Cursor/snapshot
+continuations to drain. Raw engine close rejects new independent calls instead of
+queueing them behind the drain, including calls started by another thread from an
+active callback. It also interrupts collection-lock waiters before waiting for
+active operations; it still releases transaction/page resources only after that
+drain. A callback that never returns for an unrelated application reason can still
+hold raw engine close open; the session's 10-second disposal deadline does not apply
+to direct `LiteEngine.Dispose()` calls. Cursor/snapshot
 leases separately protect idle readers. Existing native lock/MMF/sidecar protocols,
 filesystem support, file formats, WAL publication and configured durability remain
 those of [native admission](native-database-admission.md).
