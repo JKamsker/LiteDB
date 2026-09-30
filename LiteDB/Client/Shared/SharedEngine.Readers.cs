@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using LiteDB.Client.Shared;
+using LiteDB.Utils;
 
 namespace LiteDB
 {
@@ -171,15 +172,17 @@ namespace LiteDB
             }
             else _databaseUsers--;
 
+            var cleanup = new TryCatch();
             if (_databaseUsers == 0 && (abandoned || !_transactionRunning) && _engine != null)
             {
                 var engine = _engine;
                 _engine = null;
                 var close = Stopwatch.StartNew();
-                engine.Dispose();
+                cleanup.Catch(engine.Dispose);
                 _lastPinClose = close.Elapsed;
             }
-            if (Volatile.Read(ref _disposed) != 0) this.DisposeCoordination();
+            if (Volatile.Read(ref _disposed) != 0) cleanup.Catch(this.DisposeCoordination);
+            ThrowSharedCleanupErrors(cleanup);
         }
 
         /// <summary>
