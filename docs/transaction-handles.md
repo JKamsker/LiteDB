@@ -254,7 +254,8 @@ Do not disable unrelated warnings.
 Close/checkpoint cleanup failures now propagate from `LiteEngine.Dispose`, Direct
 session disposal, and a Shared handle child's close. If session disposal waits
 for a Shared pin, its core-close failure propagates after the connection finishes
-independent resource cleanup.
+independent resource cleanup. If the last ordinary reader releases an idle pin,
+a pin-core close error can instead surface from that reader's `Dispose()`.
 The engine preserves the WAL needed to recover acknowledged commits.
 Raw Shared disposal from an executing callback is refused before changing the
 connection state or writer ownership. The current call may finish, and disposal

@@ -106,6 +106,8 @@
         "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
+        {"test": "LiteDB.Tests/Engine/SharedLateReaderClose_Tests.cs#Late_reader_self_close_preserves_unleased_protection_or_leased_independence", "model": "exception", "proves": "Late post-Query callback close of an unleased snapshot refuses before state/native ownership changes; plain/encrypted controls retain real exclusion, retry close, allow peer progress and verify indexed cold state. Genuinely leased snapshots remain independent."},
+        {"test": "LiteDB.Tests/Engine/SharedLateReaderClose_Tests.cs#Late_reader_callback_can_reenter_after_foreign_close_starts_draining", "model": "exception", "proves": "Forced cross-thread close drains core and mutex-backed snapshot operations without holding the callback-needed connection lock. A late callback is refused promptly; native ownership and committed indexed state remain valid until teardown completes."},
         {
           "test": "LiteDB.Tests/Engine/SharedDisposalFailure_Tests.cs#Pin_close_failure_finishes_connection_cleanup_and_preserves_leased_reader",
           "model": "exception",
