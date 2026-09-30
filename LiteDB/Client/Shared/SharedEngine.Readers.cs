@@ -51,7 +51,11 @@ namespace LiteDB
             if (pin != null && pin.Owner.ManagedThreadId == owner)
             {
                 pin.RequestRelease(force: false);
-                if (!pin.CanWaitFrom(Thread.CurrentThread)) return;
+                // A later read callback is a core operation, not a pin operation.
+                // The forced holder may already be draining it: joining here would
+                // wait on this very callback. The existing disposer remains the
+                // close-error observer while the holder finishes after we unwind.
+                if (this.IsExecutingOwnedCoreOnCurrentThread() || !pin.CanWaitFrom(Thread.CurrentThread)) return;
                 pin.WaitReleased();
             }
             this.CheckpointAfterLastReader();
@@ -209,6 +213,11 @@ namespace LiteDB
             "database errors surface (SharedEngine.Readers.cs).")]
         private void CheckpointAfterLastReader()
         {
+            // TryEnter first joins a retiring native owner. A transferred reader's
+            // callback must not join the holder currently draining that same core.
+            // This optional checkpoint can be left to final close or the next open;
+            // the committed WAL stays authoritative throughout ownership retirement.
+            if (Volatile.Read(ref _disposed) != 0 || this.IsExecutingOwnedCoreOnCurrentThread()) return;
             if (_settings.ReadOnly || !LogHasContent(_settings.Filename)) return;
             if (!_owner.TryEnter(out var abandoned, scoped: this.CanScope)) return;
             if (abandoned)
