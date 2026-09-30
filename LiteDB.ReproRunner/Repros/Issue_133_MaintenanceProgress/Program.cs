@@ -18,6 +18,7 @@ namespace Issue_133_MaintenanceProgress;
 /// </summary>
 internal static class Program
 {
+    [ThreadStatic] private static int _readDelay;
     private static int Main()
     {
         var host = ReproHostClient.CreateDefault();
@@ -58,7 +59,7 @@ internal static class Program
         using var engine = new LiteEngine(new EngineSettings
         {
             Filename = databasePath,
-            ReadTransform = (collection, value) => { Thread.Sleep(30); return value; }
+            ReadTransform = (collection, value) => { Thread.Sleep(_readDelay); return value; }
         });
         using var db = new LiteDatabase(engine, disposeOnClose: false);
         db.GetCollection("rows").Insert(new BsonDocument { ["_id"] = 1 });
@@ -67,8 +68,10 @@ internal static class Program
         var readers = new Thread[16];
         for (var i = 0; i < readers.Length; i++)
         {
+            var delay = 100 + i * 7;
             readers[i] = new Thread(() =>
             {
+                _readDelay = delay;
                 try
                 {
                     if (db.GetCollection("rows").FindById(1) == null) throw new Exception("Missing sentinel.");

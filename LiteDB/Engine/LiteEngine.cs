@@ -21,9 +21,9 @@ namespace LiteDB.Engine
         #region Services instances
 
         private LockService _locker;
-        private readonly OperationLifetime _operations = new OperationLifetime();
+        private readonly OperationLifetime _operations;
         internal OperationLifetime.Lease EnterOperation(bool continuation = false) =>
-            _operations.Enter(continuation || _locker?.IsInTransaction == true);
+            _operations.Enter(continuation);
         private void ValidatePublicDispatch()
         {
             var authorized = TransactionContext.ConsumeDispatch(this);
@@ -94,6 +94,7 @@ namespace LiteDB.Engine
         public LiteEngine(EngineSettings settings)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _operations = new OperationLifetime(() => _locker?.IsInTransaction == true);
             _defaultContext = new EngineContext(this, settings);
             LiteDB.Client.Shared.SharedModeGuard.Normalize(_settings);
 
