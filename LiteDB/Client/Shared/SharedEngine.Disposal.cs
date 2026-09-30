@@ -82,12 +82,17 @@ namespace LiteDB
             {
                 if (_engine != null)
                 {
-                    var engine = _engine;
-                    _engine = null;
-                    closed = true;
                     // This parent's historical final checkpoint is best effort; its
                     // returned close errors do not change acknowledged WAL outcomes.
-                    cleanup.Catch(() => this.ObservedClose(engine, () => engine.Close(final: true)));
+                    // Keep the core published if close refuses an active raw callback;
+                    // that operation still owns its normal unwind/close path.
+                    cleanup.Catch(() =>
+                    {
+                        var engine = _engine;
+                        this.ObservedClose(engine, () => engine.Close(final: true));
+                        _engine = null;
+                        closed = true;
+                    });
                 }
                 cleanup.Catch(this.CloseMutexSnapshotsLocked);
                 _databaseUsers = 0;
