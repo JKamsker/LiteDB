@@ -245,6 +245,21 @@
       "disposition": "strengthened",
       "invariant": "Steady coordination publication must allocate exactly zero managed bytes for all 1000 measured events and preserve version/structural/reuse counters.",
       "reason": "Retains the zero-byte threshold and original 100 warmup/1000 measured counts with no retries or discarded measurement. Warms the complete counter boundary on a dedicated worker without xUnit ExecutionContext, checks stable epoch identity before allocation assertions, and adds an escaped per-event allocation control. Hosted ARM64 .NET10.0.12 reported 6056 bytes; the original passed locally on x64 .NET10.0.11 and10.0.12, so the original cause remains unknown rather than asserted to be warmup. A successor ARM64 CI result is required."
+    },
+    {
+      "id": "133-late-callback-close-budget-scope",
+      "kind": "fixture-changed",
+      "subjects": [
+        "LiteDB.Tests/Engine/TransactionHandleLateCallbackClose_Tests.cs"
+      ],
+      "disposition": "intentional-change",
+      "invariant": "Late callback self-dependent close must still be refused with InvalidOperationException within the unchanged 100ms close probe; safe retained-reader controls, legitimate cross-thread drains, subsequent writes and plain/encrypted cold indexed state remain checked.",
+      "reason": "Hosted Windows x64 net8 job 109871740658 on candidate 19065cc1e (merge build 2a15beace59345d1daaa8cdbc887cfe67b5d89ff) passed the callback and refusal/write assertions but timed out at outer using Dispose line 58; the case took 325ms total. The specific scheduling or drain duration is unknown. The fixture accidentally kept its 100ms callback probe override for the whole database lifetime. Save and restore the override in a callback-local finally, retaining the exact callback limit and using the existing default close allowance only for ordinary teardown. This is test-budget scope correction, not evidence of a production semantic fix. The independently retained or non-owning reader controls perform a legitimate asynchronous close and keep the default deadline even inside the callback; their contract never required 100ms completion.",
+      "coveredBy": [
+        "LiteDB.Tests/Engine/TransactionHandleLateCallbackClose_Tests.cs#Late_callback_close_refuses_only_a_self_dependent_drain",
+        "LiteDB.Tests/Engine/TransactionHandleLateCallbackClose_Tests.cs#Cross_thread_close_drains_late_callback_without_refusing_it"
+      ],
+      "decision": "docs/transaction-handles-safety-review.md#late-callback-close-test-budget"
     }
   ]
 }
