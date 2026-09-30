@@ -17,7 +17,19 @@ namespace LiteDB
             {
                 this.DisposeConnection();
             }
-            finally { _settings.SharedAdmission.Dispose(); }
+            finally
+            {
+                // ReturnTransactionChild uses the same lock and refuses publication after
+                // _disposed is set. Both cached and parent admission must drain on errors.
+                SharedEngine cached;
+                lock (_useLock)
+                {
+                    cached = _cachedTransactionChild;
+                    _cachedTransactionChild = null;
+                }
+                try { cached?.Dispose(); }
+                finally { _settings.SharedAdmission.Dispose(); }
+            }
         }
 
         private void DisposeConnection()

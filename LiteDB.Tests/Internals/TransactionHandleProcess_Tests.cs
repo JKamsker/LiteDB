@@ -61,6 +61,23 @@ namespace LiteDB.Tests.Internals
         [Theory]
         [InlineData(null)]
         [InlineData("secret")]
+        public async Task Process_death_during_reused_shared_handle_preserves_committed_model(string password)
+        {
+            using var file = new TempFile();
+            Seed(file, password);
+            using (var holder = new MvccProcess("handle-hold-reused", file, password, "shared"))
+            {
+                await holder.Expect("ready");
+                await MvccProcess.Run("native-rejected", file, password, "direct");
+                await holder.Kill();
+            }
+            Verify(file, password, new[] { 1 });
+            Verify(file, password, new[] { 1 });
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("secret")]
         public async Task Acknowledged_shared_commit_survives_death_before_session_checkpoint(string password)
         {
             using var file = new TempFile();

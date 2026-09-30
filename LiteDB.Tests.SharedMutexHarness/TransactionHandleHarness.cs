@@ -45,6 +45,12 @@ internal static class TransactionHandleHarness
             Console.WriteLine("done");
             return true;
         }
+        if (mode == "handle-hold-reused")
+        {
+            using var warm = db.BeginTransaction();
+            if (warm.GetCollection("rows").FindById(1) == null) throw new Exception("Missing committed seed");
+            warm.Commit();
+        }
         ILiteTransaction? transaction = null;
         Exception? error = null;
         var creator = new Thread(() =>

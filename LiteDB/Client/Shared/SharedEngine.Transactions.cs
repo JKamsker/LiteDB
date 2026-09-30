@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using LiteDB.Client.Shared;
 using LiteDB.Engine;
 
@@ -12,6 +13,20 @@ namespace LiteDB
         // Cached entries are inert managed metadata: they own no native admission or files.
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> TransactionWriters =
             new ConcurrentDictionary<string, SemaphoreSlim>(StringComparer.Ordinal);
+
+        // Only the wrapper survives a handle: CloseDatabase closes its storage core
+        // and releases native writer ownership before this cache can be published.
+        private SharedEngine _cachedTransactionChild;
+
+        private bool ReturnTransactionChild(SharedEngine child)
+        {
+            lock (_useLock)
+            {
+                if (_disposed != 0 || _cachedTransactionChild != null) return false;
+                _cachedTransactionChild = child;
+                return true;
+            }
+        }
 
         internal TransactionResources OpenTransactionResources(TransactionAdmission admission, object sessionToken)
         {
@@ -49,10 +64,16 @@ namespace LiteDB
                 }
                 settings.CoordinationSignals = null;
                 settings.SharedFileHandles = null;
-                var child = new SharedEngine(settings) { _transactionChild = true };
+                SharedEngine child;
+                lock (_useLock)
+                {
+                    child = _cachedTransactionChild;
+                    _cachedTransactionChild = null;
+                }
+                child = child ?? new SharedEngine(settings) { _transactionChild = true };
                 child._settings.SharedDurability = _settings.SharedDurability;
                 child._settings.CheckpointBackoff = _settings.CheckpointBackoff;
-                holder = new TransactionHolder(child, gate, admission, sessionToken);
+                holder = new TransactionHolder(child, gate, admission, sessionToken, this);
             }
             catch { gate.Release(); throw; }
             return holder.Open(policyAnchor);
@@ -62,29 +83,35 @@ namespace LiteDB
         private sealed class TransactionHolder
         {
             private readonly SharedEngine _child;
+            // An abandoned handle must be able to collect the facade/session even
+            // while this holder waits for its TransactionResources finalizer.
+            private readonly WeakReference<SharedEngine> _cacheOwner;
             private readonly SemaphoreSlim _gate;
             private TransactionAdmission _admission;
             private readonly object _sessionToken;
             private readonly ManualResetEventSlim _opened = new ManualResetEventSlim();
             private readonly ManualResetEventSlim _close = new ManualResetEventSlim();
-            private Thread _thread;
+            private readonly TaskCompletionSource<bool> _done =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             private Exception _error;
             private LiteEngine _engine;
 #if DEBUG || TESTING
             private readonly Func<string, bool, Action<string>> _streamProbe = NativeAdmissionStreamProbe.Attach;
 #endif
 
-            internal TransactionHolder(SharedEngine child, SemaphoreSlim gate, TransactionAdmission admission, object sessionToken)
-            { _child = child; _gate = gate; _admission = admission; _sessionToken = sessionToken; }
+            internal TransactionHolder(SharedEngine child, SemaphoreSlim gate, TransactionAdmission admission, object sessionToken, SharedEngine cacheOwner)
+            {
+                _child = child; _gate = gate; _admission = admission; _sessionToken = sessionToken;
+                _cacheOwner = new WeakReference<SharedEngine>(cacheOwner);
+            }
 
             internal TransactionResources Open(object policyAnchor)
             {
-                _thread = new Thread(Run) { IsBackground = true, Name = "LiteDB transaction mutex" };
                 try
                 {
                     // An internal idle holder must not retain application AsyncLocals.
-                    if (ExecutionContext.IsFlowSuppressed()) _thread.Start();
-                    else using (ExecutionContext.SuppressFlow()) _thread.Start();
+                    if (ExecutionContext.IsFlowSuppressed()) SharedHolderScheduler.Queue(Run);
+                    else using (ExecutionContext.SuppressFlow()) SharedHolderScheduler.Queue(Run);
                 }
                 catch (Exception error)
                 {
@@ -112,6 +139,7 @@ namespace LiteDB
             {
                 using var dependency = new SessionCloseDependency(_sessionToken);
 #if DEBUG || TESTING
+                var previousProbe = NativeAdmissionStreamProbe.Attach;
                 NativeAdmissionStreamProbe.Attach = _streamProbe;
 #endif
                 var acquired = false;
@@ -128,10 +156,17 @@ namespace LiteDB
                     _admission = null;
                     if (acquired) Cleanup(() => _child.CloseDatabase(reportErrors: true));
                     Cleanup(() => _child.EndAdmissions(0));
-                    Cleanup(_child.Dispose);
+                    if (_error != null || !_cacheOwner.TryGetTarget(out var owner) || !owner.ReturnTransactionChild(_child))
+                    {
+                        Cleanup(_child.Dispose);
+                    }
                     _gate.Release();
                     // Failed-open publication follows all cleanup and preserves its original error.
                     _opened.Set();
+#if DEBUG || TESTING
+                    NativeAdmissionStreamProbe.Attach = previousProbe;
+#endif
+                    _done.TrySetResult(true);
                 }
             }
 
@@ -151,9 +186,12 @@ namespace LiteDB
             private void Release()
             {
                 _close.Set();
-                _thread.Join();
+                // Join this job, not the reusable thread. Task completion has no
+                // disposable wait handle that could race its final Set operation.
+                _done.Task.GetAwaiter().GetResult();
                 _opened.Dispose();
                 _close.Dispose();
+
                 if (_error != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(_error).Throw();
             }
         }

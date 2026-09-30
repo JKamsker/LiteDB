@@ -119,8 +119,9 @@ open the file. Opt-in waiting for Direct opening remains [#3068](https://github.
 
 Shared keeps separate engines. At most one new handle per database/mutex namespace
 in the process passes the handle admission gate. That handle has a native mutex
-holder thread and a child engine. Pending begins wait on their calling threads
-before allocating a holder/engine. Ordinary and legacy Shared callers still use
+holder worker and a child `SharedEngine` wrapper. Sequential handles reuse the
+wrapper on that Shared connection and an available holder worker. Pending begins
+wait on their calling threads before checking out a wrapper or scheduling a holder. Ordinary and legacy Shared callers still use
 the native mutex; they cannot recurse into a handle's writer ownership. As with
 existing Shared native admission, parameterless begin can wait until the owner
 releases it; closing its session cancels pending admission. Cached admission gates
@@ -132,17 +133,31 @@ These mechanisms have separate jobs:
 | --- | --- |
 | Shared lifetime admission | Allows compatible Shared participants and excludes Direct hosts for the dependent lifetime; it does not mean that the process owns the writer mutex throughout |
 | Native writer mutex | Serializes writer ownership across processes and ordinary/legacy/handle callers |
-| Local handle gate | Queues only the new transaction handles for that database/mutex namespace, before creating their holder/child engine |
+| Local handle gate | Queues only the new transaction handles for that database/mutex namespace, before checking out their holder/child wrapper |
 | Ordinary Shared snapshot reads | Use the existing snapshot/version and reader-lease protocol where supported, without enlisting in an explicit handle; fallback/native coordination remains backend-dependent |
 
 Each handle releases native ownership before the next handle acquires it. The local
 queue does not remove this release/acquire pair or consolidate ordinary and legacy
-writers into one process participant. Reusable writer ownership, local scheduling
-and remote fairness are [#3069](https://github.com/litedb-org/LiteDB/issues/3069).
+writers into one process participant. Broader writer scheduling and remote fairness
+remain [#3069](https://github.com/litedb-org/LiteDB/issues/3069).
 Participation/mapping/reader-registry consolidation is [#3017](https://github.com/litedb-org/LiteDB/issues/3017);
 retained coherent engine/cache state is [#3004](https://github.com/litedb-org/LiteDB/issues/3004).
 
-No complete Shared-engine pooling or cache-retention optimization is introduced.
+A reused wrapper closes its underlying `LiteEngine` after every handle and opens a
+fresh core after reacquiring native ownership. Its page/cache/WAL view is never
+retained across external writers. Open or cleanup failures discard the wrapper;
+session disposal also disposes an idle wrapper. The holder has only a weak link to
+the owning Shared connection, so abandoned handles can still release storage through
+finalization without retaining the application graph. Completed handles release their
+session and resource references as before.
+
+The separate holder pool retains at most two idle background threads for one second;
+busy holders do not prevent another database from obtaining a worker. An idle worker
+retains neither its last callback nor its execution context. The live Shared connection
+retains at most one child wrapper (including its existing coordination/file-handle
+resources), but no native writer ownership or live storage core. This trades bounded
+idle infrastructure for lower setup cost; it introduces no batching or durability change.
+See [Shared holder reuse validation](transaction-handles-shared-reuse.md) for evidence.
 The child closes its operation engine using normal WAL/checkpoint thresholds;
 the parent session retains the final checkpoint policy. Completing each handle
 does not force an extra final checkpoint. Acknowledged WAL commits remain durable
