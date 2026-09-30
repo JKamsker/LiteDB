@@ -105,17 +105,71 @@ namespace LiteDB.Tests.Engine
                 using (var page = SharedCoordinationPage.Open(file))
                 {
                     page.Opened(0);
-                    for (var i = 0; i < 100; i++) Publish(page);
-                    var allocated = GC.GetAllocatedBytesForCurrentThread();
-                    for (var i = 0; i < 1000; i++) Publish(page);
-                    allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
-                    allocated.Should().Be(0, "publication must not allocate per-event closures or delegates");
+                    page.TryRead(out var initial).Should().BeTrue();
+                    var allocated = MeasureOnWorker(page);
                     page.TryRead(out var status).Should().BeTrue();
                     status.Version.Should().Be(0);
                     status.Structural.Should().Be(2200);
                     status.Reuse.Should().Be(1100);
+                    status.Identity.Should().Be(initial.Identity, "steady publication must not enter odd-sequence recovery");
+                    allocated.Should().Be(0, "publication must not allocate per-event closures or delegates");
                 }
             });
+        }
+
+        [Fact]
+        public void Epoch_allocation_measurement_detects_per_publication_allocations()
+        {
+            WithFile(file =>
+            {
+                using var page = SharedCoordinationPage.Open(file);
+                page.Opened(0);
+                try
+                {
+                    MeasureOnWorker(page, allocate: true).Should().BeGreaterThanOrEqualTo(1000 * IntPtr.Size);
+                }
+                finally { _allocationControl = null; }
+            });
+        }
+
+        private static long MeasureOnWorker(SharedCoordinationPage page, bool allocate = false)
+        {
+            long allocated = 0;
+            Exception failure = null;
+            Thread worker;
+            // Keep xUnit's ambient context and work scheduler outside the interval.
+            // Warm the complete boundary, including both counter calls; never retry
+            // or discard a measured window, and keep the original 100/1000 counts.
+            using (ExecutionContext.SuppressFlow())
+            {
+                worker = new Thread(() =>
+                {
+                    try
+                    {
+                        MeasurePublications(page, 100, allocate);
+                        allocated = MeasurePublications(page, 1000, allocate);
+                    }
+                    catch (Exception error) { failure = error; }
+                }) { IsBackground = true };
+                worker.Start();
+            }
+            worker.Join(TimeSpan.FromSeconds(10)).Should().BeTrue("the measurement must complete");
+            if (failure != null) throw new InvalidOperationException("Allocation measurement failed.", failure);
+            return allocated;
+        }
+
+        private static object _allocationControl;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static long MeasurePublications(SharedCoordinationPage page, int count, bool allocate = false)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var i = 0; i < count; i++)
+            {
+                Publish(page);
+                if (allocate) Volatile.Write(ref _allocationControl, new object());
+            }
+            return GC.GetAllocatedBytesForCurrentThread() - before;
         }
 
         private static void Publish(SharedCoordinationPage page)
