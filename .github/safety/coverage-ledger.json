@@ -76,6 +76,19 @@
       "coveredBy": [
         "LiteDB.Tests/Issues/Issue2965_Tests.cs#Operation_queued_behind_rebuild_uses_the_new_services_safely"
       ]
+    },
+    {
+      "id": "133-complete-platform-evidence",
+      "kind": "ci-test-config-changed",
+      "subjects": [
+        ".github/workflows/_reusable-ci.yml",
+        ".github/safety/ci-evidence.json",
+        "scripts/run-ci-tests.ps1",
+        "scripts/test-native-admission-glibc.sh"
+      ],
+      "disposition": "strengthened",
+      "invariant": "Every existing test workload and native-platform qualification remains mandatory, with runtime guards and complete candidate-matched results.",
+      "reason": "Registers inherited glibc/macOS Intel/Windows ARM64/f2fs jobs in the upstream aggregate; native filtered legs add provenance and discovery without narrowing their executed filters. TransactionHandle coverage is added to native filters. Missing or stale evidence now fails the aggregate."
     }
   ]
 }
