@@ -321,3 +321,21 @@ lock during drain. The actual intermediate failure and passing controls remain
 retained. Strict proof validation also caught an empty-password/plain mismatch;
 empty password enables encryption. Corrected proofs use null for truly plain
 databases on every local/peer open, with the earlier harness failures preserved.
+
+### Coordination allocation qualification
+
+The e821 Linux ARM64/.NET 10.0.12 run reported 6,056 allocated bytes in the
+steady-publication test. That production path was unchanged by this PR. The
+original class passed on local x64 .NET 10.0.11 and 10.0.12; these do not reproduce
+or explain the ARM64 result. Its cause remains unknown.
+
+The corrected measurement warms its complete counter boundary on a dedicated
+worker without xUnit execution context, retains the original 100 warmup and
+1,000 measured publications, and still requires exactly zero bytes. No measured
+window is retried or discarded. Publication counters and unchanged epoch identity
+are checked before the allocation assertion. An escaped allocation control is
+required to register allocations; inserting it into the actual zero-budget test
+failed at 24,000 bytes. Independent review confirmed those boundaries. The new
+class passes on the local runtimes, but successor ARM64 CI remains required.
+This is a measurement-hardening change, not a proven explanation for the old
+6,056-byte observation or an allocation waiver.
