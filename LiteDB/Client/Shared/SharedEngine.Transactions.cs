@@ -67,7 +67,8 @@ namespace LiteDB
             private readonly object _sessionToken;
             private readonly ManualResetEventSlim _opened = new ManualResetEventSlim();
             private readonly ManualResetEventSlim _close = new ManualResetEventSlim();
-            private Thread _thread;
+            private readonly System.Threading.Tasks.TaskCompletionSource<bool> _done =
+                new System.Threading.Tasks.TaskCompletionSource<bool>(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
             private Exception _error;
             private LiteEngine _engine;
 #if DEBUG || TESTING
@@ -79,12 +80,11 @@ namespace LiteDB
 
             internal TransactionResources Open(object policyAnchor)
             {
-                _thread = new Thread(Run) { IsBackground = true, Name = "LiteDB transaction mutex" };
                 try
                 {
                     // An internal idle holder must not retain application AsyncLocals.
-                    if (ExecutionContext.IsFlowSuppressed()) _thread.Start();
-                    else using (ExecutionContext.SuppressFlow()) _thread.Start();
+                    if (ExecutionContext.IsFlowSuppressed()) SharedHolderScheduler.Queue(Run);
+                    else using (ExecutionContext.SuppressFlow()) SharedHolderScheduler.Queue(Run);
                 }
                 catch (Exception error)
                 {
@@ -112,6 +112,7 @@ namespace LiteDB
             {
                 using var dependency = new SessionCloseDependency(_sessionToken);
 #if DEBUG || TESTING
+                var previousProbe = NativeAdmissionStreamProbe.Attach;
                 NativeAdmissionStreamProbe.Attach = _streamProbe;
 #endif
                 var acquired = false;
@@ -132,6 +133,10 @@ namespace LiteDB
                     _gate.Release();
                     // Failed-open publication follows all cleanup and preserves its original error.
                     _opened.Set();
+#if DEBUG || TESTING
+                    NativeAdmissionStreamProbe.Attach = previousProbe;
+#endif
+                    _done.TrySetResult(true);
                 }
             }
 
@@ -151,9 +156,10 @@ namespace LiteDB
             private void Release()
             {
                 _close.Set();
-                _thread.Join();
+                _done.Task.GetAwaiter().GetResult();
                 _opened.Dispose();
                 _close.Dispose();
+
                 if (_error != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(_error).Throw();
             }
         }
