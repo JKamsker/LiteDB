@@ -27,6 +27,11 @@ query execution, enumeration, reader access, commit, rollback and disposal. The
 guard detects overlapping calls, not accidental sequential sharing by an application.
 Raw `LiteEngine` reentry from a bound mapper/input/read callback is rejected before
 side effects; use ordinary `LiteDatabase` objects for independent callback work.
+An ordinary callback write that needs a collection lock held by its executing
+handle fails immediately with the existing lock-timeout error. It cannot wait
+for that same callback to return. Work on unrelated collections remains
+independent; an idle handle can still be completed on another thread to release
+a legitimate waiter.
 Internal engine composition carries a one-use dispatch authorization, consumed
 before entering user callbacks. If a callback lets that refusal escape a statement
 whose engine transaction was rolled back, the handle becomes Failed.
@@ -251,6 +256,10 @@ session disposal, and a Shared handle child's close. If session disposal waits
 for a Shared pin, its core-close failure propagates after the connection finishes
 independent resource cleanup.
 The engine preserves the WAL needed to recover acknowledged commits.
+Raw Shared disposal from an executing callback is refused before changing the
+connection state or writer ownership. The current call may finish, and disposal
+may be retried afterward. This also covers reader callbacks whose original Query
+call has already returned.
 
 The Shared parent's final checkpoint retains its historical best-effort policy:
 returned core-close errors, and expected I/O/access/database errors opening or

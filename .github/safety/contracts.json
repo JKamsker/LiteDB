@@ -32,6 +32,11 @@
         "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
+        {
+          "test": "LiteDB.Tests/Engine/SharedFinalCheckpointContract_Tests.cs#Parent_final_checkpoint_remains_best_effort_and_failed_attempt_keeps_committed_wal",
+          "model": "exception",
+          "proves": "A separate parent-only final checkpoint fails after handle commit; the historical normal-dispose contract retains exact WAL bytes and indexed committed state on cold recovery."
+        },
         {"test": "LiteDB.Tests/Internals/TransactionHandleProcess_Tests.cs#Acknowledged_shared_commit_survives_death_before_session_checkpoint", "proves": "A child acknowledges commit with a nonempty WAL, is killed without session cleanup, and two cold reopens verify documents, index results and sentinel.", "model": "process-death"},
         {"test": "LiteDB.Tests/Engine/TransactionHandleDisposeSafety_Tests.cs#Disposed_bound_objects_refuse_use_without_aborting_prior_writes", "proves": "Disposed reader/enumerator access rejects before execution; earlier writes remain active and are committed with cold indexed verification.", "model": "exception"},
         {"fuzz": "power-loss", "model": "modeled-power-loss", "proves": "Each operation's acknowledgment is recorded outside the engine; after a cut only the in-flight operation may resolve to old or new, and complete documents and FileStorage bytes are compared."},
@@ -101,6 +106,19 @@
         "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
+        {
+          "test": "LiteDB.Tests/Engine/SharedDisposalFailure_Tests.cs#Pin_close_failure_finishes_connection_cleanup_and_preserves_leased_reader",
+          "model": "exception",
+          "proves": "A captured pin fails core close; original and secondary errors remain visible, independent cleanup completes, a peer writer progresses while a legitimate reader keeps its original snapshot, and indexed cold state survives."
+        },
+        {
+          "test": "LiteDB.Tests/Engine/TransactionHandleRawCloseDependency_Tests.cs#Raw_close_rejects_fresh_callback_dependency_before_draining_callback",
+          "proves": "An admitted callback awaiting fresh work on another thread completes when raw close rejects the new dependency instead of cycling with the drain; cold committed rows, index and sentinel survive."
+        },
+        {
+          "test": "LiteDB.Tests/Engine/TransactionHandleTurnstileCancellation_Tests.cs#Contended_wait_preserves_release_and_abandonment",
+          "proves": "An observed failed zero-wait acquisition forces each platform contended path for normal release and owner death; main ownership and turnstile release are independently checked."
+        },
         {"test": "LiteDB.Tests/Engine/TransactionHandleChildReuse_Tests.cs#Reused_holder_and_wrapper_release_writer_and_refresh_after_external_commit", "proves": "Worker and wrapper identities repeat while core identities change; three independent process writes are observed via exact indexed models and two cold reopens."},
         {"test": "LiteDB.Tests/Engine/TransactionHandleFeatureCoverage_Tests.cs#Independent_direct_handles_overlap_and_preserve_each_others_commit_and_rollback", "proves": "Four real threads hold uncommitted writes concurrently; ordinary reads see none, then independent commit/rollback outcomes are verified on two cold reopens."},
         {"test": "LiteDB.Tests/Engine/TransactionHandleMaintenanceProgress_Tests.cs#Maintenance_progresses_under_sustained_ordinary_reads", "proves": "Sustained overlapping ordinary reads cannot starve queued Rebuild or raw engine close."},
