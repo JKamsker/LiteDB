@@ -139,6 +139,19 @@ The prior baseline's green full matrix, 21 registered regression proofs and
 Safety aggregate remain [separate evidence](https://github.com/litedb-org/LiteDB-Artifacts/tree/9fc63da3837a2be77755c8f0f03062bb94d974a5/audits/2026-09-30-98a10086c).
 They do not turn this audit green or qualify the new tests on every old matrix leg.
 
+## Immutable evidence
+
+[Published audit bundle](https://github.com/litedb-org/LiteDB-Artifacts/tree/0d9b351e2e402d7ee23afcf51ad26fc090d33f34/audits/2026-09-30-pr133-concurrency)
+contains 3,676 files, with 3,675 verified root checksum entries. It retains source
+snapshots/reconstruction patches, exact local runtime layouts, the 16 final failed
+fixtures, histories, production reproductions, mutation controls and hosted logs.
+All 815 copied binary/fixture files match their source bytes. Text normalization
+has explicit original/public hash mappings; original build paths in binaries are
+preserved. Pattern scans found no credential or private-home text-path matches.
+The earlier baseline archive is unchanged. Reports in the bundle are the
+`84b2a6e2e` snapshot; later repository edits only normalize whitespace and add this
+published link. The tested source remains `f9487f814`.
+
 ## Coverage and explicit limits
 
 The [matrix](pr133-concurrency-matrix.md) maps 22 identified dependency classes
