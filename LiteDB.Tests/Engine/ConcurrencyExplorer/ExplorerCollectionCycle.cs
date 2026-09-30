@@ -15,7 +15,7 @@ namespace LiteDB.ConcurrencyTesting
         {
             // Some pragma consumers retain their opening generation. Persist and reopen
             // the fixture before measuring its one-second collection-lock contract.
-            using (var setup = model.Open()) setup.Timeout = TimeSpan.FromSeconds(1);
+            using (var setup = model.Open()) { setup.Timeout = TimeSpan.FromSeconds(1); setup.Checkpoint(); }
             var db = new LiteDatabase(model.Connection); resources.Add(db);
             ExplorerDatabase.Require(db.Timeout == TimeSpan.FromSeconds(1), "C04 timeout fixture not persisted");
             ILiteTransaction first = null, second = null;
@@ -26,6 +26,8 @@ namespace LiteDB.ConcurrencyTesting
             b.Run("C04 hold other", () => second.GetCollection("other").Insert(ExplorerDatabase.Row(4, 40)));
             var lease = (DirectEngineLease)typeof(LiteDatabase).GetField("_engine", Fields).GetValue(db);
             var locker = typeof(LiteEngine).GetField("_locker", Fields).GetValue(lease.Engine);
+            var effective = (EnginePragmas)typeof(LockService).GetField("_pragmas", Fields).GetValue(locker);
+            ExplorerDatabase.Require(effective.Timeout == TimeSpan.FromSeconds(1), "C04 effective lock timeout differs from fixture");
             var locks = (ConcurrentDictionary<string, CollectionLock>)typeof(LockService).GetField("_collections", Fields).GetValue(locker);
             var waitsRows = schedule.NewBoundary("C04 actual wait rows held by A");
             var waitsOther = schedule.NewBoundary("C04 actual wait other held by B");

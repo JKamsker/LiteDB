@@ -81,6 +81,7 @@ namespace LiteDB.ConcurrencyTesting
                         }
                     }
                     // Cleanup failure must not suppress the independent persisted-state check.
+                    run._schedule.Event("cold-verification-start");
                     try { run._model.VerifyCold(); run._otherModel?.VerifyCold(); }
                     catch (Exception error)
                     {

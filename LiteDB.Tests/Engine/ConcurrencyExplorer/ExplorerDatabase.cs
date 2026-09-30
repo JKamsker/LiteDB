@@ -44,7 +44,7 @@ namespace LiteDB.ConcurrencyTesting
             // Two opens ensure that verification itself did not mask a recovery/reopen defect.
             for (var reopen = 0; reopen < 2; reopen++)
             {
-                using var db = Open();
+                using var db = new LiteDatabase(Connection);
                 foreach (var entry in _committed)
                 {
                     var rows = db.GetCollection(entry.Key);
