@@ -156,3 +156,38 @@ result files before execution; aggregate evidence requires every result. The
 recorder also now matches VSTest's case-insensitive FQN filtering, so lowercase
 `rebuild` methods already executed by the old filter are included in truncation
 accounting. This harness correction changes no library code or benchmark binary.
+
+### Cross-process pin progress budget
+
+The full `010821392` run timed out in the Windows x86/.NET 8 pin test while
+waiting for the child process's final `done` line. That line followed startup and
+twenty separately committed inserts. The retained failure does not identify
+whether startup, native admission, any insert, or output delivery stopped; it is
+not evidence of a particular product deadlock or established runner slowdown.
+
+The test now starts its child before establishing the pin, waits for `ready`,
+then releases a `go` barrier after a dedicated owner thread is pinned. That
+owner remains alive throughout the proof, so progress cannot be explained by
+abandonment of an async test-runner thread. The child reports its first actual
+native-admission attempt through the existing `BeforeMainWait` hook and each of
+the same twenty ordinary inserts only after it returns. The native marker proves
+reaching admission, not by itself that the mutex was occupied at that instant.
+
+This deliberately changes the test from a combined twenty-second startup-plus-
+throughput budget to separate bounded startup and write-progress checks. Startup
+remains bounded by twenty seconds; the first commit is due within twenty seconds
+of `go`, and each later commit within twenty seconds of the preceding commit.
+Diagnostic markers do not renew that deadline. A strict sixty-second overall
+cap includes startup, writes and child exit; the test-session cap remains 300
+seconds. No write, process, platform, assertion, or failure is skipped or retried.
+The final parent update remains, and cold reopen additionally checks every ID,
+payload, an index-seek result and an unrelated sentinel.
+
+Plain and encrypted negative controls retain a real transaction hold on a live
+pin owner. After observing native admission, the same progress checker must
+reject the missing first commit. The child is killed before the owner is allowed
+to exit, and cold reopen confirms no child writes were admitted. These controls
+prevent the progress protocol from treating an indefinitely blocked writer as
+success. This correction changes test discrimination and diagnostics only; it
+makes no production-code change and does not resolve the original opaque
+failure's phase retrospectively.

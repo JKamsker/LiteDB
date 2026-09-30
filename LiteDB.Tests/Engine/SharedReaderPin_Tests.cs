@@ -388,17 +388,30 @@ namespace LiteDB.Tests.Engine
         {
             using var engine = this.Open(expire: true);
             engine.Insert("docs", Enumerable.Range(1, Count).Select(id => Doc(id, 0)), BsonAutoId.Int32);
-            var reader = _open.Track(engine.Query("docs", new Query()));
-            reader.Read().Should().BeTrue();
-            engine.Update("docs", new[] { Doc(1, 1) });
-
-            // The owner keeps its reader open and stops calling in: the process
-            // cannot signal this instance, so the idle limit must end the pin.
-            await MvccProcess.Run("insert", this.Filename, null, "1000");
-
-            engine.Update("docs", new[] { Doc(2, 1) });
-            reader.Dispose();
-            engine.Query("docs", new Query()).ToEnumerable().Count().Should().Be(Count + 20);
+            engine.EnsureIndex("docs", "value", "$.value", false);
+            engine.Insert("untouched", new[] { new BsonDocument { ["_id"] = 1, ["value"] = "preserved" } }, BsonAutoId.Int32);
+            using var process = new SharedPinProgressProbe(this.Filename);
+            await process.Ready();
+            using var finish = new ManualResetEventSlim();
+            var reader = this.PinOnIdleThread(engine, finish, out var owner);
+            try
+            {
+                // Keep the actual pin owner alive across awaits. Progress must come
+                // from idle expiry, not abandonment of an async test runner thread.
+                process.Start();
+                await process.Complete();
+                owner.IsAlive.Should().BeTrue();
+                engine.Update("docs", new[] { Doc(2, 1) });
+                reader.Dispose();
+                engine.Query("docs", new Query()).ToEnumerable().Count().Should().Be(Count + 20);
+            }
+            finally
+            {
+                finish.Set();
+                owner.Join(Prompt).Should().BeTrue();
+            }
+            engine.Dispose();
+            SharedPinProgressProbe.VerifyCold(this.Filename, Count);
         }
 #endif
 

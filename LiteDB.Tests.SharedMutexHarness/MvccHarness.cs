@@ -16,6 +16,7 @@ internal static class MvccHarness
         var mode = args[1];
         var filename = args[2];
         var password = args[3] == "-" ? null : args[3];
+        if (SharedPinProgressHarness.TryRun(mode, filename, password, args)) return true;
         if (TransactionHandleHarness.TryRun(mode, filename, password, args)) return true;
         if (NativeAdmissionHarness.TryRun(mode, filename, password, args)) return true;
         if (SharedModeHarness.TryRun(mode, filename, password, args)) return true;
