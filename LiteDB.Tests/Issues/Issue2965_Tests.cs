@@ -35,6 +35,48 @@ namespace LiteDB.Tests.Issues
         }
 
         [Fact]
+        public async Task Rebuild_waits_until_transaction_release_cleanup_returns()
+        {
+            using var file = new TempFile();
+            using var engine = new LiteEngine(file.Filename);
+            using var waiting = new ManualResetEventSlim();
+            using var finished = new ManualResetEventSlim();
+            using var tailEntered = new ManualResetEventSlim();
+            using var releaseTail = new ManualResetEventSlim();
+            engine.BeginTrans().Should().BeTrue();
+            engine.Insert("rows", new[] { new BsonDocument { ["_id"] = 1, ["value"] = "acknowledged" } }, BsonAutoId.Int32);
+            var locker = (LockService)typeof(LiteEngine).GetField("_locker",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(engine);
+            engine.SimulateBeforeExclusiveAdmission = waiting.Set;
+            var rebuild = Task.Run(() =>
+            {
+                try { engine.Rebuild(); }
+                finally { finished.Set(); }
+            });
+            waiting.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+            locker.AfterTransactionRelease = () =>
+            {
+                tailEntered.Set();
+                releaseTail.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+            };
+            var observer = Task.Run(() =>
+            {
+                try
+                {
+                    tailEntered.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+                    finished.Wait(TimeSpan.FromMilliseconds(100)).Should().BeFalse("the operation still owns its cleanup tail");
+                }
+                finally { releaseTail.Set(); }
+            });
+            engine.Commit().Should().BeTrue();
+            await observer;
+            await rebuild;
+            engine.Dispose();
+            using var cold = new LiteDatabase(file.Filename);
+            cold.GetCollection("rows").FindById(1)["value"].AsString.Should().Be("acknowledged");
+        }
+
+        [Fact]
         public async Task Rebuild_waits_for_an_active_reader()
         {
             using var file = new TempFile();
@@ -56,7 +98,7 @@ namespace LiteDB.Tests.Issues
         }
 
         [Fact]
-        public async Task Operation_queued_behind_rebuild_fails_cleanly_and_can_be_retried()
+        public async Task Operation_queued_behind_rebuild_uses_the_new_services_safely()
         {
             using var file = new TempFile();
             using var engine = new LiteEngine(file.Filename);
@@ -68,7 +110,9 @@ namespace LiteDB.Tests.Issues
                 rebuildExclusive.Set();
                 releaseRebuild.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
             };
-            engine.SimulateBeforeTransactionAdmission = operationWaiting.Set;
+            var operations = (OperationLifetime)typeof(LiteEngine).GetField("_operations",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(engine);
+            operations.WaitingForMaintenance = operationWaiting.Set;
 
             var rebuild = Task.Run(() => engine.Rebuild());
             rebuildExclusive.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
@@ -79,10 +123,14 @@ namespace LiteDB.Tests.Issues
 
             await rebuild;
             var failure = await insert;
-            failure.Should().BeOfType<LiteException>().Which.Message.Should().Contain("disposed");
+            failure.Should().BeNull();
 
-            engine.Insert("rows", new[] { new BsonDocument { ["_id"] = 1 } }, BsonAutoId.Int32)
+            engine.Insert("rows", new[] { new BsonDocument { ["_id"] = 2 } }, BsonAutoId.Int32)
                 .Should().Be(1);
+            engine.Dispose();
+            using var cold = new LiteDatabase(file);
+            cold.GetCollection("rows").FindAll().Select(row => row["_id"].AsInt32).OrderBy(id => id)
+                .Should().Equal(1, 2);
         }
     }
 }

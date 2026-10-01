@@ -45,6 +45,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool EnsureIndex(string collection, string name, BsonExpression expression, bool unique)
         {
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -58,7 +59,7 @@ namespace LiteDB.Engine
             if (expression.Source == "$._id") return false; // always exists
 
             _state.Validate();
-            if (_settings.ReadOnly) return this.EnsureIndexReadOnly(collection, name, expression.Source);
+            if (CurrentContext.Policy.ReadOnly) return this.EnsureIndexReadOnly(collection, name, expression.Source);
 
             return this.AutoTransaction(transaction =>
             {
@@ -134,6 +135,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool EnsureVectorIndex(string collection, string name, BsonExpression expression, VectorIndexOptions options)
         {
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -145,7 +147,7 @@ namespace LiteDB.Engine
             if (name.StartsWith("$")) throw LiteException.InvalidIndexName(name, collection, "Index name can't start with `$`");
 
             _state.Validate();
-            if (_settings.ReadOnly) return this.EnsureIndexReadOnly(collection, name, expression.Source, options);
+            if (CurrentContext.Policy.ReadOnly) return this.EnsureIndexReadOnly(collection, name, expression.Source, options);
 
             return this.AutoTransaction(transaction =>
             {
@@ -205,6 +207,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool DropIndex(string collection, string name)
         {
+            using var operation = EnterPublicOperation();
             if (collection.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(collection));
             if (name.IsNullOrWhiteSpace()) throw new ArgumentNullException(nameof(name));
 

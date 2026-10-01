@@ -1,0 +1,31 @@
+{
+  "id": "Issue_3067_SharedPinCleanup",
+  "title": "Surfaced pin core close failure skips Shared connection resource cleanup",
+  "issues": [
+    "https://github.com/litedb-org/LiteDB/issues/3067"
+  ],
+  "failingSince": "0.0.0-knownbad.eb01f346eb7d",
+  "timeoutSeconds": 120,
+  "requiresParallel": false,
+  "defaultInstances": 1,
+  "args": [],
+  "tags": [
+    "regression-proof"
+  ],
+  "state": "green",
+  "expectedOutcomes": {
+    "package": {
+      "kind": "reproduce",
+      "exitCode": 0,
+      "logContains": "The bug reproduced."
+    },
+    "latest": {
+      "kind": "noRepro",
+      "exitCode": 10,
+      "logContains": "The bug did not reproduce."
+    }
+  },
+  "supports": [
+    "linux"
+  ]
+}

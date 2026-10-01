@@ -63,6 +63,9 @@ namespace LiteDB.Engine
         internal long OverflowSegments => _overflowSegments;
 
         private readonly MemoryCache _cache;
+#if DEBUG || TESTING
+        private readonly WeakReference<MemoryCache> _ownerLiveness;
+#endif
 
         internal PageFramePool(MemoryCache cache, int[] segmentSizes)
         {
@@ -72,6 +75,9 @@ namespace LiteDB.Engine
                 throw new ArgumentException("Memory segment sizes must contain positive values", nameof(segmentSizes));
             }
             _cache = cache;
+#if DEBUG || TESTING
+            _ownerLiveness = new WeakReference<MemoryCache>(cache);
+#endif
             _segmentSizes = (int[])segmentSizes.Clone();
         }
 
@@ -209,6 +215,9 @@ namespace LiteDB.Engine
                 };
 
                 frames[i] = page;
+#if DEBUG || TESTING
+                page.OwnerLiveness = _ownerLiveness;
+#endif
             }
 
             _segments.Add(segment);

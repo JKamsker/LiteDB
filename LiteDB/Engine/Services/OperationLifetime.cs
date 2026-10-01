@@ -1,0 +1,147 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
+
+namespace LiteDB.Engine
+{
+    /// <summary>Retains a service generation through execution and its completion tail.</summary>
+    internal sealed class OperationLifetime
+    {
+        private readonly Func<bool> _ownsTransaction;
+        internal OperationLifetime(Func<bool> ownsTransaction = null) { _ownsTransaction = ownsTransaction; }
+        private readonly object _gate = new object();
+        private readonly Dictionary<Thread, int> _threads = new Dictionary<Thread, int>();
+        private int _active;
+        private Thread _exclusive;
+        private int _waitingExclusive;
+        private bool _closingRequested;
+        private Action _deferredClose;
+#if DEBUG || TESTING
+        internal Action WaitingForMaintenance;
+#endif
+
+        internal bool IsExecutingOnCurrentThread
+        {
+            get { lock (_gate) return _threads.ContainsKey(Thread.CurrentThread); }
+        }
+
+        internal Lease Enter(bool continuation = false)
+        {
+            var thread = Thread.CurrentThread;
+            lock (_gate)
+            {
+                // A queued maintenance owner fences new work, while nested calls and
+                // existing transaction/cursor completion must still drain its dependencies.
+                while ((_exclusive != null && _exclusive != thread) ||
+                    (_exclusive == null && _waitingExclusive != 0 && !continuation &&
+                        !_threads.ContainsKey(thread) && !(_ownsTransaction?.Invoke() ?? false)))
+                {
+                    // A close cannot wait for fresh work that an active callback is
+                    // synchronously awaiting. Reject it instead of queueing behind
+                    // that same callback's drain. Existing owners still finish safely.
+                    if (_closingRequested && !continuation && !_threads.ContainsKey(thread) &&
+                        !(_ownsTransaction?.Invoke() ?? false))
+                        throw LiteException.EngineDisposed();
+#if DEBUG || TESTING
+                    WaitingForMaintenance?.Invoke();
+#endif
+                    Monitor.Wait(_gate);
+                }
+                _threads.TryGetValue(thread, out var count);
+                _threads[thread] = count + 1;
+                _active++;
+            }
+            return new Lease(this, thread, false);
+        }
+
+        private void Exit(Thread thread, bool exclusive)
+        {
+            Action close = null;
+            lock (_gate)
+            {
+                if (exclusive) _exclusive = null;
+                else
+                {
+                    _active--;
+                    if (--_threads[thread] == 0) _threads.Remove(thread);
+                }
+                if (_active == 0 && _exclusive == null && _deferredClose != null)
+                {
+                    close = _deferredClose;
+                    _deferredClose = null;
+                    _exclusive = thread;
+                }
+                if (_active == 0 || exclusive) Monitor.PulseAll(_gate);
+            }
+            FinishClose(close);
+        }
+
+        private void FinishClose(Action close)
+        {
+            if (close == null) return;
+            try { close(); }
+            finally { lock (_gate) { _exclusive = null; Monitor.PulseAll(_gate); } }
+        }
+
+        internal Lease Exclusive(Func<bool> dependenciesDrained, TimeSpan? timeout = null, Action stopWaiters = null, bool closing = false)
+        {
+            var thread = Thread.CurrentThread;
+            var elapsed = Stopwatch.StartNew();
+            lock (_gate)
+            {
+                if (_exclusive == thread) return default;
+                if (_threads.ContainsKey(thread))
+                    throw new InvalidOperationException("Cannot close or rebuild from inside an executing engine operation.");
+                if (closing)
+                {
+                    _closingRequested = true;
+                    Monitor.PulseAll(_gate);
+                }
+                _waitingExclusive++;
+                try
+                {
+                    while (true)
+                    {
+                        // Never interrupt the service generation used by another maintenance owner.
+                        if (_exclusive == null)
+                        {
+                            stopWaiters?.Invoke();
+                            if (_active == 0 && dependenciesDrained()) break;
+                        }
+                        if (timeout.HasValue && elapsed.Elapsed >= timeout.Value)
+                            throw LiteException.LockTimeout("operation/maintenance", timeout.Value);
+                        Monitor.Wait(_gate, 10);
+                    }
+                    _exclusive = thread;
+                }
+                finally
+                {
+                    _waitingExclusive--;
+                    Monitor.PulseAll(_gate);
+                }
+            }
+            return new Lease(this, thread, true);
+        }
+
+        internal void Stop(Action close)
+        {
+            lock (_gate)
+            {
+                if (_active != 0 || _exclusive != null) { _deferredClose = close; return; }
+                _exclusive = Thread.CurrentThread;
+            }
+            FinishClose(close);
+        }
+
+        internal readonly struct Lease : IDisposable
+        {
+            private readonly OperationLifetime _owner;
+            private readonly Thread _thread;
+            private readonly bool _exclusive;
+            internal Lease(OperationLifetime owner, Thread thread, bool exclusive)
+            { _owner = owner; _thread = thread; _exclusive = exclusive; }
+            public void Dispose() => _owner?.Exit(_thread, _exclusive);
+        }
+    }
+}

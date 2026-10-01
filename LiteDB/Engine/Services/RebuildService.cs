@@ -101,6 +101,7 @@ namespace LiteDB.Engine
                 using (var engine = new LiteEngine(new EngineSettings
                 {
                     Filename = tempFilename,
+                    RebuildCandidate = true,
                     CompactStorage = compactStorage,
                     Collation = options.Collation ?? currentCollation,
                     Password = options.ResolvePassword(_settings.Password),
@@ -141,6 +142,22 @@ namespace LiteDB.Engine
         /// WAL as backups. On failure roll back to a complete database or leave access guarded.
         /// </summary>
         internal long Install(string backupFilename, string backupLogFilename, string tempFilename)
+        {
+            using var admission = this.LockReplacement(tempFilename);
+            try
+            {
+                var difference = this.InstallLocked(backupFilename, backupLogFilename, tempFilename);
+                admission.Published = true;
+                return difference;
+            }
+            catch (Exception error)
+            {
+                admission.PrimaryFailure = error;
+                throw;
+            }
+        }
+
+        private long InstallLocked(string backupFilename, string backupLogFilename, string tempFilename)
         {
             // Read metadata before installation, so no fallible work separates the
             // completed replacement from the caller updating its engine settings.
@@ -325,6 +342,16 @@ namespace LiteDB.Engine
             // Wait out a virus scanner or sync client inspecting the new file, as for the marker.
             FileHelper.Exec(ReplacementDeleteTimeoutSeconds, () => File.Delete(tempFilename));
             FileHelper.Exec(ReplacementDeleteTimeoutSeconds, () => File.Delete(FileHelper.GetLogFile(tempFilename)));
+        }
+
+        private LiteDB.Client.Shared.DatabaseReplacementLease LockReplacement(string filename)
+        {
+            try { return LiteDB.Client.Shared.DatabaseReplacementLease.Begin(_settings, filename); }
+            catch (Exception error)
+            {
+                DiscardReplacement(filename, error);
+                throw;
+            }
         }
 
         private static void DiscardReplacement(string tempFilename, Exception failure)

@@ -1,0 +1,295 @@
+{
+  "configuration": {
+    "versions": {
+      "parent": {
+        "runner": "/tmp/litedb-steady-parent/TransactionHandleBenchmarks.dll",
+        "revision": "49c327cf1926fa300f9eb7477eb4bcb404f75c43"
+      },
+      "review": {
+        "runner": "/tmp/litedb-steady-review/TransactionHandleBenchmarks.dll",
+        "revision": "fe4d1725e6fab8f5127311776c16c50a8f51886f"
+      },
+      "guard": {
+        "runner": "/tmp/litedb-steady-guard/TransactionHandleBenchmarks.dll",
+        "revision": "56f7a249e1ba65435bfdd959f3636ed29a0c7953"
+      },
+      "final": {
+        "runner": "/tmp/litedb-steady-final/TransactionHandleBenchmarks.dll",
+        "revision": "e3f328f9b6e5d350be06cab8e61467889c8a75eb"
+      },
+      "final-legacy": {
+        "runner": "/tmp/litedb-steady-final/TransactionHandleBenchmarks.dll",
+        "revision": "e3f328f9b6e5d350be06cab8e61467889c8a75eb",
+        "mode": "legacy"
+      },
+      "final-handle": {
+        "runner": "/tmp/litedb-steady-final/TransactionHandleBenchmarks.dll",
+        "revision": "e3f328f9b6e5d350be06cab8e61467889c8a75eb",
+        "mode": "handle"
+      }
+    },
+    "groups": [
+      {
+        "name": "guard-attribution",
+        "versions": [
+          "review",
+          "guard"
+        ],
+        "rounds": 2,
+        "warmup": 5,
+        "windows": 5,
+        "cases": [
+          [
+            "direct",
+            "ordinary",
+            "read",
+            1
+          ],
+          [
+            "direct",
+            "legacy",
+            "read",
+            1
+          ]
+        ]
+      },
+      {
+        "name": "cleanup-attribution",
+        "versions": [
+          "guard",
+          "final"
+        ],
+        "rounds": 2,
+        "warmup": 5,
+        "windows": 5,
+        "cases": [
+          [
+            "direct",
+            "ordinary",
+            "open",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  "driver_sha256": "89f9f41b8c2bae83410f6e5518f8bcd187c15ba5f72b6e8bc5725065a3a11c81",
+  "runs": [
+    {
+      "name": "guard-attribution-direct-ordinary-read-1-0-0-review",
+      "started": "2026-09-29T22:25:02.352413+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-review/TransactionHandleBenchmarks.dll",
+        "fe4d1725e6fab8f5127311776c16c50a8f51886f",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "guard-attribution-direct-ordinary-read-1-0-1-guard",
+      "started": "2026-09-29T22:25:12.895497+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-guard/TransactionHandleBenchmarks.dll",
+        "56f7a249e1ba65435bfdd959f3636ed29a0c7953",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "guard-attribution-direct-ordinary-read-1-1-0-guard",
+      "started": "2026-09-29T22:25:23.434311+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-guard/TransactionHandleBenchmarks.dll",
+        "56f7a249e1ba65435bfdd959f3636ed29a0c7953",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "guard-attribution-direct-ordinary-read-1-1-1-review",
+      "started": "2026-09-29T22:25:34.002208+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-review/TransactionHandleBenchmarks.dll",
+        "fe4d1725e6fab8f5127311776c16c50a8f51886f",
+        "steady",
+        "direct",
+        "ordinary",
+        "read",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "guard-attribution-direct-legacy-read-1-0-0-review",
+      "started": "2026-09-29T22:25:44.612896+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-review/TransactionHandleBenchmarks.dll",
+        "fe4d1725e6fab8f5127311776c16c50a8f51886f",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "guard-attribution-direct-legacy-read-1-0-1-guard",
+      "started": "2026-09-29T22:25:55.168272+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-guard/TransactionHandleBenchmarks.dll",
+        "56f7a249e1ba65435bfdd959f3636ed29a0c7953",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "guard-attribution-direct-legacy-read-1-1-0-guard",
+      "started": "2026-09-29T22:26:05.699707+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-guard/TransactionHandleBenchmarks.dll",
+        "56f7a249e1ba65435bfdd959f3636ed29a0c7953",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "guard-attribution-direct-legacy-read-1-1-1-review",
+      "started": "2026-09-29T22:26:16.238135+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-review/TransactionHandleBenchmarks.dll",
+        "fe4d1725e6fab8f5127311776c16c50a8f51886f",
+        "steady",
+        "direct",
+        "legacy",
+        "read",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "cleanup-attribution-direct-ordinary-open-1-0-0-guard",
+      "started": "2026-09-29T22:26:26.783785+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-guard/TransactionHandleBenchmarks.dll",
+        "56f7a249e1ba65435bfdd959f3636ed29a0c7953",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "cleanup-attribution-direct-ordinary-open-1-0-1-final",
+      "started": "2026-09-29T22:26:37.324929+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final/TransactionHandleBenchmarks.dll",
+        "e3f328f9b6e5d350be06cab8e61467889c8a75eb",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "cleanup-attribution-direct-ordinary-open-1-1-0-final",
+      "started": "2026-09-29T22:26:47.897512+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-final/TransactionHandleBenchmarks.dll",
+        "e3f328f9b6e5d350be06cab8e61467889c8a75eb",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    },
+    {
+      "name": "cleanup-attribution-direct-ordinary-open-1-1-1-guard",
+      "started": "2026-09-29T22:26:58.477057+00:00",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-steady-guard/TransactionHandleBenchmarks.dll",
+        "56f7a249e1ba65435bfdd959f3636ed29a0c7953",
+        "steady",
+        "direct",
+        "ordinary",
+        "open",
+        "1",
+        "5",
+        "5"
+      ],
+      "tiered": "0",
+      "exit": 0
+    }
+  ]
+}

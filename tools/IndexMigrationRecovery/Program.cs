@@ -13,6 +13,10 @@ internal static class Program
     {
         var filename = args[1];
         var password = args[2] == "plain" ? null : "migration-recovery";
+        Console.WriteLine("STAGE:runtime:" + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription +
+            ":" + System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture);
+        Console.WriteLine("STAGE:child-start:" + string.Join(":", args));
+        Console.Out.Flush();
         if (args[0] == "create") Create(filename, password);
         else if (args[0] == "verify") Verify(filename, password);
         else
@@ -22,6 +26,8 @@ internal static class Program
             using var log = new FaultStream(Path.ChangeExtension(filename, null) + "-log.db", password, true, controller);
             try
             {
+                Console.WriteLine("STAGE:engine-open");
+                Console.Out.Flush();
                 using var engine = new LiteEngine(new EngineSettings
                 {
                     DataStream = data, LogStream = log, TransactionPageLimit = 8
@@ -119,6 +125,11 @@ internal static class Program
                 (_stage == "commit" && commit) || (_stage == "checkpoint" && !log && _committed);
             _committed |= commit;
             _triggered = hit;
+            if (hit)
+            {
+                Console.WriteLine("STAGE:" + _mode + ":" + _stage + ":write");
+                Console.Out.Flush();
+            }
             return hit;
         }
 

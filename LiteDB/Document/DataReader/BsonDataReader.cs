@@ -14,6 +14,7 @@ namespace LiteDB
     {
         private readonly IEnumerator<BsonValue> _source = null;
         private readonly EngineState _state = null;
+        private readonly EngineContext _context;
         private readonly string _collection = null;
         private readonly bool _hasValues;
 
@@ -48,6 +49,7 @@ namespace LiteDB
             _collection = collection;
             _source = values.GetEnumerator();
             _state = state;
+            _context = state.Context;
 
             try
             {
@@ -104,6 +106,10 @@ namespace LiteDB
             {
                 if (_source != null)
                 {
+                    // The first value was materialized under Query's operation lease.
+                    // Only advancing the source accesses storage after construction.
+                    using var operation = _state?.EnterOperation();
+                    using var scope = _context?.Enter();
                     _state.Validate(); // checks if engine still open
 
                     try
@@ -152,6 +158,8 @@ namespace LiteDB
 
             if (disposing)
             {
+                using var operation = _state?.EnterOperation();
+                using var scope = _context?.Enter();
                 _source?.Dispose();
             }
         }

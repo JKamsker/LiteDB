@@ -105,6 +105,7 @@ using the same artifact root automatically replays the retained coverage corpus.
 | `page` | slot payload model plus page/footer/accounting/overlap invariants |
 | `index` | scalar, multikey, unique, ordering, and key-moving update checks |
 | `shared` | real child processes, acknowledged ledgers, and owner-process death |
+| `shared-lifecycle` | observed native-waiter/owner death, reused handle WAL cuts, live snapshot retirement, checkpoint cuts and independent survivor deadlines |
 | `bson` | contiguous vs fragmented reader/writer round trips and mutations |
 | `parser` | fresh vs cached SQL/expression parsing, binding, malformed errors |
 | `mapper` | supported CLR shape round trips and cyclic failure isolation |
@@ -119,6 +120,7 @@ using the same artifact root automatically replays the retained coverage corpus.
 | `threaded-snapshot` | barrier-forced same-process writer/checkpoint overlap with multiple live snapshots |
 | `concurrent` | one-database multithreaded commits, unique contention, cursors, checkpoint, and rebuild |
 | `transaction-gate` | modeled reader counts, retired owners, foreign releases, and exclusive admission |
+| `transaction-interleavings` | forced concurrent actor schedules, callback dependencies, per-worker deadlines, exact cold transaction-state oracle; see [bounded explorer](../docs/audits/pr133-concurrency-explorer.md) |
 | `cursor-handoff` | retired-thread cursor snapshots, independent foreign transactions, and overlapping checkpoints |
 | `conflict` | barrier-forced writer/schema/drop/storage/rebuild conflicts with acknowledged-state checks |
 | `power-loss` | volatile/durable device model cut at every internal WAL/checkpoint phase |
@@ -284,3 +286,10 @@ including two torn recovery attempts. Full payload/index and untouched-data
 oracles also check read-only byte preservation and successful root/WAL removal on
 retry. The latest data/WAL images are saved before recovery checks. Keeping this
 target separate preserves the existing retirement corpus input and trace hashes.
+
+## Shared lifecycle concurrency audit
+
+`shared-lifecycle` uses ten bounded process-death schedules and alternates encryption
+every ten cases. Use at least 20 cases to cover every selected cut plain/encrypted.
+It keeps the existing `shared` corpus unchanged; see the [boundary matrix, oracle,
+replay and explicit limits](../docs/audits/pr133-multiprocess-campaign.md).

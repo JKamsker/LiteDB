@@ -10,14 +10,15 @@ namespace LiteDB.Engine
     public partial class LiteEngine
     {
         /// <summary>
-        /// Initialize a new transaction. Transaction are created "per-thread". There is only one single transaction per thread.
+        /// Initialize a transaction for the current engine context and actual thread.
         /// Return true when created; false joins the current thread transaction. Keep the block synchronous, with no await.
         /// </summary>
         public bool BeginTrans()
         {
+            using var operation = EnterPublicOperation();
             _state.Validate();
 
-            if (_settings.ReadOnly) throw new IOException("Cannot start a transaction in a read-only database.");
+            if (CurrentContext.Policy.ReadOnly) throw new ReadOnlyContextException("Cannot start a transaction in a read-only database.");
 
             var transacion = _monitor.GetTransaction(true, false, out var isNew);
 
@@ -37,6 +38,7 @@ namespace LiteDB.Engine
         /// </summary>
         public bool Commit()
         {
+            using var operation = EnterPublicOperation();
             _state.Validate();
 
             var transaction = this.GetTransactionForCompletion(commit: true);
@@ -60,15 +62,26 @@ namespace LiteDB.Engine
         /// <summary>
         /// Do rollback to current transaction. Clear dirty pages in memory and return new pages to main empty linked-list
         /// </summary>
-        public bool Rollback()
+        public bool Rollback() => Rollback(cleanup: false);
+
+        internal bool RollbackHandleOnDispose() => Rollback(cleanup: true);
+
+        private bool Rollback(bool cleanup)
         {
-            _state.Validate();
+            using var operation = EnterPublicOperation();
+            if (cleanup)
+            {
+                // Fatal publication makes the core unusable before retained readers
+                // allow physical teardown. The fatal owner already owns this cleanup.
+                if (_state.IsUnavailable) return false;
+            }
+            else _state.Validate();
 
             var transaction = this.GetTransactionForCompletion(commit: false);
 
             if (transaction != null && transaction.State == TransactionState.Active)
             {
-                this.RollbackAndReleaseTransaction(transaction);
+                this.RollbackAndReleaseTransaction(transaction, cleanup);
 
                 return true;
             }
@@ -87,7 +100,7 @@ namespace LiteDB.Engine
         {
             _state.Validate();
 
-            if (write && _settings.ReadOnly) throw new IOException("Cannot modify a read-only database.");
+            if (write && CurrentContext.Policy.ReadOnly) throw new ReadOnlyContextException("Cannot modify a read-only database.");
 
             var transaction = _monitor.GetTransaction(true, false, out var isNew);
 
@@ -105,9 +118,9 @@ namespace LiteDB.Engine
             {
                 if (_state.Handle(ex) && transaction.State == TransactionState.Active)
                 {
-                    this.RollbackAndReleaseTransaction(transaction);
-
-                    if (transaction.ExplicitTransaction) _monitor.MarkExplicitAbort();
+                    try { this.RollbackAndReleaseTransaction(transaction); }
+                    catch (Exception cleanup) { ex.Data["LiteDB.StatementRollback"] = cleanup; }
+                    finally { if (transaction.ExplicitTransaction) _monitor.MarkExplicitAbort(); }
                 }
 
                 throw;
@@ -130,14 +143,14 @@ namespace LiteDB.Engine
             }
 
             // try checkpoint when finish transaction and log file are bigger than checkpoint pragma value (in pages)
-            if (_header.Pragmas.Checkpoint > 0 &&
+            if (!CurrentContext.Policy.ReadOnly && _header.Pragmas.Checkpoint > 0 &&
                 _disk.GetFileLength(FileOrigin.Log) >= (_header.Pragmas.Checkpoint * PAGE_SIZE))
             {
                 _walIndex.TryAutoCheckpoint();
             }
         }
 
-        private void RollbackAndReleaseTransaction(TransactionService transaction)
+        private void RollbackAndReleaseTransaction(TransactionService transaction, bool cleanup = false)
         {
             try
             {
@@ -146,6 +159,10 @@ namespace LiteDB.Engine
             }
             catch (Exception ex)
             {
+                // A peer can publish failure after the initial availability check.
+                // Compare BEFORE Stop: Stop may publish this operation's own error
+                // unchanged (e.g. INVALID_DATAFILE_STATE), which must still escape.
+                if (cleanup && _state.IsPublishedFailure(ex)) return;
                 _state.Stop(ex);
                 throw;
             }

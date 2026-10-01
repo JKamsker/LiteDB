@@ -305,7 +305,10 @@ namespace LiteDB.Tests.Engine
             }
             finally
             {
-                buffer.ShareCounter = 0;
+                // Undo this fixture's synthetic marker; rollback deliberately left the
+                // frame alone, so the fixture must return its actual writable ownership.
+                buffer.ShareCounter = Constants.BUFFER_WRITABLE;
+                buffer.Cache.DiscardPage(buffer);
             }
 
             collection.Count().Should().Be(0);
@@ -406,7 +409,9 @@ namespace LiteDB.Tests.Engine
             var engineField = typeof(LiteDatabase).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)
                               ?? throw new InvalidOperationException("Unable to locate LiteDatabase engine field.");
 
-            if (engineField.GetValue(database) is not LiteEngine engine)
+            var inner = engineField.GetValue(database);
+            var engine = inner is LiteDB.Client.Direct.DirectEngineLease lease ? lease.Engine : inner as LiteEngine;
+            if (engine == null)
             {
                 throw new InvalidOperationException("LiteDatabase engine is not initialized.");
             }

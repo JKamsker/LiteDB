@@ -1,0 +1,78 @@
+{
+  "recorded_during_campaign_utc": "2026-09-29T22:30:17.963375+00:00",
+  "platform": "Linux-6.8.0-139-generic-x86_64-with-glibc2.39",
+  "cpu_model": "AMD Ryzen 9 3900X 12-Core Processor",
+  "cpu_count": 24,
+  "affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "load_snapshot": "8.58 6.40 5.45 11/2847 3137484",
+  "inherited_environment": {
+    "COMPlus_TieredCompilation": null,
+    "COMPlus_TieredPGO": null,
+    "COMPlus_ReadyToRun": null,
+    "COMPlus_gcServer": null,
+    "DOTNET_TieredCompilation": null,
+    "DOTNET_TieredPGO": null,
+    "DOTNET_ReadyToRun": null,
+    "DOTNET_gcServer": null,
+    "DOTNET_PROCESSOR_COUNT": null
+  },
+  "source_sha256": {
+    "tools/TransactionHandleBenchmarks/Program.cs": "822d3af6398282d5abca80566c1f65258288887dc7c5f19ca7721b949f4f0520",
+    "tools/TransactionHandleBenchmarks/SteadyState.cs": "271193a975e1b73a3a80e020033cabd81a61417445bb62faf359c71cf428e591",
+    "tools/TransactionHandleBenchmarks/TransactionHandleBenchmarks.csproj": "196616575240937d0f2a1d23c130bc00d78d0ac7c424083750f2c32f86252531",
+    "scripts/benchmark-transaction-handle-steady.py": "89f9f41b8c2bae83410f6e5518f8bcd187c15ba5f72b6e8bc5725065a3a11c81"
+  },
+  "runner_files_sha256": {
+    "parent": {
+      "TransactionHandleBenchmarks.deps.json": "9644bc41189da4251492c1c7152588533eb355447bebd7d311a8cf5477a9535c",
+      "TransactionHandleBenchmarks.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "LiteDB.dll": "4c555f2abb969064629b1d67a8b0fb02a8eb9e554113f4d4ad20c3802a4aafc4",
+      "TransactionHandleBenchmarks.dll": "8816b17bdaca621d5e0ccc5cf614d8c5cfa1082f99deabf1953c7041321a4597"
+    },
+    "review": {
+      "TransactionHandleBenchmarks.deps.json": "9644bc41189da4251492c1c7152588533eb355447bebd7d311a8cf5477a9535c",
+      "TransactionHandleBenchmarks.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "LiteDB.dll": "81523fc7ba917c8e57da898547265dc61c892e9473bc8f9d1aaa411de1fbfa07",
+      "TransactionHandleBenchmarks.dll": "4a796eea93d3c11696f09c74e71e9f9e4581b80c206d8eca032de3650e0fc455"
+    },
+    "guard": {
+      "TransactionHandleBenchmarks.deps.json": "9644bc41189da4251492c1c7152588533eb355447bebd7d311a8cf5477a9535c",
+      "TransactionHandleBenchmarks.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "LiteDB.dll": "a36f2b3a0f329588ad58048b3a4c21aa9d23ecadbfe4e990d6e3d8967a3d98f6",
+      "TransactionHandleBenchmarks.dll": "4325403f0f07961f11a6c8ae71310f00289eb88d5f11774afae6aeddc58ac580"
+    },
+    "final": {
+      "TransactionHandleBenchmarks.deps.json": "9644bc41189da4251492c1c7152588533eb355447bebd7d311a8cf5477a9535c",
+      "TransactionHandleBenchmarks.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "LiteDB.dll": "978ee6ce493547ad4c59f925959baa0ca9cd0ba87dc10cabea07c000ac5ea635",
+      "TransactionHandleBenchmarks.dll": "72d88733404f6839086e8425f44cee4e421b7b1a05a065f1d1c80f8c5efdac6f"
+    }
+  },
+  "library_build": "dotnet build LiteDB/LiteDB.csproj -c Release -f net10.0 -p:TestingEnabled=false in separate detached worktrees",
+  "controls": "No local builds/tests during campaign. Shared development host; unrelated load not controlled. No affinity pinning. Temp storage ext4."
+}

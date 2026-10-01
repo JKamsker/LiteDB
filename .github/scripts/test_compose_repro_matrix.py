@@ -45,17 +45,39 @@ class ReproMatrixTests(unittest.TestCase):
                 for m in [json.loads(path.read_text())]]
 
     def test_fixed_repros_are_replaced_by_real_test_methods_in_both_tiers(self):
-        for tier, count in [("pr", 2), ("full", 3)]:
+        policy = json.loads((ROOT / ".github/repro-ci.json").read_text())
+        platforms = json.loads((ROOT / ".github/os-matrix.json").read_text())
+        for tier in ("pr", "full"):
             with self.subTest(tier=tier):
                 entries, skipped, _ = self.compose(self.inventory(), tier)
-                self.assertEqual(count, len(entries))
                 self.assertEqual({"Issue_2561_TransactionMonitor"}, {e["repro"] for e in entries})
-                self.assertEqual(2, len(skipped))
+                labels = {label for platform, values in platforms.items() if platform in ("linux", "windows")
+                          for label in (values[:1] if tier == "pr" else values)}
+                self.assertEqual(labels, {e["os"] for e in entries})
+                self.assertEqual(len(labels), len(entries))
+                self.assertEqual(set(policy), {item.split(" (", 1)[0] for item in skipped})
 
     def test_manual_override_keeps_historical_reproductions_available(self):
         entries, skipped, _ = self.compose(self.inventory(), include_retired=True)
-        self.assertEqual(8, len(entries))
+        platforms = json.loads((ROOT / ".github/os-matrix.json").read_text())
+        expected = {(repro["name"], label) for repro in self.inventory()
+                    for platform, labels in platforms.items()
+                    if "any" in repro["supports"] or platform in repro["supports"]
+                    for label in labels}
+        self.assertEqual(expected, {(entry["repro"], entry["os"]) for entry in entries})
+        self.assertEqual(len(expected), len(entries))
         self.assertEqual([], skipped)
+
+    def test_commit_proofs_use_dedicated_feed_workflow_and_matching_permanent_guards(self):
+        policy = json.loads((ROOT / ".github/repro-ci.json").read_text())
+        proofs = json.loads((ROOT / ".github/safety/regression-proofs.json").read_text())["proofs"]
+        commit_proofs = [proof for proof in proofs if proof["knownBad"]["kind"] != "package"]
+        self.assertTrue(commit_proofs)
+        for proof in commit_proofs:
+            with self.subTest(repro=proof["repro"]):
+                self.assertIn(proof["repro"], policy)
+                self.assertIn("Regression proof", policy[proof["repro"]]["reason"])
+                self.assertEqual(set(proof["permanentGuard"]), set(policy[proof["repro"]]["tests"]))
 
     def test_new_repros_are_not_silently_retired(self):
         entries, _, _ = self.compose([{"name": "NewSafetyCheck"}])

@@ -14,9 +14,15 @@ namespace LiteDB
 
         private void OpenEngine(bool recoveredAbandonedOwner, bool final = false, bool writing = false)
         {
+            lock (_useLock)
+                if (_settings.HostLocalAdmissionActive && _mutexSnapshots.Count != 0)
+                    throw new InvalidOperationException("Dispose host-local streaming readers before opening a writable operation on this connection.");
             LiteDB.Engine.RebuildRecovery.EnsureAvailable(_settings);
+            // Admission must span fallback revocation and the operation engine's open.
+            // Even a transient conflict cannot permit an unadmitted writer to revoke peers.
+            using var admission = _settings.SharedAdmission.Retain();
 #if NET8_0_OR_GREATER
-            this.EnsureCoordination(allowCreate: !final, writing: true);
+            this.EnsureCoordination(allowCreate: !final, writing: !_settings.SharedModeReadOnly);
             // A fresh connection can attach only under ownership. Announce before
             // replay/open so cached peers yield during this writer's expensive work.
             if (writing) this.StartWriterPressure();
@@ -24,7 +30,7 @@ namespace LiteDB
             // mutations announce their own structural regions before touching storage.
             var recovering = _coordination?.BeginOpenRecovery() ?? false;
 #else
-            SharedCoordinationFallback.RevokeIfPresent(_settings.Filename);
+            if (!_settings.SharedModeReadOnly && !_settings.HostLocalAdmissionActive) SharedCoordinationFallback.RevokeIfPresent(_settings.Filename);
 #endif
             LiteDB.Engine.LiteEngine opened = null;
             try
@@ -45,7 +51,7 @@ namespace LiteDB
             {
                 // Opening is not complete until publication succeeds. Keep failed
                 // engines out of connection state and preserve the original error.
-                try { opened?.Close(checkpoint: false); }
+                try { if (opened != null) this.CloseRetainedCore(opened, checkpoint: false); }
                 catch (Exception) { /* Best effort after a failed open; no checkpoint. */ }
 #if NET8_0_OR_GREATER
                 try { if (recovering) _coordination.StructuralEnd(-1); }

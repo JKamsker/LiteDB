@@ -9,12 +9,15 @@ namespace LiteDB
     internal sealed class LiteDatabaseContext
     {
         public ILiteEngine Engine { get; }
+        internal ILiteEngine RawEngine { get; }
 
-        public BsonMapper Mapper { get; }
+        public BsonMapper Mapper { get; private set; }
+        internal void ReleaseMapper() => Mapper = null;
 
-        public LiteDatabaseContext(ILiteEngine engine, BsonMapper mapper)
+        public LiteDatabaseContext(ILiteEngine engine, BsonMapper mapper, SessionLifetime lifetime = null)
         {
-            this.Engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            RawEngine = engine;
+            this.Engine = new SessionEngine(engine ?? throw new ArgumentNullException(nameof(engine)), lifetime);
             this.Mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
     }

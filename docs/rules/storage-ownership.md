@@ -15,6 +15,13 @@ stop unsafe continuation, and make detected corruption visible.
 - Distinguish a transaction created by an operation from one it joined. A failed
   `BeginTrans`/join result or an occupied shared mutex alone does not establish
   explicit-transaction ownership. Include transparent public engine decorators.
+- User callbacks (lazy inputs, ReadTransform, custom streams) run inside the
+  ownership of their call or streamed result. A new blocking Shared acquisition
+  path must check the thread's executing frames (`SharedCallFrames`) before it
+  waits, so a callback cannot wait on ownership only its own return releases.
+  Work outside a public call that can reach user code under the mutex (result
+  disposal, pin and owner-exit cleanup, dispose checkpoints) needs a frame too.
+  Refuse only for frames that execute; idle owners stay waitable (#3073).
 - Keep publication, ownership handoff, and cleanup ordered. Cleanup after releasing
   a lock must not erase the next owner's state. Check abandoned-owner paths as
   well as ordinary completion.
@@ -57,6 +64,27 @@ Read [explicit transactions](../explicit-transactions.md),
   to the same construction-time absolute filename across every reopen. Retain
   degraded durability diagnostics across those reopenings without suppressing
   future device-sync attempts. See [shared-mode safety](../shared-mode-safety.md).
+- Validate native admission together with the runtime's file-sharing locks on
+  each OS. Darwin combines OFD and `flock` locks; admitted data streams must not
+  add whole-file locks that conflict with admission or obscure family probes.
+  Keep admission through ordinary buffered-stream finalization and transfer it
+  across replacement before publication. See [native admission](../native-database-admission.md).
+  Critical-finalizer ordering covers one collection, not unrelated objects across
+  GC generations. Preserve acquisition before buffered stream construction, and
+  control both generation and simultaneous root release in finalizer-order tests.
+  Verify native exclusion independently of registry, recovery-marker and mutex
+  refusals: those mechanisms can hide a prematurely closed OS handle. Admission
+  compatibility must include the storage/coordination namespace, not just inode
+  and mode; aliases must not create independent WAL or writer-mutex identities.
+
+Long-lived native-owner threads must not root the application graph whose
+abandonment signals their release. Check callbacks, captured execution contexts,
+disposed cancellation registrations, and fields on public settings subclasses.
+Copy effective configuration into a detached snapshot; preserve serialized policy
+and unset/default distinctions when adding settings. Test graph collection and
+native release with a committed indexed sentinel and abandoned writes. Reusable
+cleanup workers must return their callback stack frame and restore their execution
+context before becoming idle, and blocked workers must not starve unrelated owners.
 
 ## Buffers and cleanup
 

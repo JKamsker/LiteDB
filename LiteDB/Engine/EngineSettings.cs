@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using LiteDB.Client.Shared;
 
 using static LiteDB.Constants;
 
@@ -27,7 +28,16 @@ namespace LiteDB.Engine
         internal Func<bool> AutoRebuildAllowed { get; set; }
         // Shared mode: outlives each short-lived engine; rations close checkpoints too.
         internal CheckpointBackoff CheckpointBackoff { get; set; }
+        // Private rebuild/upgrade output; the live engine retains admission through publication.
+        internal bool RebuildCandidate { get; set; }
+        internal bool SharedMode { get; set; }
+        internal bool HostLocalAdmissionActive { get; set; }
+        internal SharedModeAdmission SharedAdmission { get; set; }
+        // Preserve connection admission intent when a query clones read-only snapshot settings.
+        internal bool SharedModeReadOnly { get; set; }
         internal bool SharedReadSnapshot { get; set; }
+        // A coordinator snapshot already owns its host-issued remote reader lease.
+        internal bool CoordinatedReadSnapshot { get; set; }
         internal Func<string, string, string[]> SharedReaderFiles { get; set; }
         internal SharedDurabilityState SharedDurability { get; set; }
         // Shared mode on Windows: data/log file handles kept open between operations.
@@ -38,6 +48,45 @@ namespace LiteDB.Engine
         // Experimental coordinator: set only on the coordinator's own engine.
         internal ICoordinationSignals CoordinationSignals { get; set; }
         internal EngineSettings Clone() => (EngineSettings)this.MemberwiseClone();
+
+        internal EngineSettings SnapshotForTransactionHolder()
+        {
+            // A native holder must not retain fields added by an application subclass:
+            // those fields can point back to the facade whose abandonment releases it.
+            var snapshot = this.GetType() == typeof(EngineSettings) ? this.Clone() : new EngineSettings
+            {
+                CompactStorage = this.CompactStorage,
+                MemoryProfile = this.MemoryProfile,
+                DataStream = this.DataStream,
+                LogStream = this.LogStream,
+                TempStream = this.TempStream,
+                Filename = this.Filename,
+                Password = this.Password,
+                InitialSize = this.InitialSize,
+                IndexMigrationLimitSize = this.IndexMigrationLimitSize,
+                CacheSize = this.CacheSize,
+                _transactionPageLimit = this._transactionPageLimit,
+                ReadOnly = this.ReadOnly,
+                AllowHostLocalAdmissionFallback = this.AllowHostLocalAdmissionFallback,
+                LegacyIndexScan = this.LegacyIndexScan,
+                AutoRebuild = this.AutoRebuild,
+                Upgrade = this.Upgrade,
+                RejectInvalidLocalTime = this.RejectInvalidLocalTime,
+                DurableCommits = this.DurableCommits,
+                LocalTimeZone = this.LocalTimeZone,
+                ReadTransform = this.ReadTransform,
+                SharedMutexNameStrategy = this.SharedMutexNameStrategy,
+                SharedReaderFiles = this.SharedReaderFiles,
+#if DEBUG || TESTING
+                CheckpointStage = this.CheckpointStage,
+#endif
+            };
+            // Creation/validation serialize collation through ToString. Preserve that
+            // policy without retaining its application object (including Culture).
+            snapshot.Collation = this.Collation == null ? null :
+                new Collation(this.Collation.ToString());
+            return snapshot;
+        }
 
         /// <summary>
         /// Select how documents are written. Auto uses compact writes when
@@ -113,6 +162,15 @@ namespace LiteDB.Engine
         /// Indicate that engine will open files in readonly mode (and will not support any database change)
         /// </summary>
         public bool ReadOnly { get; set; } = false;
+
+        /// <summary>
+        /// Opt in to host-local OS admission locks for an established local volume
+        /// whose database-file locking is unqualified. Defaults to false. All users
+        /// must share the host coordination and named-mutex namespaces; network
+        /// storage is unsupported. Shared streaming reads retain the writer mutex.
+        /// </summary>
+        public bool AllowHostLocalAdmissionFallback { get; set; }
+
 
         /// <summary>
         /// With <see cref="ReadOnly"/>, open a file whose indexes still need the v11 ordering
@@ -192,7 +250,7 @@ namespace LiteDB.Engine
             else if (!string.IsNullOrEmpty(this.Filename))
             {
                 return new FileStreamFactory(this.Filename, this.Password, this.ReadOnly, false, useAesStream,
-                    handles: this.SharedFileHandles);
+                    handles: this.SharedFileHandles, nativeAdmission: !this.RebuildCandidate);
             }
 
             throw new ArgumentException("EngineSettings must have Filename or DataStream as data source");

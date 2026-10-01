@@ -31,7 +31,8 @@ namespace LiteDB.Tests.QueryTest
 
         private static T InspectVectorIndex<T>(LiteDatabase db, string collection, Func<Snapshot, Collation, VectorIndexMetadata, T> selector)
         {
-            var engine = (LiteEngine)EngineField.GetValue(db);
+            var inner = EngineField.GetValue(db);
+            var engine = inner is LiteDB.Client.Direct.DirectEngineLease lease ? lease.Engine : (LiteEngine)inner;
             var header = (HeaderPage)HeaderField.GetValue(engine);
             var collation = header.Pragmas.Collation;
             var method = AutoTransactionMethod.MakeGenericMethod(typeof(T));

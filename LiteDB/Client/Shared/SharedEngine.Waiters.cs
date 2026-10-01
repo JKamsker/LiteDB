@@ -16,18 +16,33 @@ namespace LiteDB
         /// Enter the connection's mutex ownership, counted as a waiter meanwhile so that
         /// any pin of this instance, including one started after this call, ends for it.
         /// </summary>
-        private bool EnterOwner(bool scoped = false, bool writing = false)
+        private bool EnterOwner(bool scoped = false, bool writing = false, CancellationToken closing = default, TransactionAdmission admission = null)
         {
+            Engine.TransactionContext.ThrowIfSharedWait(_mutexName);
             if (_owner.IsOwnedByCurrentThread) return _owner.Enter(scoped);
+            // Refuse before waiting at the gate too: another thread of this connection can
+            // hold it only while it waits for the same native mutex.
+            this.ThrowIfCallerRetainsOwnership();
 #if NET8_0_OR_GREATER
             long request = 0;
             if (writing)
-                lock (_snapshotGate) request = _coordination?.RequestWriterTurn(System.Environment.TickCount64) ?? 0;
+                lock (_snapshotGate) request = this.RequestWriterPressure();
 #endif
             this.AddMutexWaiter();
             try
             {
-                var abandoned = _owner.Enter(scoped);
+                bool abandoned;
+                if (admission != null) abandoned = admission.EnterNative(_owner, scoped);
+                else if (!closing.CanBeCanceled) abandoned = _owner.Enter(scoped, SessionCallContext.Closing);
+                else
+                {
+                    closing.ThrowIfCancellationRequested();
+                    while (!_owner.TryEnter(out abandoned, scoped))
+                    {
+                        closing.WaitHandle.WaitOne(10);
+                        closing.ThrowIfCancellationRequested();
+                    }
+                }
 #if NET8_0_OR_GREATER
                 // A queued writer must not replace the current owner's local token.
                 if (writing) Interlocked.Exchange(ref _writerRequest, request);
@@ -55,7 +70,7 @@ namespace LiteDB
             // here because engine opening can already hold useLock.
             if (Interlocked.Read(ref _writerRequest) == 0)
                 Interlocked.Exchange(ref _writerRequest,
-                    _coordination?.RequestWriterTurn(System.Environment.TickCount64) ?? 0);
+                    this.RequestWriterPressure());
 #endif
         }
 
@@ -88,7 +103,11 @@ namespace LiteDB
         {
             lock (_waitersLock)
             {
-                while (_mutexWaiters > 0) Monitor.Wait(_waitersLock);
+                while (_mutexWaiters > 0)
+                {
+                    SessionCallContext.Closing.ThrowIfCancellationRequested();
+                    Monitor.Wait(_waitersLock, 10);
+                }
             }
         }
     }

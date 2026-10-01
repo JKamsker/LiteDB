@@ -1,4 +1,4 @@
-using LiteDB.Utils;
+﻿using LiteDB.Utils;
 
 using System;
 using System.Collections.Concurrent;
@@ -21,8 +21,27 @@ namespace LiteDB.Engine
         #region Services instances
 
         private LockService _locker;
+        private readonly OperationLifetime _operations;
+        internal bool IsExecutingOnCurrentThread => _operations.IsExecutingOnCurrentThread;
+        internal OperationLifetime.Lease EnterOperation(bool continuation = false) =>
+            _operations.Enter(continuation);
+        private void ValidatePublicDispatch()
+        {
+            var authorized = TransactionContext.ConsumeDispatch(this);
+            if (TransactionContext.For(CurrentContext) != null && !authorized)
+                throw new TransactionCapabilityException("Raw engine reentry from a transaction callback is unsupported. Use ordinary database objects for independent work.");
+        }
+        private OperationLifetime.Lease EnterPublicOperation()
+        { ValidatePublicDispatch(); return EnterOperation(); }
+        internal void StopAfterOperations(Exception error, EngineState origin) => _operations.Stop(() =>
+        {
+            var errors = this.Close(error, origin);
+            for (var i = 0; i < errors.Count; i++)
+                if (!ReferenceEquals(errors[i], error)) error.Data["LiteDB.FatalCleanup." + i] = errors[i];
+        });
 
         private DiskService _disk;
+        private IDisposable _modeGuard;
 
         private WalIndexService _walIndex;
 
@@ -73,6 +92,9 @@ namespace LiteDB.Engine
         public LiteEngine(EngineSettings settings)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _operations = new OperationLifetime(() => _locker?.IsInTransaction == true);
+            _defaultContext = new EngineContext(this, settings);
+            LiteDB.Client.Shared.SharedModeGuard.Normalize(_settings);
 
             this.Open();
         }
@@ -96,6 +118,9 @@ namespace LiteDB.Engine
                 // A failed rebuild may have left stale data or no canonical file.
                 // Check before upgrade, recovery, or DiskService can create a new file.
                 RebuildRecovery.EnsureAvailable(_settings);
+                _modeGuard ??= !_settings.RebuildCandidate && _settings.SharedAdmission != null
+                    ? _settings.SharedAdmission.Retain()
+                    : LiteDB.Client.Shared.SharedModeGuard.Open(_settings);
 
                 // before initilize, try if must be upgrade
                 if (_settings.Upgrade) this.TryUpgrade();
@@ -154,7 +179,7 @@ namespace LiteDB.Engine
                 }
 
                 // initialize locker service
-                _locker = new LockService(_header.Pragmas);
+                _locker = new LockService(_header.Pragmas, () => (object)TransactionContext.For(CurrentContext) ?? Thread.CurrentThread);
 
                 // initialize wal-index service
                 _walIndex = new WalIndexService(_disk, _locker, _settings.SharedReaderVersions, () => _header,
@@ -169,10 +194,11 @@ namespace LiteDB.Engine
                 this.ValidateCollationStamp();
 
                 // initialize sort temp disk
-                _sortDisk = new SortDisk(_settings.CreateTempFactory(), CONTAINER_SORT_SIZE, _header.Pragmas);
+                _sortDisk = new SortDisk(_settings.CreateTempFactory(), CONTAINER_SORT_SIZE, _header.Pragmas,
+                    cleanupExistingFile: !_settings.ReadOnly);
 
                 // initialize transaction monitor as last service
-                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _settings.TransactionPageLimit);
+                _monitor = new TransactionMonitor(_header, _locker, _disk, _walIndex, _settings.TransactionPageLimit, () => CurrentContext);
 
                 this.MigrateIndexOrdering();
                 _disk.TrimTrailingPages();
@@ -208,8 +234,9 @@ namespace LiteDB.Engine
         /// <summary>The opened header marks the data file invalid (a rebuild is due).</summary>
         internal bool InvalidDatafileState { get; private set; }
 
-        internal List<Exception> Close(bool checkpoint = true, bool final = false)
+        internal List<Exception> Close(bool checkpoint = true, bool final = false, bool releaseMode = true)
         {
+            using var exclusive = _operations.Exclusive(() => true, stopWaiters: () => _locker?.StopWaiters(), closing: true);
             if (_state.Disposed) return new List<Exception>();
 
             _state.Disposed = true;
@@ -234,6 +261,7 @@ namespace LiteDB.Engine
             // dispose lockers
             tc.Catch(() => _locker?.Dispose());
 
+            if (releaseMode) tc.Catch(this.ReleaseModeGuard);
             return tc.Exceptions;
         }
 
@@ -284,7 +312,15 @@ namespace LiteDB.Engine
             // close engine lock service
             tc.Catch(() => _locker?.Dispose());
 
+            tc.Catch(this.ReleaseModeGuard);
             return tc.Exceptions;
+        }
+
+        private void ReleaseModeGuard()
+        {
+            var guard = _modeGuard;
+            _modeGuard = null;
+            guard?.Dispose();
         }
 
         #endregion
@@ -308,8 +344,9 @@ namespace LiteDB.Engine
         /// </summary>
         public int Checkpoint()
         {
+            using var operation = EnterPublicOperation();
             _state.Validate();
-            try { return _settings.ReadOnly ? 0 : _walIndex.Checkpoint(); }
+            try { return CurrentContext.Policy.ReadOnly ? 0 : _walIndex.Checkpoint(); }
             catch (Exception ex)
             {
                 _state.Handle(ex);
@@ -318,6 +355,7 @@ namespace LiteDB.Engine
         }
 
         internal int ReadVersion => _walIndex.CurrentReadVersion;
+        internal bool IsDisposed => _state.Disposed;
 
         public void Dispose()
         {
@@ -327,7 +365,17 @@ namespace LiteDB.Engine
 
         protected virtual void Dispose(bool disposing)
         {
-            this.Close();
+            ValidatePublicDispatch();
+            var errors = this.Close();
+            _defaultContext.DisposeSlots();
+            ThrowCleanupErrors(errors);
+        }
+
+        internal static void ThrowCleanupErrors(List<Exception> errors)
+        {
+            if (errors.Count == 0) return;
+            for (var i = 1; i < errors.Count; i++) errors[0].Data["LiteDB.EngineCleanup." + i] = errors[i];
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(errors[0]).Throw();
         }
     }
 }

@@ -78,3 +78,13 @@ jobs:
           dotnet run --project tools/IndexCompatibility/Current/Current.csproj -c Release -p:TestingEnabled=true -- verify artifacts_temp/index-fixtures
       - name: Test migration process termination and partial I/O
         run: python scripts/test-index-migration-recovery.py
+      - name: Test migration failure evidence retention
+        if: always()
+        run: python scripts/test-index-migration-evidence.py
+      - name: Upload migration failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-failure-${{ matrix.source }}-${{ matrix.target }}-${{ github.run_attempt }}
+          path: artifacts_temp/index-migration-recovery
+          if-no-files-found: ignore

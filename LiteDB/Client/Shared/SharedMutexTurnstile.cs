@@ -1,3 +1,5 @@
+using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace LiteDB.Client.Shared
@@ -18,6 +20,7 @@ namespace LiteDB.Client.Shared
         private readonly Mutex _turn;
 #if DEBUG || TESTING
         internal System.Action BeforeMainWait { get; set; }
+        internal Action<Mutex> BeforeContendedWait;
 #endif
 
         public SharedMutexTurnstile(Mutex turn)
@@ -29,15 +32,15 @@ namespace LiteDB.Client.Shared
         /// Block until <paramref name="mutex"/> is owned, queued at the turnstile.
         /// Throws <see cref="AbandonedMutexException"/> as <see cref="WaitHandle.WaitOne()"/> does.
         /// </summary>
-        public void Wait(Mutex mutex)
+        public void Wait(Mutex mutex, CancellationToken closing = default)
         {
-            var queued = this.Enter();
+            var queued = this.Enter(closing);
             try
             {
 #if DEBUG || TESTING
                 this.BeforeMainWait?.Invoke();
 #endif
-                mutex.WaitOne();
+                WaitCancellable(mutex, closing);
             }
             finally
             {
@@ -69,11 +72,40 @@ namespace LiteDB.Client.Shared
             return false;
         }
 
-        private bool Enter()
+        private void WaitCancellable(Mutex mutex, CancellationToken closing)
+        {
+            if (!closing.CanBeCanceled) { mutex.WaitOne(); return; }
+            closing.ThrowIfCancellationRequested();
+            if (mutex.WaitOne(0)) return;
+#if DEBUG || TESTING
+            this.BeforeContendedWait?.Invoke(mutex);
+#endif
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // Keep a contended waiter in the kernel queue until ownership or
+                // cancellation. The uncontended path needs no event or array.
+                // Dispose registration before its event, including an in-flight
+                // cancellation callback. Do not cache a native event on the session.
+                using var cancelled = new ManualResetEvent(false);
+                using var registration = closing.Register(state => ((EventWaitHandle)state).Set(),
+                    cancelled, useSynchronizationContext: false);
+                if (WaitHandle.WaitAny(new WaitHandle[] { cancelled, mutex }) == 0)
+                    throw new OperationCanceledException(closing);
+                return;
+            }
+            // Unix does not support WaitAny containing a named mutex. Each timed
+            // wait still wakes immediately on release; this is not a 10 ms sleep.
+            // Once acquired, the turnstile stays owned throughout the main wait,
+            // preventing cooperating writers from barging ahead of this waiter.
+            do { closing.ThrowIfCancellationRequested(); } while (!mutex.WaitOne(10));
+        }
+
+        private bool Enter(CancellationToken closing)
         {
             try
             {
-                return _turn.WaitOne();
+                WaitCancellable(_turn, closing);
+                return true;
             }
             catch (AbandonedMutexException)
             {

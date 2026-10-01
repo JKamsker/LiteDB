@@ -1,0 +1,821 @@
+[
+  {
+    "group": "final-paired",
+    "case": "direct-ordinary-read-1",
+    "versions": {
+      "parent": {
+        "medianOps": 85934.8544289945,
+        "minOps": 85618.01142937958,
+        "maxOps": 86251.69742860942,
+        "medianBytesPerOp": 10264.000027928352,
+        "medianWindowP95us": 15.2035,
+        "medianWindowP99us": 18.79,
+        "runs": [
+          {
+            "name": "final-paired-direct-ordinary-read-1-0-0-parent",
+            "opsPerSecond": 85618.01142937958,
+            "bytesPerOp": 10264.000028031325,
+            "windowOpsMin": 78041.26492932564,
+            "windowOpsMax": 91449.76341946203,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-direct-ordinary-read-1-1-1-parent",
+            "opsPerSecond": 86251.69742860942,
+            "bytesPerOp": 10264.000027825377,
+            "windowOpsMin": 79587.5907606083,
+            "windowOpsMax": 91921.11764919168,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 79051.05663868932,
+        "minOps": 77294.18437952333,
+        "maxOps": 80807.92889785531,
+        "medianBytesPerOp": 10248.000030374898,
+        "medianWindowP95us": 15.043,
+        "medianWindowP99us": 19.897,
+        "runs": [
+          {
+            "name": "final-paired-direct-ordinary-read-1-0-1-final",
+            "opsPerSecond": 77294.18437952333,
+            "bytesPerOp": 10248.000031049914,
+            "windowOpsMin": 72307.4067900347,
+            "windowOpsMax": 81740.30561610378,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-direct-ordinary-read-1-1-0-final",
+            "opsPerSecond": 80807.92889785531,
+            "bytesPerOp": 10248.000029699882,
+            "windowOpsMin": 72800.9450352865,
+            "windowOpsMax": 84808.61717390208,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.9027794863383156,
+      0.9368850852441493
+    ],
+    "medianPairedRatio": 0.9198322857912324
+  },
+  {
+    "group": "final-paired",
+    "case": "direct-legacy-read-1",
+    "versions": {
+      "parent": {
+        "medianOps": 86095.15864883499,
+        "minOps": 85946.43921134595,
+        "maxOps": 86243.87808632402,
+        "medianBytesPerOp": 10192.00002787591,
+        "medianWindowP95us": 12.498000000000001,
+        "medianWindowP99us": 17.708,
+        "runs": [
+          {
+            "name": "final-paired-direct-legacy-read-1-0-0-parent",
+            "opsPerSecond": 86243.87808632402,
+            "bytesPerOp": 10192.000027827926,
+            "windowOpsMin": 81891.16569280392,
+            "windowOpsMax": 90203.95570985775,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-direct-legacy-read-1-1-1-parent",
+            "opsPerSecond": 85946.43921134595,
+            "bytesPerOp": 10192.000027923894,
+            "windowOpsMin": 77608.68739220718,
+            "windowOpsMax": 90816.76968867207,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 75095.59283522458,
+        "minOps": 74515.90885854281,
+        "maxOps": 75675.27681190637,
+        "medianBytesPerOp": 10128.000031960913,
+        "medianWindowP95us": 15.6695,
+        "medianWindowP99us": 20.834,
+        "runs": [
+          {
+            "name": "final-paired-direct-legacy-read-1-0-1-final",
+            "opsPerSecond": 74515.90885854281,
+            "bytesPerOp": 10128.000032207718,
+            "windowOpsMin": 69267.99819903205,
+            "windowOpsMax": 79932.36845435684,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-direct-legacy-read-1-1-0-final",
+            "opsPerSecond": 75675.27681190637,
+            "bytesPerOp": 10128.000031714108,
+            "windowOpsMin": 72487.43104615372,
+            "windowOpsMax": 79961.30761503737,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.8640138930667943,
+      0.8804934504129677
+    ],
+    "medianPairedRatio": 0.872253671739881
+  },
+  {
+    "group": "final-paired",
+    "case": "direct-ordinary-open-1",
+    "versions": {
+      "parent": {
+        "medianOps": 16448.431856797382,
+        "minOps": 16366.394596222655,
+        "maxOps": 16530.469117372108,
+        "medianBytesPerOp": 29208.00014591005,
+        "medianWindowP95us": 69.7955,
+        "medianWindowP99us": 86.1455,
+        "runs": [
+          {
+            "name": "final-paired-direct-ordinary-open-1-0-0-parent",
+            "opsPerSecond": 16366.394596222655,
+            "bytesPerOp": 29208.00014663832,
+            "windowOpsMin": 15555.120451269204,
+            "windowOpsMax": 16923.66330371857,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-direct-ordinary-open-1-1-1-parent",
+            "opsPerSecond": 16530.469117372108,
+            "bytesPerOp": 29208.00014518178,
+            "windowOpsMin": 15304.931893053075,
+            "windowOpsMax": 17843.677136505892,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 10901.645500456665,
+        "minOps": 10845.819122568439,
+        "maxOps": 10957.471878344892,
+        "medianBytesPerOp": 29920.00022014788,
+        "medianWindowP95us": 107.561,
+        "medianWindowP99us": 127.0375,
+        "runs": [
+          {
+            "name": "final-paired-direct-ordinary-open-1-0-1-final",
+            "opsPerSecond": 10845.819122568439,
+            "bytesPerOp": 29920.000221277693,
+            "windowOpsMin": 10379.830113320535,
+            "windowOpsMax": 11533.824524393685,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-direct-ordinary-open-1-1-0-final",
+            "opsPerSecond": 10957.471878344892,
+            "bytesPerOp": 29920.000219018068,
+            "windowOpsMin": 10319.493044584693,
+            "windowOpsMax": 11602.40502867013,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.6626883556303623,
+      0.6628651492309754
+    ],
+    "medianPairedRatio": 0.6627767524306689
+  },
+  {
+    "group": "final-paired",
+    "case": "shared-ordinary-read-1",
+    "versions": {
+      "parent": {
+        "medianOps": 49848.36655272545,
+        "minOps": 48908.18163196452,
+        "maxOps": 50788.55147348638,
+        "medianBytesPerOp": 10544.00116861768,
+        "medianWindowP95us": 22.272,
+        "medianWindowP99us": 30.903,
+        "runs": [
+          {
+            "name": "final-paired-shared-ordinary-read-1-0-0-parent",
+            "opsPerSecond": 50788.55147348638,
+            "bytesPerOp": 10544.000047254234,
+            "windowOpsMin": 47109.52004820974,
+            "windowOpsMax": 53158.98033117728,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-shared-ordinary-read-1-1-1-parent",
+            "opsPerSecond": 48908.18163196452,
+            "bytesPerOp": 10544.002289981128,
+            "windowOpsMin": 45197.81373980958,
+            "windowOpsMax": 51392.32223805432,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 46756.66121008442,
+        "minOps": 46143.40294063203,
+        "maxOps": 47369.9194795368,
+        "medianBytesPerOp": 10552.000051337935,
+        "medianWindowP95us": 23.91,
+        "medianWindowP99us": 32.641000000000005,
+        "runs": [
+          {
+            "name": "final-paired-shared-ordinary-read-1-0-1-final",
+            "opsPerSecond": 47369.9194795368,
+            "bytesPerOp": 10552.00005066455,
+            "windowOpsMin": 44223.14857172054,
+            "windowOpsMax": 49745.170847492314,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-shared-ordinary-read-1-1-0-final",
+            "opsPerSecond": 46143.40294063203,
+            "bytesPerOp": 10552.00005201132,
+            "windowOpsMin": 41272.662389621655,
+            "windowOpsMax": 48039.74755112662,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.9326889250674093,
+      0.9434700166909183
+    ],
+    "medianPairedRatio": 0.9380794708791638
+  },
+  {
+    "group": "final-paired",
+    "case": "shared-legacy-read-1",
+    "versions": {
+      "parent": {
+        "medianOps": 7764.216666042925,
+        "minOps": 7663.728520362474,
+        "maxOps": 7864.704811723376,
+        "medianBytesPerOp": 152131.77869318932,
+        "medianWindowP95us": 137.662,
+        "medianWindowP99us": 485.111,
+        "runs": [
+          {
+            "name": "final-paired-shared-legacy-read-1-0-0-parent",
+            "opsPerSecond": 7663.728520362474,
+            "bytesPerOp": 152131.77866210873,
+            "windowOpsMin": 6961.391609180316,
+            "windowOpsMax": 8139.846759244911,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-shared-legacy-read-1-1-1-parent",
+            "opsPerSecond": 7864.704811723376,
+            "bytesPerOp": 152131.77872426988,
+            "windowOpsMin": 7246.977023970273,
+            "windowOpsMax": 8303.608700743587,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 7825.672258559476,
+        "minOps": 7778.017059031797,
+        "maxOps": 7873.327458087155,
+        "medianBytesPerOp": 152491.63820389728,
+        "medianWindowP95us": 136.46,
+        "medianWindowP99us": 471.31550000000004,
+        "runs": [
+          {
+            "name": "final-paired-shared-legacy-read-1-0-1-final",
+            "opsPerSecond": 7873.327458087155,
+            "bytesPerOp": 152491.63663148804,
+            "windowOpsMin": 7143.5964225201105,
+            "windowOpsMax": 8215.203864593483,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "final-paired-shared-legacy-read-1-1-0-final",
+            "opsPerSecond": 7778.017059031797,
+            "bytesPerOp": 152491.6397763065,
+            "windowOpsMin": 7232.482219365434,
+            "windowOpsMax": 8253.857381598304,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      1.027349473192817,
+      0.9889776215678991
+    ],
+    "medianPairedRatio": 1.008163547380358
+  },
+  {
+    "group": "handle-fixed-cost",
+    "case": "shared-adapter-read-0",
+    "versions": {
+      "final-legacy": {
+        "medianOps": 11154.856105020419,
+        "minOps": 10912.284794110956,
+        "maxOps": 11397.427415929884,
+        "medianBytesPerOp": 143002.8500428364,
+        "medianWindowP95us": 106.634,
+        "medianWindowP99us": 436.0745,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-0-0-0-final-legacy",
+            "opsPerSecond": 10912.284794110956,
+            "bytesPerOp": 143002.8479111494,
+            "windowOpsMin": 9888.927336161934,
+            "windowOpsMax": 11661.989562519342,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-0-1-1-final-legacy",
+            "opsPerSecond": 11397.427415929884,
+            "bytesPerOp": 143002.85217452337,
+            "windowOpsMin": 10404.593981529059,
+            "windowOpsMax": 12110.38637883257,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final-handle": {
+        "medianOps": 1448.2993214501385,
+        "minOps": 1442.5661528776798,
+        "maxOps": 1454.032490022597,
+        "medianBytesPerOp": 227777.39979113295,
+        "medianWindowP95us": 830.121,
+        "medianWindowP99us": 1198.3674999999998,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-0-0-1-final-handle",
+            "opsPerSecond": 1442.5661528776798,
+            "bytesPerOp": 227781.94623059867,
+            "windowOpsMin": 1363.2027921911128,
+            "windowOpsMax": 1478.6426357332257,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-0-1-0-final-handle",
+            "opsPerSecond": 1454.032490022597,
+            "bytesPerOp": 227772.85335166723,
+            "windowOpsMin": 1383.8671487537194,
+            "windowOpsMax": 1503.1445769558447,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.13219652713391342,
+      0.12757549901044635
+    ],
+    "medianPairedRatio": 0.1298860130721799
+  },
+  {
+    "group": "handle-fixed-cost",
+    "case": "shared-adapter-read-1",
+    "versions": {
+      "final-legacy": {
+        "medianOps": 7502.266324913188,
+        "minOps": 7110.493659763658,
+        "maxOps": 7894.038990062719,
+        "medianBytesPerOp": 152491.71685270162,
+        "medianWindowP95us": 156.6235,
+        "medianWindowP99us": 495.6685,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-1-0-0-final-legacy",
+            "opsPerSecond": 7110.493659763658,
+            "bytesPerOp": 152491.79530593017,
+            "windowOpsMin": 6010.825048926126,
+            "windowOpsMax": 7748.323363552331,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-1-1-1-final-legacy",
+            "opsPerSecond": 7894.038990062719,
+            "bytesPerOp": 152491.63839947307,
+            "windowOpsMin": 7091.847227223093,
+            "windowOpsMax": 8235.426493134446,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final-handle": {
+        "medianOps": 1311.0915126270402,
+        "minOps": 1308.5210981579964,
+        "maxOps": 1313.661927096084,
+        "medianBytesPerOp": 237911.41229898858,
+        "medianWindowP95us": 912.3645,
+        "medianWindowP99us": 1287.9834999999998,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-1-0-1-final-handle",
+            "opsPerSecond": 1308.5210981579964,
+            "bytesPerOp": 237912.1705118411,
+            "windowOpsMin": 1276.4378899406552,
+            "windowOpsMax": 1342.2964460561714,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-1-1-0-final-handle",
+            "opsPerSecond": 1313.661927096084,
+            "bytesPerOp": 237910.65408613606,
+            "windowOpsMin": 1287.181306350634,
+            "windowOpsMax": 1359.31794047428,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.18402675830548307,
+      0.16641188734306553
+    ],
+    "medianPairedRatio": 0.1752193228242743
+  },
+  {
+    "group": "handle-fixed-cost",
+    "case": "shared-adapter-read-10",
+    "versions": {
+      "final-legacy": {
+        "medianOps": 4805.603275601345,
+        "minOps": 4769.617100324552,
+        "maxOps": 4841.5894508781375,
+        "medianBytesPerOp": 215640.44687112665,
+        "medianWindowP95us": 247.904,
+        "medianWindowP99us": 563.851,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-10-0-0-final-legacy",
+            "opsPerSecond": 4769.617100324552,
+            "bytesPerOp": 215640.41776026163,
+            "windowOpsMin": 4468.469244160117,
+            "windowOpsMax": 5026.601460876573,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-10-1-1-final-legacy",
+            "opsPerSecond": 4841.5894508781375,
+            "bytesPerOp": 215640.47598199165,
+            "windowOpsMin": 4432.532605648367,
+            "windowOpsMax": 5095.4439138239095,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final-handle": {
+        "medianOps": 1128.6884413821676,
+        "minOps": 1126.962682562446,
+        "maxOps": 1130.4142002018893,
+        "medianBytesPerOp": 302132.6984527324,
+        "medianWindowP95us": 1126.189,
+        "medianWindowP99us": 1494.6135,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-10-0-1-final-handle",
+            "opsPerSecond": 1130.4142002018893,
+            "bytesPerOp": 302119.820320099,
+            "windowOpsMin": 1096.106999435346,
+            "windowOpsMax": 1202.6555137599496,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-10-1-0-final-handle",
+            "opsPerSecond": 1126.962682562446,
+            "bytesPerOp": 302145.57658536587,
+            "windowOpsMin": 1092.0091622106406,
+            "windowOpsMax": 1169.8264480576454,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.2370031338836339,
+      0.23276708898934922
+    ],
+    "medianPairedRatio": 0.23488511143649154
+  },
+  {
+    "group": "handle-fixed-cost",
+    "case": "shared-adapter-read-100",
+    "versions": {
+      "final-legacy": {
+        "medianOps": 1049.8736107926825,
+        "minOps": 1041.8787188405458,
+        "maxOps": 1057.8685027448191,
+        "medianBytesPerOp": 847128.8139038766,
+        "medianWindowP95us": 1212.3295,
+        "medianWindowP99us": 1348.068,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-100-0-0-final-legacy",
+            "opsPerSecond": 1057.8685027448191,
+            "bytesPerOp": 847128.8034769463,
+            "windowOpsMin": 1000.4451651167683,
+            "windowOpsMax": 1112.4687060828803,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-100-1-1-final-legacy",
+            "opsPerSecond": 1041.8787188405458,
+            "bytesPerOp": 847128.8243308068,
+            "windowOpsMin": 936.829756486162,
+            "windowOpsMax": 1091.9040696760546,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final-handle": {
+        "medianOps": 650.8292245665439,
+        "minOps": 650.4442967093481,
+        "maxOps": 651.2141524237396,
+        "medianBytesPerOp": 944643.7721076761,
+        "medianWindowP95us": 1917.299,
+        "medianWindowP99us": 2076.9880000000003,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-100-0-1-final-handle",
+            "opsPerSecond": 650.4442967093481,
+            "bytesPerOp": 944639.729605162,
+            "windowOpsMin": 608.2083681521805,
+            "windowOpsMax": 664.9410436673043,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-shared-adapter-read-100-1-0-final-handle",
+            "opsPerSecond": 651.2141524237396,
+            "bytesPerOp": 944647.8146101903,
+            "windowOpsMin": 624.7955937479362,
+            "windowOpsMax": 666.3600817526514,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.614863090281694,
+      0.6250383472161164
+    ],
+    "medianPairedRatio": 0.6199507187489052
+  },
+  {
+    "group": "handle-fixed-cost",
+    "case": "direct-adapter-read-1",
+    "versions": {
+      "final-legacy": {
+        "medianOps": 64301.22386830553,
+        "minOps": 54296.468880607434,
+        "maxOps": 74305.97885600364,
+        "medianBytesPerOp": 10128.000038250058,
+        "medianWindowP95us": 20.103,
+        "medianWindowP99us": 23.558999999999997,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-direct-adapter-read-1-0-0-final-legacy",
+            "opsPerSecond": 74305.97885600364,
+            "bytesPerOp": 10128.000032298698,
+            "windowOpsMin": 66565.7135011691,
+            "windowOpsMax": 79097.95728710305,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-direct-adapter-read-1-1-1-final-legacy",
+            "opsPerSecond": 54296.468880607434,
+            "bytesPerOp": 10128.000044201419,
+            "windowOpsMin": 43391.12380303705,
+            "windowOpsMax": 76825.64921408569,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final-handle": {
+        "medianOps": 54896.726502548,
+        "minOps": 47200.90515059284,
+        "maxOps": 62592.54785450316,
+        "medianBytesPerOp": 11520.000044594333,
+        "medianWindowP95us": 23.012999999999998,
+        "medianWindowP99us": 27.281,
+        "runs": [
+          {
+            "name": "handle-fixed-cost-direct-adapter-read-1-0-1-final-handle",
+            "opsPerSecond": 62592.54785450316,
+            "bytesPerOp": 11520.000038342823,
+            "windowOpsMin": 57701.287619903036,
+            "windowOpsMax": 65915.48282712174,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "handle-fixed-cost-direct-adapter-read-1-1-0-final-handle",
+            "opsPerSecond": 47200.90515059284,
+            "bytesPerOp": 11520.000050845842,
+            "windowOpsMin": 37577.47128497902,
+            "windowOpsMax": 66807.5106349846,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.8423622004334301,
+      0.8693181365879051
+    ],
+    "medianPairedRatio": 0.8558401685106676
+  },
+  {
+    "group": "default-tiering",
+    "case": "direct-ordinary-read-1",
+    "versions": {
+      "parent": {
+        "medianOps": 187336.164378604,
+        "minOps": 182831.70472683085,
+        "maxOps": 191840.62403037716,
+        "medianBytesPerOp": 10200.000025636484,
+        "medianWindowP95us": 7.2035,
+        "medianWindowP99us": 8.585999999999999,
+        "runs": [
+          {
+            "name": "default-tiering-direct-ordinary-read-1-0-0-parent",
+            "opsPerSecond": 191840.62403037716,
+            "bytesPerOp": 10200.000025020681,
+            "windowOpsMin": 177183.10876896288,
+            "windowOpsMax": 206194.5577126737,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "default-tiering-direct-ordinary-read-1-1-1-parent",
+            "opsPerSecond": 182831.70472683085,
+            "bytesPerOp": 10200.000026252288,
+            "windowOpsMin": 162275.41499712892,
+            "windowOpsMax": 193882.10833618377,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 166923.8307737132,
+        "minOps": 166879.8443849601,
+        "maxOps": 166967.81716246632,
+        "medianBytesPerOp": 10184.014780313692,
+        "medianWindowP95us": 7.9545,
+        "medianWindowP99us": 9.5425,
+        "runs": [
+          {
+            "name": "default-tiering-direct-ordinary-read-1-0-1-final",
+            "opsPerSecond": 166967.81716246632,
+            "bytesPerOp": 10184.014776457567,
+            "windowOpsMin": 147602.32914741404,
+            "windowOpsMax": 179848.51332992292,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "default-tiering-direct-ordinary-read-1-1-0-final",
+            "opsPerSecond": 166879.8443849601,
+            "bytesPerOp": 10184.014784169816,
+            "windowOpsMin": 146400.31513932577,
+            "windowOpsMax": 183077.78433437005,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.8703465077137554,
+      0.9127511261479269
+    ],
+    "medianPairedRatio": 0.8915488169308412
+  },
+  {
+    "group": "default-tiering",
+    "case": "direct-legacy-read-1",
+    "versions": {
+      "parent": {
+        "medianOps": 178236.51321484064,
+        "minOps": 177923.95022658881,
+        "maxOps": 178549.07620309247,
+        "medianBytesPerOp": 10128.000026930451,
+        "medianWindowP95us": 7.444,
+        "medianWindowP99us": 8.862,
+        "runs": [
+          {
+            "name": "default-tiering-direct-legacy-read-1-0-0-parent",
+            "opsPerSecond": 178549.07620309247,
+            "bytesPerOp": 10128.000026883272,
+            "windowOpsMin": 160715.2795134019,
+            "windowOpsMax": 189073.88466493035,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "default-tiering-direct-legacy-read-1-1-1-parent",
+            "opsPerSecond": 177923.95022658881,
+            "bytesPerOp": 10128.000026977628,
+            "windowOpsMin": 168337.91482101512,
+            "windowOpsMax": 190041.0908434214,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 147689.27225539554,
+        "minOps": 145793.78832358168,
+        "maxOps": 149584.75618720936,
+        "medianBytesPerOp": 10064.00003250549,
+        "medianWindowP95us": 8.977,
+        "medianWindowP99us": 11.236,
+        "runs": [
+          {
+            "name": "default-tiering-direct-legacy-read-1-0-1-final",
+            "opsPerSecond": 149584.75618720936,
+            "bytesPerOp": 10064.000032088694,
+            "windowOpsMin": 133167.15345640547,
+            "windowOpsMax": 160373.17792708994,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "default-tiering-direct-legacy-read-1-1-0-final",
+            "opsPerSecond": 145793.78832358168,
+            "bytesPerOp": 10064.000032922286,
+            "windowOpsMin": 126927.86428582246,
+            "windowOpsMax": 160672.37257438508,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.8377795022420763,
+      0.8194163188143648
+    ],
+    "medianPairedRatio": 0.8285979105282206
+  },
+  {
+    "group": "default-tiering",
+    "case": "direct-ordinary-open-1",
+    "versions": {
+      "parent": {
+        "medianOps": 39433.55672228078,
+        "minOps": 37906.378818434314,
+        "maxOps": 40960.73462612725,
+        "medianBytesPerOp": 28848.000121903067,
+        "medianWindowP95us": 34.0585,
+        "medianWindowP99us": 40.7965,
+        "runs": [
+          {
+            "name": "default-tiering-direct-ordinary-open-1-0-0-parent",
+            "opsPerSecond": 40960.73462612725,
+            "bytesPerOp": 28848.000117179774,
+            "windowOpsMin": 38648.554884593395,
+            "windowOpsMax": 45933.6047413312,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "default-tiering-direct-ordinary-open-1-1-1-parent",
+            "opsPerSecond": 37906.378818434314,
+            "bytesPerOp": 28848.000126626357,
+            "windowOpsMin": 34087.82267514644,
+            "windowOpsMax": 41496.1485820234,
+            "allLatenciesSampled": true
+          }
+        ]
+      },
+      "final": {
+        "medianOps": 19050.964219181653,
+        "minOps": 18439.863446090985,
+        "maxOps": 19662.064992272324,
+        "medianBytesPerOp": 29640.06392917659,
+        "medianWindowP95us": 67.3215,
+        "medianWindowP99us": 82.49950000000001,
+        "runs": [
+          {
+            "name": "default-tiering-direct-ordinary-open-1-0-1-final",
+            "opsPerSecond": 18439.863446090985,
+            "bytesPerOp": 29640.00238602656,
+            "windowOpsMin": 17091.90459298856,
+            "windowOpsMax": 19517.965531272872,
+            "allLatenciesSampled": true
+          },
+          {
+            "name": "default-tiering-direct-ordinary-open-1-1-0-final",
+            "opsPerSecond": 19662.064992272324,
+            "bytesPerOp": 29640.125472326617,
+            "windowOpsMin": 16569.376113281207,
+            "windowOpsMax": 21276.055024016106,
+            "allLatenciesSampled": true
+          }
+        ]
+      }
+    },
+    "pairedRatiosSecondOverFirst": [
+      0.4501839045222817,
+      0.518700693792213
+    ],
+    "medianPairedRatio": 0.48444229915724735
+  }
+]

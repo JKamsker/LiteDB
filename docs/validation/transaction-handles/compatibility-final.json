@@ -1,0 +1,89 @@
+{
+  "parent_sha256": "345823b9a6b8a7de070182ac5d086c417668f74f0c624312a9f1b14fad33ae89",
+  "candidate_sha256": "5a7fc40da4f416b8631f1c55ffefb36c43ed030b944ca62d80eac2aede41eeb0",
+  "results": [
+    {
+      "name": "build-parent",
+      "command": [
+        "dotnet",
+        "build",
+        "/tmp/litedb-handle-api-pvq9br0w/source/TransactionHandleValidation.csproj",
+        "-c",
+        "Release",
+        "-p:LibraryPath=/tmp/litedb-parent49c327cf-abandon-audit/LiteDB/bin/Release/net10.0/LiteDB.dll",
+        "-o",
+        "/tmp/litedb-handle-api-pvq9br0w/parent"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "parent-binary",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-handle-api-pvq9br0w/parent/TransactionHandleValidation.dll",
+        "binary"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "parent-regression",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-handle-api-pvq9br0w/parent/TransactionHandleValidation.dll",
+        "error"
+      ],
+      "exit": 17
+    },
+    {
+      "name": "candidate-binary",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-handle-api-pvq9br0w/candidate/TransactionHandleValidation.dll",
+        "binary"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "candidate-regression",
+      "command": [
+        "dotnet",
+        "/tmp/litedb-handle-api-pvq9br0w/candidate/TransactionHandleValidation.dll",
+        "error"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "warnings-as-errors",
+      "command": [
+        "dotnet",
+        "build",
+        "/tmp/litedb-handle-api-pvq9br0w/source/TransactionHandleValidation.csproj",
+        "-c",
+        "Release",
+        "-p:LibraryPath=/home/jonas/.codex/worktrees/e228/LiteDB/LiteDB/bin/Release/net10.0/LiteDB.dll",
+        "-p:BaseIntermediateOutputPath=/tmp/litedb-handle-api-pvq9br0w/warnings-obj/",
+        "-p:TreatWarningsAsErrors=true",
+        "-o",
+        "/tmp/litedb-handle-api-pvq9br0w/warnings"
+      ],
+      "exit": 1
+    },
+    {
+      "name": "targeted-warning-exception",
+      "command": [
+        "dotnet",
+        "build",
+        "/tmp/litedb-handle-api-pvq9br0w/source/TransactionHandleValidation.csproj",
+        "-c",
+        "Release",
+        "-p:LibraryPath=/home/jonas/.codex/worktrees/e228/LiteDB/LiteDB/bin/Release/net10.0/LiteDB.dll",
+        "-p:BaseIntermediateOutputPath=/tmp/litedb-handle-api-pvq9br0w/warnings-obj/",
+        "-p:TreatWarningsAsErrors=true",
+        "-o",
+        "/tmp/litedb-handle-api-pvq9br0w/warnings",
+        "-p:WarningsNotAsErrors=CS0618"
+      ],
+      "exit": 0
+    }
+  ]
+}

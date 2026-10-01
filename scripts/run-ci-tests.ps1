@@ -6,6 +6,8 @@ param(
     [string]$ResultFile = 'TestResults.trx',
     [string]$RuntimeDirectory,
     [switch]$PartitionSuite,
+    [switch]$RecordEvidence,
+    [switch]$PartitionFiltered,
     [string]$VerifyPartitions,
     [string]$DiscoveryFile
 )
@@ -53,11 +55,15 @@ if ($PartitionSuite) {
         rebuild = 'FullyQualifiedName~LiteDB.Tests.Engine.Rebuild'
         'engine-compact' = 'FullyQualifiedName~LiteDB.Tests.Engine.Compact'
         'engine-index' = 'FullyQualifiedName~LiteDB.Tests.Engine.Index'
-        engine = 'FullyQualifiedName~LiteDB.Tests.Engine.&FullyQualifiedName!~LiteDB.Tests.Engine.Rebuild&FullyQualifiedName!~LiteDB.Tests.Engine.Compact&FullyQualifiedName!~LiteDB.Tests.Engine.Index'
+        # Admission and Shared lifetime tests outgrow one engine session on slower runners.
+        'engine-admission' = 'FullyQualifiedName~LiteDB.Tests.Engine.NativeAdmission'
+        'engine-shared' = 'FullyQualifiedName~LiteDB.Tests.Engine.Shared'
+        engine = 'FullyQualifiedName~LiteDB.Tests.Engine.&FullyQualifiedName!~LiteDB.Tests.Engine.Rebuild&FullyQualifiedName!~LiteDB.Tests.Engine.Compact&FullyQualifiedName!~LiteDB.Tests.Engine.Index&FullyQualifiedName!~LiteDB.Tests.Engine.NativeAdmission&FullyQualifiedName!~LiteDB.Tests.Engine.Shared'
         'query-not-equal' = 'FullyQualifiedName~LiteDB.Tests.QueryTest.NotEqualIndex_Tests'
         query = 'FullyQualifiedName~LiteDB.Tests.QueryTest.&FullyQualifiedName!~LiteDB.Tests.QueryTest.NotEqualIndex_Tests'
         # Keep process-heavy Shared coverage within the per-session timeout on Windows x86.
-        'shared-process' = 'FullyQualifiedName~LiteDB.Internals.Shared&FullyQualifiedName~Process'
+        'shared-mapped-process' = 'FullyQualifiedName~LiteDB.Internals.SharedMappedProcess'
+        'shared-process' = 'FullyQualifiedName~LiteDB.Internals.Shared&FullyQualifiedName~Process&FullyQualifiedName!~LiteDB.Internals.SharedMappedProcess'
         shared = 'FullyQualifiedName~LiteDB.Internals.Shared&FullyQualifiedName!~Process'
         mvcc = 'FullyQualifiedName~LiteDB.Internals.Mvcc'
         internals = 'FullyQualifiedName~LiteDB.Internals.&FullyQualifiedName!~LiteDB.Internals.Shared&FullyQualifiedName!~LiteDB.Internals.Mvcc'
@@ -138,6 +144,33 @@ if ($VerifyPartitions) {
 $results = Join-Path $repoRoot 'LiteDB.Tests/TestResults'
 $resultPath = Join-Path $results $ResultFile
 if (Test-Path $resultPath) { Remove-Item $resultPath }
+if ($RecordEvidence -or $PartitionFiltered) {
+    if ($PartitionFiltered -and !$Filter) { throw 'PartitionFiltered requires a nonempty native selection.' }
+    New-Item -ItemType Directory -Force $results | Out-Null
+    $listing = Join-Path $results 'discovered-tests.txt'
+    & dotnet vstest $assembly "/Framework:.NETCoreApp,Version=v$RuntimeMajor.0" "/Platform:$Architecture" `
+        /ListFullyQualifiedTests "/ListTestsTargetPath:$listing" -- "RunConfiguration.DotNetHostPath=$testHost" | Out-Null
+    if ($LASTEXITCODE -ne 0 -or !(Test-Path $listing)) { throw 'Could not discover the native test leg.' }
+    $python = if ($IsWindows) { 'python' } else { 'python3' }
+    $evidenceArguments = @((Join-Path $repoRoot '.github/scripts/record_test_leg.py'), '--root', $repoRoot,
+        '--results', $results, '--discovery', $listing, '--filter', $Filter, '--result', $ResultFile,
+        '--framework', $Framework, '--runtime', $RuntimeMajor, '--architecture', $Architecture)
+    if ($PartitionFiltered) { $evidenceArguments += '--partition' }
+    & $python @evidenceArguments
+    if ($LASTEXITCODE -ne 0) { throw 'Could not record native test evidence.' }
+    if ($PartitionFiltered) {
+        $plan = Get-Content (Join-Path $results 'native-partitions.json') -Raw | ConvertFrom-Json
+        $failed = @()
+        foreach ($partition in $plan.PSObject.Properties) {
+            Write-Host "Running native selection partition: $($partition.Name)"
+            & $PSCommandPath -RuntimeMajor $RuntimeMajor -Framework $Framework -Architecture $Architecture `
+                -RuntimeDirectory $RuntimeDirectory -Filter $partition.Value.filter -ResultFile $partition.Value.result
+            if ($LASTEXITCODE -ne 0) { $failed += $partition.Name }
+        }
+        if ($failed.Count) { throw "Native test partitions failed: $($failed -join ', ')" }
+        exit 0
+    }
+}
 $arguments = @(
     'vstest', $assembly,
     "/Framework:.NETCoreApp,Version=v$RuntimeMajor.0", "/Platform:$Architecture",

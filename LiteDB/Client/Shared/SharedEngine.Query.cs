@@ -36,6 +36,7 @@ namespace LiteDB
             {
                 var coordinated = this.TryQueryCoordinated(collection, query);
                 if (coordinated != null) return coordinated;
+                System.Threading.Interlocked.Increment(ref _coordinatedReadMisses);
             }
 #endif
             SharedMutexPin use;
@@ -143,14 +144,18 @@ namespace LiteDB
                         try { ownedLease.Dispose(); }
                         finally { this.RemoveLocalReader(owner); }
                     }
-                });
+                }, ownedSnapshot);
                 snapshot = null;
                 lease = null;
                 return result;
             }
             finally
             {
-                try { snapshot?.Dispose(); }
+                try
+                    {
+                        if (snapshot != null && _settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot?.Dispose();
+                    }
                 finally
                 {
                     try { lease?.Dispose(); }
@@ -171,7 +176,7 @@ namespace LiteDB
                 use?.ToHold();
                 // Any thread may dispose the reader and so end its mutex ownership.
                 var generation = use == null ? _owner.Generation : -1;
-                return new SharedDataReader(reader, () => this.CloseDatabase(use, hold: true, generation));
+                return this.RetainingReader(reader, () => this.CloseDatabase(use, hold: true, generation), use, generation);
             }
             catch
             {
@@ -184,6 +189,11 @@ namespace LiteDB
 
         private IDisposable TryRegisterLease(int version)
         {
+            if (_settings.HostLocalAdmissionActive)
+            {
+                _leaseState = LEASES_UNAVAILABLE;
+                return null;
+            }
             try
             {
                 var lease = _readers.Register(version);
@@ -204,6 +214,11 @@ namespace LiteDB
         /// </summary>
         private void ProbeLeases(int version)
         {
+            if (_settings.HostLocalAdmissionActive)
+            {
+                _leaseState = LEASES_UNAVAILABLE;
+                return;
+            }
             if (_leaseState != LEASES_UNKNOWN) return;
             try
             {
@@ -241,7 +256,8 @@ namespace LiteDB
                     lease = this.TryRegisterLease(snapshot.ReadVersion);
                     if (lease == null)
                     {
-                        snapshot.Dispose();
+                        if (_settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot.Dispose();
                         snapshot = null;
                         release = false;
                         _owner.Exit();
@@ -277,11 +293,10 @@ namespace LiteDB
                     snapshot = null;
                     reader = null;
                     release = false;
-                    return new SharedDataReader(continued, () =>
+                    return this.RetainingReader(continued, () =>
                     {
-                        try { this.CloseMutexSnapshot(locked); }
-                        finally { _owner.Exit(generation); }
-                    });
+                        this.CloseMutexSnapshot(locked, () => _owner.Exit(generation));
+                    }, null, generation);
                 }
 
                 var ownedSnapshot = snapshot;
@@ -295,7 +310,7 @@ namespace LiteDB
                         try { ownedLease.Dispose(); }
                         finally { this.RemoveLocalReader(owner); }
                     }
-                });
+                }, ownedSnapshot);
                 snapshot = null;
                 lease = null;
                 reader = null;
@@ -306,7 +321,11 @@ namespace LiteDB
                 try { reader?.Dispose(); }
                 finally
                 {
-                    try { snapshot?.Dispose(); }
+                    try
+                    {
+                        if (snapshot != null && _settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                        else snapshot?.Dispose();
+                    }
                     finally
                     {
                         try { lease?.Dispose(); }
@@ -335,10 +354,13 @@ namespace LiteDB
             try
             {
                 RebuildRecovery.EnsureAvailable(_settings);
+                _settings.SharedAdmission.Ensure();
 #if NET8_0_OR_GREATER
                 this.EnsureReadCoordination();
 #endif
                 snapshot = this.CreateEngine(recoveredAbandonedOwner, this.SnapshotSettings());
+                if (_settings.HostLocalAdmissionActive)
+                    lock (_useLock) _mutexSnapshots.Add(snapshot);
             }
             catch (Exception ex) when (!(ex is OutOfMemoryException))
             {
@@ -346,7 +368,8 @@ namespace LiteDB
             }
             if (_settings.AutoRebuild && snapshot.InvalidDatafileState)
             {
-                snapshot.Dispose();
+                if (_settings.HostLocalAdmissionActive) this.CloseMutexSnapshot(snapshot);
+                else snapshot.Dispose();
                 return null;
             }
 #if DEBUG || TESTING
@@ -378,13 +401,22 @@ namespace LiteDB
         /// Close a snapshot that streamed under the mutex, unless the connection's
         /// Dispose or an exited mutex owner already closed it.
         /// </summary>
-        private void CloseMutexSnapshot(LiteEngine snapshot)
+        private void CloseMutexSnapshot(LiteEngine snapshot, Action closed = null)
         {
             lock (_useLock)
             {
-                if (!_mutexSnapshots.Remove(snapshot)) return;
+                if (!_mutexSnapshots.Contains(snapshot))
+                {
+                    closed?.Invoke();
+                    return;
+                }
             }
-            snapshot.Dispose();
+            // Close returns cleanup errors only after teardown completes. A thrown
+            // admission refusal must leave both snapshot and native owner published.
+            var errors = this.CloseRetainedCore(snapshot);
+            lock (_useLock) _mutexSnapshots.Remove(snapshot);
+            closed?.Invoke();
+            LiteEngine.ThrowCleanupErrors(errors);
         }
 
         /// <summary>

@@ -1,0 +1,18 @@
+name: Retain failed database fixtures
+description: Collect after test-host exit without changing the exercised storage volume
+runs:
+  using: composite
+  steps:
+    - name: Collect retained fixtures
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then retained_python=python; else retained_python=python3; fi
+        "$retained_python" scripts/collect-retained-fixtures.py "$LITEDB_RETAINED_FIXTURES"
+    - name: Upload fixture manifests and copies
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: retained-fixtures-${{ github.job }}-${{ strategy.job-index }}
+        path: ${{ env.LITEDB_RETAINED_FIXTURES }}/
+        if-no-files-found: ignore
+        retention-days: 14

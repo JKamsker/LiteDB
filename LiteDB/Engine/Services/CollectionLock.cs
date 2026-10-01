@@ -4,32 +4,68 @@ using System.Threading;
 namespace LiteDB.Engine
 {
     /// <summary>
-    /// Provides a target-specific collection lock while preserving timed Monitor semantics.
+    /// A collection writer belongs to a transaction, with recursive snapshot acquisition.
     /// </summary>
     internal sealed class CollectionLock
     {
-#if NET9_0_OR_GREATER
-        private readonly Lock _lock = new Lock();
-#else
         private readonly object _lock = new object();
+        private object _owner;
+        private Thread _thread;
+        private TransactionContext _handle;
+        private int _depth;
+        private bool _stopping;
+#if DEBUG || TESTING
+        internal Action BeforeWait;
 #endif
 
-        public bool TryEnter(TimeSpan timeout)
+        public bool TryEnter(object owner, TimeSpan timeout)
         {
-#if NET9_0_OR_GREATER
-            return _lock.TryEnter(timeout);
-#else
-            return Monitor.TryEnter(_lock, timeout);
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            lock (_lock)
+            {
+                if (_stopping) throw LiteException.EngineDisposed();
+                while (_owner != null && !ReferenceEquals(_owner, owner))
+                {
+                    // Waiting for another session on this thread cannot make progress.
+                    if (ReferenceEquals(_thread, Thread.CurrentThread) ||
+                        ReferenceEquals(_handle?.ExecutingThread, Thread.CurrentThread)) return false;
+                    var elapsed = (System.Diagnostics.Stopwatch.GetTimestamp() - started) / (double)System.Diagnostics.Stopwatch.Frequency;
+                    var remaining = timeout - TimeSpan.FromSeconds(elapsed);
+                    if (remaining <= TimeSpan.Zero) return false;
+#if DEBUG || TESTING
+                    BeforeWait?.Invoke();
 #endif
+                    if (!Monitor.Wait(_lock, remaining)) return false;
+                    if (_stopping) throw LiteException.EngineDisposed();
+                }
+                _owner = owner;
+                _thread = TransactionContext.AdmissionOwner as Thread;
+                _handle = TransactionContext.AdmissionOwner as TransactionContext;
+                _depth++;
+                return true;
+            }
         }
 
-        public void Exit()
+        internal void StopWaiters()
         {
-#if NET9_0_OR_GREATER
-            _lock.Exit();
-#else
-            Monitor.Exit(_lock);
-#endif
+            lock (_lock)
+            {
+                _stopping = true;
+                Monitor.PulseAll(_lock);
+            }
+        }
+
+        public void Exit(object owner)
+        {
+            lock (_lock)
+            {
+                if (!ReferenceEquals(_owner, owner)) throw new SynchronizationLockException("Collection lock belongs to another transaction.");
+                if (--_depth != 0) return;
+                _owner = null;
+                _thread = null;
+                _handle = null;
+                Monitor.PulseAll(_lock);
+            }
         }
     }
 }

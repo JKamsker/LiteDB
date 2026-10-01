@@ -1,0 +1,911 @@
+{
+  "tool": "dotnet-trace 10.0.745401",
+  "tiered": "0",
+  "traces": [
+    {
+      "name": "direct-read",
+      "revision": "fe4d1725e6fab8f5127311776c16c50a8f51886f",
+      "profile": "dotnet-sampled-thread-time,dotnet-common",
+      "scenario": "direct ordinary read 1",
+      "warmupSeconds": 5,
+      "windows": 5,
+      "trace_sha256": "f0405b93643acb2a2dcf9f123c121910d2e287df897e9bed40b1cfd2034c9e8a",
+      "trace_bytes": 3153842
+    },
+    {
+      "name": "direct-attach",
+      "revision": "fe4d1725e6fab8f5127311776c16c50a8f51886f",
+      "profile": "dotnet-sampled-thread-time,dotnet-common",
+      "scenario": "direct ordinary open 1",
+      "warmupSeconds": 5,
+      "windows": 5,
+      "trace_sha256": "b279cd7b5b68fb739bab91a2f00e00d4403ee6d990371301e531d2c0c746a74f",
+      "trace_bytes": 8540250
+    },
+    {
+      "name": "shared-handle",
+      "revision": "fe4d1725e6fab8f5127311776c16c50a8f51886f",
+      "profile": "dotnet-sampled-thread-time,dotnet-common,gc-verbose",
+      "scenario": "shared handle read 1",
+      "warmupSeconds": 5,
+      "windows": 5,
+      "trace_sha256": "71c50b62c3e9afe6e41c27e9c69d37072680389007424d5c3f506af5e3eb1a69",
+      "trace_bytes": 4648406
+    },
+    {
+      "name": "shared-alloc",
+      "revision": "fe4d1725e6fab8f5127311776c16c50a8f51886f",
+      "profile": "gc-verbose",
+      "scenario": "shared handle read 1",
+      "warmupSeconds": 5,
+      "windows": 5,
+      "trace_sha256": "e3d42be37f82f91ac7ccbc3fb7a62bcdbf5c575563bb5233f542125c8726dba9",
+      "trace_bytes": 9425446
+    },
+    {
+      "name": "attach-reuse",
+      "revision": "d3ddd94f2279facba4107487b1da2c7f8ccf1b0f",
+      "profile": "dotnet-sampled-thread-time,dotnet-common",
+      "scenario": "direct ordinary open 1",
+      "warmupSeconds": 5,
+      "windows": 5,
+      "trace_sha256": "3e5e6e710d45dafd911d9b04f55e097773cad789f3b90f804c58c8565c2db97e",
+      "trace_bytes": 2740486
+    }
+  ],
+  "summary": [
+    {
+      "path": "/tmp/litedb-profile-direct-read.nettrace",
+      "durationMS": 10580.89956,
+      "events": [
+        {
+          "Key": "GC/SuspendEEStart",
+          "Value": 10595
+        },
+        {
+          "Key": "GC/SuspendEEStop",
+          "Value": 10595
+        },
+        {
+          "Key": "GC/RestartEEStart",
+          "Value": 10595
+        },
+        {
+          "Key": "GC/RestartEEStop",
+          "Value": 10595
+        },
+        {
+          "Key": "GC/MarkWithType",
+          "Value": 6437
+        },
+        {
+          "Key": "GC/Triggered",
+          "Value": 920
+        },
+        {
+          "Key": "GC/Start",
+          "Value": 920
+        },
+        {
+          "Key": "GC/GlobalHeapHistory",
+          "Value": 920
+        },
+        {
+          "Key": "GC/PerHeapHistory",
+          "Value": 920
+        },
+        {
+          "Key": "GC/Stop",
+          "Value": 920
+        },
+        {
+          "Key": "GC/HeapStats",
+          "Value": 920
+        },
+        {
+          "Key": "GC/FinalizersStart",
+          "Value": 549
+        },
+        {
+          "Key": "GC/FinalizersStop",
+          "Value": 549
+        },
+        {
+          "Key": "GC/CreateSegment",
+          "Value": 73
+        },
+        {
+          "Key": "GC/FreeSegment",
+          "Value": 65
+        },
+        {
+          "Key": "AssemblyLoader/ResolutionAttempted",
+          "Value": 62
+        },
+        {
+          "Key": "AssemblyLoader/Start",
+          "Value": 44
+        },
+        {
+          "Key": "AssemblyLoader/Stop",
+          "Value": 44
+        },
+        {
+          "Key": "Loader/AssemblyLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/ModuleLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/DomainModuleLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/ModuleUnload",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/AssemblyUnload",
+          "Value": 33
+        },
+        {
+          "Key": "AssemblyLoader/KnownPathProbed",
+          "Value": 32
+        },
+        {
+          "Key": "Method/UnloadVerbose",
+          "Value": 19
+        },
+        {
+          "Key": "ExceptionCatch/Start",
+          "Value": 9
+        },
+        {
+          "Key": "YieldProcessorMeasurement",
+          "Value": 9
+        },
+        {
+          "Key": "AppDomainResourceManagement/ThreadCreated",
+          "Value": 8
+        },
+        {
+          "Key": "Exception/Start",
+          "Value": 6
+        },
+        {
+          "Key": "ExceptionCatch/Stop",
+          "Value": 6
+        },
+        {
+          "Key": "Exception/Stop",
+          "Value": 6
+        },
+        {
+          "Key": "Thread/Creating",
+          "Value": 3
+        },
+        {
+          "Key": "Thread/Running",
+          "Value": 3
+        },
+        {
+          "Key": "Runtime/Start",
+          "Value": 1
+        },
+        {
+          "Key": "Loader/AppDomainLoad",
+          "Value": 1
+        },
+        {
+          "Key": "GC/CreateConcurrentThread",
+          "Value": 1
+        },
+        {
+          "Key": "Loader/AppDomainUnload",
+          "Value": 1
+        }
+      ],
+      "sampledAllocationBytesByType": []
+    },
+    {
+      "path": "/tmp/litedb-profile-direct-attach.nettrace",
+      "durationMS": 10544.588283,
+      "events": [
+        {
+          "Key": "AppDomainResourceManagement/ThreadCreated",
+          "Value": 47321
+        },
+        {
+          "Key": "Thread/Creating",
+          "Value": 47316
+        },
+        {
+          "Key": "Thread/Running",
+          "Value": 47316
+        },
+        {
+          "Key": "GC/SuspendEEStart",
+          "Value": 9815
+        },
+        {
+          "Key": "GC/SuspendEEStop",
+          "Value": 9815
+        },
+        {
+          "Key": "GC/RestartEEStart",
+          "Value": 9815
+        },
+        {
+          "Key": "GC/RestartEEStop",
+          "Value": 9815
+        },
+        {
+          "Key": "GC/MarkWithType",
+          "Value": 1515
+        },
+        {
+          "Key": "GC/FinalizersStart",
+          "Value": 438
+        },
+        {
+          "Key": "GC/FinalizersStop",
+          "Value": 438
+        },
+        {
+          "Key": "GC/Triggered",
+          "Value": 218
+        },
+        {
+          "Key": "GC/Start",
+          "Value": 218
+        },
+        {
+          "Key": "GC/GlobalHeapHistory",
+          "Value": 218
+        },
+        {
+          "Key": "GC/PerHeapHistory",
+          "Value": 218
+        },
+        {
+          "Key": "GC/Stop",
+          "Value": 218
+        },
+        {
+          "Key": "GC/HeapStats",
+          "Value": 218
+        },
+        {
+          "Key": "AssemblyLoader/ResolutionAttempted",
+          "Value": 62
+        },
+        {
+          "Key": "GC/CreateSegment",
+          "Value": 61
+        },
+        {
+          "Key": "GC/FreeSegment",
+          "Value": 52
+        },
+        {
+          "Key": "AssemblyLoader/Start",
+          "Value": 44
+        },
+        {
+          "Key": "AssemblyLoader/Stop",
+          "Value": 44
+        },
+        {
+          "Key": "Loader/AssemblyLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/ModuleLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/DomainModuleLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/ModuleUnload",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/AssemblyUnload",
+          "Value": 33
+        },
+        {
+          "Key": "AssemblyLoader/KnownPathProbed",
+          "Value": 32
+        },
+        {
+          "Key": "Method/UnloadVerbose",
+          "Value": 19
+        },
+        {
+          "Key": "YieldProcessorMeasurement",
+          "Value": 10
+        },
+        {
+          "Key": "ExceptionCatch/Start",
+          "Value": 9
+        },
+        {
+          "Key": "Exception/Start",
+          "Value": 6
+        },
+        {
+          "Key": "ExceptionCatch/Stop",
+          "Value": 6
+        },
+        {
+          "Key": "Exception/Stop",
+          "Value": 6
+        },
+        {
+          "Key": "Runtime/Start",
+          "Value": 1
+        },
+        {
+          "Key": "Loader/AppDomainLoad",
+          "Value": 1
+        },
+        {
+          "Key": "GC/CreateConcurrentThread",
+          "Value": 1
+        },
+        {
+          "Key": "Loader/AppDomainUnload",
+          "Value": 1
+        }
+      ],
+      "sampledAllocationBytesByType": []
+    },
+    {
+      "path": "/tmp/litedb-profile-shared-handle.nettrace",
+      "durationMS": 11322.942908,
+      "events": [
+        {
+          "Key": "AppDomainResourceManagement/ThreadCreated",
+          "Value": 12366
+        },
+        {
+          "Key": "Thread/Creating",
+          "Value": 12362
+        },
+        {
+          "Key": "Thread/Running",
+          "Value": 12362
+        },
+        {
+          "Key": "GC/SuspendEEStart",
+          "Value": 10635
+        },
+        {
+          "Key": "GC/SuspendEEStop",
+          "Value": 10635
+        },
+        {
+          "Key": "GC/RestartEEStart",
+          "Value": 10635
+        },
+        {
+          "Key": "GC/RestartEEStop",
+          "Value": 10635
+        },
+        {
+          "Key": "GC/MarkWithType",
+          "Value": 2508
+        },
+        {
+          "Key": "GC/FinalizersStart",
+          "Value": 720
+        },
+        {
+          "Key": "GC/FinalizersStop",
+          "Value": 720
+        },
+        {
+          "Key": "GC/Triggered",
+          "Value": 359
+        },
+        {
+          "Key": "GC/Start",
+          "Value": 359
+        },
+        {
+          "Key": "GC/GlobalHeapHistory",
+          "Value": 359
+        },
+        {
+          "Key": "GC/PerHeapHistory",
+          "Value": 359
+        },
+        {
+          "Key": "GC/Stop",
+          "Value": 359
+        },
+        {
+          "Key": "GC/HeapStats",
+          "Value": 359
+        },
+        {
+          "Key": "GC/CreateSegment",
+          "Value": 98
+        },
+        {
+          "Key": "GC/FreeSegment",
+          "Value": 90
+        },
+        {
+          "Key": "AssemblyLoader/ResolutionAttempted",
+          "Value": 66
+        },
+        {
+          "Key": "AssemblyLoader/Start",
+          "Value": 46
+        },
+        {
+          "Key": "AssemblyLoader/Stop",
+          "Value": 46
+        },
+        {
+          "Key": "Loader/AssemblyLoad",
+          "Value": 35
+        },
+        {
+          "Key": "Loader/ModuleLoad",
+          "Value": 35
+        },
+        {
+          "Key": "Loader/DomainModuleLoad",
+          "Value": 35
+        },
+        {
+          "Key": "Loader/ModuleUnload",
+          "Value": 35
+        },
+        {
+          "Key": "Loader/AssemblyUnload",
+          "Value": 35
+        },
+        {
+          "Key": "AssemblyLoader/KnownPathProbed",
+          "Value": 34
+        },
+        {
+          "Key": "ExceptionCatch/Start",
+          "Value": 19
+        },
+        {
+          "Key": "Method/UnloadVerbose",
+          "Value": 19
+        },
+        {
+          "Key": "Exception/Start",
+          "Value": 11
+        },
+        {
+          "Key": "ExceptionCatch/Stop",
+          "Value": 11
+        },
+        {
+          "Key": "Exception/Stop",
+          "Value": 11
+        },
+        {
+          "Key": "YieldProcessorMeasurement",
+          "Value": 10
+        },
+        {
+          "Key": "ThreadPoolWorkerThread/Start",
+          "Value": 2
+        },
+        {
+          "Key": "ThreadPoolWorkerThread/Wait",
+          "Value": 2
+        },
+        {
+          "Key": "Runtime/Start",
+          "Value": 1
+        },
+        {
+          "Key": "Loader/AppDomainLoad",
+          "Value": 1
+        },
+        {
+          "Key": "ThreadPoolMinMaxThreads",
+          "Value": 1
+        },
+        {
+          "Key": "ThreadPoolWorkerThreadAdjustment/Adjustment",
+          "Value": 1
+        },
+        {
+          "Key": "ThreadPoolWorkerThreadAdjustment/Sample",
+          "Value": 1
+        },
+        {
+          "Key": "Loader/AppDomainUnload",
+          "Value": 1
+        }
+      ],
+      "sampledAllocationBytesByType": []
+    },
+    {
+      "path": "/tmp/litedb-profile-shared-alloc.nettrace",
+      "durationMS": 11348.018976,
+      "events": [
+        {
+          "Key": "GC/FinalizeObject",
+          "Value": 97319
+        },
+        {
+          "Key": "GC/SetGCHandle",
+          "Value": 66613
+        },
+        {
+          "Key": "GC/DestoryGCHandle",
+          "Value": 26718
+        },
+        {
+          "Key": "GC/AllocationTick",
+          "Value": 21589
+        },
+        {
+          "Key": "GC/MarkWithType",
+          "Value": 2181
+        },
+        {
+          "Key": "GC/FinalizersStart",
+          "Value": 626
+        },
+        {
+          "Key": "GC/FinalizersStop",
+          "Value": 626
+        },
+        {
+          "Key": "GC/SuspendEEStart",
+          "Value": 322
+        },
+        {
+          "Key": "GC/SuspendEEStop",
+          "Value": 322
+        },
+        {
+          "Key": "GC/RestartEEStart",
+          "Value": 322
+        },
+        {
+          "Key": "GC/RestartEEStop",
+          "Value": 322
+        },
+        {
+          "Key": "GC/Triggered",
+          "Value": 312
+        },
+        {
+          "Key": "GC/Start",
+          "Value": 312
+        },
+        {
+          "Key": "GC/GlobalHeapHistory",
+          "Value": 312
+        },
+        {
+          "Key": "GC/PerHeapHistory",
+          "Value": 312
+        },
+        {
+          "Key": "GC/Stop",
+          "Value": 312
+        },
+        {
+          "Key": "GC/HeapStats",
+          "Value": 312
+        },
+        {
+          "Key": "GC/PinObjectAtGCTime",
+          "Value": 150
+        },
+        {
+          "Key": "GC/CreateSegment",
+          "Value": 95
+        },
+        {
+          "Key": "GC/FreeSegment",
+          "Value": 86
+        },
+        {
+          "Key": "ExceptionCatch/Start",
+          "Value": 19
+        },
+        {
+          "Key": "Exception/Start",
+          "Value": 11
+        },
+        {
+          "Key": "ExceptionCatch/Stop",
+          "Value": 11
+        },
+        {
+          "Key": "Exception/Stop",
+          "Value": 11
+        },
+        {
+          "Key": "Runtime/Start",
+          "Value": 1
+        },
+        {
+          "Key": "GC/FitBucketInfo",
+          "Value": 1
+        }
+      ],
+      "sampledAllocationBytesByType": [
+        {
+          "Key": "System.Byte[]",
+          "Value": 1457637896
+        },
+        {
+          "Key": "System.String",
+          "Value": 1139454312
+        },
+        {
+          "Key": "System.String[]",
+          "Value": 5094872
+        },
+        {
+          "Key": "System.Double[]",
+          "Value": 2000024
+        },
+        {
+          "Key": "LiteDB.Engine.PageBuffer[]",
+          "Value": 1794104
+        },
+        {
+          "Key": "System.Buffers.SharedArrayPoolThreadLocalArray[]",
+          "Value": 1460152
+        },
+        {
+          "Key": "System.Int32[]",
+          "Value": 643168
+        },
+        {
+          "Key": "LiteDB.SessionCloseDependency",
+          "Value": 320248
+        },
+        {
+          "Key": "System.Lazy`1[System.IO.Stream]",
+          "Value": 318072
+        },
+        {
+          "Key": "System.Char[]",
+          "Value": 213216
+        },
+        {
+          "Key": "System.Action",
+          "Value": 212752
+        },
+        {
+          "Key": "System.Reflection.RuntimeParameterInfo",
+          "Value": 212200
+        },
+        {
+          "Key": "LiteDB.BsonDocument",
+          "Value": 208904
+        },
+        {
+          "Key": "System.Reflection.RuntimeMethodInfo",
+          "Value": 206648
+        },
+        {
+          "Key": "LiteDB.Engine.Pragma",
+          "Value": 108744
+        },
+        {
+          "Key": "VolatileNode[System.ValueTuple`3[System.String,System.Type,System.Reflection.MemberInfo],System.Text.Json.Serialization.Metadata.ReflectionEmitCachingMemberAccessor+Cache`1+CacheEntry[System.ValueTuple`3[System.String,System.Type,System.Reflection.MemberInfo]]][]",
+          "Value": 108480
+        },
+        {
+          "Key": "System.Func`2[LiteDB.BsonExpression,System.Boolean]",
+          "Value": 107464
+        },
+        {
+          "Key": "System.IO.FileInfo",
+          "Value": 107184
+        },
+        {
+          "Key": "LiteDB.Engine.IndexCost",
+          "Value": 106824
+        },
+        {
+          "Key": "LiteDB.Engine.BufferReader",
+          "Value": 106824
+        },
+        {
+          "Key": "Entry[System.Int64,LiteDB.Engine.PageBuffer][]",
+          "Value": 106440
+        },
+        {
+          "Key": "System.Diagnostics.Tracing.EventAttribute",
+          "Value": 106344
+        },
+        {
+          "Key": "System.Diagnostics.Tracing.EventParameterInfo[]",
+          "Value": 106344
+        },
+        {
+          "Key": "LiteDB.Engine.CollectionIndex",
+          "Value": 106056
+        },
+        {
+          "Key": "System.Collections.Generic.HashSet`1[LiteDB.BsonValue]",
+          "Value": 105632
+        },
+        {
+          "Key": "Implementation",
+          "Value": 104600
+        }
+      ]
+    },
+    {
+      "path": "/tmp/litedb-profile-attach-reuse.nettrace",
+      "durationMS": 10561.339583,
+      "events": [
+        {
+          "Key": "GC/SuspendEEStart",
+          "Value": 10033
+        },
+        {
+          "Key": "GC/SuspendEEStop",
+          "Value": 10033
+        },
+        {
+          "Key": "GC/RestartEEStart",
+          "Value": 10033
+        },
+        {
+          "Key": "GC/RestartEEStop",
+          "Value": 10033
+        },
+        {
+          "Key": "GC/MarkWithType",
+          "Value": 2727
+        },
+        {
+          "Key": "GC/FinalizersStart",
+          "Value": 782
+        },
+        {
+          "Key": "GC/FinalizersStop",
+          "Value": 782
+        },
+        {
+          "Key": "GC/Triggered",
+          "Value": 390
+        },
+        {
+          "Key": "GC/Start",
+          "Value": 390
+        },
+        {
+          "Key": "GC/GlobalHeapHistory",
+          "Value": 390
+        },
+        {
+          "Key": "GC/PerHeapHistory",
+          "Value": 390
+        },
+        {
+          "Key": "GC/Stop",
+          "Value": 390
+        },
+        {
+          "Key": "GC/HeapStats",
+          "Value": 390
+        },
+        {
+          "Key": "AssemblyLoader/ResolutionAttempted",
+          "Value": 62
+        },
+        {
+          "Key": "AssemblyLoader/Start",
+          "Value": 44
+        },
+        {
+          "Key": "AssemblyLoader/Stop",
+          "Value": 44
+        },
+        {
+          "Key": "Loader/AssemblyLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/ModuleLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/DomainModuleLoad",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/ModuleUnload",
+          "Value": 33
+        },
+        {
+          "Key": "Loader/AssemblyUnload",
+          "Value": 33
+        },
+        {
+          "Key": "AssemblyLoader/KnownPathProbed",
+          "Value": 32
+        },
+        {
+          "Key": "GC/CreateSegment",
+          "Value": 26
+        },
+        {
+          "Key": "Method/UnloadVerbose",
+          "Value": 19
+        },
+        {
+          "Key": "GC/FreeSegment",
+          "Value": 17
+        },
+        {
+          "Key": "YieldProcessorMeasurement",
+          "Value": 10
+        },
+        {
+          "Key": "ExceptionCatch/Start",
+          "Value": 9
+        },
+        {
+          "Key": "AppDomainResourceManagement/ThreadCreated",
+          "Value": 6
+        },
+        {
+          "Key": "Exception/Start",
+          "Value": 6
+        },
+        {
+          "Key": "ExceptionCatch/Stop",
+          "Value": 6
+        },
+        {
+          "Key": "Exception/Stop",
+          "Value": 6
+        },
+        {
+          "Key": "Runtime/Start",
+          "Value": 1
+        },
+        {
+          "Key": "Loader/AppDomainLoad",
+          "Value": 1
+        },
+        {
+          "Key": "Thread/Creating",
+          "Value": 1
+        },
+        {
+          "Key": "Thread/Running",
+          "Value": 1
+        },
+        {
+          "Key": "GC/CreateConcurrentThread",
+          "Value": 1
+        },
+        {
+          "Key": "Loader/AppDomainUnload",
+          "Value": 1
+        }
+      ],
+      "sampledAllocationBytesByType": []
+    }
+  ],
+  "limits": "Separate instrumented experiments including startup/warmup, not throughput evidence. Sampled thread time includes waits and overlapping inclusive frames. Allocation ticks are sampled amounts attributed to allocation type, not exact object counts or retained sizes. No allocation ticks were captured in the mixed-profile trace; allocation-only trace is the allocation evidence."
+}

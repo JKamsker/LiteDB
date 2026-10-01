@@ -432,13 +432,13 @@ internal static class Program
             var engineField = typeof(LiteDatabase).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance)
                               ?? throw new InvalidOperationException("Unable to locate LiteDatabase engine field.");
 
-            var engine = engineField.GetValue(db) ?? throw new InvalidOperationException("LiteDatabase engine is not initialized.");
-
+            using var contextScope = EngineInspection.EnterDirectContext(engineField.GetValue(db));
+            var engine = EngineInspection.UnwrapDirectEngine(engineField.GetValue(db)
+                         ?? throw new InvalidOperationException("LiteDatabase engine is not initialized."));
             var monitorField = engine.GetType().GetField("_monitor", BindingFlags.NonPublic | BindingFlags.Instance)
                                ?? throw new InvalidOperationException("Unable to locate TransactionMonitor field.");
 
             var monitor = monitorField.GetValue(engine) ?? throw new InvalidOperationException("TransactionMonitor is unavailable.");
-
             var getThreadTransaction = monitor.GetType().GetMethod("GetThreadTransaction", BindingFlags.Public | BindingFlags.Instance)
                                        ?? throw new InvalidOperationException("GetThreadTransaction method not found.");
 

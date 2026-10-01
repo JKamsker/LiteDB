@@ -17,6 +17,7 @@ namespace LiteDB.Tests.Issues
         {
             using var file = new TempFile();
             var settings = new EngineSettings { Filename = file.Filename };
+            SharedModeGuard.Normalize(settings);
             using var engine = new SharedEngine(settings);
             var mutexName = SharedMutexNameFactory.Create(settings.Filename, settings.SharedMutexNameStrategy);
             using var mutex = SharedMutexFactory.Create(mutexName);
@@ -35,7 +36,11 @@ namespace LiteDB.Tests.Issues
             engine.SimulateOpenEngine = () =>
             {
                 if (attempts++ == 0) throw SharingViolation();
-                return new LiteEngine(settings);
+                // The hook substitutes for SharedEngine's inner open. Preserve its
+                // admission mode instead of opening a conflicting Direct writer.
+                var operationSettings = settings.Clone();
+                operationSettings.SharedMode = true;
+                return new LiteEngine(operationSettings);
             };
 
             engine.Pragma(Pragmas.USER_VERSION).AsInt32.Should().Be(0);
@@ -65,6 +70,7 @@ namespace LiteDB.Tests.Issues
         {
             using var file = new TempFile();
             var settings = new EngineSettings { Filename = file.Filename };
+            SharedModeGuard.Normalize(settings);
             using var engine = new SharedEngine(settings);
             var mutexName = SharedMutexNameFactory.Create(settings.Filename, settings.SharedMutexNameStrategy);
             using var mutex = SharedMutexFactory.Create(mutexName);
