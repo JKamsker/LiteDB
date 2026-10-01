@@ -21,6 +21,8 @@ namespace LiteDB
         internal TimeSpan PinIdleLimit { get; set; } = SharedMutexPin.IdleLimit;
 
         internal TimeSpan PinHoldLimit { get; set; } = SharedMutexPin.HoldLimit;
+
+        internal SharedMutexPin Pin => _pin;
 #else
         private TimeSpan PinIdleLimit => SharedMutexPin.IdleLimit;
 
@@ -106,6 +108,7 @@ namespace LiteDB
         /// </summary>
         private SharedMutexPin StartPin()
         {
+            this.ThrowIfCallerRetainsOwnership();
             this.RetireCoordinatedReads();
             var other = _pin;
             if (other != null) other.RequestRelease(force: false);
@@ -163,6 +166,11 @@ namespace LiteDB
         [TeardownPath("SharedEngine.ClosePin", TeardownDisposition.Propagated | TeardownDisposition.Discarded,
             "Runs on the pin holder: a failure becomes the pin's error, rethrown by WaitReleased to a waiter; dropped when nobody waits.")]
         private void ClosePin(SharedMutexPin pin, bool abandoned)
+        {
+            using (this.OwnershipFrame(HolderRetains)) this.ClosePinEngine(pin, abandoned);
+        }
+
+        private void ClosePinEngine(SharedMutexPin pin, bool abandoned)
         {
             if (!pin.Counted)
             {
@@ -241,7 +249,7 @@ namespace LiteDB
                 }
                 if (_engine != null || _transactionRunning || _readers.OldestVersion().HasValue) return;
                 TeardownSteps.Before("SharedEngine.CheckpointAfterLastReader.close-finally");
-                this.CloseFinally();
+                using (this.OwnershipFrame(this.CallRetains)) this.CloseFinally();
                 TeardownSteps.After("SharedEngine.CheckpointAfterLastReader.close-finally");
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
@@ -278,7 +286,7 @@ namespace LiteDB
             {
                 if (abandoned || _engine != null || _transactionRunning) return;
                 TeardownSteps.Before("SharedEngine.CheckpointOnDispose.close-finally");
-                this.CloseFinally();
+                using (this.OwnershipFrame(this.CallRetains)) this.CloseFinally();
                 TeardownSteps.After("SharedEngine.CheckpointOnDispose.close-finally");
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is LiteException)

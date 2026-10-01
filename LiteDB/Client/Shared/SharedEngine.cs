@@ -246,7 +246,7 @@ namespace LiteDB
         [TeardownPath("SharedEngine.OnOwnerExited", TeardownDisposition.Discarded, "Inside SharedMutexOwner's catch-all; core close list dropped.")]
         private void OnOwnerExited()
         {
-            this.CloseOwnedCores(checkpoint: false);
+            using (this.OwnershipFrame(HolderRetains)) this.CloseOwnedCores(checkpoint: false);
             TeardownSteps.Before("SharedEngine.OnOwnerExited.idle-handles", _handles != null); _handles?.CloseIdle(); TeardownSteps.After("SharedEngine.OnOwnerExited.idle-handles", _handles != null);
         }
 

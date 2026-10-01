@@ -57,6 +57,7 @@ namespace LiteDB
                     throw new InvalidOperationException("Cannot open a transaction handle from inside an operation retaining its shared writer ownership.");
             }
         }
+        private Func<bool> _callRetains;
 
         /// <summary>
         /// Under _useLock, with the mutex owned: refuse a call once Dispose started, else count
@@ -137,6 +138,7 @@ namespace LiteDB
             }
             using var callback = new CallbackScope(this);
             var depth = this.AdmittedDepth();
+            var frame = this.OwnershipFrame(this.CallRetains);
 #if DEBUG || TESTING
             // Wait-for graph: this connection's ownership executes on this thread during the call.
             LiteDB.Utils.WaitGraph.Enter(this);
@@ -147,6 +149,7 @@ namespace LiteDB
             }
             finally
             {
+                frame.Dispose();
                 this.EndAdmissions(depth);
 #if DEBUG || TESTING
                 LiteDB.Utils.WaitGraph.Exit(this);
@@ -165,6 +168,66 @@ namespace LiteDB
             // core's teardown is over when its state is disposed, whether or not the call then threw.
             try { close(); }
             finally { if (core != null && core.IsDisposed) SharedOwnershipEvents.Core(this, core, SharedOwnershipEvents.Closed); }
+        }
+
+        private Func<bool> CallRetains => _callRetains ?? (_callRetains = this.RetainsOwnershipOnCurrentThread);
+
+        /// <summary>
+        /// Whether a call of this connection executing on the current thread keeps the native
+        /// mutex: its ownership belongs to this thread, or this thread's operation is inside
+        /// the pin. Either ends only after that call, and any callback it runs, returns.
+        /// </summary>
+        private bool RetainsOwnershipOnCurrentThread()
+        {
+            if (_owner.IsOwnedByCurrentThread) return true;
+            var pin = _pin;
+            return pin != null && pin.IsOperatingOn(Thread.CurrentThread);
+        }
+
+        // A holder thread owns the OS mutex until the close it runs has returned.
+        private static readonly Func<bool> HolderRetains = () => true;
+
+        /// <summary>
+        /// Frame for work outside a public call that can run user code (a caller stream while
+        /// an engine closes) under the mutex; <paramref name="retains"/> tells whether it still holds it.
+        /// </summary>
+        private SharedCallFrames.Scope OwnershipFrame(Func<bool> retains) =>
+            SharedCallFrames.Enter(_mutexName, this, retains);
+
+        /// <summary>
+        /// A reader streaming under the ownership of <paramref name="use"/>, or else of the
+        /// connection's ownership <paramref name="generation"/>, which it keeps until disposed.
+        /// </summary>
+        private SharedDataReader RetainingReader(IBsonDataReader reader, Action dispose, SharedMutexPin use, int generation)
+        {
+            Func<bool> retains = use != null
+                ? () => ReferenceEquals(_pin, use)
+                : (Func<bool>)(() => _owner.Generation == generation);
+#if DEBUG || TESTING
+            // A pinned reader keeps the pin's hold; any other keeps the connection's ownership.
+            return new SharedDataReader(reader, dispose, _mutexName, this, retains) { GraphOwner = (object)use ?? this };
+#else
+            return new SharedDataReader(reader, dispose, _mutexName, this, retains);
+#endif
+        }
+
+        /// <summary>
+        /// Before any blocking acquisition of the native mutex: refuse when a call or reader of
+        /// another connection to this database retains the mutex on this thread, for example
+        /// when its input sequence or ReadTransform callback calls this connection. The wait
+        /// could never end, because that ownership is released only after the callback returns.
+        /// An idle owner (a reader, pin or transaction between calls) is not in a frame and is
+        /// still waited for: a pin ends for the waiter and a result may be disposed on any thread.
+        /// An explicit transaction completes only on its own thread (#3073).
+        /// </summary>
+        private void ThrowIfCallerRetainsOwnership()
+        {
+            if (!SharedCallFrames.RetainedByOther(_mutexName, this)) return;
+            Reachability.Sometimes("refusal:shared-peer-waits-for-own-ownership");
+            throw new InvalidOperationException(
+                "Cannot wait for shared-mode ownership of this database from inside an operation of another " +
+                "connection to it that holds the ownership on this thread, such as its input sequence or " +
+                "ReadTransform callback. Use that connection for nested operations, or run them after it returns.");
         }
 
         private void EndAdmissions(int depth)

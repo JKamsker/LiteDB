@@ -81,14 +81,13 @@ namespace LiteDB
 
             // Calls admitted before Dispose started finish first; later ones are refused.
             cleanup.Catch(this.WaitForAdmittedCalls);
-#if DEBUG || TESTING
             bool closed;
+            using (this.OwnershipFrame(() => _owner.IsHeld))
+#if DEBUG || TESTING
             // Wait-for graph: the close runs under every hold of this connection.
             using (LiteDB.Utils.WaitGraph.Executing(this, claimsAll: true))
-                closed = this.CloseOwnedCores(checkpoint: true, final: true);
-#else
-            var closed = this.CloseOwnedCores(checkpoint: true, final: true);
 #endif
+                closed = this.CloseOwnedCores(checkpoint: true, final: true);
             // Open readers and transactions of any thread end with the connection.
             cleanup.Catch(_owner.ReleaseAll);
             // Operations left a WAL below the close threshold: checkpoint it now, so

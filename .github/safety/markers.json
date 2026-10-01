@@ -1567,6 +1567,20 @@
       "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
       "reason": "Disposing a LiteDatabase from inside its executing operation (or its native holder) was rejected before changing state.",
       "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:shared-peer-waits-for-own-ownership",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Shared/SharedEngine.Calls.cs"
+      ],
+      "targets": [
+        "LiteDB.Tests/Engine/SharedPeerReaderCallback_Tests.cs#Peer_write_from_retaining_reader_callback_is_refused"
+      ],
+      "doc": "docs/shared-mode-safety.md",
+      "gate": "advisory",
+      "gateReason": "No PR smoke target reaches it yet; reached by the listed xUnit tests, which do not record markers.",
+      "reason": "A second connection to the same database that would wait for ownership its caller already retains on this thread is refused."
     }
   ]
 }

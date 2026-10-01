@@ -20,6 +20,9 @@ namespace LiteDB
         {
             Engine.TransactionContext.ThrowIfSharedWait(_mutexName);
             if (_owner.IsOwnedByCurrentThread) return _owner.Enter(scoped);
+            // Refuse before waiting at the gate too: another thread of this connection can
+            // hold it only while it waits for the same native mutex.
+            this.ThrowIfCallerRetainsOwnership();
 #if NET8_0_OR_GREATER
             long request = 0;
             if (writing)

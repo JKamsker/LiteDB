@@ -15,6 +15,13 @@ stop unsafe continuation, and make detected corruption visible.
 - Distinguish a transaction created by an operation from one it joined. A failed
   `BeginTrans`/join result or an occupied shared mutex alone does not establish
   explicit-transaction ownership. Include transparent public engine decorators.
+- User callbacks (lazy inputs, ReadTransform, custom streams) run inside the
+  ownership of their call or streamed result. A new blocking Shared acquisition
+  path must check the thread's executing frames (`SharedCallFrames`) before it
+  waits, so a callback cannot wait on ownership only its own return releases.
+  Work outside a public call that can reach user code under the mutex (result
+  disposal, pin and owner-exit cleanup, dispose checkpoints) needs a frame too.
+  Refuse only for frames that execute; idle owners stay waitable (#3073).
 - A new blocking site (lock, gate, mutex, event, handoff or poll loop) must register
   with the [wait-for graph](../wait-for-graph.md): its wait before blocking, its holds,
   and the frames in which its owner executes; or be listed there with the reason it is not.
