@@ -133,6 +133,7 @@ namespace LiteDB
                 if (rollback) return default;
                 throw new ObjectDisposedException(nameof(SharedEngine));
             }
+            this.ThrowIfTeardownReentry();
             if (this.IsForeignReaderCallback())
             {
                 // A handed-off reader can still be running when its original owner

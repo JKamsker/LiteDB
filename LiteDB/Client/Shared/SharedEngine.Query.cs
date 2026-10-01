@@ -431,8 +431,7 @@ namespace LiteDB
             }
             // Close returns cleanup errors only after teardown completes. A thrown
             // admission refusal must leave both snapshot and native owner published.
-            System.Collections.Generic.List<Exception> errors = null;
-            this.ObservedClose(snapshot, () => errors = snapshot.Close());
+            var errors = this.CloseRetainedCore(snapshot);
             lock (_useLock) _mutexSnapshots.Remove(snapshot);
             closed?.Invoke();
             LiteEngine.ThrowCleanupErrors(errors);

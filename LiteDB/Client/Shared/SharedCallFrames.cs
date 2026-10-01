@@ -19,12 +19,14 @@ namespace LiteDB.Client.Shared
             public readonly string Namespace;
             public readonly object Connection;
             public readonly Func<bool> Retains;
+            public readonly bool Teardown;
 
-            public Frame(string ns, object connection, Func<bool> retains)
+            public Frame(string ns, object connection, Func<bool> retains, bool teardown)
             {
                 this.Namespace = ns;
                 this.Connection = connection;
                 this.Retains = retains;
+                this.Teardown = teardown;
             }
         }
 
@@ -50,15 +52,28 @@ namespace LiteDB.Client.Shared
         /// <paramref name="retains"/> runs on this thread and reports whether the frame keeps
         /// the native ownership at that moment.
         /// </summary>
-        public static Scope Enter(string ns, object connection, Func<bool> retains)
+        public static Scope Enter(string ns, object connection, Func<bool> retains, bool teardown = false)
         {
             var frames = _frames ?? (_frames = new List<Frame>());
-            frames.Add(new Frame(ns, connection, retains));
+            frames.Add(new Frame(ns, connection, retains, teardown));
 #if DEBUG || TESTING
-            // The connection executes on this thread (the frozen nets' frame hook, without #3077's teardown claim).
-            LiteDB.Utils.WaitGraph.Enter(connection);
+            // The connection executes on this thread; a teardown runs under every hold of it.
+            LiteDB.Utils.WaitGraph.Enter(connection, claimsAll: teardown);
 #endif
             return new Scope(true);
+        }
+
+        /// <summary>
+        /// Closing a core is not ordinary same-connection recursion. It may be detached
+        /// from connection state already, but callbacks must not reopen or dispose its owner.
+        /// </summary>
+        public static bool IsTearingDown(object connection)
+        {
+            var frames = _frames;
+            if (frames == null) return false;
+            for (var i = frames.Count - 1; i >= 0; i--)
+                if (frames[i].Teardown && ReferenceEquals(frames[i].Connection, connection)) return true;
+            return false;
         }
 
         /// <summary>

@@ -1581,6 +1581,19 @@
       "gate": "advisory",
       "gateReason": "No PR smoke target reaches it yet; reached by the listed xUnit tests, which do not record markers.",
       "reason": "A second connection to the same database that would wait for ownership its caller already retains on this thread is refused."
+    },
+    {
+      "name": "refusal:shared-teardown-reentry",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Shared/SharedEngine.Disposal.cs"
+      ],
+      "targets": [
+        "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Self_call_during_core_close_cannot_wait_or_release_native_ownership"
+      ],
+      "gate": "advisory",
+      "gateReason": "No PR smoke target reaches it yet; reached by the listed xUnit tests, which do not record markers.",
+      "reason": "A public call or Dispose that reenters a Shared connection from inside its executing core teardown is refused."
     }
   ]
 }

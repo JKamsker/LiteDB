@@ -107,6 +107,7 @@ namespace LiteDB
 
         internal void ThrowIfClosingFromOperation()
         {
+            this.ThrowIfTeardownReentry();
             lock (_useLock)
             {
                 // Leased snapshots are independent and may outlive this facade.
@@ -130,6 +131,30 @@ namespace LiteDB
                     _mutexSnapshots.Any(snapshot => snapshot.IsExecutingOnCurrentThread);
         }
 
+        private void ThrowIfTeardownReentry()
+        {
+            if (SharedCallFrames.IsTearingDown(this))
+            {
+                LiteDB.Utils.Reachability.Sometimes("refusal:shared-teardown-reentry");
+                throw new InvalidOperationException("Cannot reenter a shared connection from inside its executing core teardown.");
+            }
+        }
+
+        /// <summary>
+        /// The writer owner remains retained until this close actually returns. Public
+        /// callback entry must not treat a core's disposed flag as completed teardown.
+        /// This frame also protects cores detached before their final checkpoint.
+        /// </summary>
+        private System.Collections.Generic.List<Exception> CloseRetainedCore(LiteEngine core, bool checkpoint = true, bool final = false)
+        {
+            using (SharedCallFrames.Enter(_mutexName, this, HolderRetains, teardown: true))
+            {
+                System.Collections.Generic.List<Exception> errors = null;
+                this.ObservedClose(core, () => errors = core.Close(checkpoint: checkpoint, final: final));
+                return errors;
+            }
+        }
+
         /// <summary>Keep ownership published while draining, without a callback-needed lock.</summary>
         private bool CloseOwnedCores(bool checkpoint, bool final = false)
         {
@@ -142,8 +167,8 @@ namespace LiteDB
             }
             // Returned errors follow completed teardown and keep the parent's
             // best-effort policy. A thrown refusal must prevent native release.
-            if (core != null) this.ObservedClose(core, () => core.Close(checkpoint: checkpoint, final: final));
-            foreach (var snapshot in snapshots) this.ObservedClose(snapshot, () => snapshot.Close(checkpoint: false));
+            if (core != null) this.CloseRetainedCore(core, checkpoint, final);
+            foreach (var snapshot in snapshots) this.CloseRetainedCore(snapshot, checkpoint: false);
             lock (_useLock)
             {
                 if (ReferenceEquals(_engine, core)) _engine = null;

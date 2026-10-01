@@ -199,9 +199,7 @@ namespace LiteDB
                 var close = Stopwatch.StartNew();
                 // The core remains visible until its reader operations have drained.
                 // Foreign reader callbacks must be able to detect this dependency.
-                System.Collections.Generic.List<Exception> closeErrors = null;
-                this.ObservedClose(engine, () => closeErrors = engine.Close());
-                cleanup.Exceptions.AddRange(closeErrors);
+                cleanup.Exceptions.AddRange(this.CloseRetainedCore(engine));
                 if (ReferenceEquals(_engine, engine)) _engine = null;
                 _lastPinClose = close.Elapsed;
             }
@@ -327,7 +325,7 @@ namespace LiteDB
             this.OpenEngine(false, final: true, writing: true);
             var engine = _engine;
             _engine = null;
-            this.ObservedClose(engine, () => engine.Close(final: true));
+            this.CloseRetainedCore(engine, final: true);
         }
 
         private static bool LogHasContent(string filename)

@@ -200,12 +200,7 @@ namespace LiteDB
                     // Keep the core discoverable by callbacks throughout its drain.
                     // Never hold connection bookkeeping while waiting for a reader.
                     System.Collections.Generic.List<Exception> errors;
-                    try
-                    {
-                        System.Collections.Generic.List<Exception> closeErrors = null;
-                        this.ObservedClose(engine, () => closeErrors = engine.Close());
-                        errors = closeErrors;
-                    }
+                    try { errors = this.CloseRetainedCore(engine); }
                     catch
                     {
                         lock (_useLock)
@@ -341,7 +336,7 @@ namespace LiteDB
             // The mutex was free since the owner exited, so another process may have
             // committed or checkpointed. This engine's WAL index and cache can be stale:
             // release it without the close checkpoint; the next open recovers the WAL.
-            this.ObservedClose(orphan, () => orphan?.Close(checkpoint: false));
+            if (orphan != null) this.CloseRetainedCore(orphan, checkpoint: false);
             _handles?.CloseIdle();
             Reachability.Sometimes("refusal:shared-abandoned-transaction");
             throw new LiteException(0, "The explicit transaction owner thread exited. Its uncommitted work was discarded; begin a new transaction on one thread.");
