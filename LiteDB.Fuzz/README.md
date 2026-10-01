@@ -172,6 +172,7 @@ oracle evidence even when the path-filtered Fuzz workflow does not run.
 | `shared-contention` | 2-4 real processes alternating Shared writer ownership (explicit transactions with commit/rollback, auto-commit writes, reads) behind a start barrier. Each child applies Deadline (lock-bound, TIMEOUT 10 s), Ownership after every operation, ConnectionClean, and Durable on a fresh connection; the parent bounds every join and checks Durable over the union of all acknowledged ledgers on a cold reopen, then Quiescent. Overtaking (a later arrival acquired before an earlier waiter, `arrive_i < arrive_j < acquired_j < acquired_i`) is a metric (`overtakings`, `overtakingRate`, `maxWaitMs`, `p99AcquireMs`), never a failure: [Shared mode is not strict FIFO](../docs/shared-performance-followups.md#ownership-and-compatibility). Evidence class 2: failed rounds keep ledgers, timings, child output, database files and `evidence.json` |
 | `transaction-interleavings` | the general concurrency explorer's forced actor schedules ([docs/concurrency-explorer.md](../docs/concurrency-explorer.md)): one applicable schedule vector per step (scenario x variant x mode x access kind x maintenance x callback x process x encryption, visited dimensions first from a seed-chosen start). Permitted outcomes per operation, Deadline per actor operation, Ownership after each judged operation (Shared), ConnectionClean after every dispose, Durable and an exact cold check on reopen, Quiescent, FaultReached/FaultDisposed for injected fatal writes. Evidence class 1 (the vector's recorded decisions replay). Vectors excluded by a registered hang/crash finding are traced and counted; other registered findings go to `known-findings.jsonl` and the campaign continues |
 | `lifetime-chaos` | random dependency programs: 2-6 operations on as many threads whose callbacks and input sequences await operations on other threads (nested up to depth 3), with a concurrent Dispose, Rebuild or injected fatal WAL write, Direct or Shared, every access kind. Same oracles as `transaction-interleavings`; permitted outcomes follow from what disturbs each operation's connection or file. Evidence class 2 (native threads): the program text is traced; failures keep the program, history and environment (`explorer-failure.json`, `evidence.json`) |
+| `shared-lifecycle` | observed native-waiter/owner death, reused handle WAL cuts, live snapshot retirement, checkpoint cuts and independent survivor deadlines |
 | `bson` | contiguous vs fragmented reader/writer round trips and mutations |
 | `parser` | fresh vs cached SQL/expression parsing, binding, malformed errors |
 | `mapper` | supported CLR shape round trips and cyclic failure isolation |
@@ -186,6 +187,7 @@ oracle evidence even when the path-filtered Fuzz workflow does not run.
 | `threaded-snapshot` | barrier-forced same-process writer/checkpoint overlap with multiple live snapshots |
 | `concurrent` | one-database multithreaded commits, unique contention, cursors, checkpoint, and rebuild |
 | `transaction-gate` | modeled reader counts, retired owners, foreign releases, and exclusive admission |
+| `pr133-transaction-interleavings` | (replay overlay: the PR's own explorer target, renamed) forced concurrent actor schedules, callback dependencies, per-worker deadlines, exact cold transaction-state oracle; see [bounded explorer](../docs/audits/pr133-concurrency-explorer.md) |
 | `cursor-handoff` | retired-thread cursor snapshots, independent foreign transactions, and overlapping checkpoints |
 | `conflict` | barrier-forced writer/schema/drop/storage/rebuild conflicts with acknowledged-state checks |
 | `power-loss` | volatile/durable device model cut at every internal WAL/checkpoint phase |
@@ -391,3 +393,10 @@ including two torn recovery attempts. Full payload/index and untouched-data
 oracles also check read-only byte preservation and successful root/WAL removal on
 retry. The latest data/WAL images are saved before recovery checks. Keeping this
 target separate preserves the existing retirement corpus input and trace hashes.
+
+## Shared lifecycle concurrency audit
+
+`shared-lifecycle` uses ten bounded process-death schedules and alternates encryption
+every ten cases. Use at least 20 cases to cover every selected cut plain/encrypted.
+It keeps the existing `shared` corpus unchanged; see the [boundary matrix, oracle,
+replay and explicit limits](../docs/audits/pr133-multiprocess-campaign.md).

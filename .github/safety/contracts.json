@@ -32,6 +32,9 @@
         "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
+        {"fuzz": "shared-lifecycle", "model": "process-death", "proves": "Selected native admission, confirmed WAL and checkpoint boundaries are observed before terminating a child; parent acknowledgements require complete durable transactions, indeterminate work has only complete permitted outcomes, and surviving processes plus cold indexed state are checked."},
+        {"fuzz": "pr133-transaction-interleavings", "model": "exception", "proves": "Deterministic actor schedules compare explicit/legacy commit and rollback effects against an independent document model, with positive overlap/admission boundaries and cold index/sentinel checks; discovered cycles fail the target."},
+
         {
           "test": "LiteDB.Tests/Engine/SharedFinalCheckpointContract_Tests.cs#Parent_final_checkpoint_remains_best_effort_and_failed_attempt_keeps_committed_wal",
           "model": "exception",
@@ -106,6 +109,9 @@
         "LiteDB/Engine/Services/OperationLifetime.cs"
       ],
       "evidence": [
+        {"fuzz": "shared-lifecycle", "model": "process-death", "proves": "An observed independent leased snapshot remains unchanged across external writer commits, or its process is killed before disposal; native waiters and surviving reader/opener/checkpoint actors have separate completion deadlines."},
+        {"fuzz": "pr133-transaction-interleavings", "model": "exception", "proves": "Bound readers transfer across actors, overlapping handle use refuses before execution, and independent reads cannot see the selected uncommitted writes; schedule histories record actual callback and admission boundaries."},
+
         {"test": "LiteDB.Tests/Engine/TransactionHandleCallbackScopeRetention_Tests.cs#Idle_caller_thread_does_not_root_completed_application_graph", "proves": "After successful or throwing pinned work, an idle live caller thread retains no database, Shared engine, settings or callback state through the execution stack; cold committed/aborted indexed state is preserved."},
         {"test": "LiteDB.Tests/Engine/TransactionHandleOrdinaryCallbackBegin_Tests.cs#Pinned_input_without_holds_refuses_handle_before_admission", "model": "exception", "proves": "An ordinary pin operation with zero holds rejects same-namespace handle admission before local/native waits, including a peer facade, while its outer write completes and cold indexed state remains correct."},
         {"test": "LiteDB.Tests/Engine/TransactionHandleOrdinaryCallbackBegin_Tests.cs#Transferred_mutex_reader_refuses_handle_before_admission", "model": "exception", "proves": "After actual reader handoff and a later transform callback, locking and fallback snapshots reject self-dependent handle begin through the same or a peer facade without releasing native protection."},

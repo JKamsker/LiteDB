@@ -297,6 +297,17 @@
       "invariant": "Transaction callback context restores before public admission transfers. All four workers must finish 1000 calls, with correct context before/after yielding, then commit and pass two cold indexed/sentinel checks.",
       "reason": "Exact e855 macOS Intel/net10 job 110008599282 recorded four fixed 15s workload deadlines without completed counts; throughput exhaustion, starvation and unexpected rejection cannot be distinguished retrospectively. Add forced gate-order oracle, retry only exact pre-callback overlap refusal, and report worker-specific completed/rejected/last-success state. Replace the 15s total-work limit with 15s without that worker completing real work plus a 60s absolute cap; peer progress and retries cannot renew it. External monitoring detects a worker blocked inside Run; bounded joins retain live fixtures instead of disposing storage beneath workers. Deterministic watchdog controls cover stalled, unstarted and continually progressing workers. No production change or assertion retry. Original cause remains unknown.",
       "decision": "docs/transaction-handles-safety-review.md#callback-handoff-progress-observation"
+    },
+    {
+      "id": "133-systematic-concurrency-campaign",
+      "kind": "ci-test-config-changed",
+      "subjects": [
+        ".github/workflows/fuzz.yml"
+      ],
+      "disposition": "strengthened",
+      "invariant": "Existing smoke and nightly shards retain their targets, assertions and time budgets; new concurrent actor/process campaigns add observed-boundary, progress and cold-state coverage.",
+      "reason": "Adds a separate bounded Linux/net8 and Windows/net10 smoke job and separate extended nightly shard using the existing fuzz runner. New source triggers keep linked explorer changes scheduled. No prior test, timeout, corpus or target is removed, relaxed or repinned. Newly confirmed defects fail the new audit target and remain merge blockers, not expected-success exceptions.",
+      "decision": "docs/audits/pr133-concurrency-audit.md"
     }
   ]
 }

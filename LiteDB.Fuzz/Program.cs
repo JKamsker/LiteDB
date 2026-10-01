@@ -7,10 +7,10 @@ internal static class Program
     private static readonly IFuzzTarget[] Targets =
     {
         new QueryFuzzer(), new LinqCacheFuzzer(), new TransactionFuzzer(), new WalFuzzer(),
-        new PageFuzzer(), new IndexFuzzer(), new SharedProcessFuzzer(), new BsonFuzzer(),
+        new PageFuzzer(), new IndexFuzzer(), new SharedProcessFuzzer(), new SharedLifecycleFuzzer(), new BsonFuzzer(),
         new ParserFuzzer(), new MapperFuzzer(), new StorageFuzzer(), new RebuildFuzzer(),
         new VectorFuzzer(), new SortFuzzer(), new ValueFuzzer(), new IntegrityFuzzer(),
-        new SnapshotFuzzer(), new ThreadedSnapshotFuzzer(), new ConcurrentFuzzer(),
+        new SnapshotFuzzer(), new ThreadedSnapshotFuzzer(), new ConcurrentFuzzer(), new TransactionInterleavingFuzzer(),
         new PowerLossFuzzer(), new BoundaryFuzzer(), new ReadOnlyFuzzer(), new SqlDmlFuzzer(),
         new CompatibilityFuzzer(), new RecoveryFuzzer(), new ChaosFuzzer(), new ApiBoundaryFuzzer(),
         new ChaosMaintenanceFuzzer(),
@@ -32,6 +32,7 @@ internal static class Program
         catch (Exception error) { Console.Error.WriteLine(error.Message); PrintHelp(); return 2; }
 
         if (options.Child == "verify-checkpointed") return CheckpointedFileVerifier.Run(options);
+        if (options.Child == "shared-lifecycle") return SharedLifecycleChild.Run(options);
         if (options.Child == "shared") return SharedProcessFuzzer.RunChild(options);
         if (options.Child == "shared-contention") return SharedContentionChild.Run(options);
         if (options.Child == LiteDB.ConcurrencyTesting.ExplorerWriterChild.Mode)

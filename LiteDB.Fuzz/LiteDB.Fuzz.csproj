@@ -29,4 +29,8 @@
     <None Include="..\LiteDB.Tests\Resources\v4.db" Link="Corpus\Legacy\v4.db" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\LiteDB.Tests\Resources\Issue_2494_EncryptedV4.db" Link="Corpus\Legacy\Issue_2494_EncryptedV4.db" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Replay overlay: the PR's own explorer lives in Pr133Explorer (namespace LiteDB.ConcurrencyTesting.Pr133). -->
+    <Compile Include="../LiteDB.Tests/Engine/Pr133Explorer/*.cs" Link="Pr133Explorer/%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

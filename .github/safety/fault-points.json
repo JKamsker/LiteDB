@@ -552,6 +552,7 @@
       "name": "checkpoint-after-data-flush",
       "protocol": "checkpoint backfill",
       "evidence": [
+        {"fuzz": "shared-lifecycle", "model": "process-death", "proves": "A parent observes this exact child hook and terminates the paused process; parent acknowledgements and two cold indexed-state checks constrain complete transaction outcomes while survivor roles must progress.", "via": ["LiteDB.Fuzz/Targets/SharedLifecycleChild.cs"]},
         {
           "test": "LiteDB.Tests/Engine/CompactPromotionPowerLoss_Tests.cs#Power_loss_preserves_legacy_rows_and_atomic_compact_transaction",
           "model": "modeled-power-loss",
@@ -647,6 +648,7 @@
       "name": "checkpoint-before-data-flush",
       "protocol": "checkpoint backfill",
       "evidence": [
+        {"fuzz": "shared-lifecycle", "model": "process-death", "proves": "A parent observes this exact child hook and terminates the paused process; parent acknowledgements and two cold indexed-state checks constrain complete transaction outcomes while survivor roles must progress.", "via": ["LiteDB.Fuzz/Targets/SharedLifecycleChild.cs"]},
         {
           "test": "LiteDB.Tests/Engine/CompactPromotionPowerLoss_Tests.cs#Power_loss_preserves_legacy_rows_and_atomic_compact_transaction",
           "model": "modeled-power-loss",
@@ -1033,6 +1035,7 @@
       "name": "wal-after-durable-flush",
       "protocol": "WAL commit",
       "evidence": [
+        {"fuzz": "shared-lifecycle", "model": "process-death", "proves": "A parent observes this exact child hook and terminates the paused process; parent acknowledgements and two cold indexed-state checks constrain complete transaction outcomes while survivor roles must progress.", "via": ["LiteDB.Fuzz/Targets/SharedLifecycleChild.cs"]},
         {
           "test": "LiteDB.Tests/Engine/CompactPromotionPowerLoss_Tests.cs#Power_loss_preserves_legacy_rows_and_atomic_compact_transaction",
           "model": "modeled-power-loss",
@@ -1085,6 +1088,7 @@
       "name": "wal-before-durable-flush",
       "protocol": "WAL commit",
       "evidence": [
+        {"fuzz": "shared-lifecycle", "model": "process-death", "proves": "A parent observes this exact child hook and terminates the paused process; parent acknowledgements and two cold indexed-state checks constrain complete transaction outcomes while survivor roles must progress.", "via": ["LiteDB.Fuzz/Targets/SharedLifecycleChild.cs"]},
         {
           "test": "LiteDB.Tests/Engine/CompactPromotionPowerLoss_Tests.cs#Power_loss_preserves_legacy_rows_and_atomic_compact_transaction",
           "model": "modeled-power-loss",
