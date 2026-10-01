@@ -310,6 +310,32 @@
       "permanentGuard": [
         "LiteDB.Tests/Engine/TransactionHandleCloseFrame_Tests.cs#Peer_handle_from_stream_callback_during_close_refuses_only_same_database"
       ]
+    },
+    {
+      "repro": "SharedSelfTeardownRelease",
+      "knownBad": {
+        "kind": "package",
+        "version": "6.0.0-prerelease.319"
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Self_call_during_core_close_cannot_wait_or_release_native_ownership",
+        "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Ordinary_same_connection_getter_recursion_still_completes",
+        "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Other_database_remains_callable_during_core_close"
+      ]
+    },
+    {
+      "repro": "SharedSelfTeardownWait",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "3abead6dc2eb6413daf5fa81d8faed06cdf4ade7",
+        "pr": 133,
+        "reason": "The same-instance closing-core self-wait depends on the lifetime fence introduced within unmerged PR133. Upstream same-instance premature release is separately proved against a published package."
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Self_call_during_core_close_cannot_wait_or_release_native_ownership",
+        "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Ordinary_same_connection_getter_recursion_still_completes",
+        "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Other_database_remains_callable_during_core_close"
+      ]
     }
   ]
 }

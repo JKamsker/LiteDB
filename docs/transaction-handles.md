@@ -111,6 +111,12 @@ joins cleanup and reports any deferred cleanup failure once. Reentrant disposal
 from an executing operation or its internal native holder is rejected before
 changing the session state.
 
+Shared caller-stream callbacks invoked while a core is closing cannot reenter
+ordinary methods or dispose that same live connection. They throw
+`InvalidOperationException` before ownership changes; use another database or
+wait until teardown returns. This restriction does not prohibit ordinary
+same-connection recursion outside core teardown.
+
 Initial cleanup runs independently of the application thread pool, so callers
 disposing sessions cannot exhaust the pool needed to clean them up. If the runtime
 cannot start that cleanup worker, disposal reports the startup error, retains the

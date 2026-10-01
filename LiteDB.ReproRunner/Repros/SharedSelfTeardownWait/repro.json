@@ -1,0 +1,32 @@
+{
+  "id": "SharedSelfTeardownWait",
+  "title": "Shared same-instance teardown getter waits for its own core retirement",
+  "issues": [
+    "https://github.com/JKamsker/LiteDB/pull/133"
+  ],
+  "failingSince": "0.0.0-knownbad.3abead6dc2eb",
+  "timeoutSeconds": 150,
+  "requiresParallel": false,
+  "defaultInstances": 1,
+  "args": [
+    "--wait-only"
+  ],
+  "tags": [
+    "regression-proof",
+    "shared",
+    "concurrency"
+  ],
+  "expectedOutcomes": {
+    "package": {
+      "kind": "reproduce",
+      "exitCode": 0,
+      "logContains": "TEARDOWN_DEFECT_VERIFIED"
+    },
+    "latest": {
+      "kind": "noRepro",
+      "exitCode": 2,
+      "logContains": "FIXED_VERIFIED"
+    }
+  },
+  "state": "green"
+}
