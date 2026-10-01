@@ -1,0 +1,30 @@
+{
+  "id": "Issue_133_SharedCloseCallbackBegin",
+  "title": "Shared stream close callback handle begin waits on enclosing native ownership",
+  "issues": [
+    "https://github.com/JKamsker/LiteDB/pull/133"
+  ],
+  "failingSince": "0.0.0-knownbad.be60d53a3508",
+  "timeoutSeconds": 120,
+  "requiresParallel": false,
+  "defaultInstances": 1,
+  "args": [],
+  "tags": [
+    "regression-proof",
+    "shared",
+    "concurrency"
+  ],
+  "expectedOutcomes": {
+    "package": {
+      "kind": "reproduce",
+      "exitCode": 0,
+      "logContains": "NATIVE_SELF_WAIT_VERIFIED"
+    },
+    "latest": {
+      "kind": "noRepro",
+      "exitCode": 2,
+      "logContains": "FIXED_VERIFIED"
+    }
+  },
+  "state": "green"
+}
