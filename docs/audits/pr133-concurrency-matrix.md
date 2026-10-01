@@ -1,5 +1,8 @@
 # PR #133 concurrency coverage matrix
 
+> Historical audit of `98a10086c`. The upstream correction and merged qualification
+> are tracked in [the #3072 integration report](pr133-dev3072-integration.md).
+
 Baseline: `98a10086c2a296040a345e62ea987d59fc2ab487`. Resources and source
 acquisition sites are defined in the [dependency inventory](pr133-concurrency-dependencies.md).
 

@@ -77,7 +77,7 @@ namespace LiteDB.ConcurrencyTesting.Pr133
         internal const string OverlapRefusal = "Overlapping or reentrant transaction handle use is not supported.";
         internal const string ReaderRefusal = "Close transaction-bound readers before committing.";
         internal const string SharedCallbackRefusal = "Cannot wait for shared writer ownership from inside a transaction handle callback for the same database.";
-        internal const string OrdinaryCallbackRefusal = "Cannot wait for shared writer ownership from inside an ordinary callback for the same database.";
+        internal const string OrdinaryCallbackRefusal = "Cannot wait for shared-mode ownership of this database from inside an operation of another connection to it that holds the ownership on this thread, such as its input sequence or ReadTransform callback. Use that connection for nested operations, or run them after it returns.";
 
         internal static void Refused(Action action, string expected = OverlapRefusal)
         {

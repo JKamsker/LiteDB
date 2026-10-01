@@ -308,6 +308,17 @@
       "invariant": "Existing smoke and nightly shards retain their targets, assertions and time budgets; new concurrent actor/process campaigns add observed-boundary, progress and cold-state coverage.",
       "reason": "Adds a separate bounded Linux/net8 and Windows/net10 smoke job and separate extended nightly shard using the existing fuzz runner. New source triggers keep linked explorer changes scheduled. No prior test, timeout, corpus or target is removed, relaxed or repinned. Newly confirmed defects fail the new audit target and remain merge blockers, not expected-success exceptions.",
       "decision": "docs/audits/pr133-concurrency-audit.md"
+    },
+    {
+      "id": "133-integrate-3072-close-fixture",
+      "kind": "fixture-changed",
+      "subjects": [
+        "LiteDB.Tests/Engine/SharedPeerCloseCallback_Tests.cs"
+      ],
+      "disposition": "strengthened",
+      "invariant": "All ten plain/encrypted close routes must execute a real caller-stream write under retained native ownership, refuse the peer before native waiting, preserve outer writes and cold indexed/sentinel state.",
+      "reason": "PR133 makes the FOR UPDATE cursor transaction independent from subsequent ordinary writes, so the upstream fixture conflicts on rows before reaching cleanup. Retain the write cursor on sentinel instead, explicitly assert native ownership, and preserve every callback, refusal, post-close write and cold-state assertion. No timeout or case removed.",
+      "decision": "docs/audits/pr133-dev3072-integration.md"
     }
   ]
 }
