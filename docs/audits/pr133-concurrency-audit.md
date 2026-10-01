@@ -1,5 +1,8 @@
 # PR #133 concurrency audit
 
+> Historical audit of `98a10086c`. The upstream correction and merged qualification
+> are tracked in [the #3072 integration report](pr133-dev3072-integration.md).
+
 ## Frozen baseline and finite gate
 
 The starting PR head is `98a10086c2a296040a345e62ea987d59fc2ab487`,

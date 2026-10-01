@@ -72,9 +72,11 @@ namespace LiteDB.Tests.Engine
                 {
                     case Close.RetainingReader:
                     {
-                        // A write query keeps the ownership; writes on its thread join its engine,
-                        // which closes when the reader is disposed.
-                        var reader = outer.Query("rows", new Query { ForUpdate = true });
+                        // The write query retains native ownership and the same engine. Its
+                        // transaction is independent, so hold a different collection
+                        // while writing rows for the eventual close checkpoint.
+                        var reader = outer.Query("sentinel", new Query { ForUpdate = true });
+                        outer.MutexOwner.IsHeld.Should().BeTrue("the result must retain native ownership until close");
                         outer.Insert("rows", BigBatch(100).ToArray(), BsonAutoId.Int32);
                         data.Arm(callback);
                         reader.Dispose();
@@ -103,7 +105,8 @@ namespace LiteDB.Tests.Engine
                     case Close.ConnectionWithEngine:
                     {
                         // Disposing the connection closes the engine a still-open result keeps.
-                        var reader = outer.Query("rows", new Query { ForUpdate = true });
+                        var reader = outer.Query("sentinel", new Query { ForUpdate = true });
+                        outer.MutexOwner.IsHeld.Should().BeTrue("the result must retain native ownership until close");
                         outer.Insert("rows", BigBatch(100).ToArray(), BsonAutoId.Int32);
                         data.Arm(callback);
                         outer.Dispose();
