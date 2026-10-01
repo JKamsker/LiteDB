@@ -167,5 +167,11 @@
       "LiteDB.Tests/Engine/SharedPeerReaderCallback_Tests.cs#Idle_pin_ends_for_a_later_peer_write_on_its_thread",
       "LiteDB.Tests/Engine/SharedPeerCloseCallback_Tests.cs#Peer_write_from_stream_callback_during_close_is_refused"
     ]
+  },
+  "Issue_133_SharedCloseCallbackBegin": {
+    "reason": "The dedicated Regression proof workflow packs the pinned PR commit and verifies before/after variants; the permanent twenty-case close-frame guard runs in the normal suites. Ordinary ReproRunner jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/TransactionHandleCloseFrame_Tests.cs#Peer_handle_from_stream_callback_during_close_refuses_only_same_database"
+    ]
   }
 }

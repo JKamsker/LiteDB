@@ -317,7 +317,18 @@
       ],
       "disposition": "strengthened",
       "invariant": "All ten plain/encrypted close routes must execute a real caller-stream write under retained native ownership, refuse the peer before native waiting, preserve outer writes and cold indexed/sentinel state.",
-      "reason": "PR133 makes the FOR UPDATE cursor transaction independent from subsequent ordinary writes, so the upstream fixture conflicts on rows before reaching cleanup. Retain the write cursor on sentinel instead, explicitly assert native ownership, and preserve every callback, refusal, post-close write and cold-state assertion. No timeout or case removed.",
+      "reason": "PR133 makes the FOR UPDATE cursor transaction independent from subsequent ordinary writes, so the upstream fixture conflicts on rows before reaching cleanup. Retain the write cursor on sentinel instead, explicitly assert native ownership, and preserve every callback, refusal, post-close write and cold-state assertion. No timeout or case removed. Upstream #3075 is merged as well: the last-reader case updates a leased page below the close threshold and waits for the peer native release before disposal, requiring the pending WAL. This removes a skipped-checkpoint fixture race while retaining both encrypted/plain cases and the callback/refusal/cold-state oracle.",
+      "decision": "docs/audits/pr133-dev3072-integration.md"
+    },
+    {
+      "id": "133-close-frame-physical-namespace",
+      "kind": "fixture-changed",
+      "subjects": [
+        "LiteDB.Tests/Engine/SharedPeerCallbackFixture.cs"
+      ],
+      "disposition": "strengthened",
+      "invariant": "Stream callback and filename-backed peer target the same physical data/WAL/mutex namespace on every OS; all callback, immediate refusal, valid-operation and cold indexed-state assertions remain. Failed handle-close fixtures remain retained.",
+      "reason": "be60 macOS jobs 110187905983/110187905988/110187906104 exposed fixture aliases: custom stream settings keep /var while file-backed peers normalize to /private/var. Canonicalize the existing system-temp directory without moving files or changing volumes, as other native-admission fixtures do. Keep the exact exception contract, ten-second worker bound and all cases; add a retention hook for the new handle-close cases.",
       "decision": "docs/audits/pr133-dev3072-integration.md"
     }
   ]

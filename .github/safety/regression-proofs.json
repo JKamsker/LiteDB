@@ -298,6 +298,18 @@
         "LiteDB.Tests/Engine/SharedPeerReaderCallback_Tests.cs#Idle_pin_ends_for_a_later_peer_write_on_its_thread",
         "LiteDB.Tests/Engine/SharedPeerCloseCallback_Tests.cs#Peer_write_from_stream_callback_during_close_is_refused"
       ]
+    },
+    {
+      "repro": "Issue_133_SharedCloseCallbackBegin",
+      "knownBad": {
+        "kind": "pr-commit",
+        "commit": "be60d53a35088e408d8265989ed915cea1983ec1",
+        "pr": 133,
+        "reason": "The handle-begin path misses upstream cleanup ownership frames after integrating #3072 into unmerged fork PR133; transaction handles are absent from upstream dev and published packages."
+      },
+      "permanentGuard": [
+        "LiteDB.Tests/Engine/TransactionHandleCloseFrame_Tests.cs#Peer_handle_from_stream_callback_during_close_refuses_only_same_database"
+      ]
     }
   ]
 }

@@ -47,6 +47,11 @@ namespace LiteDB
 
         private void ThrowIfCallbackOwnershipWait()
         {
+            // A handle acquires through a different child engine, so even this
+            // facade's retaining frame cannot supply ordinary-call recursion.
+            // Include close/retirement callbacks outside a public Call or Read.
+            if (SharedCallFrames.RetainedByOther(_mutexName, connection: null))
+                throw new InvalidOperationException("Cannot open a transaction handle from inside an operation retaining its shared writer ownership.");
             var calls = _executingCalls;
             if (calls == null) return;
             for (var i = calls.Count - 1; i >= 0; i--)
