@@ -41,6 +41,7 @@ REPROS = "LiteDB.ReproRunner/Repros"
 # this module: an imported module's top-level code runs on every proof.
 HARNESS = ("LiteDB.ReproRunner/LiteDB.ReproRunner.Cli/", "LiteDB.ReproRunner/LiteDB.ReproRunner.Shared/",
            "LiteDB.ReproRunner/Repros/SharedPinCallbackProof/",
+           "LiteDB.ReproRunner/Repros/SharedSelfTeardownProof/",
            ".github/scripts/regression_proof.py", ".github/scripts/repro_scaffold.py",
            ".github/scripts/proof_provenance.py", ".github/scripts/safety_common.py",
            ".github/workflows/regression-proof.yml")

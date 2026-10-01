@@ -173,5 +173,21 @@
     "tests": [
       "LiteDB.Tests/Engine/TransactionHandleCloseFrame_Tests.cs#Peer_handle_from_stream_callback_during_close_refuses_only_same_database"
     ]
+  },
+  "SharedSelfTeardownRelease": {
+    "reason": "The dedicated Regression proof workflow verifies the published package and corrected source; the permanent same-connection teardown guards also run in ordinary suites.",
+    "tests": [
+      "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Self_call_during_core_close_cannot_wait_or_release_native_ownership",
+      "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Ordinary_same_connection_getter_recursion_still_completes",
+      "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Other_database_remains_callable_during_core_close"
+    ]
+  },
+  "SharedSelfTeardownWait": {
+    "reason": "The dedicated Regression proof workflow packs the actual pre-fix PR133 commit and verifies the self-wait witness against corrected source; ordinary jobs do not create the required local package feed.",
+    "tests": [
+      "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Self_call_during_core_close_cannot_wait_or_release_native_ownership",
+      "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Ordinary_same_connection_getter_recursion_still_completes",
+      "LiteDB.Tests/Engine/SharedSelfCloseCallback_Tests.cs#Other_database_remains_callable_during_core_close"
+    ]
   }
 }
