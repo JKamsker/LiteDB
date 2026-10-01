@@ -76,6 +76,24 @@ this does not relocate databases or change the storage volume. No exception,
 timeout, route or cold-state assertion was weakened. The earlier failures remain
 in the evidence. The new handle-close fixture retains failing database graphs.
 
+Canonicalization alone was insufficient: final `0d7ea1ee6` macOS Intel jobs
+110197024311/110197024513 pass eight same-file callback guards, then fail the
+post-close write; four last-reader cases fail setup admission. Darwin's
+`FileStream(path)` adds a whole-file flock that conflicts with the native family
+probe while the caller-owned stream remains open. Both close-test fixtures and
+the production proof now follow `AdmittedFileStream`'s existing raw-descriptor
+opening on Darwin, keeping normal path construction elsewhere. This changes only
+test instrumentation; production admission, all callbacks, refusal/progress
+assertions and cold checks remain unchanged. The original macOS failure's first
+classification as solely a namespace mismatch was incomplete; retain both logs
+and the revised diagnosis. Those hosted failing directories were retained on the
+runner but not uploaded by the collector, so their file contents are unavailable.
+The new handle-close cases now publish a typed `litedb-peer-<GUID>` directory
+manifest through the existing retention helper. Its existing post-host collector
+copies the raw fixture only after exit; tests reject live hosts and invalid
+prefixes. Actual known-bad failures exercise publication and collection. This
+adds diagnostics without changing normal-path I/O, assertions or timeouts.
+
 ## Initial merge qualification (before the integration correction)
 
 The integrated code/test revision is `7f2b2bf166f7f8236f02ca1b5826fca1de656be7`.

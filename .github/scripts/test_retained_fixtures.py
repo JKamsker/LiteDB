@@ -103,9 +103,15 @@ sys.stdin.readline()
             self.assertFalse((root / 'failed/unrelated.db').exists())
 
     def test_shared_followup_waits_for_host_and_keeps_raw_files_and_diagnostics(self):
+        self.assert_directory_waits_for_host_and_keeps_raw_files('shared-followup-directory', 'litedb-followup-')
+
+    def test_shared_callback_waits_for_host_and_keeps_raw_files_and_diagnostics(self):
+        self.assert_directory_waits_for_host_and_keeps_raw_files('shared-callback-directory', 'litedb-peer-')
+
+    def assert_directory_waits_for_host_and_keeps_raw_files(self, fixture_kind, prefix):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)
-            fixture = root / ('litedb-followup-' + 'd' * 32)
+            fixture = root / (prefix + 'd' * 32)
             fixture.mkdir()
             artifacts = root / 'artifacts'
             artifacts.mkdir()
@@ -119,7 +125,7 @@ sys.stdin.readline()
                 str(fixture / 'data.db')], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
             try:
                 self.assertEqual(host.stdout.readline().strip(), 'ready')
-                manifest = {'fixtureKind': 'shared-followup-directory', 'directory': str(fixture),
+                manifest = {'fixtureKind': fixture_kind, 'directory': str(fixture),
                             'phase': 'writer progress', 'processId': host.pid, 'failure': 'original progress failure'}
                 (artifacts / 'failed.json').write_text(json.dumps(manifest))
                 self.assertEqual(retained.collect(artifacts), 1)
@@ -190,6 +196,20 @@ sys.stdin.readline()
                     self.assertEqual(retained.collect(root), 1)
                 self.assertFalse((root / 'failed/data.db').exists())
                 self.assertEqual((fixture / 'data.db').read_bytes(), b'untouched')
+
+    def test_shared_callback_cannot_capture_other_fixture_kinds_or_arbitrary_directories(self):
+        for name in ('arbitrary', 'litedb-followup-' + 'e' * 32, 'litedb-peer-not-a-guid'):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as root:
+                root = Path(root)
+                fixture = root / name
+                fixture.mkdir()
+                (fixture / 'outer.db').write_bytes(b'untouched')
+                (root / 'failed.json').write_text(json.dumps({'fixtureKind': 'shared-callback-directory',
+                    'directory': str(fixture), 'processId': 1, 'failure': 'primary'}))
+                with patch.object(retained, 'running', return_value=False):
+                    self.assertEqual(retained.collect(root), 1)
+                self.assertFalse((root / 'failed/outer.db').exists())
+                self.assertEqual((fixture / 'outer.db').read_bytes(), b'untouched')
 
     def test_copy_failure_is_separate_and_remaining_files_are_collected(self):
         with tempfile.TemporaryDirectory() as root:

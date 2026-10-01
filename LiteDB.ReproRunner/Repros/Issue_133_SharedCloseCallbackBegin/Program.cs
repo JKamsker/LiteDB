@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using LiteDB;
 using LiteDB.Engine;
 using LiteDB.ReproRunner.Shared;
@@ -64,8 +66,8 @@ internal static class Program
         var peer = new LiteDatabase(peerEngine);
         using (var warm = peer.BeginTransaction(TimeSpan.FromSeconds(5))) warm.Rollback();
         var child = (SharedEngine)Field(peerEngine, "_cachedTransactionChild");
-        var data = new CallbackFile(file);
-        var log = new CallbackFile(Path.Combine(directory, name + "-log.db"));
+        var data = CallbackFile.Open(file);
+        var log = CallbackFile.Open(Path.Combine(directory, name + "-log.db"));
         var outer = new SharedEngine(new EngineSettings
         { Filename = file, Password = password, DataStream = data, LogStream = log });
         var cancel = new CancellationTokenSource();
@@ -192,7 +194,19 @@ internal static class Program
     private sealed class CallbackFile : FileStream
     {
         private Action? _callback;
-        internal CallbackFile(string path) : base(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete) { }
+        private CallbackFile(string path) : base(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete) { }
+        private CallbackFile(SafeFileHandle handle) : base(handle, FileAccess.ReadWrite) { }
+        internal static CallbackFile Open(string path)
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return new CallbackFile(path);
+            // The production admitted-stream path likewise avoids Darwin's automatic
+            // whole-file flock; native ownership remains the engine's responsibility.
+            var identity = typeof(LiteDatabase).Assembly.GetTypes().Single(type => type.Name == "DatabaseFileIdentity");
+            var handle = (SafeFileHandle)identity.GetMethod("Open", BindingFlags.NonPublic | BindingFlags.Static)!
+                .Invoke(null, new object[] { path, false, true })!;
+            try { return new CallbackFile(handle); }
+            catch { handle.Dispose(); throw; }
+        }
         internal void Arm(Action callback) => Volatile.Write(ref _callback, callback);
         public override void Write(byte[] buffer, int offset, int count)
         { Interlocked.Exchange(ref _callback, null)?.Invoke(); base.Write(buffer, offset, count); }

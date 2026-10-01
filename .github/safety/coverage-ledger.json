@@ -330,6 +330,33 @@
       "invariant": "Stream callback and filename-backed peer target the same physical data/WAL/mutex namespace on every OS; all callback, immediate refusal, valid-operation and cold indexed-state assertions remain. Failed handle-close fixtures remain retained.",
       "reason": "be60 macOS jobs 110187905983/110187905988/110187906104 exposed fixture aliases: custom stream settings keep /var while file-backed peers normalize to /private/var. Canonicalize the existing system-temp directory without moving files or changing volumes, as other native-admission fixtures do. Keep the exact exception contract, ten-second worker bound and all cases; add a retention hook for the new handle-close cases.",
       "decision": "docs/audits/pr133-dev3072-integration.md"
+    },
+    {
+      "id": "133-close-fixture-darwin-descriptor",
+      "kind": "fixture-changed",
+      "subjects": [
+        "LiteDB.Tests/Engine/SharedPeerCloseCallback_Tests.cs",
+        "LiteDB.Tests/Engine/TransactionHandleCloseFrame_Tests.cs",
+        "LiteDB.ReproRunner/Repros/Issue_133_SharedCloseCallbackBegin/Program.cs"
+      ],
+      "disposition": "strengthened",
+      "invariant": "Every same/other-file callback, pre-admission refusal, post-close write, plain/encrypted case, original timeout and cold indexed/sentinel assertion remains exercised. Caller-stream instrumentation must not add a lock absent from an admitted production stream.",
+      "reason": "Final0d7 macOS Intel jobs110197024311/110197024513 prove that the eight same-file callback guards pass but the post-close handle fails, while four last-reader setups fail earlier. Darwin FileStream(path) adds a whole-file flock that obstructs native family admission while the caller stream remains open. Mirror the existing production AdmittedFileStream descriptor-opening pattern only on Darwin; all other platforms keep the original FileStream(path) construction. The same fix is applied to the production proof fixture. No production code or guard assertion changed. Earlier classification of namespace canonicalization as sufficient was incomplete.",
+      "decision": "docs/audits/pr133-dev3072-integration.md"
+    },
+    {
+      "id": "133-shared-callback-failure-retention",
+      "kind": "harness-changed",
+      "subjects": [
+        "scripts/collect-retained-fixtures.py",
+        "LiteDB.Tests/Utils/RetainedTestFixture.cs",
+        "LiteDB.Tests/Engine/TransactionHandleCloseFrame_Tests.cs",
+        ".github/scripts/test_retained_fixtures.py"
+      ],
+      "disposition": "strengthened",
+      "invariant": "A failed callback-close fixture remains on its original volume and is copied only after its test host exits; all database files and diagnostics are preserved and primary errors remain visible.",
+      "reason": "The new close cases originally retained directories on disk but only printed their paths; the existing collector did not recognize litedb-peer-GUID directories, so the 0d7 macOS failures did not upload their database files. Register one typed directory manifest using the existing publisher and collector. Tests cover real live-host refusal, byte-preserving capture, and rejection of wrong prefixes/arbitrary directories. Actual knownbad test failures exercise C# publication and post-host collection. No database-test assertions, timeouts or production behavior change.",
+      "decision": "docs/audits/pr133-dev3072-integration.md"
     }
   ]
 }
