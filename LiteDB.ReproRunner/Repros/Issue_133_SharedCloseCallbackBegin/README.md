@@ -31,7 +31,11 @@ and compares exact rows/payloads, an actual secondary index seek and the complet
 sentinel. A live worker prevents disposal or cold inspection. All original
 fixtures remain under a short OS temporary directory. Its physical canonical
 path is used consistently for caller streams and filename-backed connections,
-including Darwin's `/var` alias; this does not relocate the fixture.
+including Darwin's `/var` alias; this does not relocate the fixture. On Darwin,
+the callback FileStream uses the same raw-descriptor opening as production
+`AdmittedFileStream`, avoiding the path constructor's automatic whole-file flock
+while preserving the engine's native ownership and admission protocol. Other
+platforms retain ordinary path-based FileStream construction.
 
 ```bash
 python .github/scripts/regression_proof.py pack-known-bad \

@@ -56,7 +56,8 @@ def collect(directory):
             if running(int(source['processId'])):
                 raise RuntimeError('Fixture host is still running; refusing to copy')
             directory_prefixes = {'native-crash-directory': 'litedb-native-crash-',
-                                  'shared-followup-directory': 'litedb-followup-'}
+                                  'shared-followup-directory': 'litedb-followup-',
+                                  'shared-callback-directory': 'litedb-peer-'}
             if source.get('fixtureKind') in directory_prefixes:
                 fixture = Path(source['directory'])
                 prefix = directory_prefixes[source['fixtureKind']]
