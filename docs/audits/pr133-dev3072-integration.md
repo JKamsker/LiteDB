@@ -29,9 +29,37 @@ The first integrated run's four fixture failures are retained, not product deadl
 
 ## Qualification
 
-In progress. Final source identity, local and hosted results will be recorded here.
-The original C12 merge blocker is considered resolved only after the retained
-full actor matrix and upstream regressions pass on the integrated source.
+The integrated code/test revision is `7f2b2bf166f7f8236f02ca1b5826fca1de656be7`.
+The historical eight C12 failures all pass in the complete net8 actor matrix;
+all upstream peer-callback cases pass as well: **316/316** in the combined
+selection. A disjoint broader ownership selection passes **849/849** on net8.
+The unchanged 300-second session limit remains in force.
+
+The upstream production proof reproduces all six routes on published package
+`6.0.0-prerelease.319` and verifies the merged source, including valid-operation
+controls and cold indexed/sentinel state. Its exact binaries and fixtures are
+captured in an additional explicit run because the ordinary runner retires its
+build layouts. An isolated test-only mutation disabling the upstream guard fails
+all ten close cases, including the adjusted fixture routes; it is an oracle test,
+not a replacement for the actual known-bad package comparison.
+
+Both local process campaigns pass 20 scenarios plus 20 recorded-input replays
+per runtime on net8/net10 (80 total); Fuzz.Tests passes 36/36. net462 compilation
+passes. Coverage, contract and fault registries pass; existing quarantine gaps
+remain. These runs use Release with `TestingEnabled=true`, except the production
+proof, which uses `TestingEnabled=false` in its own checkout.
+
+[Hosted Fuzz 36803923340](https://github.com/JKamsker/LiteDB/actions/runs/36803923340)
+passes on this integrated revision. Both Linux/net8 and Windows/net10 complete
+all **272 actor schedules** and **32 process scenarios**. Unlike the historical
+audit, neither actor campaign stops at the old C12 failure. The complete source
+and test trees remain identical in subsequent report-only revisions.
+
+This establishes the C12 correction in the merged code. The wider full CI matrix,
+all registered regression proofs, remaining local net10 selections and exact
+final candidate status are linked in [PR #133's current evidence section](https://github.com/JKamsker/LiteDB/pull/133).
+Do not substitute the old `98a10086c` green CI or the historical failing audit for
+that current-candidate qualification. No PR merge is performed by this integration.
 
 Upstream #3073 remains a separate documented issue: a same-thread ordinary peer
 write can wait on an idle legacy transaction that only its thread can complete.
