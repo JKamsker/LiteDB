@@ -252,7 +252,7 @@ namespace LiteDB
         /// </summary>
         private void OnOwnerExited()
         {
-            this.CloseOwnedCores(checkpoint: false);
+            using (this.OwnershipFrame(HolderRetains)) this.CloseOwnedCores(checkpoint: false);
             _handles?.CloseIdle();
         }
 

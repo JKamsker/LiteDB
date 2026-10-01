@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
+using LiteDB.Client.Shared;
 
 namespace LiteDB
 {
@@ -13,6 +14,10 @@ namespace LiteDB
         private readonly Action _dispose;
         private readonly LiteEngine _ownedSnapshot;
         private readonly SharedEngine _mutexOwner;
+        // Set when the reader streams under its connection's native ownership.
+        private readonly string _namespace;
+        private readonly object _connection;
+        private readonly Func<bool> _retains;
 
         private int _disposed;
 
@@ -28,6 +33,19 @@ namespace LiteDB
             _mutexOwner = mutexOwner;
         }
 
+        /// <summary>
+        /// A reader that keeps its connection's native ownership until disposed. Each read, and
+        /// the disposal, runs in a frame of that connection, so a callback it invokes cannot wait
+        /// for the ownership through another connection.
+        /// </summary>
+        internal SharedDataReader(IBsonDataReader reader, Action dispose, string ns, object connection, Func<bool> retains)
+            : this(reader, dispose, null, connection as SharedEngine)
+        {
+            _namespace = ns;
+            _connection = connection;
+            _retains = retains;
+        }
+
         public BsonValue this[string field] => _reader[field];
 
         public string Collection => _reader.Collection;
@@ -39,7 +57,8 @@ namespace LiteDB
         public bool Read()
         {
             using var callback = new SharedEngine.CallbackScope(_mutexOwner);
-            return _reader.Read();
+            if (_retains == null) return _reader.Read();
+            using (SharedCallFrames.Enter(_namespace, _connection, _retains)) return _reader.Read();
         }
 
         public void Dispose()
@@ -69,9 +88,16 @@ namespace LiteDB
 
             if (disposing)
             {
-                try { _reader.Dispose(); }
-                finally { _dispose(); }
+                if (_retains == null) this.Close();
+                // Ending the ownership can close its engine, which writes through caller streams.
+                else using (SharedCallFrames.Enter(_namespace, _connection, _retains)) this.Close();
             }
+        }
+
+        private void Close()
+        {
+            try { _reader.Dispose(); }
+            finally { _dispose(); }
         }
     }
 }
