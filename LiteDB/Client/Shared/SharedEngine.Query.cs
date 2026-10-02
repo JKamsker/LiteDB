@@ -153,6 +153,9 @@ namespace LiteDB
                 });
                 snapshot = null;
                 lease = null;
+#if DEBUG || TESTING
+                result.GraphOwner = this;
+#endif
                 return result;
             }
             finally
@@ -182,11 +185,11 @@ namespace LiteDB
                 use?.ToHold();
                 // Any thread may dispose the reader and so end its mutex ownership.
                 var generation = use == null ? _owner.Generation : -1;
-                return new SharedDataReader(reader, () => this.CloseDatabase(use, hold: true, generation))
 #if DEBUG || TESTING
-                    { GraphOwner = (object)use ?? this }
+                return new SharedDataReader(reader, () => this.CloseDatabase(use, hold: true, generation)) { GraphOwner = (object)use ?? this };
+#else
+                return new SharedDataReader(reader, () => this.CloseDatabase(use, hold: true, generation));
 #endif
-                    ;
             }
             catch
             {
@@ -304,15 +307,15 @@ namespace LiteDB
                     snapshot = null;
                     reader = null;
                     release = false;
-                    return new SharedDataReader(continued, () =>
+                    var unleased = new SharedDataReader(continued, () =>
                     {
                         try { this.CloseMutexSnapshot(locked); }
                         finally { _owner.Exit(generation); }
-                    })
+                    });
 #if DEBUG || TESTING
-                    { GraphOwner = this }
+                    unleased.GraphOwner = this;
 #endif
-                    ;
+                    return unleased;
                 }
 
                 var ownedSnapshot = snapshot;
@@ -335,6 +338,9 @@ namespace LiteDB
                 snapshot = null;
                 lease = null;
                 reader = null;
+#if DEBUG || TESTING
+                result.GraphOwner = this;
+#endif
                 return result;
             }
             finally

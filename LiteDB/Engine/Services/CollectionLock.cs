@@ -89,13 +89,15 @@ namespace LiteDB.Engine
 
 #if DEBUG || TESTING
         /// <summary>
-        /// The hold belongs to the owner key on the acquiring thread (thread-affine). The PR #133
-        /// wait-graph adapter refines explicit transactions to their TransactionContext.
+        /// A thread-owned transaction (legacy or auto) progresses only on its thread: thread-affine hold.
+        /// An explicit transaction executes on whichever thread runs its handle call: a hold of its
+        /// context, executed by the frames <see cref="TransactionContext.Enter"/> opens.
         /// </summary>
         private void GraphAcquired(object owner)
         {
-            _graphOwner = owner;
-            WaitGraph.Acquired(this.Graph, _graphOwner, threadAffine: true, site: "CollectionLock.TryEnter");
+            var context = (owner as TransactionPages)?.GraphOwner;
+            _graphOwner = context ?? owner;
+            WaitGraph.Acquired(this.Graph, _graphOwner, threadAffine: context == null, site: "CollectionLock.TryEnter");
         }
 #endif
     }

@@ -74,7 +74,10 @@ namespace LiteDB.Engine
                 _readers[thread] = count + 1;
                 _readerCount++;
 #if DEBUG || TESTING
-                WaitGraph.Acquired(_graphLeases, site: "TransactionGate.TryEnterReadLock");
+                // Proof overlay (PR #133): a lease belongs to its owner key, a thread or an explicit
+                // transaction context that executes wherever its handle call runs.
+                if (ReferenceEquals(thread, Thread.CurrentThread)) WaitGraph.Acquired(_graphLeases, site: "TransactionGate.TryEnterReadLock");
+                else WaitGraph.Acquired(_graphLeases, thread, site: "TransactionGate.TryEnterReadLock");
 #endif
                 return true;
             }

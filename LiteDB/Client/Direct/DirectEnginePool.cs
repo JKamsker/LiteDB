@@ -109,6 +109,10 @@ namespace LiteDB.Client.Direct
                     {
                         reserved = new Slot { Opening = Thread.CurrentThread };
                         Entries.Add(settings.Filename, reserved);
+#if DEBUG || TESTING
+                        // Proof overlay (PR #133): the opening thread holds the host slot until it publishes.
+                        LiteDB.Utils.WaitGraph.Acquired(GraphSlot(settings.Filename), site: "DirectEnginePool (opening)");
+#endif
                         break;
                     }
                     if (slot.Target != null && slot.Target.TryGetTarget(out var entry))
@@ -134,6 +138,10 @@ namespace LiteDB.Client.Direct
 #if DEBUG || TESTING
                     WaitingForClose?.Invoke(settings.Filename);
 #endif
+#if DEBUG || TESTING
+                    // Only an opening slot is modelled; a closing entry's final close is not (a miss).
+                    using (LiteDB.Utils.WaitGraph.Wait(GraphSlot(settings.Filename), LiteDB.Utils.WaitBound.After(TimeSpan.FromSeconds(5)), "DirectEnginePool.Open"))
+#endif
                     if (remaining <= TimeSpan.Zero || !Monitor.Wait(Gate, remaining))
                         throw Conflict(settings, "The Direct engine is opening or closing; retry later.");
                 }
@@ -147,6 +155,9 @@ namespace LiteDB.Client.Direct
                 lock (Gate)
                 {
                     reserved.Target = new WeakReference<Entry>(opened);
+#if DEBUG || TESTING
+                    LiteDB.Utils.WaitGraph.Released(GraphSlot(settings.Filename));
+#endif
                     reserved.Opening = null;
                     Monitor.PulseAll(Gate);
                 }
@@ -159,6 +170,9 @@ namespace LiteDB.Client.Direct
                 {
                     lock (Gate)
                     {
+#if DEBUG || TESTING
+                        LiteDB.Utils.WaitGraph.Released(GraphSlot(settings.Filename));
+#endif
                         if (Entries.TryGetValue(settings.Filename, out var current) && ReferenceEquals(current, reserved))
                             Entries.Remove(settings.Filename);
                         Monitor.PulseAll(Gate);
@@ -168,6 +182,11 @@ namespace LiteDB.Client.Direct
             }
         }
 
+#if DEBUG || TESTING
+        private static LiteDB.Utils.WaitGraph.Resource GraphSlot(string filename) =>
+            LiteDB.Utils.WaitGraph.Named("direct-pool-slot", filename, LiteDB.Utils.WaitPrimitive.Condition);
+
+#endif
         internal static DatabaseAdmissionException Conflict(EngineSettings settings, string message) =>
             new DatabaseAdmissionException(settings.Filename, new IOException(message));
     }

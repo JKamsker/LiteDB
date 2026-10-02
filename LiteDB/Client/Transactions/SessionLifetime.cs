@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+#if DEBUG || TESTING
+using LiteDB.Utils;
+#endif
 
 namespace LiteDB
 {
@@ -27,6 +30,11 @@ namespace LiteDB
         internal TimeSpan? CloseWaitOverride;
         internal Action BeforeCloseDispatch;
         internal int ActiveHandles { get { lock (_gate) return _transactions.Count; } }
+        // Proof overlay (PR #133) wait-for graph: Close waits until the session is closed, which needs
+        // every session lease to end (held by the thread in the call), the close request to finish (held
+        // by the close worker while it runs) and the final release to run (held by the thread running it).
+        // Registered idle handles are rolled back by the close worker; busy ones end on a leased thread.
+        private readonly WaitGraph.Resource _graphClosed = new WaitGraph.Resource("session-lifetime", null, WaitPrimitive.Condition, ordered: false);
 #endif
 
         internal Lease Enter()
@@ -38,6 +46,9 @@ namespace LiteDB
                 _threads.TryGetValue(thread, out var depth);
                 _threads[thread] = depth + 1;
                 _active++;
+#if DEBUG || TESTING
+                WaitGraph.Acquired(_graphClosed, site: "SessionLifetime.Enter (lease)");
+#endif
             }
             return new Lease(this, thread);
         }
@@ -65,6 +76,9 @@ namespace LiteDB
             bool closing;
             lock (_gate)
             {
+#if DEBUG || TESTING
+                WaitGraph.Released(_graphClosed, thread);
+#endif
                 if (--_threads[thread] == 0) _threads.Remove(thread);
                 _active--;
                 closing = _closeRequested;
@@ -113,6 +127,9 @@ namespace LiteDB
 #endif
             lock (_gate)
             {
+#if DEBUG || TESTING
+                using (WaitGraph.Wait(_graphClosed, WaitBound.After(timeout), "SessionLifetime.Close"))
+#endif
                 while (!_closed)
                 {
                     var remaining = timeout - elapsed.Elapsed;
@@ -133,6 +150,9 @@ namespace LiteDB
 
         private void RequestClose()
         {
+#if DEBUG || TESTING
+            WaitGraph.Acquired(_graphClosed, site: "SessionLifetime.RequestClose (close worker)");
+#endif
             try
             {
                 _closing.Cancel();
@@ -142,6 +162,9 @@ namespace LiteDB
             finally
             {
                 lock (_gate) { _requesting = false; _requestThread = null; _pendingRequests = null; }
+#if DEBUG || TESTING
+                WaitGraph.Released(_graphClosed);
+#endif
                 TryFinish();
             }
         }
@@ -155,12 +178,21 @@ namespace LiteDB
                 _cleanupStarted = true;
                 _cleanupThread = Thread.CurrentThread;
                 release = _release;
+#if DEBUG || TESTING
+                WaitGraph.Acquired(_graphClosed, site: "SessionLifetime.TryFinish (release)");
+#endif
             }
             try { release(); }
             catch (Exception error) { Report(error); }
             finally
             {
-                lock (_gate) { _closed = true; _release = null; _cleanupThread = null; Monitor.PulseAll(_gate); }
+                lock (_gate)
+                {
+#if DEBUG || TESTING
+                    WaitGraph.Released(_graphClosed);
+#endif
+                    _closed = true; _release = null; _cleanupThread = null; Monitor.PulseAll(_gate);
+                }
             }
         }
 

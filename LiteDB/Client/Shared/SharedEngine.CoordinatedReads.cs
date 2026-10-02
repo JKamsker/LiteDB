@@ -270,7 +270,11 @@ namespace LiteDB
                     Interlocked.Increment(ref MeasuredStreamingReaders);
 #endif
                 }
+#if DEBUG || TESTING
+                return new SharedDataReader(continued, () => this.ReleaseCached(snapshot, local)) { GraphOwner = this };
+#else
                 return new SharedDataReader(continued, () => this.ReleaseCached(snapshot, local));
+#endif
             }
             catch
             {

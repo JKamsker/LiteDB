@@ -33,8 +33,16 @@ namespace LiteDB
                 else
                 {
                     closing.ThrowIfCancellationRequested();
+#if DEBUG || TESTING
+                    // Proof overlay (PR #133): a cancellable poll for ownership and the OS mutex.
+                    using (LiteDB.Utils.WaitGraph.Wait(_owner.GraphOwnership, LiteDB.Utils.WaitBound.Cancellation,
+                        "SharedEngine.EnterOwner (closing poll)", this, also: _owner.GraphMutexResource))
+#endif
                     while (!_owner.TryEnter(out abandoned, scoped))
                     {
+#if DEBUG || TESTING
+                        LiteDB.Utils.WaitGraph.Recheck();
+#endif
                         closing.WaitHandle.WaitOne(10);
                         closing.ThrowIfCancellationRequested();
                     }

@@ -59,6 +59,7 @@ namespace LiteDB
             this.WaitForAdmittedCalls();
             var closed = false;
 #if DEBUG || TESTING
+            // Wait-for graph: the close runs under every hold of this connection.
             using (LiteDB.Utils.WaitGraph.Executing(this, claimsAll: true))
 #endif
             lock (_useLock)

@@ -13,6 +13,14 @@ namespace LiteDB.Engine
     /// </summary>
     internal class TransactionPages
     {
+#if DEBUG || TESTING
+        /// <summary>
+        /// Proof overlay (PR #133) wait-for graph owner of this transaction's holds: its explicit
+        /// <see cref="TransactionContext"/>, or null for a thread-owned transaction.
+        /// </summary>
+        internal object GraphOwner;
+
+#endif
         /// <summary>
         /// Transaction ID stored in WAL frames. It can be advanced before a later
         /// batch so physical recovery order never moves backwards.
