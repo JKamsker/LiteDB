@@ -140,13 +140,26 @@ namespace LiteDB.Client.Direct
             GC.SuppressFinalize(this);
         }
 
+        [LiteDB.Utils.TeardownPath("DirectEngineLease.Release", LiteDB.Utils.TeardownDisposition.Propagated,
+            "The context release (rollback of its own work) and the host reference release propagate; the host reference is " +
+            "released even when the context release fails (DirectEngineLease.cs try/finally).")]
         private void Release(bool disposing)
         {
             DirectEnginePool.Entry entry;
             lock (_gate) { entry = _entry; _entry = null; }
             if (entry == null) return;
-            try { _context.Release(disposing); }
-            finally { entry.Release(disposing); }
+            try
+            {
+                LiteDB.Utils.TeardownSteps.Before("DirectEngineLease.Release.context");
+                _context.Release(disposing);
+                LiteDB.Utils.TeardownSteps.After("DirectEngineLease.Release.context");
+            }
+            finally
+            {
+                LiteDB.Utils.TeardownSteps.Before("DirectEngineLease.Release.entry");
+                entry.Release(disposing);
+                LiteDB.Utils.TeardownSteps.After("DirectEngineLease.Release.entry");
+            }
         }
 
         ~DirectEngineLease() { Release(disposing: false); }

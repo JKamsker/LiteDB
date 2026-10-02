@@ -1762,6 +1762,78 @@
     },
     {
       "family": "teardown-step",
+      "name": "DirectEngineLease.Release.context",
+      "protocol": "teardown: DirectEngineLease.Release",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "DirectEngineLease.Release.entry",
+      "protocol": "teardown: DirectEngineLease.Release",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "DirectEnginePool.Entry.Release.engine",
+      "protocol": "teardown: DirectEnginePool.Entry.Release",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
       "name": "DiskService.Dispose.cache",
       "protocol": "teardown: DiskService.Dispose",
       "evidence": [
@@ -1954,6 +2026,30 @@
     },
     {
       "family": "teardown-step",
+      "name": "LiteEngine.Close.mode-guard",
+      "protocol": "teardown: LiteEngine.Close",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
       "name": "LiteEngine.Close.monitor",
       "protocol": "teardown: LiteEngine.Close",
       "evidence": [
@@ -2074,6 +2170,30 @@
     },
     {
       "family": "teardown-step",
+      "name": "LiteEngine.CloseOnError.mode-guard",
+      "protocol": "teardown: LiteEngine.CloseOnError",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
       "name": "LiteEngine.CloseOnError.monitor",
       "protocol": "teardown: LiteEngine.CloseOnError",
       "evidence": [
@@ -2122,6 +2242,54 @@
     },
     {
       "family": "teardown-step",
+      "name": "LiteTransaction.Dispose.rollback",
+      "protocol": "teardown: LiteTransaction.Dispose",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "LiteTransaction.ReleaseResources.resources",
+      "protocol": "teardown: LiteTransaction.ReleaseResources",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
       "name": "RebuildService.DiscardReplacement.delete-data",
       "protocol": "teardown: RebuildService.DiscardReplacement",
       "evidence": [
@@ -2163,6 +2331,30 @@
           "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
           "via": [
             "LiteDB.Tests/Safety/TeardownStepCatalog.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "SessionLifetime.TryFinish.release",
+      "protocol": "teardown: SessionLifetime.TryFinish",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
           ]
         }
       ],
@@ -2259,6 +2451,54 @@
           "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
           "via": [
             "LiteDB.Tests/Safety/TeardownStepCatalog.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "SharedEngine.Dispose.admission",
+      "protocol": "teardown: SharedEngine.Dispose",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "SharedEngine.Dispose.cached-child",
+      "protocol": "teardown: SharedEngine.Dispose",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
           ]
         }
       ],
@@ -2667,6 +2907,102 @@
           "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
           "via": [
             "LiteDB.Tests/Safety/TeardownStepCatalog.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "TransactionHolder.Run.child-admission",
+      "protocol": "teardown: TransactionHolder.Run",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "TransactionHolder.Run.close-database",
+      "protocol": "teardown: TransactionHolder.Run",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "TransactionHolder.Run.dispose-child",
+      "protocol": "teardown: TransactionHolder.Run",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        }
+      ],
+      "gap": "Exception model only: process death and power loss during teardown are covered by the crash families, not here."
+    },
+    {
+      "family": "teardown-step",
+      "name": "TransactionHolder.Run.end-admissions",
+      "protocol": "teardown: TransactionHolder.Run",
+      "evidence": [
+        {
+          "test": "LiteDB.Tests/Safety/Tests/TeardownSweep_Tests.cs#Teardown_path_keeps_its_contract_under_a_fault_at_every_step",
+          "model": "exception",
+          "proves": "Skip and fail-inside faults at this step: the path's declared disposition, ConnectionClean, Ownership, Quiescent, Durable and leaked page buffers are checked; known findings are registered with reproductions.",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
+          ]
+        },
+        {
+          "fuzz": "teardown-faults",
+          "model": "exception",
+          "proves": "The same faults under random prior state (open readers, pending transactions, spilled sorts, uploads, peers, encryption).",
+          "via": [
+            "LiteDB.Tests/Safety/TeardownOverlay.Pr133.cs"
           ]
         }
       ],

@@ -113,9 +113,17 @@ namespace LiteDB
             return action();
         }
 
+        [LiteDB.Utils.TeardownPath("LiteTransaction.ReleaseResources", LiteDB.Utils.TeardownDisposition.Propagated | LiteDB.Utils.TeardownDisposition.RecordedAsCleanupError,
+            "Without a primary error the release failure is rethrown; with one it is attached as Data[LiteDB.TransactionReleaseError]; " +
+            "the handle is unregistered either way (LiteTransaction.cs; docs/transaction-handles.md 'Original errors remain primary').")]
         private void ReleaseResources(Exception cause = null)
         {
-            try { _resources.Dispose(); }
+            try
+            {
+                LiteDB.Utils.TeardownSteps.Before("LiteTransaction.ReleaseResources.resources");
+                _resources.Dispose();
+                LiteDB.Utils.TeardownSteps.After("LiteTransaction.ReleaseResources.resources");
+            }
             catch (Exception cleanup)
             {
                 if (cause == null) throw;
@@ -241,6 +249,9 @@ namespace LiteDB
             finally { ReleaseResources(failure); }
         }
 
+        [LiteDB.Utils.TeardownPath("LiteTransaction.Dispose", LiteDB.Utils.TeardownDisposition.Propagated,
+            "Disposing an Active handle rolls it back (docs/transaction-handles.md); a rollback or release failure propagates, " +
+            "the handle is marked disposed either way (LiteTransaction.cs DisposeCore).")]
         public void Dispose()
         {
             lock (_gate)
@@ -278,7 +289,13 @@ namespace LiteDB
 
         private void DisposeCore()
         {
-            try { if (State == LiteTransactionState.Active) RollbackCore(); }
+            try
+            {
+                var active = State == LiteTransactionState.Active;
+                LiteDB.Utils.TeardownSteps.Before("LiteTransaction.Dispose.rollback", active);
+                if (active) RollbackCore();
+                LiteDB.Utils.TeardownSteps.After("LiteTransaction.Dispose.rollback", active);
+            }
             finally { lock (_gate) _disposed = true; }
         }
 

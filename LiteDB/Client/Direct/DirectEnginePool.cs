@@ -55,6 +55,9 @@ namespace LiteDB.Client.Direct
                 }
             }
 
+            [LiteDB.Utils.TeardownPath("DirectEnginePool.Entry.Release", LiteDB.Utils.TeardownDisposition.Propagated,
+                "The last reference disposes the host engine; its failure propagates and the pool entry is removed either way " +
+                "(DirectEnginePool.cs try/finally).")]
             internal void Release(bool disposing)
             {
                 lock (Gate)
@@ -70,7 +73,9 @@ namespace LiteDB.Client.Direct
                     // A finalizer must not wait for thread-owned transactions or flush.
                     // Dropping the graph leaves buffered streams and critical admission
                     // to their existing ordered finalizers; early opens fail closed.
+                    LiteDB.Utils.TeardownSteps.Before("DirectEnginePool.Entry.Release.engine", disposing);
                     if (disposing) Engine.Dispose();
+                    LiteDB.Utils.TeardownSteps.After("DirectEnginePool.Entry.Release.engine", disposing);
                 }
                 finally
                 {

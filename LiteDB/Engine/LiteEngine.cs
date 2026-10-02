@@ -267,6 +267,7 @@ namespace LiteDB.Engine
             tc.Step("LiteEngine.Close.locker", _locker != null);
             tc.Catch(() => _locker?.Dispose());
 
+            tc.Step("LiteEngine.Close.mode-guard", releaseMode && _modeGuard != null);
             if (releaseMode) tc.Catch(this.ReleaseModeGuard);
             return tc.Exceptions;
         }
@@ -326,6 +327,7 @@ namespace LiteDB.Engine
             tc.Step("LiteEngine.CloseOnError.locker", _locker != null);
             tc.Catch(() => _locker?.Dispose());
 
+            tc.Step("LiteEngine.CloseOnError.mode-guard", _modeGuard != null);
             tc.Catch(this.ReleaseModeGuard);
             return tc.Exceptions;
         }
@@ -377,8 +379,8 @@ namespace LiteDB.Engine
             GC.SuppressFinalize(this);
         }
 
-        [TeardownPath("LiteEngine.Dispose", TeardownDisposition.Discarded,
-            "Calls Close() and drops its failure list (LiteEngine.cs Dispose(bool)); FOLLOWUP item 5: upstream Dispose discards.")]
+        [TeardownPath("LiteEngine.Dispose", TeardownDisposition.Propagated,
+            "PR #133 tree: Close()'s first failure is rethrown with the rest in Data[LiteDB.EngineCleanup.i] (Dispose(bool) -> ThrowCleanupErrors).")]
         protected virtual void Dispose(bool disposing)
         {
             ValidatePublicDispatch();

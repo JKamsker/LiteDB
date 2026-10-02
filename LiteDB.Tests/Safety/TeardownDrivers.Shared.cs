@@ -190,7 +190,7 @@ namespace LiteDB.Tests.Safety
                 engine.MutexOwner.WaitForRelease();
             });
             // The next call reports the exited owner; the connection is then disposed normally.
-            c.Defer(() => { try { db.GetCollection("rows").Count(); } catch (LiteException) { } });
+            c.Defer(() => { try { db.GetCollection("rows").Count(); } catch (LiteException) { } catch (ObjectDisposedException) { /* PR #133 tree: a disposed facade refuses with ObjectDisposedException */ } });
         }
 
         private static TeardownDriver S(string path, string variant, string entry, Action<TeardownCase> drive, Func<TeardownPrior> defaults = null,

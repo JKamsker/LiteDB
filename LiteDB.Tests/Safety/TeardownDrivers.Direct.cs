@@ -158,7 +158,8 @@ namespace LiteDB.Tests.Safety
             db = new LiteDatabase(engine, disposeOnClose: false);
             c.Disposed.Add(engine);
             Prepare(db, c, fileScratch: true, spilled: spilled);
-            c.Defer(engine.Dispose);
+            // PR #133 tree: LiteEngine.Dispose propagates close failures; this stop is cleanup after the judged entry.
+            c.Defer(() => { try { engine.Dispose(); } catch (Exception) { } });
             return engine;
         }
 

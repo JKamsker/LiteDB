@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using LiteDB.Engine;
@@ -52,6 +53,7 @@ namespace LiteDB.Tests.Safety
             ConnectionCleanResult result;
             if (engine is SharedEngine shared) result = Shared(shared, ownership, violations);
             else if (engine is LiteEngine direct) result = Direct(direct, violations);
+            else if (engine is LiteDB.Client.Direct.DirectEngineLease lease) result = DirectLease(lease, violations);
             else throw new NotSupportedException($"ConnectionClean does not know {engine.GetType().Name}.");
             result.Violations = violations.ToArray();
             return result;
@@ -68,6 +70,27 @@ namespace LiteDB.Tests.Safety
             };
             if (!result.EngineDisposed) violations.Add("engine: the Direct engine is not disposed");
             if (result.OpenTransactions > 0) violations.Add($"transactions: {result.OpenTransactions} transaction(s) still registered");
+            return result;
+        }
+
+        /// <summary>
+        /// Historical adapter (PR #133 tree): a facade's Direct lease owns its engine context and one
+        /// reference on the pooled host. After its dispose the reference is released and no transaction
+        /// of its context is still registered on a live host.
+        /// </summary>
+        private static ConnectionCleanResult DirectLease(LiteDB.Client.Direct.DirectEngineLease lease, List<string> violations)
+        {
+            var type = lease.GetType();
+            var entry = Read<object>(lease, type, "_entry");
+            var context = Read<EngineContext>(lease, type, "_context");
+            var host = Read<LiteEngine>(context, typeof(EngineContext), "_engine");
+            var state = host == null ? null : Read<EngineState>(host, typeof(LiteEngine), "_state");
+            var monitor = host == null ? null : Read<TransactionMonitor>(host, typeof(LiteEngine), "_monitor");
+            var open = state == null || state.Disposed || monitor == null ? 0
+                : monitor.Transactions.Count(transaction => ReferenceEquals(transaction.Owner.Context, context));
+            var result = new ConnectionCleanResult { Mode = "direct", EngineDisposed = entry == null, OpenTransactions = open };
+            if (entry != null) violations.Add("engine: the Direct lease still holds its pooled host reference");
+            if (open > 0) violations.Add($"transactions: {open} transaction(s) of the lease's context still registered");
             return result;
         }
 

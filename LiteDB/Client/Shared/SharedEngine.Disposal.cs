@@ -29,8 +29,18 @@ namespace LiteDB
                     cached = _cachedTransactionChild;
                     _cachedTransactionChild = null;
                 }
-                try { cached?.Dispose(); }
-                finally { _settings.SharedAdmission.Dispose(); }
+                try
+                {
+                    TeardownSteps.Before("SharedEngine.Dispose.cached-child", cached != null);
+                    cached?.Dispose();
+                    TeardownSteps.After("SharedEngine.Dispose.cached-child", cached != null);
+                }
+                finally
+                {
+                    TeardownSteps.Before("SharedEngine.Dispose.admission");
+                    _settings.SharedAdmission.Dispose();
+                    TeardownSteps.After("SharedEngine.Dispose.admission");
+                }
             }
         }
 

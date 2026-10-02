@@ -181,6 +181,10 @@ namespace LiteDB
             }
         }
 
+        [LiteDB.Utils.TeardownPath("SessionLifetime.TryFinish", LiteDB.Utils.TeardownDisposition.RecordedAsCleanupError | LiteDB.Utils.TeardownDisposition.Propagated,
+            "A release failure is recorded in the session's errors and the waiting Dispose rethrows the first once " +
+            "(later ones in Data[LiteDB.SessionCleanup.i]); the session becomes Closed either way " +
+            "(SessionLifetime.cs; docs/transaction-handles.md 'reports any deferred cleanup failure once').")]
         private void TryFinish()
         {
             Action release;
@@ -194,7 +198,12 @@ namespace LiteDB
                 WaitGraph.Acquired(_graphClosed, site: "SessionLifetime.TryFinish (release)");
 #endif
             }
-            try { release(); }
+            try
+            {
+                LiteDB.Utils.TeardownSteps.Before("SessionLifetime.TryFinish.release");
+                release();
+                LiteDB.Utils.TeardownSteps.After("SessionLifetime.TryFinish.release");
+            }
             catch (Exception error) { Report(error); }
             finally
             {

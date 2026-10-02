@@ -58,6 +58,25 @@ namespace LiteDB.Utils
             return new Restore(previous, scenario);
         }
 
+        /// <summary>
+        /// Historical adapter (PR #133 replay overlay): make a scenario captured on another thread current for a
+        /// worker job that does not inherit the caller's execution context (flow suppressed). Unlike
+        /// <see cref="Begin"/> it does not close the scenario; it only restores the worker's previous value.
+        /// </summary>
+        internal static IDisposable Adopt(TeardownScenario scenario)
+        {
+            var previous = _scenario.Value;
+            _scenario.Value = scenario;
+            return new Readopt(previous);
+        }
+
+        private sealed class Readopt : IDisposable
+        {
+            private readonly TeardownScenario _previous;
+            public Readopt(TeardownScenario previous) { _previous = previous; }
+            public void Dispose() => _scenario.Value = _previous;
+        }
+
         /// <summary>A step site was reached: record it, and throw the scenario's armed fault there.</summary>
         internal static void Reach(string step, TeardownStepSite site) => _scenario.Value?.Reached(step, site);
 

@@ -189,6 +189,10 @@ namespace LiteDB
 #endif
             }
 
+#if DEBUG || TESTING
+            private readonly LiteDB.Utils.TeardownScenario _sweep = LiteDB.Utils.TeardownSteps.Current;
+#endif
+
             private void Cleanup(Action action)
             {
                 try { action(); }
@@ -199,8 +203,16 @@ namespace LiteDB
                 }
             }
 
+            [LiteDB.Utils.TeardownPath("TransactionHolder.Run", LiteDB.Utils.TeardownDisposition.RecordedAsCleanupError | LiteDB.Utils.TeardownDisposition.Propagated,
+                "Each cleanup failure becomes the holder error (later ones in Data[LiteDB.SharedCleanup.n]); Release rethrows it " +
+                "to the completing handle call; every later cleanup still runs (SharedEngine.Transactions.cs Cleanup).")]
             private void Run()
             {
+#if DEBUG || TESTING
+                // The holder worker does not inherit the caller's execution context (flow suppressed), so a
+                // teardown sweep scenario captured at begin is adopted for this job's steps.
+                using var sweep = LiteDB.Utils.TeardownSteps.Adopt(_sweep);
+#endif
                 using var dependency = new SessionCloseDependency(_sessionToken);
 #if DEBUG || TESTING
                 var previousProbe = NativeAdmissionStreamProbe.Attach;
@@ -227,6 +239,15 @@ namespace LiteDB
                 finally
                 {
                     _admission = null;
+#if DEBUG || TESTING
+                    if (acquired) Cleanup(() => { LiteDB.Utils.TeardownSteps.Before("TransactionHolder.Run.close-database"); _child.CloseDatabase(reportErrors: true); LiteDB.Utils.TeardownSteps.After("TransactionHolder.Run.close-database"); });
+                    Cleanup(() => { LiteDB.Utils.TeardownSteps.Before("TransactionHolder.Run.end-admissions"); _child.EndAdmissions(0); LiteDB.Utils.TeardownSteps.After("TransactionHolder.Run.end-admissions"); });
+                    if (_error == null) Cleanup(() => { LiteDB.Utils.TeardownSteps.Before("TransactionHolder.Run.child-admission"); _child.ReleaseTransactionChildAdmission(); LiteDB.Utils.TeardownSteps.After("TransactionHolder.Run.child-admission"); });
+                    if (_error != null || !_cacheOwner.TryGetTarget(out var owner) || !owner.ReturnTransactionChild(_child))
+                    {
+                        Cleanup(() => { LiteDB.Utils.TeardownSteps.Before("TransactionHolder.Run.dispose-child"); _child.Dispose(); LiteDB.Utils.TeardownSteps.After("TransactionHolder.Run.dispose-child"); });
+                    }
+#else
                     if (acquired) Cleanup(() => _child.CloseDatabase(reportErrors: true));
                     Cleanup(() => _child.EndAdmissions(0));
                     if (_error == null) Cleanup(_child.ReleaseTransactionChildAdmission);
@@ -234,6 +255,7 @@ namespace LiteDB
                     {
                         Cleanup(_child.Dispose);
                     }
+#endif
 #if DEBUG || TESTING
                     this.GraphEnded();
                     LiteDB.Utils.WaitGraph.Exit(this);
