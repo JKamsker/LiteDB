@@ -133,6 +133,18 @@ namespace LiteDB
                 "ReadTransform callback. Use that connection for nested operations, or run them after it returns.");
         }
 
+        /// <summary>
+        /// Proof adaptation (row 17 at 023c2b4ba): M1's TESTING core-lifecycle events around a core close,
+        /// as dev's CloseRetainedCore raises them, but without dev's teardown call frame.
+        /// </summary>
+        private List<Exception> CloseObservedCore(LiteEngine core, bool checkpoint = true, bool final = false)
+        {
+            SharedOwnershipEvents.Core(this, core, SharedOwnershipEvents.Closing);
+            var errors = core.Close(checkpoint: checkpoint, final: final);
+            SharedOwnershipEvents.Core(this, core, SharedOwnershipEvents.Closed);
+            return errors;
+        }
+
         private void EndAdmissions(int depth)
         {
             var thread = Environment.CurrentManagedThreadId;
