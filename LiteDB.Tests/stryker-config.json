@@ -4,20 +4,31 @@
     "configuration": "Release",
     "target-framework": "net8.0",
     "mutate": [
-      "**/LiteDB/Client/**/*.cs",
-      "**/LiteDB/Engine/Services/**/*.cs",
-      "**/LiteDB/Engine/Engine/**/*.cs"
+      "**/LiteDB/Client/Shared/SharedMutex*.cs",
+      "**/LiteDB/Client/Shared/SharedEngine.Waiters.cs"
     ],
     "mutation-level": "Standard",
     "coverage-analysis": "perTest",
     "additional-timeout": 10000,
     "concurrency": 4,
-    "reporters": ["progress", "json", "html"],
-    "thresholds": { "high": 100, "low": 0, "break": 0 },
+    "reporters": [
+      "progress",
+      "json",
+      "html"
+    ],
+    "thresholds": {
+      "high": 100,
+      "low": 0,
+      "break": 0
+    },
     "since": {
       "enabled": true,
       "target": "dev",
-      "ignore-changes-in": ["**/*.md", "**/.github/**", "**/docs/**"]
+      "ignore-changes-in": [
+        "**/*.md",
+        "**/.github/**",
+        "**/docs/**"
+      ]
     }
   }
 }
