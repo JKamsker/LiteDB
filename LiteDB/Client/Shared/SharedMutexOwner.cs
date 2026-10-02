@@ -163,6 +163,7 @@ namespace LiteDB.Client.Shared
         /// End one recursion on its caller. Cross-thread readers supply their captured
         /// <paramref name="generation"/>; an already-ended ownership is ignored.
         /// </summary>
+        [TeardownPath("SharedMutexOwner.Exit", TeardownDisposition.Propagated, "A scoped release failure propagates after the gate reopens.")]
         public void Exit(int generation = -1)
         {
             Thread direct;
@@ -200,7 +201,7 @@ namespace LiteDB.Client.Shared
             }
             if (direct != null)
             {
-                try { _scope.Release(); }
+                try { TeardownSteps.Before("SharedMutexOwner.Exit.scope-release"); _scope.Release(); TeardownSteps.After("SharedMutexOwner.Exit.scope-release"); }
                 finally { _gate.Release(); }
                 return;
             }
@@ -213,6 +214,7 @@ namespace LiteDB.Client.Shared
         /// End any ownership, whichever thread owns it, as disposing the connection
         /// does. Later releases of that ownership are ignored. Never throws.
         /// </summary>
+        [TeardownPath("SharedMutexOwner.ReleaseAll", TeardownDisposition.Discarded, "Never throws: the holder's release failure is swallowed.")]
         public void ReleaseAll()
         {
             lock (_sync)
@@ -228,7 +230,7 @@ namespace LiteDB.Client.Shared
                 // the OS mutex and the gate when that operation ends (see Exit).
                 if (_scope.Owner != null) return;
             }
-            try { this.Send(Command.Release); }
+            try { TeardownSteps.Before("SharedMutexOwner.ReleaseAll.send-release"); this.Send(Command.Release); TeardownSteps.After("SharedMutexOwner.ReleaseAll.send-release"); }
             catch (Exception) { /* Disposal must not fail; process exit releases the mutex. */ }
             finally { _gate.Release(); }
         }
@@ -470,6 +472,7 @@ namespace LiteDB.Client.Shared
         }
 
         /// <summary>On the holder: the owner thread exited while owning the mutex.</summary>
+        [TeardownPath("SharedMutexOwner.ReleaseExitedOwner", TeardownDisposition.Discarded, "The cleanup's failure is swallowed; mutex released after.")]
         private void ReleaseExitedOwner()
         {
             lock (_sync)
@@ -488,7 +491,7 @@ namespace LiteDB.Client.Shared
 #if DEBUG || TESTING
             this.BeforeOwnerExitedCleanup?.Invoke();
 #endif
-            try { _ownerExited(); }
+            try { TeardownSteps.Before("SharedMutexOwner.ReleaseExitedOwner.cleanup"); _ownerExited(); TeardownSteps.After("SharedMutexOwner.ReleaseExitedOwner.cleanup"); }
             catch (Exception) { /* The next open recovers; the mutex must still be released. */ }
             this.ReleaseMutex();
             lock (_sync) { _gate.Release(); _released.Set(); }
