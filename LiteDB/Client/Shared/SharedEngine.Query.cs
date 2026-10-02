@@ -274,6 +274,7 @@ namespace LiteDB
                     var generation = _owner.Generation;
                     var locked = snapshot;
                     lock (_useLock) _mutexSnapshots.Add(locked);
+                    SharedOwnershipEvents.Core(this, locked, SharedOwnershipEvents.Opened);
                     snapshot = null;
                     reader = null;
                     release = false;
@@ -380,7 +381,7 @@ namespace LiteDB
         /// </summary>
         private void CloseMutexSnapshotsLocked()
         {
-            foreach (var snapshot in _mutexSnapshots) snapshot.Close(checkpoint: false);
+            foreach (var snapshot in _mutexSnapshots) this.ObservedClose(snapshot, () => snapshot.Close(checkpoint: false));
             _mutexSnapshots.Clear();
         }
 
@@ -394,7 +395,7 @@ namespace LiteDB
             {
                 if (!_mutexSnapshots.Remove(snapshot)) return;
             }
-            snapshot.Dispose();
+            this.ObservedClose(snapshot, snapshot.Dispose);
         }
 
         /// <summary>
