@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using LiteDB.Utils;
 
 namespace LiteDB.Client.Shared
 {
@@ -202,6 +203,8 @@ namespace LiteDB.Client.Shared
             if (_error != null) ExceptionDispatchInfo.Capture(_error).Throw();
         }
 
+        [TeardownPath("SharedMutexPin.Hold", TeardownDisposition.Propagated | TeardownDisposition.Discarded,
+            "The close callback's failure becomes the pin's error, rethrown by WaitReleased; the mutex is released either way.")]
         private void Hold()
         {
             try
@@ -222,7 +225,12 @@ namespace LiteDB.Client.Shared
             var abandoned = this.WaitForEnd();
 
             Exception error = null;
-            try { _close(this, abandoned); }
+            try
+            {
+                TeardownSteps.Before("SharedMutexPin.Hold.close");
+                _close(this, abandoned);
+                TeardownSteps.After("SharedMutexPin.Hold.close");
+            }
             catch (Exception ex) { error = ex; }
             SharedOwnershipEvents.Release(_mutex);
             try { _mutex.ReleaseMutex(); }
