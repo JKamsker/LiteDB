@@ -28,7 +28,24 @@ namespace LiteDB
 
         public bool HasValues => _reader.HasValues;
 
-        public bool Read() => _reader.Read();
+#if DEBUG || TESTING
+        /// <summary>Wait-for graph (proof port): the owner whose hold this reader retains.</summary>
+        internal object GraphOwner { get; set; }
+#endif
+
+        public bool Read()
+        {
+#if DEBUG || TESTING
+            LiteDB.Utils.WaitGraph.Enter(this.GraphOwner);
+            try
+            {
+#endif
+            return _reader.Read();
+#if DEBUG || TESTING
+            }
+            finally { LiteDB.Utils.WaitGraph.Exit(this.GraphOwner); }
+#endif
+        }
 
         public void Dispose()
         {
@@ -50,8 +67,17 @@ namespace LiteDB
 
             if (disposing)
             {
+#if DEBUG || TESTING
+                LiteDB.Utils.WaitGraph.Enter(this.GraphOwner);
+                try
+                {
+#endif
                 try { _reader.Dispose(); }
                 finally { _dispose(); }
+#if DEBUG || TESTING
+                }
+                finally { LiteDB.Utils.WaitGraph.Exit(this.GraphOwner); }
+#endif
             }
         }
     }
