@@ -88,6 +88,16 @@
       ],
       "invariant": "Every LiteDB.Tests method still runs in exactly one partition session on every leg; no test is filtered out, sampled or skipped.",
       "reason": "The concurrency explorer's tests (about 145 s) move from the engine partition into their own engine-explorer partition so the engine session stays below the 300 s per-session limit; the script's partition coverage check verifies 2318 methods, each in exactly one partition, and an isolated .NET 8 run passed every partition."
+    },
+    {
+      "id": "safety-m6-critical-classify-job",
+      "kind": "ci-test-config-changed",
+      "subjects": [
+        ".github/workflows/mutation.yml"
+      ],
+      "disposition": "strengthened",
+      "invariant": "Mutation on the diff runs for every critical PR and on demand; its own job keeps the 45-minute limit and nothing in it is filtered or skipped.",
+      "reason": "A new 5-minute classify job decides criticality from the diff as well as the label, because the label the Critical label workflow applies with GITHUB_TOKEN starts no labeled run; before, a PR labelled by the bot never ran mutation. The mutation job itself is unchanged."
     }
   ]
 }
