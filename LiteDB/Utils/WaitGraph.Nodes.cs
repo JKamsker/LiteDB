@@ -184,7 +184,9 @@ namespace LiteDB.Utils
             private readonly int _managedId;
             /// <summary>Process-unique id; the lock-order history keeps this, not the state.</summary>
             internal readonly int Id = Interlocked.Increment(ref _nextId);
-            private readonly List<Resource> _held = new List<Resource>();
+            // Weak: a hold that is never released (an abandoned transaction) must not let a live thread
+            // root its resource, the resource's holds and their owners (the lock-order history only).
+            private readonly List<WeakReference<Resource>> _held = new List<WeakReference<Resource>>();
             private volatile WaitRecord _wait;
             private volatile Frame _frames;
             internal int Version;
@@ -247,15 +249,22 @@ namespace LiteDB.Utils
             {
                 lock (_held)
                 {
-                    var before = _held.ToArray();
-                    _held.Add(resource);
-                    return before;
+                    var before = new List<Resource>(_held.Count);
+                    _held.RemoveAll(entry => !entry.TryGetTarget(out _));
+                    foreach (var entry in _held)
+                        if (entry.TryGetTarget(out var target)) before.Add(target);
+                    _held.Add(new WeakReference<Resource>(resource));
+                    return before.ToArray();
                 }
             }
 
             internal void Forget(Resource resource)
             {
-                lock (_held) _held.Remove(resource);
+                lock (_held)
+                {
+                    var index = _held.FindIndex(entry => entry.TryGetTarget(out var target) && ReferenceEquals(target, resource));
+                    if (index >= 0) _held.RemoveAt(index);
+                }
             }
 
             public override string ToString() => _thread.TryGetTarget(out var thread)
