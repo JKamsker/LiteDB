@@ -62,6 +62,19 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         /// </summary>
         public static readonly bool Callbacks = Environment.GetEnvironmentVariable("LITEDB_PBT_HANDLE_CALLBACKS") == "1";
 
+        /// <summary>
+        /// Require a callback's ordinary write that conflicts with the executing handle to fail early
+        /// (<c>LITEDB_PBT_EXECUTING_SELF_WAIT_FAIL_FAST=1</c>, needs <see cref="EarlyTimeoutMilliseconds"/>). Rule from the
+        /// API card (normative rule 3), documented only from e821ae74 on: proofs using it are recorded as tuned.
+        /// </summary>
+        public static readonly bool ExecutingSelfWaitFailFast = Environment.GetEnvironmentVariable("LITEDB_PBT_EXECUTING_SELF_WAIT_FAIL_FAST") == "1";
+
+        /// <summary>
+        /// With <see cref="Callbacks"/>: calls on a lent handle (another thread's, by sequential handoff) may be
+        /// callback commands too (<c>LITEDB_PBT_HANDLE_LENT_CALLBACKS=1</c>).
+        /// </summary>
+        public static readonly bool LentCallbacks = Environment.GetEnvironmentVariable("LITEDB_PBT_HANDLE_LENT_CALLBACKS") == "1";
+
         private const string CallbackPrefix = "InsertBulk+cb:";
 
         public static bool IsCallback(string op) => op.StartsWith(CallbackPrefix, StringComparison.Ordinal);
@@ -171,7 +184,7 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         /// a handle enumeration is several guarded calls, which a borrowed call could split.</summary>
         private static PropertyCommand DataCommand(Random random, UnitGenerationContext context, int slot, int home)
         {
-            if (Callbacks && slot > 0 && context.Mode == ConnectionType.Direct && random.Next(100) < 30)
+            if (Callbacks && (slot > 0 || (slot < 0 && LentCallbacks)) && context.Mode == ConnectionType.Direct && random.Next(100) < 30)
             {
                 var target = home >= 0 && random.Next(10) < 8 ? home : random.Next(context.Collections);
                 var inner = random.Next(10) < 7 ? HandleWrites[random.Next(HandleWrites.Length)] : HandleReads[random.Next(HandleReads.Length)];

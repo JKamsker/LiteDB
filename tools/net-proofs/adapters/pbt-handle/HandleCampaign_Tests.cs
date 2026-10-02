@@ -84,7 +84,7 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
             summary.AppendLine($"campaign mode={mode} maxSuffixThreads={threads} baseSeed={baseSeed} budget={budget.TotalSeconds:0}s " +
                 $"wall={watch.Elapsed.TotalSeconds:0.0}s casesUntilFirstFailureOrBudget={cases} kinds={string.Join(",", options.AccessKindNames)}");
             summary.AppendLine("environment: " + PropertyEnvironment.Describe(options) +
-                $" earlyTimeoutMs={HandleAccessKind.EarlyTimeoutMilliseconds} selfWaitFailFast={HandleAccessKind.SelfWaitFailFast} denseHandoff={HandleAccessKind.DenseHandoff} callbacks={HandleAccessKind.Callbacks}");
+                $" earlyTimeoutMs={HandleAccessKind.EarlyTimeoutMilliseconds} selfWaitFailFast={HandleAccessKind.SelfWaitFailFast} denseHandoff={HandleAccessKind.DenseHandoff} callbacks={HandleAccessKind.Callbacks} executingSelfWaitFailFast={HandleAccessKind.ExecutingSelfWaitFailFast} lentCallbacks={HandleAccessKind.LentCallbacks}");
             summary.AppendLine("handle command results: " + HandleExecution.DescribeStatistics());
             summary.AppendLine("statistics (rate phase): " + statistics);
             if (failed == null)

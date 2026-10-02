@@ -73,4 +73,13 @@ Added after the first proof attempt stayed quiet (see `/tmp/safety-net/reports/V
   runs an ordinary call on the same thread, while the handle executes and holds the
   target collection's lock. Source: the documentation's sentence that ordinary
   collections used in a mapper/input callback remain ordinary operations. The first two
-  attempts had no shape where a handle is *executing* on the thread that waits.
+  attempts had no shape where a handle is *executing* on the thread that waits. The
+  statement has two points (lock taken and callback run; then the insert), so other
+  threads may time out against the lock it holds in between. (A first, one-point
+  version was too strict and produced a false failure; see the V-pbt report.)
+- `LITEDB_PBT_HANDLE_LENT_CALLBACKS=1` (with callbacks): calls on a lent handle (another
+  thread's handle, sequential handoff) may be callback commands too.
+- `LITEDB_PBT_EXECUTING_SELF_WAIT_FAIL_FAST=1` (with `LITEDB_PBT_EARLY_TIMEOUT_MS`): a
+  callback's ordinary write that conflicts with the *executing* handle must fail early.
+  Source: the API card's normative rule 3, which is documentation text only from
+  `e821ae74` on (after the handle commits under test). Proofs that use it are tuned.

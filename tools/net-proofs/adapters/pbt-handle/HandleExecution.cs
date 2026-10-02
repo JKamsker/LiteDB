@@ -121,7 +121,7 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         /// </summary>
         private static Observation Callback(PropertyCommand command, ThreadContext context, int earlyTimeoutMilliseconds)
         {
-            var box = Own(context, command.Slot);
+            var box = command.Slot > 0 ? Own(context, command.Slot) : Lent(context, -command.Slot);
             if (box == null) return HandleObservations.Absent;
             var inner = HandleAccessKind.CallbackCommand(command);
             Observation callback = null;
