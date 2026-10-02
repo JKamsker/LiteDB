@@ -34,6 +34,17 @@
       "disposition": "strengthened",
       "invariant": "Every test leg's results are uploaded and judged; no existing timeout, filter or partition changes.",
       "reason": "Adds the Safety policy and Safety evidence jobs (10-minute limits) and a results upload for the .NET Framework leg, which uploaded nothing before; existing test steps keep their timeouts and filters."
+    },
+    {
+      "id": "m5-concurrency-models-job",
+      "kind": "ci-test-config-changed",
+      "subjects": [
+        ".github/safety/ci-evidence.json",
+        ".github/workflows/_reusable-ci.yml"
+      ],
+      "invariant": "Every declared job must succeed and every LiteDB.Tests leg keeps its tests, filters, partitions and timeouts.",
+      "disposition": "strengthened",
+      "reason": "Adds the Concurrency models (Coyote) job, which runs the new LiteDB.Tests.Concurrency project (net8.0; Coyote has no .NET Framework build) with a 15-minute limit and uploads its counterexamples, and declares it for the pr and full tiers so the Safety evidence job requires it. No existing job, leg, filter, partition or timeout changes."
     }
   ]
 }
