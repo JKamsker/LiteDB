@@ -48,6 +48,15 @@ namespace LiteDB
 
         internal TransactionResources OpenTransactionResources(TransactionAdmission admission, object sessionToken)
         {
+#if DEBUG || TESTING
+            // EXPERIMENT (tuned-after-fix): a begin is a public operation of this connection, so a frame of it.
+            using (LiteDB.Utils.WaitGraph.Executing(this))
+#endif
+            return this.OpenTransactionResourcesCore(admission, sessionToken);
+        }
+
+        private TransactionResources OpenTransactionResourcesCore(TransactionAdmission admission, object sessionToken)
+        {
             // A caller stream can capture the facade; a native holder must not root that
             // graph indefinitely, or perform storage I/O after its external owner is gone.
             if (!SharedModeGuard.IsFile(_settings) || _settings.LogStream != null || _settings.TempStream != null)
