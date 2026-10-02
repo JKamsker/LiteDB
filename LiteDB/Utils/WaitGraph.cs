@@ -15,7 +15,8 @@ namespace LiteDB.Utils
     /// history is kept as well. Findings are latched in a side channel (<see cref="Findings"/>, and
     /// <c>LITEDB_WAITGRAPH_REPORT</c>) and reported at the end of a test or scenario. Nothing is ever
     /// thrown through library code. A harness fails on a finding only for rules configured to fail
-    /// (<c>LITEDB_WAITGRAPH_FAIL</c>, <see cref="SetFailing"/>); all rules report by default.
+    /// (<c>LITEDB_WAITGRAPH_FAIL</c>, <see cref="SetFailing"/>); by default only the proven rules in
+    /// <see cref="DefaultFailing"/> fail, every other rule reports.
     /// See docs/wait-for-graph.md. <c>LITEDB_WAITGRAPH=0</c> disables recording.
     /// </summary>
     internal static partial class WaitGraph
@@ -84,11 +85,13 @@ namespace LiteDB.Utils
         {
             if (!Enabled || resource == null) return;
             var state = Current;
-            if (owner == null)
+            if (owner == null || ReferenceEquals(owner, Thread.CurrentThread))
             {
-                owner = state.Thread;
+                // A thread's own hold is keyed by its graph state, never by the Thread object.
+                owner = state;
                 threadAffine = true;
             }
+            else if (owner is Thread other) owner = StateOf(other);
             if (!resource.Add(owner, state, threadAffine, site)) return;
             var held = state.Remember(resource);
             if (resource.Ordered) RecordOrder(state, held, resource, site);
@@ -101,7 +104,7 @@ namespace LiteDB.Utils
         internal static void Released(Resource resource, object owner = null, bool all = false)
         {
             if (!Enabled || resource == null) return;
-            resource.Remove(owner ?? Thread.CurrentThread, all);
+            resource.Remove(owner == null ? Current : owner is Thread thread ? StateOf(thread) : owner, all);
         }
 
         /// <summary>End every hold of <paramref name="resource"/>, as disposing it does.</summary>
@@ -184,13 +187,14 @@ namespace LiteDB.Utils
 
         /// <summary>Driver edge: the calling thread joins <paramref name="thread"/> and waits for its progress.</summary>
         internal static WaitScope Join(Thread thread, WaitBound bound, string site) =>
-            Enabled ? Wait(StateOf(thread).Progress, bound, site, thread, origin: WaitOrigin.Driver) : default;
+            Enabled ? Wait(StateOf(thread).Progress, bound, site, StateOf(thread), origin: WaitOrigin.Driver) : default;
 
         internal static string Describe(object owner)
         {
             if (owner == null) return "nobody";
             if (owner is Thread thread)
                 return $"thread '{thread.Name ?? "unnamed"}' #{thread.ManagedThreadId}";
+            if (owner is ThreadState state) return state.ToString();
             return owner.GetType().Name + "#" + _ids.GetValue(owner, _ => new StrongBox<int>(Interlocked.Increment(ref _nextOwnerId))).Value;
         }
 
