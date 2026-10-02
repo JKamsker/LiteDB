@@ -25,7 +25,7 @@ namespace LiteDB.ConcurrencyTesting
     /// crash the process is excluded by a precise vector predicate instead, and the exclusion is
     /// reported and counted, never silent. Keep each entry as narrow as its evidence.
     /// </summary>
-    internal static class ExplorerKnownFindings
+    internal static partial class ExplorerKnownFindings
     {
         internal const string IncludeVariable = "LITEDB_EXPLORER_INCLUDE_KNOWN";
 
@@ -121,7 +121,7 @@ namespace LiteDB.ConcurrencyTesting
                 Evidence = "class 1 (forced): callback-pause variant 12/13 access=legacy and variant 14/38 (upload) access=ordinary, " +
                     "mode=shared, callback=peer: every replay misses its deadline; the wait-for graph reports nothing (the holder is idle)"
             }
-        };
+        }.Concat(BaseRevisionFindings()).ToList();
 
         public static ExplorerKnownFinding Match(string fingerprint, string message = null) => fingerprint == null ? null
             : All.FirstOrDefault(finding => finding.Fingerprint != null && Regex.IsMatch(fingerprint, finding.Fingerprint) &&

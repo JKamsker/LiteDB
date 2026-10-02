@@ -26,11 +26,15 @@ internal static class ChaosMaintenanceDeclarations
     /// </summary>
     internal const string Disposed = "threw:System.ObjectDisposedException";
 
-    internal static readonly string[] SecondDispose = { Ok };
+    /// <summary>A second Dispose concurrent with a paused first one (PR #133 trees: see <see cref="ChaosMaintenancePr133Contract"/>).</summary>
+    internal static string[] SecondDispose => ChaosMaintenancePr133Contract.SecondDispose ?? new[] { Ok };
 
     /// <param name="beforePoint">The call completes before the active thread's forced point.</param>
     internal static string[] Permitted(MaintenancePlan plan, string role, string op, bool beforePoint = false)
     {
+        // Historical adapter: on a revision with PR #133's session close the PR's documented close contract applies.
+        var pr133 = ChaosMaintenancePr133Contract.Permitted(plan, role, op, beforePoint);
+        if (pr133 != null) return pr133;
         if (role == "maintenance") return Maintenance(plan, op);
         // Before its forced point, active first, no maintenance has started yet.
         if (beforePoint && plan.Order == MaintenanceOrder.ActiveFirst) return new[] { Ok };
