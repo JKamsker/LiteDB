@@ -33,12 +33,18 @@ namespace LiteDB.Tests.Safety
         public bool Peer { get; set; }
         /// <summary>The database file is encrypted.</summary>
         public bool Encrypted { get; set; }
+        /// <summary>
+        /// Crash leftovers: the companion files a process that died with work in flight leaves next to the
+        /// database (here the sort scratch <c>-tmp</c>). Forced on for every case by LITEDB_TEARDOWN_CRASH_LEFTOVERS=1.
+        /// </summary>
+        public bool CrashLeftovers { get; set; } = Environment.GetEnvironmentVariable("LITEDB_TEARDOWN_CRASH_LEFTOVERS") == "1";
 
         public static TeardownPrior Minimal() => new TeardownPrior { Documents = 5, PendingTransaction = false, OpenReader = false };
 
         public override string ToString() =>
             $"docs={this.Documents};tx={On(this.PendingTransaction)};reader={On(this.OpenReader)};sort={On(this.SpilledSort)};" +
-            $"upload={On(this.Upload)};peer={On(this.Peer)};enc={On(this.Encrypted)}";
+            $"upload={On(this.Upload)};peer={On(this.Peer)};enc={On(this.Encrypted)}" +
+            (this.CrashLeftovers ? ";leftovers=1" : "");
 
         private static string On(bool value) => value ? "1" : "0";
     }

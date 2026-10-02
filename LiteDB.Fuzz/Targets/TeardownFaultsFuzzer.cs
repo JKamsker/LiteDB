@@ -96,6 +96,8 @@ internal sealed class TeardownFaultsFuzzer : IFuzzTarget
             Encrypted = tolerated.Encrypted || random.Next(3) == 0
         };
         driver.Require(prior);
+        // Drawn last so every earlier choice of a campaign stays as frozen; forced on by the environment.
+        prior.CrashLeftovers = prior.CrashLeftovers || random.Next(2) == 0;
         return prior;
     }
 
