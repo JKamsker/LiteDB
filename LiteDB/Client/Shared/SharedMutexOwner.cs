@@ -18,7 +18,7 @@ namespace LiteDB.Client.Shared
     /// takes the OS mutex directly on that thread instead: nothing but that thread can
     /// end it, so it needs no holder and saves two thread handoffs per operation.
     /// </summary>
-    internal sealed class SharedMutexOwner
+    internal sealed partial class SharedMutexOwner
     {
         private static readonly TimeSpan Poll = TimeSpan.FromMilliseconds(20);
         // A holder that owns nothing exits after this long, so an undisposed
@@ -77,6 +77,7 @@ namespace LiteDB.Client.Shared
                     _owner = Thread.CurrentThread;
                     _scope.Owner = _owner;
                     _recursion = 1;
+                    this.GraphOwned(direct: true);
                 }
                 return true;
             }
@@ -128,6 +129,9 @@ namespace LiteDB.Client.Shared
         public bool Enter(bool scoped = false)
         {
             if (this.TryRecurse()) return false;
+#if DEBUG || TESTING
+            using (this.GraphWait(GraphWaitSite.Gate))
+#endif
             while (!_gate.Wait(Poll)) this.ReleaseIfOwnerExited();
             bool abandoned;
             if (scoped && SharedMutexScope.CanEnter) this.TakeDirect(block: true, out abandoned);
@@ -195,6 +199,7 @@ namespace LiteDB.Client.Shared
                     _generation++;
                     if (direct == null) _released.Reset();
                 }
+                this.GraphEnded(mutex: true);
                 _scope.Owner = null;
             }
             if (direct != null)
@@ -220,6 +225,7 @@ namespace LiteDB.Client.Shared
                 _owner = null;
                 _recursion = 0;
                 _generation++;
+                this.GraphEnded(mutex: _scope.Owner == null);
                 // A scoped ownership's thread is still inside its operation. It releases
                 // the OS mutex and the gate when that operation ends (see Exit).
                 if (_scope.Owner != null) return;
@@ -234,7 +240,11 @@ namespace LiteDB.Client.Shared
         /// connection holds neither the gate nor the OS mutex on its own account.
         /// The holder completes it without waiting for anything else.
         /// </summary>
+#if DEBUG || TESTING
+        public void WaitForRelease() { using (this.GraphWait(GraphWaitSite.Release)) _released.Wait(); }
+#else
         public void WaitForRelease() => _released.Wait();
+#endif
 
         private bool TryRecurse()
         {
@@ -252,12 +262,16 @@ namespace LiteDB.Client.Shared
             abandoned = false;
             try
             {
+#if DEBUG || TESTING
+                using (this.GraphWait(command == Command.Acquire ? GraphWaitSite.ViaHolder : GraphWaitSite.None))
+#endif
                 if (!this.Send(command)) { _gate.Release(); return false; }
                 abandoned = _abandoned;
                 lock (_sync)
                 {
                     _owner = Thread.CurrentThread;
                     _recursion = 1;
+                    this.GraphOwned(direct: false);
                 }
                 return true;
             }
@@ -276,6 +290,7 @@ namespace LiteDB.Client.Shared
         {
             Thread owner;
             var direct = false;
+            this.GraphRecheck();
             lock (_sync)
             {
                 owner = _owner ?? _scope.Owner;
@@ -289,6 +304,7 @@ namespace LiteDB.Client.Shared
                     _scope.Owner = null;
                     _recursion = 0;
                     _generation++;
+                    this.GraphEnded(mutex: true);
                 }
             }
             if (direct)
@@ -347,6 +363,9 @@ namespace LiteDB.Client.Shared
 #endif
                     _posted.Set();
                 }
+#if DEBUG || TESTING
+                using (this.GraphWait(command == Command.Acquire ? GraphWaitSite.None : GraphWaitSite.Handoff))
+#endif
                 _done.Wait();
                 lock (_sync)
                 {
@@ -376,6 +395,7 @@ namespace LiteDB.Client.Shared
 #if DEBUG || TESTING
                     if (signaled && command == Command.None) Interlocked.Increment(ref EmptySignaledWakes);
 #endif
+                    this.GraphCommand(command, started: true);
                     if (command == Command.None && _held && _owner != null && !_owner.IsAlive) ownerExited = true;
                     else if (command == Command.None && !_held && DateTime.UtcNow - idleSince > HolderIdle)
                     {
@@ -426,6 +446,7 @@ namespace LiteDB.Client.Shared
                     _command = Command.None;
                     if (command == Command.ReleaseAndOpenGate) posted = true;
                     else _error = error;
+                    this.GraphCommand(command, started: false);
                 }
                 if (posted)
                 {
@@ -480,11 +501,13 @@ namespace LiteDB.Client.Shared
                 _recursion = 0;
                 _generation++;
             }
+            this.GraphExitedOwnerCleanup(started: true);
 #if DEBUG || TESTING
             this.BeforeOwnerExitedCleanup?.Invoke();
 #endif
             try { _ownerExited(); }
             catch (Exception) { /* The next open recovers; the mutex must still be released. */ }
+            this.GraphExitedOwnerCleanup(started: false);
             this.ReleaseMutex();
             lock (_sync) { _gate.Release(); _released.Set(); }
         }
