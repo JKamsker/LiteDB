@@ -43,6 +43,16 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         public static readonly int EarlyTimeoutMilliseconds =
             int.TryParse(Environment.GetEnvironmentVariable("LITEDB_PBT_EARLY_TIMEOUT_MS"), out var ms) && ms > 0 ? ms : 0;
 
+        /// <summary>Require self-wait lock timeouts to be early (needs <see cref="EarlyTimeoutMilliseconds"/>).</summary>
+        public static readonly bool SelfWaitFailFast = Environment.GetEnvironmentVariable("LITEDB_PBT_SELF_WAIT_FAIL_FAST") == "1";
+
+        /// <summary>
+        /// Dense handoff generation (<c>LITEDB_PBT_HANDLE_HANDOFF=dense</c>): borrowed units make 1-3 consecutive
+        /// calls on the lent handle, and blocks that lend their handle pause between operations, so that calls of
+        /// different threads meet on one handle more often.
+        /// </summary>
+        public static readonly bool DenseHandoff = Environment.GetEnvironmentVariable("LITEDB_PBT_HANDLE_HANDOFF") == "dense";
+
         public string Name => KindName;
 
         public string Capability => "handle-api";
@@ -72,7 +82,9 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
             if (context.Thread > 0 && (roll < 30 || context.Budget < 2))
             {
                 if (context.Budget < 1) return null;
-                return Unit(DataCommand(random, context, -(1 + random.Next(HandleModel.MaxSlots)), -1));
+                var slot = -(1 + random.Next(HandleModel.MaxSlots));
+                var calls = DenseHandoff ? 1 + random.Next(Math.Min(3, context.Budget)) : 1;
+                return Unit(Enumerable.Range(0, calls).Select(_ => DataCommand(random, context, slot, -1)).ToList());
             }
             if (context.Budget < 2) return null;
             if (roll < 55 && context.Budget >= 5) return Unit(this.Pair(context));
@@ -84,13 +96,13 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
             var random = context.Random;
             var handle = context.NextId();
             var home = random.Next(context.Collections);
-            var lend = context.Thread > 0 && random.Next(100) < 50 ? 1 + random.Next(HandleModel.MaxSlots) : 0;
+            var lend = context.Thread > 0 && random.Next(100) < (DenseHandoff ? 75 : 50) ? 1 + random.Next(HandleModel.MaxSlots) : 0;
             var commands = new List<PropertyCommand> { BeginCommand(handle, bounded: random.Next(100) < 15, lend) };
             var operations = random.Next(Math.Min(4, context.Budget - 2) + 1);
             for (var i = 0; i < operations; i++)
             {
                 var roll = random.Next(100);
-                if (lend > 0 && roll < 20)
+                if (lend > 0 && (roll < 20 || (DenseHandoff && i % 2 == 1)))
                     commands.Add(new PropertyCommand(KindName, Pause, payload: 1 + random.Next(3), slot: handle));
                 else if (context.Mode == ConnectionType.Direct && roll < 40)
                     commands.Add(DataCommand(random, context, 0, home)); // ordinary call inside the unit

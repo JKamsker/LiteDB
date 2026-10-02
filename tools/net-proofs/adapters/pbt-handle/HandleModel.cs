@@ -28,7 +28,11 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
     /// <item>LOCK_TIMEOUT only where a conflicting holder exists (<see cref="DataOperations.Apply"/>).
     /// With <c>LITEDB_PBT_EARLY_TIMEOUT_MS</c> set, a lock timeout faster than that bound is observed as
     /// "LockTimeout:early" and permitted only when the holder is a handle that the waiting thread itself
-    /// executed calls on (a self-wait: waiting could never succeed from that thread's view).</item>
+    /// executed calls on (a self-wait: waiting could never succeed from that thread's view). With
+    /// <c>LITEDB_PBT_SELF_WAIT_FAIL_FAST=1</c> as well, a lock timeout whose holder is a handle that only the
+    /// waiting thread ever executed on must be early (API card, refusal table: a collection write lock held by
+    /// another owner on the same thread fails with LOCK_TIMEOUT immediately). Not a documentation rule at the
+    /// handle commits; added as a second attempt, see the adapter README.</item>
     /// </list>
     /// </summary>
     public static class HandleModel
@@ -167,6 +171,9 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
             DataOperations.Apply(state, owner, thread, baseCommand, abort, produced);
             var secondPoint = state.Pending(thread) != 0;
             var selfWait = secondPoint || IsSelfWait(state, command.Collection, thread);
+            // Fail-fast option: the holder is a handle only this thread ever executed on, so the wait can never
+            // succeed and the API card's refusal table says the lock timeout comes immediately.
+            var mustBeEarly = strictTimeouts && HandleAccessKind.SelfWaitFailFast && !secondPoint && IsSoleSelfWait(state, command.Collection, thread);
             foreach (var outcome in produced)
             {
                 if (strictTimeouts && executedHandle > 0)
@@ -174,10 +181,17 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
                     var users = UsersBase + executedHandle;
                     outcome.Next.SetRegister(users, outcome.Next.Register(users) | (1 << thread));
                 }
-                outcomes.Add(outcome);
+                if (!(mustBeEarly && outcome.Observation.Equals(Observation.LockTimeout))) outcomes.Add(outcome);
                 if (strictTimeouts && selfWait && outcome.Observation.Equals(Observation.LockTimeout))
                     outcomes.Add(new ModelOutcome(HandleObservations.EarlyLockTimeout, outcome.Next, outcome.Completes));
             }
+        }
+
+        /// <summary>The collection's lock holder is a handle that no thread but this one executed calls on.</summary>
+        private static bool IsSoleSelfWait(ModelState state, int collection, int thread)
+        {
+            var holder = state.LockHolder(collection);
+            return holder >= OwnerBase && state.Register(UsersBase + holder - OwnerBase) == 1 << thread;
         }
 
         /// <summary>The collection's lock holder is a handle this thread executed calls on.</summary>

@@ -52,3 +52,17 @@ Command notation in counterexamples: `handle.Begin+lend1#3` begins handle 3 and 
 it in slot 1; `handle.Insert(c0, 2, p=7)#3` runs on handle 3; `#-1` runs on whatever
 handle is lent in slot 1 (a handoff from another thread); no suffix is an ordinary
 call made inside a handle unit.
+
+## Second-attempt options (off by default)
+
+Added after the first proof attempt stayed quiet (see `/tmp/safety-net/reports/V-pbt.md`):
+
+- `LITEDB_PBT_HANDLE_HANDOFF=dense`: generator only. Borrowed units make 1-3
+  consecutive calls on the lent handle; blocks lend their handle more often and pause
+  between operations. The first attempt formed few cross-thread calls on one handle.
+- `LITEDB_PBT_SELF_WAIT_FAIL_FAST=1` (with `LITEDB_PBT_EARLY_TIMEOUT_MS`): a lock timeout
+  whose holder is a handle that only the waiting thread ever executed on must be early.
+  Source: the API card's refusal table (a collection write lock held by another owner on
+  the same thread fails with LOCK_TIMEOUT immediately), not `docs/transaction-handles.md`
+  at the handle commits. It was added knowing the ledger's description of row 12, so a
+  proof using it is recorded as tuned, not as designed from the invariant.
