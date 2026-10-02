@@ -111,3 +111,8 @@ Relevant target selection matters more than rerunning everything. For reader
 leases use `transaction-gate,cursor-handoff,concurrent`; for key-moving updates
 use `index`; for replacement recovery use `rebuild-transition`; for flush/order
 changes include `power-loss,recovery,wal` and the file-compatibility scripts.
+
+A change to an exception contract, a wait primitive or a teardown path also runs
+the [differential run](safety-evidence.md#differential-run) against the
+merge-base with its intended changes declared; a `critical` change adds
+[mutation on the diff](safety-evidence.md#mutation-on-the-diff).
