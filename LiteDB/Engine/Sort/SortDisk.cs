@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using static LiteDB.Constants;
+using LiteDB.Utils;
 
 namespace LiteDB.Engine
 {
@@ -102,13 +103,19 @@ namespace LiteDB.Engine
             }
         }
 
+        [TeardownPath("SortDisk.Dispose", TeardownDisposition.Propagated,
+            "No handling: a failure propagates to LiteEngine.Close, which collects it (SortDisk.cs).")]
         public void Dispose()
         {
+            TeardownSteps.Before("SortDisk.Dispose.pool");
             _pool.Dispose();
+            TeardownSteps.After("SortDisk.Dispose.pool");
 
             // A never-used sort disk owns no file (its derived name may not even be
             // creatable for a maximum-length read-only database filename).
+            TeardownSteps.Before("SortDisk.Dispose.delete", this.HasSpilled);
             if (this.HasSpilled) _factory.Delete();
+            TeardownSteps.After("SortDisk.Dispose.delete", this.HasSpilled);
         }
     }
 }

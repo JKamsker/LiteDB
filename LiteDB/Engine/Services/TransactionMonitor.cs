@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using LiteDB.Utils;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -214,12 +215,19 @@ namespace LiteDB.Engine
         /// <summary>
         /// Dispose all open transactions
         /// </summary>
+        [TeardownPath("TransactionMonitor.Dispose", TeardownDisposition.Propagated,
+            "Every step runs in TryCatch; collected failures are thrown as one AggregateException (TransactionMonitor.cs Dispose).")]
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             var cleanup = new LiteDB.Utils.TryCatch();
             foreach (var transaction in _transactions.Close())
             {
+                Reachability.Sometimes("maintenance:close-during-active-transaction");
+#if DEBUG || TESTING
+                if (!ReferenceEquals(transaction.OwnerThread, Thread.CurrentThread)) Reachability.Sometimes("maintenance:close-during-foreign-transaction");
+#endif
+                cleanup.Step("TransactionMonitor.Dispose.transaction");
                 cleanup.Catch(transaction.Dispose);
                 if (ReferenceEquals(transaction.Owner.Slot.Transaction, transaction)) transaction.Owner.Slot.Transaction = null;
             }

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using LiteDB.Utils;
 
 namespace LiteDB.Client.Shared
 {
@@ -18,8 +19,11 @@ namespace LiteDB.Client.Shared
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
                 ((AppContext.TryGetSwitch("System.IO.DisableFileLocking", out var disabled) && disabled) ||
                  EnvironmentEnabled("DOTNET_SYSTEM_IO_DISABLEFILELOCKING")))
+            {
+                Reachability.Sometimes("refusal:shared-file-locking-disabled");
                 throw new PlatformNotSupportedException("Database admission requires OS file-sharing locks for writable Direct and Shared connections. " +
                     "Remove System.IO.DisableFileLocking / DOTNET_SYSTEM_IO_DISABLEFILELOCKING before process startup.");
+            }
         }
 
 #if NET8_0_OR_GREATER

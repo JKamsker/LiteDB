@@ -19,6 +19,11 @@ internal static class MvccHarness
         if (TransactionHandleHarness.TryRun(mode, filename, password, args)) return true;
         if (NativeAdmissionHarness.TryRun(mode, filename, password, args)) return true;
         if (SharedModeHarness.TryRun(mode, filename, password, args)) return true;
+        if (mode == LiteDB.ConcurrencyTesting.ExplorerWriterChild.Mode)
+        {
+            LiteDB.ConcurrencyTesting.ExplorerWriterChild.Run(filename, Console.In, Console.Out);
+            return true;
+        }
         if (SharedPolicyHarness.TryRun(mode, filename, password)) return true;
         if (SharedMappedHarness.TryRun(mode, filename, password, args)) return true;
         if (SharedFollowupHarness.TryRun(mode, filename, password)) return true;

@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using LiteDB.Utils;
 using static LiteDB.Constants;
 
 namespace LiteDB
@@ -150,6 +151,8 @@ namespace LiteDB
             this.Dispose(false);
         }
 
+        [TeardownPath("BsonDataReader.Dispose", TeardownDisposition.Propagated,
+            "The query source's disposal (its transaction and sort cleanup) propagates; the reader is marked disposed first.")]
         protected virtual void Dispose(bool disposing)
         {
             if (_disposed) return;
@@ -160,7 +163,9 @@ namespace LiteDB
             {
                 using var operation = _state?.EnterOperation();
                 using var scope = _context?.Enter();
+                TeardownSteps.Before("BsonDataReader.Dispose.source", _source != null);
                 _source?.Dispose();
+                TeardownSteps.After("BsonDataReader.Dispose.source", _source != null);
             }
         }
     }

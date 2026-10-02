@@ -462,6 +462,7 @@ namespace LiteDB.Engine
         }
 
         // Protected implementation of Dispose pattern.
+        [Utils.TeardownPath("TransactionService.Dispose", Utils.TeardownDisposition.Propagated, "Releases attempted; failures thrown as AggregateException.")]
         protected virtual void Dispose(bool dispose)
         {
             // All resources are managed. The monitor retains registered
@@ -485,7 +486,9 @@ namespace LiteDB.Engine
 
             try
             {
+                Utils.TeardownSteps.Before("TransactionService.Dispose.reader");
                 _reader.Dispose();
+                Utils.TeardownSteps.After("TransactionService.Dispose.reader");
             }
             catch (Exception ex)
             {

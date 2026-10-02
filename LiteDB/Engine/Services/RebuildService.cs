@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LiteDB.Utils;
 using static LiteDB.Constants;
 
 namespace LiteDB.Engine
@@ -185,6 +186,7 @@ namespace LiteDB.Engine
             try
             {
 #if DEBUG || TESTING
+                Reachability.FaultPoint("before-log-backup");
                 SimulateInstallFailure?.Invoke("before-log-backup");
 #endif
                 // An original WAL that stays live would be replayed over the replacement, so
@@ -195,7 +197,9 @@ namespace LiteDB.Engine
                     movedLog = true;
                 }
 #if DEBUG || TESTING
+                Reachability.FaultPoint("after-log-backup");
                 SimulateInstallFailure?.Invoke("after-log-backup");
+                Reachability.FaultPoint("before-source-backup");
                 SimulateInstallFailure?.Invoke("before-source-backup");
 #endif
 
@@ -203,7 +207,9 @@ namespace LiteDB.Engine
                 FileHelper.Exec(5, () => File.Move(_settings.Filename, backupFilename));
                 movedSource = true;
 #if DEBUG || TESTING
+                Reachability.FaultPoint("after-source-backup");
                 SimulateInstallFailure?.Invoke("after-source-backup");
+                Reachability.FaultPoint("before-temp-install");
                 SimulateInstallFailure?.Invoke("before-temp-install");
 #endif
 
@@ -211,6 +217,7 @@ namespace LiteDB.Engine
                 File.Move(tempFilename, _settings.Filename);
                 candidateIsLive = true;
 #if DEBUG || TESTING
+                Reachability.FaultPoint("after-temp-install");
                 SimulateInstallFailure?.Invoke("after-temp-install");
 #endif
                 RebuildRecovery.Complete(_settings.Filename);
@@ -224,6 +231,7 @@ namespace LiteDB.Engine
                 TryRollback(() =>
                 {
 #if DEBUG || TESTING
+                    Reachability.FaultPoint("before-candidate-rollback");
                     SimulateInstallFailure?.Invoke("before-candidate-rollback");
 #endif
                     // Installation may already have placed the replacement at the
@@ -240,6 +248,7 @@ namespace LiteDB.Engine
                 TryRollback(() =>
                 {
 #if DEBUG || TESTING
+                    Reachability.FaultPoint("before-source-rollback");
                     SimulateInstallFailure?.Invoke("before-source-rollback");
 #endif
                     if (movedSource && File.Exists(backupFilename))
@@ -255,6 +264,7 @@ namespace LiteDB.Engine
                     // file. Keep it at the backup path when data restoration failed.
                     if (!sourceIsLive) return;
 #if DEBUG || TESTING
+                    Reachability.FaultPoint("before-log-rollback");
                     SimulateInstallFailure?.Invoke("before-log-rollback");
 #endif
                     if (!File.Exists(logFile) && movedLog && File.Exists(backupLogFilename))
@@ -269,6 +279,7 @@ namespace LiteDB.Engine
                     TryRollback(() =>
                     {
 #if DEBUG || TESTING
+                        Reachability.FaultPoint("before-source-retraction");
                         SimulateInstallFailure?.Invoke("before-source-retraction");
 #endif
                         // A source without its WAL can silently omit acknowledged
@@ -288,6 +299,7 @@ namespace LiteDB.Engine
                     if (!sourceIsLive && File.Exists(tempFilename) && !File.Exists(_settings.Filename))
                     {
 #if DEBUG || TESTING
+                        Reachability.FaultPoint("before-candidate-republish");
                         SimulateInstallFailure?.Invoke("before-candidate-republish");
 #endif
                         File.Move(tempFilename, _settings.Filename);
@@ -304,6 +316,7 @@ namespace LiteDB.Engine
                     TryRollback(() =>
                     {
 #if DEBUG || TESTING
+                        Reachability.FaultPoint("before-candidate-cleanup");
                         SimulateInstallFailure?.Invoke("before-candidate-cleanup");
 #endif
                         DeleteReplacement(tempFilename);
@@ -340,8 +353,12 @@ namespace LiteDB.Engine
         private static void DeleteReplacement(string tempFilename)
         {
             // Wait out a virus scanner or sync client inspecting the new file, as for the marker.
+            TeardownSteps.Before("RebuildService.DiscardReplacement.delete-data");
             FileHelper.Exec(ReplacementDeleteTimeoutSeconds, () => File.Delete(tempFilename));
+            TeardownSteps.After("RebuildService.DiscardReplacement.delete-data");
+            TeardownSteps.Before("RebuildService.DiscardReplacement.delete-log");
             FileHelper.Exec(ReplacementDeleteTimeoutSeconds, () => File.Delete(FileHelper.GetLogFile(tempFilename)));
+            TeardownSteps.After("RebuildService.DiscardReplacement.delete-log");
         }
 
         private LiteDB.Client.Shared.DatabaseReplacementLease LockReplacement(string filename)
@@ -354,6 +371,9 @@ namespace LiteDB.Engine
             }
         }
 
+        [TeardownPath("RebuildService.DiscardReplacement", TeardownDisposition.RecordedAsCleanupError,
+            "Deletion failures are added to the build failure's Data[LiteDB.Rebuild.RollbackErrors] and the build failure " +
+            "is rethrown (RebuildService.cs; docs/rebuild-recovery.md).")]
         private static void DiscardReplacement(string tempFilename, Exception failure)
         {
             var cleanupErrors = new List<Exception>();

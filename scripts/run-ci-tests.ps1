@@ -57,7 +57,9 @@ if ($PartitionSuite) {
         # Admission and Shared lifetime tests outgrow one engine session on slower runners.
         'engine-admission' = 'FullyQualifiedName~LiteDB.Tests.Engine.NativeAdmission'
         'engine-shared' = 'FullyQualifiedName~LiteDB.Tests.Engine.Shared'
-        engine = 'FullyQualifiedName~LiteDB.Tests.Engine.&FullyQualifiedName!~LiteDB.Tests.Engine.Rebuild&FullyQualifiedName!~LiteDB.Tests.Engine.Compact&FullyQualifiedName!~LiteDB.Tests.Engine.Index&FullyQualifiedName!~LiteDB.Tests.Engine.NativeAdmission&FullyQualifiedName!~LiteDB.Tests.Engine.Shared'
+        # The concurrency explorer's forced schedules and dependency programs take about 145 s on their own.
+        'engine-explorer' = 'FullyQualifiedName~LiteDB.Tests.Engine.ConcurrencyExplorer'
+        engine = 'FullyQualifiedName~LiteDB.Tests.Engine.&FullyQualifiedName!~LiteDB.Tests.Engine.Rebuild&FullyQualifiedName!~LiteDB.Tests.Engine.Compact&FullyQualifiedName!~LiteDB.Tests.Engine.Index&FullyQualifiedName!~LiteDB.Tests.Engine.NativeAdmission&FullyQualifiedName!~LiteDB.Tests.Engine.Shared&FullyQualifiedName!~LiteDB.Tests.Engine.ConcurrencyExplorer'
         'query-not-equal' = 'FullyQualifiedName~LiteDB.Tests.QueryTest.NotEqualIndex_Tests'
         query = 'FullyQualifiedName~LiteDB.Tests.QueryTest.&FullyQualifiedName!~LiteDB.Tests.QueryTest.NotEqualIndex_Tests'
         # Keep process-heavy Shared coverage within the per-session timeout on Windows x86.

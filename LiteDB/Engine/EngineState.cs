@@ -7,6 +7,7 @@ using System.Runtime;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LiteDB.Utils;
 
 using static LiteDB.Constants;
 
@@ -66,10 +67,13 @@ namespace LiteDB.Engine
 #if DEBUG || TESTING
         internal void CrashPoint(string phase)
         {
+            Reachability.FaultPoint(phase);
             SimulateProcessCrash?.Invoke(phase);
         }
 #endif
 
+        [TeardownPath("EngineState.Stop", TeardownDisposition.SuppressedPreservingPrimary,
+            "CompleteStop drops CloseOnError's failure list; the failing operation rethrows its own error (Transaction.cs, EngineState.cs).")]
         internal void Stop(Exception ex)
         {
             this.CompleteStop(ex, this.BeginStop(ex));
