@@ -186,6 +186,8 @@ namespace LiteDB.ConcurrencyTesting
             if (!c.Shared && node.Body == ChaosBody.Dispose) return "direct-dispose-under-active-operation";
             if (c.Shared && node.Body == ChaosBody.Peer && (access?.Transactional == true || node.Op == ChaosOp.Upload))
                 return "shared-peer-call-inside-own-explicit-transaction";
+            if (c.Shared && node.Body == ChaosBody.Peer && ExplorerKnownFindings.BaseLacksPeerRefusal)
+                return ExplorerKnownFindings.BasePeerCallWaitsForOwnOwnership;
             if (c.Shared && node.Body == ChaosBody.Dispose && node.Teardown && access?.Transactional != true)
                 return "shared-dispose-from-input-teardown";
             return null;
