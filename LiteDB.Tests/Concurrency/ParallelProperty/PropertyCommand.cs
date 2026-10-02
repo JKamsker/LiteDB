@@ -29,6 +29,9 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         public int Payload { get; }
         public int Slot { get; }
 
+        /// <summary>Data operations name the access kind's slot (for example a handle) when it is set.</summary>
+        private string SlotSuffix => this.Slot == 0 ? "" : "#" + this.Slot;
+
         public override string ToString()
         {
             switch (this.Op)
@@ -36,13 +39,13 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
                 case DataOperations.Insert:
                 case DataOperations.Upsert:
                 case DataOperations.Update:
-                    return $"{this.Kind}.{this.Op}(c{this.Collection}, {this.Key}, p={this.Payload})";
+                    return $"{this.Kind}.{this.Op}(c{this.Collection}, {this.Key}, p={this.Payload})" + this.SlotSuffix;
                 case DataOperations.Delete:
                 case DataOperations.FindById:
-                    return $"{this.Kind}.{this.Op}(c{this.Collection}, {this.Key})";
+                    return $"{this.Kind}.{this.Op}(c{this.Collection}, {this.Key})" + this.SlotSuffix;
                 case DataOperations.Count:
                 case DataOperations.FindAll:
-                    return $"{this.Kind}.{this.Op}(c{this.Collection})";
+                    return $"{this.Kind}.{this.Op}(c{this.Collection})" + this.SlotSuffix;
                 default:
                     return this.Slot == 0 ? $"{this.Kind}.{this.Op}" : $"{this.Kind}.{this.Op}#{this.Slot}";
             }

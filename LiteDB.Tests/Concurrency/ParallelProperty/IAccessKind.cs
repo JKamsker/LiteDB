@@ -156,6 +156,7 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         {
             Ordinary,
             Legacy,
+            new HandleAccessKind(),
         };
 
         public static IAccessKind Get(string name)

@@ -120,7 +120,9 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
             new PropertyOptions(mode)
             {
                 EngineDecorator = decorator,
-                AccessKindNames = null,
+                // Proof overlay (pbt-handle adapter): handles refuse decorated engines (docs/transaction-handles.md), so the
+                // broken-engine self-tests use the upstream kinds.
+                AccessKindNames = new[] { "ordinary", "legacy" },
                 ShrinkAttempts = 4,
                 ShrinkBudget = 60,
                 ReproductionRuns = 5,
