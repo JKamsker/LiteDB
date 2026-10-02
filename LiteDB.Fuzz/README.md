@@ -16,7 +16,10 @@ dotnet run --project LiteDB.Fuzz -c Release -f net8.0 --no-build -- \
 ```
 
 Every run writes `run.json`, `summary.md`, `trace.jsonl`, `input.bin`,
-`input-offsets.jsonl`, and `replay.json`.
+`input-offsets.jsonl`, `replay.json` and `markers.json`; targets that apply the
+invariant oracles also write `outcomes.jsonl`, `connection-clean.jsonl`,
+`quiescent.jsonl` and `faults.jsonl` (see
+[Invariant oracles](#invariant-oracles) and [Reachability markers](#reachability-markers)).
 
 Successful duration-bound epochs are compacted as soon as their isolated process
 exits, not at campaign end: their novelty and coverage are merged into the retained
@@ -88,6 +91,67 @@ beside that run, and retains a seed only when it adds a previously unseen engine
 range. `coverage-signatures.txt` and `coverage-corpus.jsonl` persist that feedback;
 using the same artifact root automatically replays the retained coverage corpus.
 
+## Invariant oracles
+
+`FuzzOracles` (probe logic in `LiteDB.Tests/Safety`, shared with xUnit) adds
+invariants every target should apply after its operations and closes. Each violation
+is a `FuzzFailureException` with a stable id, so replay, minimization and finding
+classification work as for any other failure. None of them consumes fuzz randomness
+or writes `trace.jsonl`, so pinned corpus hashes do not change.
+
+| Oracle | Invariant | Failure id |
+| --- | --- | --- |
+| `context.Deadline(op, call, dimension, declared)` | the call, run inline on the caller's thread, completes or throws within the deadline its scenario declares (default for lock-bound operations: max(3 x TIMEOUT, 15 s); bulk, rebuild and callback operations declare their own; always kept 5 s below `--hang-timeout`). No other activity refreshes it. A harness bound, not an API guarantee. An optional `permitted` set (the outcomes the scenario declares legal, e.g. `threw:LiteDB.LiteException#137`) is written to `outcomes.jsonl` for the differential run | `DEADLINE_<TARGET>_<OP>` |
+| `context.ConnectionClean(connection)` | after each dispose: what that connection owned (cores, pins, mutex ownership, admitted calls, its owner thread) is released; leased readers may carry their lease | `CONNECTION_CLEAN_<TARGET>_<KIND>` |
+| `context.Quiescent(path)` | only at scenario end, after every participant stopped: no `LiteDB *` thread after the owner thread's idle limit plus two polls, no handle to the file or its companions, the Shared mutex and turnstile free, no live reader lease, no `-tmp` scratch | `QUIESCENT_<TARGET>_<KIND>` |
+| `context.ScratchLive(path, point)` | while a reader whose sort spilled is live, its scratch file exists | `SCRATCH_LIVE_<TARGET>` |
+| `context.Ownership(db, point)` | a Shared core that requires writer exclusion and is active or still tearing down keeps the writer mutex; releasing the mutex implies that core's teardown completed (also latched at every release once `context.Oracles.WatchOwnership()` runs) | `OWNERSHIP_<TARGET>_<KIND>` |
+| `context.Durable(ledger, reopened, point)` | acknowledged effects survive close and cold reopen; known-aborted effects stay absent | `DURABLE_<TARGET>_<KIND>` |
+| `context.FaultReached(fault, injected, required)` | an injected fault the scenario requires actually fired | `FAULT_NOT_REACHED_<TARGET>_<FAULT>` |
+| `context.FaultDisposed(op, injected, declared, thrown, ...)` | the call disposed of a fired fault as its path declares: propagated, returned as a failure list, recorded as a cleanup error, retried, suppressed preserving the primary error, or discarded (upstream `Dispose` discards) | `FAULT_DISPOSED_<TARGET>_<OP>_<OBSERVED>` |
+
+`Deadline` writes one `outcomes.jsonl` line per call (`op`, `dimension`, `outcome`
+`ok|threw|refused|hang`, exception type, LiteDB error code, elapsed ms; `refused`
+means a documented refusal marker fired on that thread). An operation that never
+returns makes a watchdog write `deadline-failure.json` (every in-flight operation on
+every thread and, when the repository's `dotnet-dump` tool is restored, managed
+stacks), record the run through the ordinary failure path and exit the child with
+code 3; minimization accepts only the same `DEADLINE_*` id. `ConnectionClean`,
+`Quiescent` and the fault oracles write `connection-clean.jsonl`, `quiescent.jsonl`
+and `faults.jsonl`. Thread names and open handles are read from `/proc` on Linux;
+Windows checks handles with an exclusive open, and checks a platform cannot perform
+are listed under `gaps`. Injected faults use one of two models: *fail inside* (the
+action runs, then throws) or *skip* (the throw replaces the action). A target that
+cannot apply an oracle (for example Ownership in a Direct-mode target) says why in a
+remark. `oracle-selftest` and `LiteDB.Fuzz.Tests` feed each oracle a deliberately
+broken state; the `oracle-deadline-selftest` target (selectable only by name) stalls
+one actor while another keeps progressing.
+
+## Reachability markers
+
+A marker is a TESTING-only `Reachability.Sometimes("<family>:<name>")` that counts how
+often a situation occurred: `fault-point` (derived for every registered fault hook
+site), `maintenance` (close, rebuild, fatal error or checkpoint overlapping other
+work), `refusal` (a documented refusal path), `api` (a public member driven by a
+target) and `situation` (what a target exists to reach). Each run writes the counts to
+`markers.json`, and [`.github/safety/markers.json`](../.github/safety/markers.json)
+registers every marker with the files whose change declares it, the targets or tests
+that reach it, and its gate.
+
+```bash
+python .github/scripts/check_reachability.py                       # registry vs code
+python .github/scripts/check_reachability.py --base origin/dev \
+  --runs artifacts_temp/fuzz --output artifacts_temp/reachability.json
+```
+
+The second form lists every marker with its hit count and the never-hit ones, and
+fails when a marker declared by the diff (a changed registry entry or path, an added
+fault point, or an added/changed public API member, which needs an `api:` marker) was
+never hit. The Fuzz workflow runs it on all smoke legs' `markers.json` files; the
+always-run Oracle smoke job of the build-and-test workflow runs the oracle self-tests
+and the wired targets at a small count, so the required Safety evidence check sees
+oracle evidence even when the path-filtered Fuzz workflow does not run.
+
 ## Targets
 
 | Target | Oracle / invariant |
@@ -105,6 +169,9 @@ using the same artifact root automatically replays the retained coverage corpus.
 | `page` | slot payload model plus page/footer/accounting/overlap invariants |
 | `index` | scalar, multikey, unique, ordering, and key-moving update checks |
 | `shared` | real child processes, acknowledged ledgers, and owner-process death |
+| `shared-contention` | 2-4 real processes alternating Shared writer ownership (explicit transactions with commit/rollback, auto-commit writes, reads) behind a start barrier. Each child applies Deadline (lock-bound, TIMEOUT 10 s), Ownership after every operation, ConnectionClean, and Durable on a fresh connection; the parent bounds every join and checks Durable over the union of all acknowledged ledgers on a cold reopen, then Quiescent. Overtaking (a later arrival acquired before an earlier waiter, `arrive_i < arrive_j < acquired_j < acquired_i`) is a metric (`overtakings`, `overtakingRate`, `maxWaitMs`, `p99AcquireMs`), never a failure: [Shared mode is not strict FIFO](../docs/shared-performance-followups.md#ownership-and-compatibility). Evidence class 2: failed rounds keep ledgers, timings, child output, database files and `evidence.json` |
+| `transaction-interleavings` | the general concurrency explorer's forced actor schedules ([docs/concurrency-explorer.md](../docs/concurrency-explorer.md)): one applicable schedule vector per step (scenario x variant x mode x access kind x maintenance x callback x process x encryption, visited dimensions first from a seed-chosen start). Permitted outcomes per operation, Deadline per actor operation, Ownership after each judged operation (Shared), ConnectionClean after every dispose, Durable and an exact cold check on reopen, Quiescent, FaultReached/FaultDisposed for injected fatal writes. Evidence class 1 (the vector's recorded decisions replay). Vectors excluded by a registered hang/crash finding are traced and counted; other registered findings go to `known-findings.jsonl` and the campaign continues |
+| `lifetime-chaos` | random dependency programs: 2-6 operations on as many threads whose callbacks and input sequences await operations on other threads (nested up to depth 3), with a concurrent Dispose, Rebuild or injected fatal WAL write, Direct or Shared, every access kind. Same oracles as `transaction-interleavings`; permitted outcomes follow from what disturbs each operation's connection or file. Evidence class 2 (native threads): the program text is traced; failures keep the program, history and environment (`explorer-failure.json`, `evidence.json`) |
 | `bson` | contiguous vs fragmented reader/writer round trips and mutations |
 | `parser` | fresh vs cached SQL/expression parsing, binding, malformed errors |
 | `mapper` | supported CLR shape round trips and cyclic failure isolation |
@@ -124,6 +191,7 @@ using the same artifact root automatically replays the retained coverage corpus.
 | `power-loss` | volatile/durable device model cut at every internal WAL/checkpoint phase |
 | `recovery` | dirty-WAL recovery interrupted again by transient and persistent I/O failures |
 | `chaos` | combined CRUD/bulk/index/transaction/SQL/storage/rebuild/reopen/auto-checkpoint model |
+| `chaos-maintenance` | Dispose, rebuild and fatal WAL-write failure forced against an active bulk write, reader, explicit transaction, checkpoint or rebuild on another thread (Direct and Shared, either side first); declared permitted outcomes, all invariant oracles, known findings recorded in `known-findings-hit.jsonl` (`LITEDB_FUZZ_STRICT_KNOWN=1` fails on them) |
 | `boundary` | exact slots, keys, document/page limits, transaction limits, headers, and nesting |
 | `read-only` | byte-identical data/WAL across generated read and read-only workloads |
 | `sql-dml` | SQL DML/DDL/transaction/pragma differential against equivalent API state |
@@ -132,7 +200,7 @@ using the same artifact root automatically replays the retained coverage corpus.
 | `storage-failure` | throwing user streams, typed IDs, open-reader overwrite, and random seeks |
 | `pressure` | observed cache eviction under tiny auto-checkpoints and pinned readers |
 | `malformed-file` | grammar-aware header/page/WAL corruption and truncation contracts |
-| `oracle-selftest` | controlled bad states that every core invariant family must reject |
+| `oracle-selftest` | controlled bad states that every core invariant family and the quiescence, durability and fault-disposition oracles must reject |
 | `compact-crash` | torn v11/v12 promotion, schema/document WAL commits and checkpoints, full payload/index recovery |
 | `compact-codec` | generated schemas/values/projections plus structural compact-payload mutations |
 | `compact-storage` | Auto/Legacy promotion, mixed CRUD, transactions, reopen, rebuild, encryption, and raw integrity |
@@ -206,6 +274,45 @@ for each selected target in every normal runner invocation, in addition to the
 requested generated seed shards. A new real finding
 should be minimized, added there with its target and reason, and accompanied by
 a focused xUnit regression whenever practical.
+
+## Per-PR target selection
+
+The Fuzz workflow's `PR-selected targets` job runs the targets a pull request's
+diff obliges (count 100; 30 when every target is selected), with a seed fixed
+per PR (`2947000 + PR number`, `2947` without `--pr`) so reruns are comparable. It is informational like the rest of this
+path-filtered workflow; the always-run gate is the Oracle smoke job of
+build-and-test. `.github/scripts/select_fuzz_targets.py` decides each changed
+file in this order and records the decision in `selection.json`:
+
+1. **Obligation map** ([`fuzz-obligations.json`](../.github/safety/fuzz-obligations.json)):
+   every obligation whose `paths` match the file, and whose `patterns` (when
+   given) match an added or removed line, adds its targets. Cross-cutting pattern
+   obligations (`"decides": false`, e.g. a new wait or `finally`) add targets
+   but still let the file's own subsystem be selected. `alwaysForLiteDB` is added
+   for any `LiteDB/` change.
+2. **Coverage** ([`fuzz-coverage-map.json`](../.github/safety/fuzz-coverage-map.json)):
+   the targets whose recorded coverage includes the file. Files under `ignore`
+   (documentation, unrelated tools) select nothing.
+3. **All targets** when neither decides; new code has no coverage yet.
+
+Required targets that do not exist in the tree are listed under `missing` with a
+warning. To add an obligation, add an entry with a kebab-case `id`, a `kind`, the
+plan row or rule as `reason`, `paths` globs, optional `patterns`, and `targets`;
+the Safety policy job runs `select_fuzz_targets.py --validate`, so an unknown
+target, a glob that matches nothing or a broken regex fails CI. Preview a
+selection with `python .github/scripts/select_fuzz_targets.py --base origin/dev`.
+
+Refresh the coverage map after adding or substantially changing a target:
+
+```bash
+dotnet run --project LiteDB.Fuzz -c Release -f net8.0 --no-build -- --target all \
+  --seed 2947 --count 3 --coverage-guided --artifact-dir artifacts_temp/coverage-map
+python .github/scripts/generate_fuzz_coverage_map.py artifacts_temp/coverage-map \
+  --command "<the command above>"
+```
+
+Use a fresh artifact directory; the map records its commit, command and the
+targets it could not cover yet.
 
 ## Publishing raw results
 

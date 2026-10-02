@@ -15,6 +15,10 @@ stop unsafe continuation, and make detected corruption visible.
 - Distinguish a transaction created by an operation from one it joined. A failed
   `BeginTrans`/join result or an occupied shared mutex alone does not establish
   explicit-transaction ownership. Include transparent public engine decorators.
+- A new blocking site (lock, gate, mutex, event, handoff or poll loop) must register
+  with the [wait-for graph](../wait-for-graph.md): its wait before blocking, its holds,
+  and the frames in which its owner executes; or be listed there with the reason it is not.
+  The graph latches each cycle it finds before the wait blocks and reports it per test.
 - Keep publication, ownership handoff, and cleanup ordered. Cleanup after releasing
   a lock must not erase the next owner's state. Check abandoned-owner paths as
   well as ordinary completion.
@@ -64,7 +68,9 @@ Every pin, pooled buffer, cursor, and underlying stream needs a clear owner and
 release path for completion, early termination, exceptions, and repeated disposal.
 Disposal admission must be atomic; lazy resource publication must coordinate with
 concurrent disposal. Logging/callback failures must not skip cleanup or replace the
-original error. Respect caller-stream ownership.
+original error. Respect caller-stream ownership. Mark a new or changed teardown path
+`[TeardownPath]` with its declared fault disposition and bracket its failing steps; the
+[teardown sweep](../teardown-sweep.md) fails until the path has a driver.
 
 Borrowed views cannot outlive the page/buffer that backs them. `byte[]` storage
 marshalled into structs may contain only unmanaged data; keep managed references

@@ -1,5 +1,6 @@
 using System;
 using LiteDB.Client.Shared;
+using LiteDB.Utils;
 
 namespace LiteDB
 {
@@ -12,6 +13,9 @@ namespace LiteDB
         /// </summary>
         public string CoordinationFallbackReason { get; private set; }
 
+        [TeardownPath("SharedEngine.OpenEngine", TeardownDisposition.SuppressedPreservingPrimary,
+            "A core whose publication failed is closed best effort (failures swallowed) and the original error rethrown " +
+            "(SharedEngine.Coordination.cs; docs/shared-teardown-callbacks.md).")]
         private void OpenEngine(bool recoveredAbandonedOwner, bool final = false, bool writing = false)
         {
             LiteDB.Engine.RebuildRecovery.EnsureAvailable(_settings);
@@ -33,6 +37,7 @@ namespace LiteDB
                 this.CoordinationStage?.Invoke("opening");
 #endif
                 opened = this.CreateEngine(recoveredAbandonedOwner);
+                SharedOwnershipEvents.Core(this, opened, SharedOwnershipEvents.Opened);
 #if (DEBUG || TESTING) && NET8_0_OR_GREATER
                 this.CoordinationStage?.Invoke("opened");
 #endif
@@ -45,7 +50,7 @@ namespace LiteDB
             {
                 // Opening is not complete until publication succeeds. Keep failed
                 // engines out of connection state and preserve the original error.
-                try { opened?.Close(checkpoint: false); }
+                try { this.ObservedClose(opened, () => opened?.Close(checkpoint: false)); }
                 catch (Exception) { /* Best effort after a failed open; no checkpoint. */ }
 #if NET8_0_OR_GREATER
                 try { if (recovering) _coordination.StructuralEnd(-1); }

@@ -43,6 +43,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: python .github/scripts/check_fault_points.py --base "${BASE_SHA:-HEAD^}"
 
+      - name: Check the reachability marker registry
+        if: ${{ !cancelled() }}
+        run: python .github/scripts/check_reachability.py --base "${BASE_SHA:-HEAD^}"
+
       - name: Report implicated safety contracts
         if: ${{ !cancelled() }}
         run: python .github/scripts/check_contracts.py --base "${BASE_SHA:-HEAD^}"
@@ -50,6 +54,37 @@ jobs:
       - name: Validate the regression-proof ledger
         if: ${{ !cancelled() }}
         run: python .github/scripts/regression_proof.py validate
+
+      # Offline: schema, full commit ids, capability table, overlay paths. Proofs
+      # themselves run only in net-proofs.yml (manual), never on every PR.
+      - name: Validate the net-proof ledger
+        if: ${{ !cancelled() }}
+        run: python .github/scripts/net_proof.py validate
+
+      # Diff lints (docs/rules/safety-evidence.md#diff-lints): polling loops need a reason,
+      # deleted invariant comments are listed (the PR body names where they are enforced
+      # now; the Safety section workflow checks that), new doc claims carry an anchor or a
+      # contracts.json claim. PILOT: advisory while .github/safety/net-modes.json has
+      # "blocking": false (findings in the summary, exit 0); flip that one switch to block.
+      - name: Lint added wait primitives for unexplained polling
+        if: ${{ !cancelled() }}
+        run: python .github/scripts/lint_polling.py --base "${BASE_SHA:-HEAD^}"
+
+      - name: List deleted invariant comments
+        if: ${{ !cancelled() }}
+        run: python .github/scripts/lint_invariant_comments.py --base "${BASE_SHA:-HEAD^}"
+
+      - name: Lint new documentation claims for evidence anchors
+        if: ${{ !cancelled() }}
+        run: python .github/scripts/lint_doc_claims.py --base "${BASE_SHA:-HEAD^}"
+
+      - name: Validate the intended-changes manifest
+        if: ${{ !cancelled() }}
+        run: python .github/scripts/check_intended_changes.py --base "${BASE_SHA:-HEAD^}"
+
+      - name: Validate the fuzz target obligation map
+        if: ${{ !cancelled() }}
+        run: python .github/scripts/select_fuzz_targets.py --validate
 
   build-linux:
     name: Build (Linux)
@@ -174,6 +209,44 @@ jobs:
             LiteDB.Tests/TestResults/*.trx
             LiteDB.Tests/TestResults/evidence-leg.json
             LiteDB.Tests/TestResults/discovered-tests.txt
+          if-no-files-found: warn
+
+  # Systematic-concurrency models of the lifetime state machines, explored with Coyote
+  # (docs/concurrency-models.md). A separate project: Coyote has no .NET Framework build,
+  # so it cannot join LiteDB.Tests and its net462/net481 legs. Seeds are fixed; a failure
+  # uploads the reproducible trace and the model trace as `concurrency-models`.
+  test-concurrency-models:
+    name: Concurrency models (Coyote)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Explore the lifetime models
+        env:
+          LITEDB_COYOTE_ARTIFACTS: ${{ github.workspace }}/artifacts_temp/coyote
+        run: >-
+          dotnet test LiteDB.Tests.Concurrency/LiteDB.Tests.Concurrency.csproj
+          --configuration Release
+          --logger "trx;LogFileName=concurrency-models.trx"
+          --results-directory artifacts_temp/coyote-results
+
+      - name: Upload model results and counterexamples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: concurrency-models
+          overwrite: true
+          path: |
+            artifacts_temp/coyote
+            artifacts_temp/coyote-results
           if-no-files-found: warn
 
   build-macos:
@@ -551,13 +624,59 @@ jobs:
             LiteDB.Tests/TestResults/discovered-tests.txt
           if-no-files-found: warn
 
+  # Always-run oracle evidence (the Fuzz workflow is path-filtered and must never be required):
+  # the oracle self-tests and the wired fuzz targets at a small count, judged by Safety evidence.
+  oracle-smoke:
+    name: Oracle smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            8.0.x
+
+      - name: Build the fuzz runner and oracle self-tests
+        run: dotnet build LiteDB.Fuzz.Tests/LiteDB.Fuzz.Tests.csproj --configuration Release /p:TestingEnabled=true
+
+      - name: Oracle self-tests
+        run: >-
+          dotnet test LiteDB.Fuzz.Tests/LiteDB.Fuzz.Tests.csproj --configuration Release --no-build /p:TestingEnabled=true
+          --filter "FullyQualifiedName~OracleSelfTest|FullyQualifiedName~OwnershipOracle|FullyQualifiedName~DeadlineOracle"
+
+      - name: Wired targets and oracle mutations under every oracle
+        run: >-
+          dotnet run --project LiteDB.Fuzz --configuration Release --framework net8.0 --no-build --
+          --target chaos,concurrent,cursor-handoff,conflict,integrity,oracle-selftest --seed 2947 --count 10
+          --artifact-dir artifacts/oracle-smoke
+
+      - name: Report reachability of the oracle smoke
+        if: ${{ !cancelled() }}
+        run: >-
+          python .github/scripts/check_reachability.py --runs artifacts/oracle-smoke
+          --output artifacts/oracle-smoke/reachability.json
+
+      - name: Upload oracle smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oracle-smoke
+          path: artifacts/oracle-smoke
+          if-no-files-found: error
+
   # docs/rules/safety-evidence.md: green must mean complete, current and executed.
   # A skipped, cancelled or missing leg, a result from another revision, an empty
   # or truncated partition, or a test no leg executed fails this job.
   safety-evidence:
     name: Safety evidence
     if: ${{ !cancelled() }}
-    needs: [safety-policy, build-linux, test-linux, build-macos, test-macos, build-windows, test-windows, test-windows-framework, test-linux-arm64]
+    needs: [safety-policy, oracle-smoke, build-linux, test-linux, test-concurrency-models, build-macos, test-macos, build-windows, test-windows, test-windows-framework, test-linux-arm64]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Artifacts of the current run download with the runner's own token; fork PRs
