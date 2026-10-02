@@ -45,7 +45,9 @@ namespace LiteDB.Tests.Engine
             var failures = new List<string>();
             var counts = new Dictionary<string, int>();
             var index = 0;
-            foreach (var vector in ExplorerScenarios.Matrix(ExplorerAccessKinds.Upstream))
+            // LITEDB_EXPLORER_KINDS (proof plumbing): run the matrix over these access kinds instead of the upstream ones.
+            var kinds = Environment.GetEnvironmentVariable("LITEDB_EXPLORER_KINDS")?.Split(',') ?? ExplorerAccessKinds.Upstream.ToArray();
+            foreach (var vector in ExplorerScenarios.Matrix(kinds))
             {
                 var text = vector.ToString();
                 if (filter != null && !System.Text.RegularExpressions.Regex.IsMatch(text, filter)) continue;
