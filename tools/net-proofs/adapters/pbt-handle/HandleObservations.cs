@@ -18,6 +18,10 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         public static readonly Observation NotSupported = Observation.Ok("refused:not-supported");
         public static readonly Observation EarlyLockTimeout = Observation.Ok("LockTimeout:early");
 
+        /// <summary>Result of a bulk insert whose input callback ran ordinary work first.</summary>
+        public static Observation Callback(Observation callback, Observation insert) =>
+            Observation.Ok("cb=" + callback + ";insert=" + insert);
+
         public static Observation Completion(string op) =>
             op == HandleAccessKind.Commit ? Observation.Ok("committed")
             : op == HandleAccessKind.Rollback ? Observation.Ok("rolled-back")

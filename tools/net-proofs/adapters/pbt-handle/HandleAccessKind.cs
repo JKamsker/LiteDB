@@ -16,6 +16,8 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
     /// <item>A data operation with <c>#h</c> runs on handle h's collection; with <c>#-s</c> on whatever
     /// handle is lent in slot s (from another thread); without a suffix it is an ordinary database call
     /// made inside a handle unit (it does not enlist).</item>
+    /// <item><c>InsertBulk+cb:Op/cN/k#h</c> (with <c>LITEDB_PBT_HANDLE_CALLBACKS=1</c>): a bulk insert of
+    /// (Collection, Key, Payload) on handle h whose input enumeration first runs ordinary <c>Op(cN, k)</c>.</item>
     /// <item><c>Pause</c> (a short sleep, so lent handles stay available), <c>Commit</c>, <c>Rollback</c>,
     /// <c>Dispose</c>. A completion retries refused overlaps so that the unit always ends its handle.</item>
     /// </list>
@@ -52,6 +54,24 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         /// different threads meet on one handle more often.
         /// </summary>
         public static readonly bool DenseHandoff = Environment.GetEnvironmentVariable("LITEDB_PBT_HANDLE_HANDOFF") == "dense";
+
+        /// <summary>
+        /// Callback generation (<c>LITEDB_PBT_HANDLE_CALLBACKS=1</c>, Direct only): some handle writes become a bulk
+        /// insert whose input enumeration first runs an ordinary call on the same thread (see
+        /// <see cref="HandleModel"/>). Shared is excluded: ordinary callers wait for the handle's writer mutex.
+        /// </summary>
+        public static readonly bool Callbacks = Environment.GetEnvironmentVariable("LITEDB_PBT_HANDLE_CALLBACKS") == "1";
+
+        private const string CallbackPrefix = "InsertBulk+cb:";
+
+        public static bool IsCallback(string op) => op.StartsWith(CallbackPrefix, StringComparison.Ordinal);
+
+        /// <summary>The ordinary call a callback command runs from its input enumeration (kind ordinary, same payload).</summary>
+        public static PropertyCommand CallbackCommand(PropertyCommand command)
+        {
+            var parts = command.Op.Substring(CallbackPrefix.Length).Split('/');
+            return new PropertyCommand(OrdinaryAccess.KindName, parts[0], int.Parse(parts[1].Substring(1)), int.Parse(parts[2]), command.Payload);
+        }
 
         public string Name => KindName;
 
@@ -151,6 +171,14 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         /// a handle enumeration is several guarded calls, which a borrowed call could split.</summary>
         private static PropertyCommand DataCommand(Random random, UnitGenerationContext context, int slot, int home)
         {
+            if (Callbacks && slot > 0 && context.Mode == ConnectionType.Direct && random.Next(100) < 30)
+            {
+                var target = home >= 0 && random.Next(10) < 8 ? home : random.Next(context.Collections);
+                var inner = random.Next(10) < 7 ? HandleWrites[random.Next(HandleWrites.Length)] : HandleReads[random.Next(HandleReads.Length)];
+                var innerCollection = random.Next(10) < 7 ? target : random.Next(context.Collections);
+                var callback = $"{CallbackPrefix}{inner}/c{innerCollection}/{1 + random.Next(context.Keys)}";
+                return new PropertyCommand(KindName, callback, target, 1 + random.Next(context.Keys), 1 + random.Next(99), slot);
+            }
             var op = random.Next(10) < 6 ? HandleWrites[random.Next(HandleWrites.Length)] : HandleReads[random.Next(HandleReads.Length)];
             var collection = home >= 0 && random.Next(10) < 8 ? home : random.Next(context.Collections);
             return new PropertyCommand(KindName, op, collection, 1 + random.Next(context.Keys), 1 + random.Next(99), slot);

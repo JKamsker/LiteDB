@@ -35,7 +35,7 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
     /// handle commits; added as a second attempt, see the adapter README.</item>
     /// </list>
     /// </summary>
-    public static class HandleModel
+    public static partial class HandleModel
     {
         public const int OwnerBase = 1000;
         public const int MaxSlots = 2;
@@ -70,6 +70,11 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
             if (op == HandleAccessKind.Commit || op == HandleAccessKind.Rollback || op == HandleAccessKind.Dispose)
             {
                 ApplyCompletion(state, command, thread, outcomes);
+                return;
+            }
+            if (HandleAccessKind.IsCallback(op))
+            {
+                ApplyCallback(state, command, thread, outcomes, strictTimeouts);
                 return;
             }
             if (command.Slot == 0)

@@ -9,6 +9,7 @@ Historical adapter (fork PR #133 trees only; capability `handle-api`). It adds t
 | `HandleAccessKind.cs` | `IAccessKind`: command generation, shrinking, dispatch |
 | `HandleExecution.cs` | execution against `ILiteTransaction`, overlap detector, exception mapping |
 | `HandleModel.cs` | the permitted-outcome model (`Apply`) |
+| `HandleModel.Callback.cs` | model of a bulk insert whose input callback runs ordinary work |
 | `HandleObservations.cs` | canonical observations and exception mapping |
 | `HandleCampaign_Tests.cs` | time-boxed campaign driver for net proofs (trait `Category=NetProofCampaign`) |
 | `register-handle-kind.patch` | the one-line registration in `AccessKinds.All` (apply with `git apply`) |
@@ -67,3 +68,9 @@ Added after the first proof attempt stayed quiet (see `/tmp/safety-net/reports/V
   the same thread fails with LOCK_TIMEOUT immediately), not `docs/transaction-handles.md`
   at the handle commits. It was added knowing the ledger's description of row 12, so a
   proof using it is recorded as tuned, not as designed from the invariant.
+- `LITEDB_PBT_HANDLE_CALLBACKS=1` (Direct only): some handle writes become
+  `InsertBulk+cb:Op/cN/k#h`, a bulk insert on handle h whose input enumeration first
+  runs an ordinary call on the same thread, while the handle executes and holds the
+  target collection's lock. Source: the documentation's sentence that ordinary
+  collections used in a mapper/input callback remain ordinary operations. The first two
+  attempts had no shape where a handle is *executing* on the thread that waits.

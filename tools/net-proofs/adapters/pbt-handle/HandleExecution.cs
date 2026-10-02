@@ -67,7 +67,8 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
         public static Observation Execute(PropertyCommand command, ThreadContext context, int earlyTimeoutMilliseconds)
         {
             var observation = ExecuteCore(command, context, earlyTimeoutMilliseconds);
-            var value = observation.Kind == OutcomeKind.Ok && !observation.Value.StartsWith("refused", StringComparison.Ordinal) &&
+            var value = HandleAccessKind.IsCallback(command.Op) ? observation.ToString()
+                : observation.Kind == OutcomeKind.Ok && !observation.Value.StartsWith("refused", StringComparison.Ordinal) &&
                 observation.Value != "absent" && observation.Value != "LockTimeout:early" ? "ok" : observation.ToString();
             if (value.Length > 60) value = value.Substring(0, 60);
             Statistics.AddOrUpdate(Class(command) + ":" + value, 1, (_, n) => n + 1);
@@ -76,6 +77,7 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
 
         private static string Class(PropertyCommand command) =>
             HandleAccessKind.IsBegin(command.Op) ? "begin"
+            : HandleAccessKind.IsCallback(command.Op) ? "callback"
             : !DataOperations.IsDataOperation(command.Op) ? command.Op.ToLowerInvariant()
             : command.Slot > 0 ? "own" : command.Slot < 0 ? "lent" : "ordinary";
 
@@ -90,6 +92,7 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
             }
             if (op == HandleAccessKind.Commit || op == HandleAccessKind.Rollback || op == HandleAccessKind.Dispose)
                 return Complete(command, context, earlyTimeoutMilliseconds);
+            if (HandleAccessKind.IsCallback(op)) return Callback(command, context, earlyTimeoutMilliseconds);
             if (!DataOperations.IsDataOperation(op)) throw new ArgumentException("Unknown handle operation: " + op);
 
             if (command.Slot == 0)
@@ -109,6 +112,34 @@ namespace LiteDB.Tests.Concurrency.ParallelProperty
             var box = command.Slot > 0 ? Own(context, command.Slot) : Lent(context, -command.Slot);
             if (box == null) return HandleObservations.Absent;
             return box.Call(() => RunData(command, box.Collections[command.Collection]), earlyTimeoutMilliseconds);
+        }
+
+        /// <summary>
+        /// Bulk insert on the handle whose input enumeration first runs an ordinary call on this thread (its
+        /// failure is caught and recorded). When the statement failed before reading its input, the plain
+        /// observation of that failure is returned.
+        /// </summary>
+        private static Observation Callback(PropertyCommand command, ThreadContext context, int earlyTimeoutMilliseconds)
+        {
+            var box = Own(context, command.Slot);
+            if (box == null) return HandleObservations.Absent;
+            var inner = HandleAccessKind.CallbackCommand(command);
+            Observation callback = null;
+            Action run = () =>
+            {
+                var watch = Stopwatch.StartNew();
+                try { callback = RunData(inner, context.Collection(inner.Collection)); }
+                catch (Exception ex) { callback = Map(ex, false, watch.Elapsed, earlyTimeoutMilliseconds); }
+            };
+            var document = new BsonDocument { ["_id"] = command.Key, ["p"] = command.Payload };
+            var result = box.Call(() => Observation.Ok(box.Collections[command.Collection].InsertBulk(Input(run, document))), earlyTimeoutMilliseconds);
+            return callback == null ? result : HandleObservations.Callback(callback, result);
+        }
+
+        private static IEnumerable<BsonDocument> Input(Action callback, BsonDocument document)
+        {
+            callback();
+            yield return document;
         }
 
         private static Observation BeginHandle(PropertyCommand command, ThreadContext context)
