@@ -12,6 +12,10 @@ namespace LiteDB
         private Action _release;
         private Action _abandon;
         private object _policyAnchor;
+#if DEBUG || TESTING
+        /// <summary>Proof overlay (PR #133): what a Shared holder's close wait waits for; the handle holds it.</summary>
+        internal LiteDB.Utils.WaitGraph.Resource GraphClose;
+#endif
         internal TransactionResources(LiteEngine engine, EngineContext session, Action release, Action abandon = null, object policyAnchor = null)
         { Engine = engine; Session = session; _release = release; _abandon = abandon; _policyAnchor = policyAnchor; }
         public void Dispose()

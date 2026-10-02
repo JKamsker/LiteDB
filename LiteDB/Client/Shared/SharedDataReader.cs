@@ -28,7 +28,19 @@ namespace LiteDB
 
         public bool HasValues => _reader.HasValues;
 
+#if DEBUG || TESTING
+        /// <summary>Wait-for graph (port to a tree without SharedCallFrames): the connection whose work a read executes.</summary>
+        internal object GraphOwner { get; set; }
+
+        public bool Read()
+        {
+            LiteDB.Utils.WaitGraph.Enter(this.GraphOwner);
+            try { return _reader.Read(); }
+            finally { LiteDB.Utils.WaitGraph.Exit(this.GraphOwner); }
+        }
+#else
         public bool Read() => _reader.Read();
+#endif
 
         public void Dispose()
         {
@@ -50,8 +62,17 @@ namespace LiteDB
 
             if (disposing)
             {
+#if DEBUG || TESTING
+                LiteDB.Utils.WaitGraph.Enter(this.GraphOwner);
+                try
+                {
+#endif
                 try { _reader.Dispose(); }
                 finally { _dispose(); }
+#if DEBUG || TESTING
+                }
+                finally { LiteDB.Utils.WaitGraph.Exit(this.GraphOwner); }
+#endif
             }
         }
     }

@@ -66,6 +66,9 @@ namespace LiteDB.Engine
             _walIndex = walIndex;
             _monitor = monitor;
             Owner = new TransactionOwner(monitor.CurrentContext);
+#if DEBUG || TESTING
+            _transPages.GraphOwner = Owner.Explicit;
+#endif
 
             this.QueryOnly = queryOnly;
             this.MaxTransactionSize = maxTransactionSize;

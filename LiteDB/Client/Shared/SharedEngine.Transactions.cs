@@ -64,6 +64,10 @@ namespace LiteDB
             }
             var name = SharedMutexNameFactory.Create(_settings.Filename, _settings.SharedMutexNameStrategy);
             var gate = TransactionWriters.GetOrAdd(name, _ => new SemaphoreSlim(1, 1));
+#if DEBUG || TESTING
+            var graphGate = LiteDB.Utils.WaitGraph.Of(gate, "shared-handle-writer", LiteDB.Utils.WaitPrimitive.SemaphoreSlim);
+            if (graphGate.Label == null) graphGate.Label = name;
+#endif
             // Pending begins use their caller's synchronous wait, never a holder thread/engine.
             admission.WaitLocal(gate);
             TransactionHolder holder;
@@ -124,12 +128,28 @@ namespace LiteDB
             private LiteEngine _engine;
 #if DEBUG || TESTING
             private readonly Func<string, bool, Action<string>> _streamProbe = NativeAdmissionStreamProbe.Attach;
+            // Proof overlay (PR #133) wait-for graph. The holder owns the per-name writer gate and owes the
+            // open signal and its job's completion; its Run (a frame that claims them) executes them. Its
+            // close wait waits for the handle (TransactionResources.GraphClose, held by the handle's context).
+            private readonly LiteDB.Utils.WaitGraph.Resource _graphGate;
+            private readonly LiteDB.Utils.WaitGraph.Resource _graphOpened =
+                new LiteDB.Utils.WaitGraph.Resource("shared-holder-opened", null, LiteDB.Utils.WaitPrimitive.Event, ordered: false);
+            private readonly LiteDB.Utils.WaitGraph.Resource _graphClose =
+                new LiteDB.Utils.WaitGraph.Resource("shared-holder-close", null, LiteDB.Utils.WaitPrimitive.Event, ordered: false);
+            private readonly LiteDB.Utils.WaitGraph.Resource _graphDone =
+                new LiteDB.Utils.WaitGraph.Resource("shared-holder-done", null, LiteDB.Utils.WaitPrimitive.TaskWait, ordered: false);
 #endif
 
             internal TransactionHolder(SharedEngine child, SemaphoreSlim gate, TransactionAdmission admission, object sessionToken, SharedEngine cacheOwner)
             {
                 _child = child; _gate = gate; _admission = admission; _sessionToken = sessionToken;
                 _cacheOwner = new WeakReference<SharedEngine>(cacheOwner);
+#if DEBUG || TESTING
+                _graphGate = LiteDB.Utils.WaitGraph.Of(gate, "shared-handle-writer", LiteDB.Utils.WaitPrimitive.SemaphoreSlim);
+                LiteDB.Utils.WaitGraph.Acquired(_graphGate, this, site: "TransactionHolder (writer gate)");
+                LiteDB.Utils.WaitGraph.Acquired(_graphOpened, this, site: "TransactionHolder (open)");
+                LiteDB.Utils.WaitGraph.Acquired(_graphDone, this, site: "TransactionHolder (job)");
+#endif
             }
 
             internal TransactionResources Open(object policyAnchor)
@@ -144,12 +164,26 @@ namespace LiteDB
                 {
                     try { _child.Dispose(); }
                     catch (Exception cleanup) { error.Data["LiteDB.TransactionOpenCleanup"] = cleanup; }
-                    finally { _gate.Release(); _opened.Dispose(); _close.Dispose(); }
+                    finally
+                    {
+#if DEBUG || TESTING
+                        this.GraphEnded();
+#endif
+                        _gate.Release(); _opened.Dispose(); _close.Dispose();
+                    }
                     throw;
                 }
+#if DEBUG || TESTING
+                using (LiteDB.Utils.WaitGraph.Wait(_graphOpened, LiteDB.Utils.WaitBound.Unbounded, "TransactionHolder.Open (opened)", this))
+#endif
                 _opened.Wait();
                 if (_error != null) Release();
+#if DEBUG || TESTING
+                return new TransactionResources(_engine, _engine.CurrentContext, Release, () => { LiteDB.Utils.WaitGraph.ReleaseAll(_graphClose); _close.Set(); }, policyAnchor)
+                { GraphClose = _graphClose };
+#else
                 return new TransactionResources(_engine, _engine.CurrentContext, Release, () => _close.Set(), policyAnchor);
+#endif
             }
 
             private void Cleanup(Action action)
@@ -170,11 +204,20 @@ namespace LiteDB
                 NativeAdmissionStreamProbe.Attach = _streamProbe;
 #endif
                 var acquired = false;
+#if DEBUG || TESTING
+                LiteDB.Utils.WaitGraph.Enter(this, claimsAll: true);
+#endif
                 try
                 {
                     Acquire(ref acquired);
                     _engine = _child._engine;
+#if DEBUG || TESTING
+                    LiteDB.Utils.WaitGraph.Released(_graphOpened, this, all: true);
+#endif
                     _opened.Set();
+#if DEBUG || TESTING
+                    using (LiteDB.Utils.WaitGraph.Wait(_graphClose, LiteDB.Utils.WaitBound.Unbounded, "TransactionHolder.Run (close)", this))
+#endif
                     _close.Wait();
                 }
                 catch (Exception error) { _error = error; }
@@ -188,6 +231,10 @@ namespace LiteDB
                     {
                         Cleanup(_child.Dispose);
                     }
+#if DEBUG || TESTING
+                    this.GraphEnded();
+                    LiteDB.Utils.WaitGraph.Exit(this);
+#endif
                     _gate.Release();
                     // Failed-open publication follows all cleanup and preserves its original error.
                     _opened.Set();
@@ -198,6 +245,15 @@ namespace LiteDB
                 }
             }
 
+#if DEBUG || TESTING
+            private void GraphEnded()
+            {
+                LiteDB.Utils.WaitGraph.Released(_graphGate, this, all: true);
+                LiteDB.Utils.WaitGraph.Released(_graphOpened, this, all: true);
+                LiteDB.Utils.WaitGraph.Released(_graphDone, this, all: true);
+            }
+
+#endif
             [MethodImpl(MethodImplOptions.NoInlining)]
             private void Acquire(ref bool acquired)
             {
@@ -213,9 +269,15 @@ namespace LiteDB
 
             private void Release()
             {
+#if DEBUG || TESTING
+                LiteDB.Utils.WaitGraph.ReleaseAll(_graphClose);
+#endif
                 _close.Set();
                 // Join this job, not the reusable thread. Task completion has no
                 // disposable wait handle that could race its final Set operation.
+#if DEBUG || TESTING
+                using (LiteDB.Utils.WaitGraph.Wait(_graphDone, LiteDB.Utils.WaitBound.Unbounded, "TransactionHolder.Release (job)", this))
+#endif
                 _done.Task.GetAwaiter().GetResult();
                 _opened.Dispose();
                 _close.Dispose();

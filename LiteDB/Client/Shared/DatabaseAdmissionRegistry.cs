@@ -146,14 +146,27 @@ namespace LiteDB.Client.Shared
                 {
                     try
                     {
+#if DEBUG || TESTING
+                        // Proof overlay (PR #133): a process-wide OS mutex, recursive for its thread.
+                        using (LiteDB.Utils.WaitGraph.Wait(this.Graph, LiteDB.Utils.WaitBound.After(TimeSpan.FromSeconds(5)), "DatabaseAdmissionRegistry.Enter"))
+#endif
                         if (!_mutex.WaitOne(TimeSpan.FromSeconds(5))) throw new IOException("Database admission is busy; retry opening.");
                     }
                     catch (AbandonedMutexException) { }
                 }
                 catch { _mutex.Dispose(); throw; }
+#if DEBUG || TESTING
+                LiteDB.Utils.WaitGraph.Acquired(this.Graph, site: "DatabaseAdmissionRegistry.Enter");
+#endif
             }
+#if DEBUG || TESTING
+            private LiteDB.Utils.WaitGraph.Resource Graph => LiteDB.Utils.WaitGraph.Of(_mutex, "named-mutex", LiteDB.Utils.WaitPrimitive.NamedMutex);
+#endif
             public void Dispose()
             {
+#if DEBUG || TESTING
+                LiteDB.Utils.WaitGraph.Released(this.Graph);
+#endif
                 try { _mutex.ReleaseMutex(); }
                 finally { _mutex.Dispose(); }
             }

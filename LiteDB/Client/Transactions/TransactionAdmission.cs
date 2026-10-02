@@ -2,6 +2,9 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using LiteDB.Client.Shared;
+#if DEBUG || TESTING
+using LiteDB.Utils;
+#endif
 
 namespace LiteDB
 {
@@ -71,6 +74,10 @@ namespace LiteDB
             if (_timeout > TimeSpan.Zero && remaining == 0) Expired();
             try
             {
+#if DEBUG || TESTING
+                using (WaitGraph.Wait(WaitGraph.Of(gate, "shared-handle-writer", WaitPrimitive.SemaphoreSlim), this.GraphBound,
+                    "TransactionAdmission.WaitLocal"))
+#endif
                 if (!gate.Wait(remaining, _wait)) Expired();
             }
             catch (OperationCanceledException) { CheckCancellation(); throw; }
@@ -82,6 +89,10 @@ namespace LiteDB
 #if DEBUG || TESTING
             Observe?.Invoke("native-wait");
 #endif
+#if DEBUG || TESTING
+            // A poll for the connection's ownership and the OS writer mutex, on the holder thread.
+            using (WaitGraph.Wait(owner.GraphOwnership, this.GraphBound, "TransactionAdmission.EnterNative", also: owner.GraphMutexResource))
+#endif
             while (true)
             {
                 CheckCancellation();
@@ -89,10 +100,19 @@ namespace LiteDB
                 if (_timeout > TimeSpan.Zero && remaining == 0) Expired();
                 if (owner.TryEnter(out var abandoned, scoped)) return abandoned;
                 if (remaining == 0) Expired();
+#if DEBUG || TESTING
+                WaitGraph.Recheck();
+#endif
                 _wait.WaitHandle.WaitOne(remaining < 0 ? 10 : Math.Min(10, remaining));
             }
         }
 
+#if DEBUG || TESTING
+        /// <summary>Proof overlay (PR #133): one budget bounds both waits; else caller/close cancellation; else none.</summary>
+        private WaitBound GraphBound => _timeout != Timeout.InfiniteTimeSpan ? WaitBound.After(_timeout)
+            : _wait.CanBeCanceled ? WaitBound.Cancellation : WaitBound.Unbounded;
+
+#endif
         internal void Acquired(string stage)
         {
 #if DEBUG || TESTING

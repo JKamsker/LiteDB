@@ -437,6 +437,9 @@ namespace LiteDB
 
         public void Dispose()
         {
+#if DEBUG || TESTING
+            using (LiteDB.Utils.WaitGraph.Executing(this))
+#endif
             Dispose(true);
             GC.SuppressFinalize(this);
         }

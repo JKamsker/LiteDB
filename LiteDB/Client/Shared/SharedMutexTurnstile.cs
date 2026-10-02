@@ -1,4 +1,7 @@
 using System.Threading;
+#if DEBUG || TESTING
+using LiteDB.Utils;
+#endif
 
 namespace LiteDB.Client.Shared
 {
@@ -23,7 +26,15 @@ namespace LiteDB.Client.Shared
         public SharedMutexTurnstile(Mutex turn)
         {
             _turn = turn;
+#if DEBUG || TESTING
+            _graphTurn = WaitGraph.Of(turn, "named-mutex", WaitPrimitive.NamedMutex);
+#endif
         }
+
+#if DEBUG || TESTING
+        // A queued waiter holds the turn until it owns the shared mutex.
+        private readonly WaitGraph.Resource _graphTurn;
+#endif
 
         /// <summary>
         /// Block until <paramref name="mutex"/> is owned, queued at the turnstile.
@@ -31,16 +42,28 @@ namespace LiteDB.Client.Shared
         /// </summary>
         public void Wait(Mutex mutex, CancellationToken closing = default)
         {
+#if DEBUG || TESTING
+            bool queued;
+            var graphBound = closing.CanBeCanceled ? WaitBound.Cancellation : WaitBound.Unbounded;
+            using (WaitGraph.Wait(_graphTurn, graphBound, "SharedMutexTurnstile.Wait (turn)"))
+                queued = this.Enter(closing);
+            if (queued) WaitGraph.Acquired(_graphTurn, site: "SharedMutexTurnstile.Wait (turn)");
+#else
             var queued = this.Enter(closing);
+#endif
             try
             {
 #if DEBUG || TESTING
                 this.BeforeMainWait?.Invoke();
+                using (WaitGraph.Wait(WaitGraph.Of(mutex, "named-mutex", WaitPrimitive.NamedMutex), graphBound, "SharedMutexTurnstile.Wait"))
 #endif
                 WaitCancellable(mutex, closing);
             }
             finally
             {
+#if DEBUG || TESTING
+                if (queued) WaitGraph.Released(_graphTurn);
+#endif
                 if (queued) _turn.ReleaseMutex();
             }
         }

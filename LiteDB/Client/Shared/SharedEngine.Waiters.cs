@@ -33,8 +33,16 @@ namespace LiteDB
                 else
                 {
                     closing.ThrowIfCancellationRequested();
+#if DEBUG || TESTING
+                    // Proof overlay (PR #133): a cancellable poll for ownership and the OS mutex.
+                    using (LiteDB.Utils.WaitGraph.Wait(_owner.GraphOwnership, LiteDB.Utils.WaitBound.Cancellation,
+                        "SharedEngine.EnterOwner (closing poll)", this, also: _owner.GraphMutexResource))
+#endif
                     while (!_owner.TryEnter(out abandoned, scoped))
                     {
+#if DEBUG || TESTING
+                        LiteDB.Utils.WaitGraph.Recheck();
+#endif
                         closing.WaitHandle.WaitOne(10);
                         closing.ThrowIfCancellationRequested();
                     }
@@ -84,10 +92,16 @@ namespace LiteDB
         private void AddMutexWaiter()
         {
             lock (_waitersLock) _mutexWaiters++;
+#if DEBUG || TESTING
+            LiteDB.Utils.WaitGraph.Acquired(_graphMutexWaiters, site: "SharedEngine.AddMutexWaiter");
+#endif
         }
 
         private void RemoveMutexWaiter()
         {
+#if DEBUG || TESTING
+            LiteDB.Utils.WaitGraph.Released(_graphMutexWaiters);
+#endif
             lock (_waitersLock)
             {
                 if (--_mutexWaiters == 0) Monitor.PulseAll(_waitersLock);
@@ -99,6 +113,12 @@ namespace LiteDB
         {
             lock (_waitersLock)
             {
+#if DEBUG || TESTING
+                // Proof overlay (PR #133): the poll ends when a session close cancels it.
+                using (LiteDB.Utils.WaitGraph.Wait(_graphMutexWaiters,
+                    SessionCallContext.Closing.CanBeCanceled ? LiteDB.Utils.WaitBound.Cancellation : LiteDB.Utils.WaitBound.Unbounded,
+                    "SharedEngine.WaitForMutexWaiters", this))
+#endif
                 while (_mutexWaiters > 0)
                 {
                     SessionCallContext.Closing.ThrowIfCancellationRequested();

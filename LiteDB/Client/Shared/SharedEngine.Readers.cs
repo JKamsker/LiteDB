@@ -20,6 +20,9 @@ namespace LiteDB
         internal TimeSpan PinIdleLimit { get; set; } = SharedMutexPin.IdleLimit;
 
         internal TimeSpan PinHoldLimit { get; set; } = SharedMutexPin.HoldLimit;
+
+        // Proof port: test accessor used by the copied #3072 tests (exists on later dev).
+        internal SharedMutexPin Pin => _pin;
 #else
         private TimeSpan PinIdleLimit => SharedMutexPin.IdleLimit;
 
@@ -260,10 +263,18 @@ namespace LiteDB
         private bool TryEnterForDispose(out bool abandoned)
         {
             var waited = Stopwatch.StartNew();
+#if DEBUG || TESTING
+            // A bounded poll for this connection's ownership and the OS mutex; it gives up after DisposeCheckpointWait.
+            using (LiteDB.Utils.WaitGraph.Wait(_owner.GraphOwnership, LiteDB.Utils.WaitBound.After(DisposeCheckpointWait),
+                "SharedEngine.TryEnterForDispose", this, also: _owner.GraphMutexResource))
+#endif
             while (true)
             {
                 if (_owner.TryEnter(out abandoned, scoped: this.CanScope)) return true;
                 if (waited.Elapsed >= DisposeCheckpointWait || !LogHasContent(_settings.Filename)) return false;
+#if DEBUG || TESTING
+                LiteDB.Utils.WaitGraph.Recheck();
+#endif
                 Thread.Sleep(10);
             }
         }
