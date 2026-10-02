@@ -41,6 +41,9 @@ through `dace941d1`):
   instead of `LiteException` with `ENGINE_DISPOSED`. [...] This is an intentional exception-contract
   change; it does not make concurrent use of a closing facade valid."
 
+- S4 "Already-open ordinary readers retain their existing independent lifetime; bound readers belong
+  to their handle/session."
+
 S2 does not name the timeout's type; the type is the PR's own `TimeoutException` at `39f6c6b0`
 (`SessionLifetime.Close`: "Session close is still draining active work").
 
@@ -48,9 +51,17 @@ S2 does not name the timeout's type; the type is the PR's own `TimeoutException`
 | --- | --- | --- | --- |
 | maintenance `Dispose`, `SecondDispose` | ok | ok, threw:TimeoutException | S2 |
 | active, maintenance first (every call) | Direct: threw:ENGINE_DISPOSED; Shared: refused:ObjectDisposedException | refused:ObjectDisposedException | S1, S3 |
-| active first, the call paused at its forced point (bulk, reader, checkpoint, rebuild, commit paused in its WAL write) | Direct: ENGINE_DISPOSED / ObjectDisposedException (rebuild also ok); Shared: ok | ok (drained) | S1 |
+| active first, the call paused at its forced point (bulk, checkpoint, rebuild, commit paused in its WAL write) | Direct: ENGINE_DISPOSED / ObjectDisposedException (rebuild also ok); Shared: ok | ok (drained) | S1 |
+| active first, an ordinary reader paused between rows | Direct: ENGINE_DISPOSED / ObjectDisposedException; Shared: ok | dev's set (unchanged) | S4 |
 | active first, later calls of an idle explicit transaction (`TransactionUpsert`, `Commit` not in WAL, `Rollback`) | Direct: ENGINE_DISPOSED; Shared: refused (Rollback ok) | refused:ObjectDisposedException | S1 (settled), S3 |
 | active first, before the forced point | ok | ok | - |
+
+## Revisions
+
+- `d43b38691` (v1): declared `ok` for an ordinary reader paused under an active-first close. Wrong
+  reading of the documents: S4 keeps the reader's existing lifetime. Observed at the Direct trees as
+  `NOT_PERMITTED_READER` (`threw:ENGINE_DISPOSED`) identically at K' and F' (V-A2 campaigns).
+- v2 (this commit): the reader case falls back to dev's declaration (S4). Explorer part unchanged.
 
 ## Applying
 
