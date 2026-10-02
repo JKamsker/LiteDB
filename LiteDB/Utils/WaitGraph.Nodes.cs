@@ -178,7 +178,12 @@ namespace LiteDB.Utils
         /// </summary>
         internal sealed class ThreadState
         {
-            internal readonly Thread Thread;
+            private static int _nextId;
+            // Weak: the graph must not keep a dead thread (and its execution context) alive.
+            private readonly WeakReference<Thread> _thread;
+            private readonly int _managedId;
+            /// <summary>Process-unique id; the lock-order history keeps this, not the state.</summary>
+            internal readonly int Id = Interlocked.Increment(ref _nextId);
             private readonly List<Resource> _held = new List<Resource>();
             private volatile WaitRecord _wait;
             private volatile Frame _frames;
@@ -186,10 +191,11 @@ namespace LiteDB.Utils
 
             internal ThreadState(Thread thread)
             {
-                this.Thread = thread;
+                _thread = new WeakReference<Thread>(thread);
+                _managedId = thread.ManagedThreadId;
                 // Joining a thread waits for its progress, which only that thread makes.
                 this.Progress = new Resource("thread-progress", null, WaitPrimitive.ThreadJoin, ordered: false);
-                this.Progress.Add(thread, this, threadAffine: true, site: "thread start");
+                this.Progress.Add(this, this, threadAffine: true, site: "thread start");
             }
 
             /// <summary>What a join of this thread waits for.</summary>
@@ -252,7 +258,9 @@ namespace LiteDB.Utils
                 lock (_held) _held.Remove(resource);
             }
 
-            public override string ToString() => Describe(this.Thread);
+            public override string ToString() => _thread.TryGetTarget(out var thread)
+                ? $"thread '{thread.Name ?? "unnamed"}' #{_managedId}"
+                : $"thread (exited) #{_managedId}";
         }
 
         /// <summary>A registered wait; dispose it as soon as the blocking call returns.</summary>
