@@ -53,19 +53,23 @@ namespace LiteDB
         public static ILiteTransaction BeginTransaction(this ILiteDatabase database, TimeSpan sharedAdmissionTimeout,
             CancellationToken cancellationToken = default)
         {
+            LiteDB.Utils.Reachability.Sometimes("api:LiteTransactionExtensions.BeginTransaction");
             if (database == null) throw new ArgumentNullException(nameof(database));
             TransactionAdmission.Validate(sharedAdmissionTimeout);
             cancellationToken.ThrowIfCancellationRequested();
             if (database is ILiteTransactionAdmissionProvider provider)
                 return provider.BeginTransaction(sharedAdmissionTimeout, cancellationToken);
+            LiteDB.Utils.Reachability.Sometimes("refusal:handle-admission-provider-unsupported");
             throw new NotSupportedException("This database provider does not support transaction admission controls.");
         }
 
         /// <summary>Creates an independent handle without enlisting ordinary database collections.</summary>
         public static ILiteTransaction BeginTransaction(this ILiteDatabase database)
         {
+            LiteDB.Utils.Reachability.Sometimes("api:LiteTransactionExtensions.BeginTransaction");
             if (database == null) throw new ArgumentNullException(nameof(database));
             if (database is ILiteTransactionProvider provider) return provider.BeginTransaction();
+            LiteDB.Utils.Reachability.Sometimes("refusal:handle-unsupported-engine");
             throw new NotSupportedException("This database provider does not support thread-independent transaction handles.");
         }
     }

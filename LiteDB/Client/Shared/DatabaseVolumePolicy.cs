@@ -44,6 +44,7 @@ namespace LiteDB.Client.Shared
                 }
             }
 #if DEBUG || TESTING
+            LiteDB.Utils.Reachability.FaultPoint("UnsupportedVolume");
             if (DatabaseFileIdentity.UnsupportedVolume?.Invoke(filename) == true) native = false;
 #endif
             if (native) return true;

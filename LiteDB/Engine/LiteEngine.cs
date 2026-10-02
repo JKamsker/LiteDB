@@ -27,7 +27,10 @@ namespace LiteDB.Engine
         {
             var authorized = TransactionContext.ConsumeDispatch(this);
             if (TransactionContext.For(CurrentContext) != null && !authorized)
+            {
+                LiteDB.Utils.Reachability.Sometimes("refusal:handle-raw-engine-reentry");
                 throw new TransactionCapabilityException("Raw engine reentry from a transaction callback is unsupported. Use ordinary database objects for independent work.");
+            }
         }
         private OperationLifetime.Lease EnterPublicOperation()
         { ValidatePublicDispatch(); return EnterOperation(); }

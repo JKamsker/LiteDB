@@ -31,7 +31,11 @@ namespace LiteDB
         /// Observe Shared-mode admission without opening storage. Returns null when
         /// this database was constructed with an engine other than SharedEngine.
         /// </summary>
-        public SharedDiagnostics GetSharedDiagnostics() => (_engine as SharedEngine)?.GetDiagnostics();
+        public SharedDiagnostics GetSharedDiagnostics()
+        {
+            LiteDB.Utils.Reachability.Sometimes("api:SharedDiagnostics");
+            return (_engine as SharedEngine)?.GetDiagnostics();
+        }
 
         internal LiteDatabaseContext Context => _context;
 
@@ -181,19 +185,34 @@ namespace LiteDB
         /// Return true when created; false joins the current thread transaction. Keep the block synchronous, with no await.
         /// </summary>
         [Obsolete("Use BeginTransaction() and Commit/Rollback on the returned handle. This legacy API is thread-bound and must not cross await.", false)]
-        public bool BeginTrans() => _context.Engine.BeginTrans();
+        public bool BeginTrans()
+        {
+            // The reachability gate names the [Obsolete] legacy members api:ILiteDatabase.Obsolete.
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteDatabase.Obsolete");
+            return _context.Engine.BeginTrans();
+        }
 
         /// <summary>
         /// Commit the current thread transaction; throws if only other threads have explicit transactions.
         /// </summary>
         [Obsolete("Use BeginTransaction() and Commit/Rollback on the returned handle. This legacy API is thread-bound and must not cross await.", false)]
-        public bool Commit() => _context.Engine.Commit();
+        public bool Commit()
+        {
+            // The reachability gate names the [Obsolete] legacy members api:ILiteDatabase.Obsolete.
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteDatabase.Obsolete");
+            return _context.Engine.Commit();
+        }
 
         /// <summary>
         /// Roll back the current thread transaction. Returns false when this thread has none, even while other threads have explicit transactions.
         /// </summary>
         [Obsolete("Use BeginTransaction() and Commit/Rollback on the returned handle. This legacy API is thread-bound and must not cross await.", false)]
-        public bool Rollback() => _context.Engine.Rollback();
+        public bool Rollback()
+        {
+            // The reachability gate names the [Obsolete] legacy members api:ILiteDatabase.Obsolete.
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteDatabase.Obsolete");
+            return _context.Engine.Rollback();
+        }
 
         #endregion
 

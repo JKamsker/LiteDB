@@ -1156,6 +1156,417 @@
         "shared-contention"
       ],
       "reason": "A process's BeginTrans waited while another process owned the Shared writer mutex and acquired it after that peer, so writers alternated on the native mutex (judged by the parent from the children's merged acquisition records)."
+    },
+    {
+      "name": "api:ILiteTransactionProvider.BeginTransaction",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Database/LiteDatabase.Transactions.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "LiteDatabase.BeginTransaction() opened a transaction handle.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransactionAdmissionProvider.BeginTransaction",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Database/LiteDatabase.Transactions.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "BeginTransaction with a Shared admission timeout/cancellation ran (every begin passes through it).",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:LiteTransactionExtensions.BeginTransaction",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "An ILiteDatabase extension BeginTransaction overload was called.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransaction.GetCollection",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A bound collection was obtained from a handle.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransaction.ILiteCollection",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "The non-generic GetCollection(name) overload of a handle ran (the gate names it by its return type).",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransaction.GetCollectionNames",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A handle listed its transaction's collection names.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransaction.CollectionExists",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A handle checked whether a collection exists in its transaction.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransaction.DropCollection",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "DropCollection was called on a handle (always refused).",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransaction.RenameCollection",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "RenameCollection was called on a handle (always refused).",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransaction.Commit",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A handle commit was attempted.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteTransaction.Rollback",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A handle rollback was attempted.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:ILiteDatabase.Obsolete",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Database/LiteDatabase.cs",
+        "LiteDB/Client/Database/ILiteDatabase.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A deprecated legacy BeginTrans/Commit/Rollback member ran (the gate names the [Obsolete] members by their attribute).",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "api:DatabaseAdmissionException",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Shared/DatabaseAdmissionException.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A database admission failure was raised for an incompatible connection or unavailable mode guard.",
+      "doc": "docs/native-database-admission.md"
+    },
+    {
+      "name": "api:SharedDiagnostics",
+      "kind": "api",
+      "paths": [
+        "LiteDB/Client/Database/LiteDatabase.cs",
+        "LiteDB/Client/Shared/SharedDiagnostics.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "LiteDatabase.GetSharedDiagnostics() was called."
+    },
+    {
+      "name": "refusal:handle-overlapping-call",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "An overlapping or reentrant call on a busy handle was refused before executing.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-overlapping-dispose",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "Disposing a handle while another of its calls executes was refused.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-use-after-completion",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A completed handle or its bound objects refused further work.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-use-after-dispose",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A disposed (or session-closed) handle refused further work with ObjectDisposedException.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-commit-with-open-reader",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "Commit with an open bound reader failed before mutation and left the handle Active.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-begin-under-legacy-transaction",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "Opening a handle while the calling context holds a legacy transaction was refused.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-system-collection-io",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "External/system collection query I/O through a handle was refused ($cols and $indexes excepted).",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-drop-rename",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/LiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "Collection drop/rename through a handle was refused before mutation.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-not-exposed",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/TransactionEngine.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A completion, maintenance or pragma call on a handle's bound engine was refused (not exposed through the handle).",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-raw-engine-reentry",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Engine/LiteEngine.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "Raw LiteEngine reentry from a bound callback was refused before side effects.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-unsupported-engine",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Database/LiteDatabase.Transactions.cs",
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A coordinated/custom engine or a provider without handle support refused BeginTransaction.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-admission-provider-unsupported",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/ILiteTransaction.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A provider without the admission capability rejected the timeout/token overload before beginning work.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-shared-caller-streams",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Shared/SharedEngine.Transactions.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A Shared handle begin on memory/temporary storage or caller-supplied streams was rejected before admission.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:handle-shared-impersonation",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Shared/TransactionHolderContext.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "A Shared handle begin under Windows thread impersonation was rejected before queuing (Windows only).",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:session-closed",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/SessionLifetime.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "lifetime-chaos"
+      ],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "Work or a handle begin on a LiteDatabase whose disposal began was refused with ObjectDisposedException.",
+      "doc": "docs/transaction-handles.md"
+    },
+    {
+      "name": "refusal:session-close-reentrant",
+      "kind": "refusal",
+      "paths": [
+        "LiteDB/Client/Transactions/SessionLifetime.cs"
+      ],
+      "targets": [],
+      "gate": "advisory",
+      "gateReason": "Historical adapter (PR #133 replay overlay): driven only on proof trees that carry the handle API; not part of the upstream PR smoke matrix.",
+      "reason": "Disposing a LiteDatabase from inside its executing operation (or its native holder) was rejected before changing state.",
+      "doc": "docs/transaction-handles.md"
     }
   ]
 }

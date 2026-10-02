@@ -13,7 +13,11 @@ namespace LiteDB
         /// Starts an independent synchronous transaction. Ordinary database collections do not
         /// enlist; use the returned handle's collections. Sequential thread handoff is supported.
         /// </summary>
-        public ILiteTransaction BeginTransaction() => BeginTransaction(System.Threading.Timeout.InfiniteTimeSpan);
+        public ILiteTransaction BeginTransaction()
+        {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransactionProvider.BeginTransaction");
+            return BeginTransaction(System.Threading.Timeout.InfiniteTimeSpan);
+        }
 
         /// <summary>
         /// Bounds the combined Shared local/native writer wait. Zero attempts immediate admission.
@@ -22,6 +26,7 @@ namespace LiteDB
         /// </summary>
         public ILiteTransaction BeginTransaction(TimeSpan sharedAdmissionTimeout, CancellationToken cancellationToken = default)
         {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransactionAdmissionProvider.BeginTransaction");
             TransactionAdmission.Validate(sharedAdmissionTimeout);
             cancellationToken.ThrowIfCancellationRequested();
             using var admission = _lifetime.Enter();
@@ -33,7 +38,11 @@ namespace LiteDB
                 resources = shared.OpenTransactionResources(waiting, _lifetime.DependencyToken);
             }
             else if (_engine is LiteEngine engine) resources = new TransactionResources(engine, engine.CurrentContext, () => { });
-            else throw new NotSupportedException("This engine does not support thread-independent transaction handles.");
+            else
+            {
+                LiteDB.Utils.Reachability.Sometimes("refusal:handle-unsupported-engine");
+                throw new NotSupportedException("This engine does not support thread-independent transaction handles.");
+            }
             try { cancellationToken.ThrowIfCancellationRequested(); }
             catch (Exception error)
             {

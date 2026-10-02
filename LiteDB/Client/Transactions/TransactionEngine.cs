@@ -10,7 +10,11 @@ namespace LiteDB
         protected override ILiteEngine Inner => _owner.Storage;
         protected override T Invoke<T>(Func<T> action) => _owner.Dispatch(action);
         public override IBsonDataReader Query(string collection, Query query) => _owner.Query(collection, query);
-        private static NotSupportedException Unsupported() => new NotSupportedException("Use the transaction handle for completion; nested transactions, maintenance and pragma changes are not transaction-bound operations.");
+        private static NotSupportedException Unsupported()
+        {
+            LiteDB.Utils.Reachability.Sometimes("refusal:handle-not-exposed");
+            return new NotSupportedException("Use the transaction handle for completion; nested transactions, maintenance and pragma changes are not transaction-bound operations.");
+        }
         public override bool BeginTrans() => throw Unsupported();
         public override bool Commit() => throw Unsupported();
         public override bool Rollback() => throw Unsupported();

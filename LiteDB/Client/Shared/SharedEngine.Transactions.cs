@@ -51,7 +51,10 @@ namespace LiteDB
             // A caller stream can capture the facade; a native holder must not root that
             // graph indefinitely, or perform storage I/O after its external owner is gone.
             if (!SharedModeGuard.IsFile(_settings) || _settings.LogStream != null || _settings.TempStream != null)
+            {
+                LiteDB.Utils.Reachability.Sometimes("refusal:handle-shared-caller-streams");
                 throw new NotSupportedException("Shared transaction handles require filename-backed storage without caller streams.");
+            }
             TransactionHolderContext.Validate();
             // First-use default collation must observe the caller's culture, while null
             // settings still accept an existing database's persisted collation.

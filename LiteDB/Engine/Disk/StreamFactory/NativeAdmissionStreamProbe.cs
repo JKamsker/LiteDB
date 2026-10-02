@@ -21,6 +21,7 @@ namespace LiteDB.Engine
             : base(path, mode, access, share, bufferSize, options)
         {
             Filename = path;
+            LiteDB.Utils.Reachability.FaultPoint("Attach");
             _observe = Attach?.Invoke(path, access != FileAccess.Read);
         }
 
@@ -28,6 +29,7 @@ namespace LiteDB.Engine
             : base(handle, access, bufferSize)
         {
             Filename = path;
+            LiteDB.Utils.Reachability.FaultPoint("Attach");
             _observe = Attach?.Invoke(path, access != FileAccess.Read);
         }
 

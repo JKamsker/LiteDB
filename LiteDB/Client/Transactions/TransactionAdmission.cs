@@ -22,6 +22,7 @@ namespace LiteDB
         private static long Timestamp()
         {
 #if DEBUG || TESTING
+            LiteDB.Utils.Reachability.FaultPoint("TimestampOverride");
             if (TimestampOverride != null) return TimestampOverride();
 #endif
             return Stopwatch.GetTimestamp();

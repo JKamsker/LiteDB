@@ -42,7 +42,11 @@ namespace LiteDB
             var thread = Thread.CurrentThread;
             lock (_gate)
             {
-                if (_closeRequested) throw new ObjectDisposedException(nameof(LiteDatabase));
+                if (_closeRequested)
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:session-closed");
+                    throw new ObjectDisposedException(nameof(LiteDatabase));
+                }
                 _threads.TryGetValue(thread, out var depth);
                 _threads[thread] = depth + 1;
                 _active++;
@@ -57,7 +61,11 @@ namespace LiteDB
         {
             lock (_gate)
             {
-                if (_closeRequested) throw new ObjectDisposedException(nameof(LiteDatabase));
+                if (_closeRequested)
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:session-closed");
+                    throw new ObjectDisposedException(nameof(LiteDatabase));
+                }
                 _transactions.Add(transaction);
             }
         }
@@ -93,7 +101,10 @@ namespace LiteDB
             {
                 if (_threads.ContainsKey(Thread.CurrentThread) || _requestThread == Thread.CurrentThread ||
                     _cleanupThread == Thread.CurrentThread || SessionCloseDependency.Contains(DependencyToken))
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:session-close-reentrant");
                     throw new InvalidOperationException("Cannot close a session from inside its executing operation.");
+                }
                 if (!_closeRequested)
                 {
                     _closeRequested = true;
@@ -108,6 +119,7 @@ namespace LiteDB
                     try
                     {
 #if DEBUG || TESTING
+                        LiteDB.Utils.Reachability.FaultPoint("BeforeCloseDispatch");
                         BeforeCloseDispatch?.Invoke();
 #endif
                         _requestThread = SessionCloseScheduler.Queue(RequestClose);

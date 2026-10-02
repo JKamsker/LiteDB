@@ -34,7 +34,10 @@ namespace LiteDB
             {
                 using var context = resources.Session.Enter();
                 if (resources.Session.LegacySlot.Transaction != null)
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:handle-begin-under-legacy-transaction");
                     throw new InvalidOperationException("Complete the legacy transaction before opening a transaction handle.");
+                }
                 using var binding = TransactionContext.Enter(_transaction);
                 resources.Engine.BeginHandleTransaction();
             }
@@ -53,10 +56,21 @@ namespace LiteDB
         {
             lock (_gate)
             {
-                if (_executing != null) throw new InvalidOperationException("Overlapping or reentrant transaction handle use is not supported.");
-                if (_closing || _disposed) throw new ObjectDisposedException(nameof(ILiteTransaction));
+                if (_executing != null)
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:handle-overlapping-call");
+                    throw new InvalidOperationException("Overlapping or reentrant transaction handle use is not supported.");
+                }
+                if (_closing || _disposed)
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:handle-use-after-dispose");
+                    throw new ObjectDisposedException(nameof(ILiteTransaction));
+                }
                 if (!terminalAllowed && State != LiteTransactionState.Active)
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:handle-use-after-completion");
                     throw new InvalidOperationException("The transaction has completed and its bound objects cannot be reused.");
+                }
                 var lease = _session.Enter();
                 _executing = Thread.CurrentThread;
                 return lease;
@@ -136,7 +150,10 @@ namespace LiteDB
         {
             if ((collection.StartsWith("$") && collection != "$indexes" && collection != "$cols") ||
                 query.Into?.StartsWith("$") == true)
+            {
+                LiteDB.Utils.Reachability.Sometimes("refusal:handle-system-collection-io");
                 throw new TransactionCapabilityException("External/system collection I/O is not supported inside transaction handles.");
+            }
             var reader = new TransactionReader(this, _resources.Engine.Query(collection, query));
             _readers.Add(reader);
             return (IBsonDataReader)reader;
@@ -177,12 +194,17 @@ namespace LiteDB
 
         public void Commit()
         {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.Commit");
             using var admission = Enter();
             using var context = _resources.Session.Enter();
             using var binding = TransactionContext.Enter(_transaction);
             try
             {
-                if (_readers.Count != 0) throw new InvalidOperationException("Close transaction-bound readers before committing.");
+                if (_readers.Count != 0)
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:handle-commit-with-open-reader");
+                    throw new InvalidOperationException("Close transaction-bound readers before committing.");
+                }
                 Exception failure = null;
                 try { Dispatch(() => _resources.Engine.Commit()); }
                 catch (Exception error)
@@ -199,6 +221,7 @@ namespace LiteDB
 
         public void Rollback()
         {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.Rollback");
             using var admission = Enter();
             try { RollbackCore(); }
             finally { Exit(); }
@@ -223,7 +246,11 @@ namespace LiteDB
             lock (_gate)
             {
                 if (_disposed) return;
-                if (_executing != null) throw new InvalidOperationException("Overlapping transaction disposal is not supported.");
+                if (_executing != null)
+                {
+                    LiteDB.Utils.Reachability.Sometimes("refusal:handle-overlapping-dispose");
+                    throw new InvalidOperationException("Overlapping transaction disposal is not supported.");
+                }
                 if (State != LiteTransactionState.Active) { _disposed = true; return; }
             }
             using var admission = Enter();
@@ -255,14 +282,39 @@ namespace LiteDB
             finally { lock (_gate) _disposed = true; }
         }
 
-        public ILiteCollection<T> GetCollection<T>(string name = null, BsonAutoId autoId = BsonAutoId.ObjectId) =>
-            Run(() => (ILiteCollection<T>)new TransactionCollection<T>(this, new LiteCollection<T>(name, autoId, _client)));
-        public ILiteCollection<BsonDocument> GetCollection(string name, BsonAutoId autoId = BsonAutoId.ObjectId) =>
-            GetCollection<BsonDocument>(name ?? throw new ArgumentNullException(nameof(name)), autoId);
-        public IEnumerable<string> GetCollectionNames() => Run(() => Dispatch(() => _resources.Engine.GetTransactionCollectionNames()));
-        public bool CollectionExists(string name) => GetCollectionNames().Contains(name, StringComparer.OrdinalIgnoreCase);
-        public bool DropCollection(string name) => throw new TransactionCapabilityException("Dropping collections is not supported inside transactions.");
-        public bool RenameCollection(string name, string newName) => throw new TransactionCapabilityException("Renaming collections is not supported inside transactions.");
+        public ILiteCollection<T> GetCollection<T>(string name = null, BsonAutoId autoId = BsonAutoId.ObjectId)
+        {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.GetCollection");
+            return Run(() => (ILiteCollection<T>)new TransactionCollection<T>(this, new LiteCollection<T>(name, autoId, _client)));
+        }
+        // The reachability gate names this overload by its return type (api:ILiteTransaction.ILiteCollection).
+        public ILiteCollection<BsonDocument> GetCollection(string name, BsonAutoId autoId = BsonAutoId.ObjectId)
+        {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.ILiteCollection");
+            return GetCollection<BsonDocument>(name ?? throw new ArgumentNullException(nameof(name)), autoId);
+        }
+        public IEnumerable<string> GetCollectionNames()
+        {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.GetCollectionNames");
+            return Run(() => Dispatch(() => _resources.Engine.GetTransactionCollectionNames()));
+        }
+        public bool CollectionExists(string name)
+        {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.CollectionExists");
+            return GetCollectionNames().Contains(name, StringComparer.OrdinalIgnoreCase);
+        }
+        public bool DropCollection(string name)
+        {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.DropCollection");
+            LiteDB.Utils.Reachability.Sometimes("refusal:handle-drop-rename");
+            throw new TransactionCapabilityException("Dropping collections is not supported inside transactions.");
+        }
+        public bool RenameCollection(string name, string newName)
+        {
+            LiteDB.Utils.Reachability.Sometimes("api:ILiteTransaction.RenameCollection");
+            LiteDB.Utils.Reachability.Sometimes("refusal:handle-drop-rename");
+            throw new TransactionCapabilityException("Renaming collections is not supported inside transactions.");
+        }
     }
 
     internal sealed class TransactionCapabilityException : NotSupportedException

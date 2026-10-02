@@ -14,6 +14,7 @@ namespace LiteDB.Client.Shared
             if (OpenThreadToken(GetCurrentThread(), 0x0008 /* TOKEN_QUERY */, true, out var token))
             {
                 CloseHandle(token);
+                LiteDB.Utils.Reachability.Sometimes("refusal:handle-shared-impersonation");
                 throw new NotSupportedException("Shared transaction handles cannot begin under Windows thread impersonation.");
             }
             var error = Marshal.GetLastWin32Error();

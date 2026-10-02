@@ -14,6 +14,7 @@ namespace LiteDB
                 "': could not acquire the OS-native database admission lock. " +
                 "An incompatible connection or unsupported locking environment may prevent access. Cause: " + inner.Message, inner)
         {
+            LiteDB.Utils.Reachability.Sometimes("api:DatabaseAdmissionException");
             // Preserve the native cause so bounded sharing-violation retries can
             // distinguish contention from permissions, malformed identity, or I/O.
             HResult = inner.HResult;
