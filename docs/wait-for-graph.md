@@ -25,7 +25,13 @@ wait starting. A production build contains none of it
   of its owner on any thread, because those holds end only after the teardown returns.
 - **Wait (edge)**: a thread blocked on one or two resources, typed by **bound** (`unbounded`,
   `timeout(value)`, `cancellation`) and **origin** (`library`, or `driver` for test-driver
-  callbacks, joins and barriers). A wait *via handoff* is performed by a helper thread for the
+  callbacks, joins and barriers). A cycle is *bounded* only by a wait that ends without progress of
+  the cycle's own threads: a timeout, or a cancellation that has already been requested. A
+  cancellation nobody has requested yet (`WaitBound.CancelledBy(token)` with the token not
+  cancelled, or `WaitBound.Cancellation` when the site does not pass its token) is not a bound for
+  classification. Whether it ever comes is the application's choice (a close, a cancel), so until
+  then the cycle hangs exactly like an unbounded one. A token linked to a timeout (`CancelAfter`) is
+  a timeout; declare it with `WaitBound.After`. A wait *via handoff* is performed by a helper thread for the
   registering thread (a holder thread acquiring the OS mutex for its caller).
 - **Recursion**: `Monitor`, `Lock`, `NamedMutex` and `Ownership` let their owning thread enter
   again without waiting. A direct same-thread wait on a thread-affine hold of such a primitive is
@@ -42,8 +48,8 @@ then given up. The graph may miss a cycle; it must not invent one.
 | Rule id | Finding | Default | Proof (known-bad fires, fix quiet, unchanged suite quiet) |
 | --- | --- | --- | --- |
 | `self-wait` | The holder executes on the waiting thread (length 1), and the edge is not a recursion the primitive grants | **fails** | Row 12 (PR #133 `e2228105`, fix `d189f7a8`): a handle's mapper callback inserts into the collection its own handle holds; the owner-keyed collection lock no longer refuses the same thread, so the callback waits for itself until `TIMEOUT`. 4/4 failing cases latch `self-wait` at 51-161 ms; the fix's 6 cases latch nothing; the 2 cases where the lock belongs to an *idle* handle another thread completes latch nothing. Row 16 (dev `5dd942a7`, fix `265c2497`): 28/28 hanging peer-callback cases latch `self-wait`. Level: reproduction (the fixes' own tests), not generic. |
-| `unbounded-cycle` | A cycle across threads whose every wait is unbounded | **fails** | Row 13 (PR #133 `cb36c346`, fix `0d5e5eff`): a raw close queues while an active read's callback waits, without a bound, for fresh work on another thread; the close fences that work. Latched as `unbounded-cycle` (length 3: fenced fresh op, close draining leases, callback joining the fresh op) at 29-184 ms; quiet at the fix. Level: reproduction, and only with the callback's wait registered as a driver edge (`WaitGraph.Join`): the fix's own test waits with `Task.Wait`, which the graph cannot see. |
-| `bounded-cycle` | A cycle across threads with a bounded wait (timeout or cancellation) | reports | Never a default. LiteDB resolves crossed collection locks by a lock timeout (latched with correct outcomes by the suite's permitted-history and site tests), and on the PR #133 trees closing a database whose own thread still holds a transaction resolves by a 10 ms exclusive try (latched by existing tests that pass). Row 3 (PR #133 `e28612aa`, raw close vs a collection-lock waiter) latches here, because the waiter's wait is bounded by `TIMEOUT`. |
+| `unbounded-cycle` | A cycle across threads that none of its waits ends by itself: each is unbounded or only cancellable, with no cancellation requested | **fails** | Row 13 (PR #133 `cb36c346`, fix `0d5e5eff`): a raw close queues while an active read's callback waits, without a bound, for fresh work on another thread; the close fences that work. Latched as `unbounded-cycle` (length 3: fenced fresh op, close draining leases, callback joining the fresh op) at 29-184 ms; quiet at the fix. Level: reproduction, and only with the callback's wait registered as a driver edge (`WaitGraph.Join`): the fix's own test waits with `Task.Wait`, which the graph cannot see. Cancellable waits joined the rule later: a cycle through an unrequested cancellation used to be `bounded-cycle`, which hid real hangs on the PR #133 trees (a handle callback calling its own Shared connection waits on the owner gate, typed with the session's closing token, which no one closes; V-E2 `69b0663a0`). The dev tree has no cancellable site, so the change is quiet on the unchanged suite. |
+| `bounded-cycle` | A cycle across threads with a wait that ends by itself (a timeout, or a cancellation already requested) | reports | Never a default. LiteDB resolves crossed collection locks by a lock timeout (latched with correct outcomes by the suite's permitted-history and site tests), and on the PR #133 trees closing a database whose own thread still holds a transaction resolves by a 10 ms exclusive try (latched by existing tests that pass). Row 3 (PR #133 `e28612aa`, raw close vs a collection-lock waiter) latches here, because the waiter's wait is bounded by `TIMEOUT`. |
 | `lock-order` | Lock order A then B on one thread, B then A seen on another thread, no active cycle | reports (advisory) | Never a default: a Shared pin's holder re-enters its connection with a non-blocking try while it owns the OS mutex (`named-mutex / shared-ownership`), on every tree. |
 
 A harness fails on the **failing rules**: by default `WaitGraph.DefaultFailing` (`self-wait`,
@@ -184,4 +190,7 @@ leases, close worker, final release), the per-name writer `SemaphoreSlim` and th
 `TransactionHolder` open/close/job events, the owner-keyed `CollectionLock` (a `Condition` recursive
 per owner key, never per thread: thread-owned transactions hold it thread-affinely, an explicit
 transaction through its `TransactionContext`, whose bound-call scope is a frame that claims all its
-holds), and the owner-keyed `TransactionGate` leases.
+holds), and the owner-keyed `TransactionGate` leases. Waits that the session's closing token can
+cancel should pass it (`WaitBound.CancelledBy(closing)`, not the overlay's token-less
+`WaitBound.Cancellation`), so a cycle that a close has already started to cancel classifies as
+bounded.
