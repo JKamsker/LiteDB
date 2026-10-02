@@ -8,7 +8,8 @@ Historical adapter (fork PR #133 trees only; capability `handle-api`). It adds t
 | --- | --- |
 | `HandleAccessKind.cs` | `IAccessKind`: command generation, shrinking, dispatch |
 | `HandleExecution.cs` | execution against `ILiteTransaction`, overlap detector, exception mapping |
-| `HandleModel.cs` | the permitted-outcome model (`Apply`) and canonical observations |
+| `HandleModel.cs` | the permitted-outcome model (`Apply`) |
+| `HandleObservations.cs` | canonical observations and exception mapping |
 | `HandleCampaign_Tests.cs` | time-boxed campaign driver for net proofs (trait `Category=NetProofCampaign`) |
 | `register-handle-kind.patch` | the one-line registration in `AccessKinds.All` (apply with `git apply`) |
 
