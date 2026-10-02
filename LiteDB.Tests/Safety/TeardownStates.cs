@@ -34,6 +34,11 @@ namespace LiteDB.Tests.Safety
             var template = Templates.GetOrAdd(key, _ => new Lazy<string>(() => Build(key, prior, c.Password))).Value;
             var path = c.File(name);
             File.Copy(template, path);
+            if (prior.CrashLeftovers)
+            {
+                // A sort scratch a crashed process left behind: nobody owns it any more.
+                File.WriteAllBytes(QuiescentProbe.ScratchPath(path), Enumerable.Repeat((byte)0x5A, 2 * Constants.PAGE_SIZE).ToArray());
+            }
             for (var id = 1; id <= prior.Documents; id++) c.Ledger.Acknowledge("rows", id, Row(id));
             c.DatabasePath = path;
             return path;

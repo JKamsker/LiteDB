@@ -49,6 +49,9 @@ namespace LiteDB.ConcurrencyTesting
 
         void Durable(DurableLedger ledger, ILiteDatabase reopened, string point);
 
+        /// <summary>ScratchLive: while a reader whose sort spilled to the file scratch is live, that scratch exists.</summary>
+        void ScratchLive(string path, string point);
+
         /// <summary>The stable failure id of an exception a host or scenario raised.</summary>
         string FailureId(Exception error);
 
@@ -132,6 +135,12 @@ namespace LiteDB.ConcurrencyTesting
             if (!result.Clean)
                 throw new ExplorerFailure("QUIESCENT_" + Kind(result.Violations[0]),
                     $"at {point}: " + string.Join("; ", result.Violations));
+        }
+
+        public void ScratchLive(string path, string point)
+        {
+            var missing = QuiescentProbe.ScratchLive(path);
+            if (missing != null) throw new ExplorerFailure("SCRATCH_LIVE", $"at {point}: " + missing);
         }
 
         public void Durable(DurableLedger ledger, ILiteDatabase reopened, string point)

@@ -39,6 +39,8 @@ internal sealed class FuzzExplorerHost : IExplorerHost
 
     public void Quiescent(string path, string point) => _context.Quiescent(path, point);
 
+    public void ScratchLive(string path, string point) => _context.ScratchLive(path, point);
+
     public void Durable(DurableLedger ledger, ILiteDatabase reopened, string point) => _context.Durable(ledger, reopened, point);
 
     public string FailureId(Exception error) => error is FuzzFailureException fuzz

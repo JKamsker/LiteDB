@@ -23,7 +23,8 @@ namespace LiteDB.ConcurrencyTesting
 
         public string Name => "reader-handoff";
         public string Description => "A reader opened on A, advanced on B, closed on E or A, under maintenance and writes.";
-        public int Variants => 6 * 2 * 2;
+        // Reader kinds: query cursor, data reader, cursor over a sort that spilled to the scratch file.
+        public int Variants => 6 * 2 * 3;
 
         public string NotApplicable(ExplorerConfiguration configuration, IExplorerAccess access) =>
             access != null && access.ThreadAffine
@@ -36,6 +37,7 @@ namespace LiteDB.ConcurrencyTesting
             var order = ExplorerRun.Permutations[variant % 6];
             var closeOnOther = variant / 6 % 2 == 0;
             var dataReader = variant / 12 == 1;
+            var spilled = variant / 12 == 2;
             var c = run.Configuration;
             var disturbance = CallbackPauseScenario.Disturbance(c);
             var record = new CallbackRecord();
@@ -60,6 +62,20 @@ namespace LiteDB.ConcurrencyTesting
             var snapshot = Enumerable.Range(100, 12).Select(id => (id, value: id)).Concat(new[] { (id: 1, value: 10) })
                 .ToDictionary(pair => pair.id, pair => pair.value);
 
+            if (spilled)
+            {
+                // Sort keys well past one sort container, so the sorted reader's sort spills to the scratch.
+                var big = run.A.Invoke("InsertMany.big", () => db.GetCollection("big").InsertBulk(Enumerable.Range(1, 1100)
+                    .Select(id => new BsonDocument { ["_id"] = id, ["key"] = (id * 7919 % 1100).ToString("D6") + new string('k', 760) })),
+                    ExplorerSchedule.Extended);
+                run.A.Complete(big);
+                run.Judge(big, Permit.Success);
+            }
+            var scratchBacked = false;
+            Action<string> scratchLive = point =>
+            {
+                if (scratchBacked && !run.IsDisposed(db)) run.Host.ScratchLive(run.Model.Path, point);
+            };
             IExplorerUnit unit = null;
             IEnumerator<BsonDocument> cursor = null;
             IBsonDataReader reader = null;
@@ -72,6 +88,11 @@ namespace LiteDB.ConcurrencyTesting
                     reader = db.Execute("SELECT $ FROM rows");
                     if (reader.Read()) seen.Add(reader.Current.AsDocument);
                 }
+                else if (spilled)
+                {
+                    cursor = unit.Collection("big").Query().OrderBy("key").ToEnumerable().GetEnumerator();
+                    cursor.MoveNext();
+                }
                 else
                 {
                     cursor = unit.Collection("rows").FindAll().GetEnumerator();
@@ -80,6 +101,9 @@ namespace LiteDB.ConcurrencyTesting
             });
             run.A.Complete(open);
             run.Judge(open, Permit.Success);
+            // The reader's sort lives in the file scratch when this mode keeps scratch on disk (Shared snapshots keep it in memory).
+            scratchBacked = spilled && System.IO.File.Exists(LiteDB.Tests.Safety.QuiescentProbe.ScratchPath(run.Model.Path));
+            if (scratchBacked) Reachability.Sometimes("situation:explorer-spilled-reader-live");
             var finished = false;
             var advance = new Contender
             {
@@ -90,7 +114,7 @@ namespace LiteDB.ConcurrencyTesting
                     {
                         var more = dataReader ? reader.Read() : cursor.MoveNext();
                         if (!more) { finished = true; break; }
-                        seen.Add(dataReader ? reader.Current.AsDocument : cursor.Current);
+                        if (!spilled) seen.Add(dataReader ? reader.Current.AsDocument : cursor.Current);
                     }
                 },
                 Account = work =>
@@ -116,6 +140,9 @@ namespace LiteDB.ConcurrencyTesting
             // for concurrent use; overlapping calls on one reader are outside every contract).
             var advanced = works.First(w => w.Actor == run.B).Work;
             run.B.Complete(advanced);
+            // A reader that just advanced and has rows left is live: its spilled sort's scratch must exist.
+            if (advanced.Ok && !finished && c.Maintenance == ExplorerMaintenance.None) scratchLive("after the advance on B");
+            if (c.Maintenance == ExplorerMaintenance.None) scratchLive("before the reader closes");
             var closer = closeOnOther ? run.E : run.A;
             var close = closer.Invoke("ReaderClose", () =>
             {

@@ -1033,6 +1033,19 @@
       "reason": "A reader opened on one thread was advanced on another and closed on a third (sequential handoff) while maintenance and writes ran."
     },
     {
+      "name": "situation:explorer-spilled-reader-live",
+      "kind": "situation",
+      "paths": [
+        "LiteDB.Tests/Engine/ConcurrencyExplorer/ReaderHandoffScenario.cs"
+      ],
+      "targets": [
+        "transaction-interleavings",
+        "LiteDB.Tests/Engine/ConcurrencyExplorer_Tests.cs#Forced_schedules_keep_progress_durability_and_ownership"
+      ],
+      "doc": "docs/concurrency-explorer.md",
+      "reason": "proof/row8-scratch: a reader-handoff reader whose sort spilled to the file scratch is live (ScratchLive applies)."
+    },
+    {
       "name": "situation:explorer-rebuild-under-dependencies",
       "kind": "situation",
       "paths": [
