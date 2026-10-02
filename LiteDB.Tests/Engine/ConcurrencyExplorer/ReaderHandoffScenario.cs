@@ -141,6 +141,9 @@ namespace LiteDB.ConcurrencyTesting
             var advanced = works.First(w => w.Actor == run.B).Work;
             run.B.Complete(advanced);
             // A reader that just advanced and has rows left is live: its spilled sort's scratch must exist.
+            // Oracle self-test: LITEDB_EXPLORER_SCRATCH_SELFTEST=1 removes the live reader's scratch, which ScratchLive must report.
+            if (scratchBacked && Environment.GetEnvironmentVariable("LITEDB_EXPLORER_SCRATCH_SELFTEST") == "1")
+                System.IO.File.Delete(LiteDB.Tests.Safety.QuiescentProbe.ScratchPath(run.Model.Path));
             if (advanced.Ok && !finished && c.Maintenance == ExplorerMaintenance.None) scratchLive("after the advance on B");
             if (c.Maintenance == ExplorerMaintenance.None) scratchLive("before the reader closes");
             var closer = closeOnOther ? run.E : run.A;
