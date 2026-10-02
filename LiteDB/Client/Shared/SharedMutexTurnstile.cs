@@ -94,7 +94,9 @@ namespace LiteDB.Client.Shared
 
         private static void WaitCancellable(Mutex mutex, CancellationToken closing)
         {
-            if (!closing.CanBeCanceled) { mutex.WaitOne(); return; }
+            // DIAGNOSTIC (proof/row11-blocking-wait, never merged): block as before 70429cb6, ignoring cancellation.
+            mutex.WaitOne(); return;
+            // if (!closing.CanBeCanceled) { mutex.WaitOne(); return; }
             // Retain the turnstile while waiting on the writer mutex: cancellation
             // must not turn a queued waiter into a polling contender that can starve.
             do { closing.ThrowIfCancellationRequested(); } while (!mutex.WaitOne(10));
