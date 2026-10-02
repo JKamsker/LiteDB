@@ -130,16 +130,26 @@ namespace LiteDB.Tests.Concurrency.LifetimeModel.Direct
             if (this.Writer == t.Id) this.Writer = null;
         }
 
+        /// <summary>
+        /// PR #133 only: LockService.StopWaiters and CollectionLock.StopWaiters (close stops collection
+        /// lock waiters before it drains active operations). Never set by the dev model.
+        /// </summary>
+        public bool Stopping { get; private set; }
+
+        public void StopWaiters() => this.Stopping = true;
+
         /// <summary>LockService.EnterLock (LockService.cs:80-88): a reentrant Monitor with the pragma timeout.</summary>
         public IEnumerable<Step> EnterLock(ModelThread t, string collection, int timeout)
         {
+            if (this.Stopping) { t.Fault = Faults.EngineDisposed; yield break; }
             yield return Step.TimedWait($"CollectionLock.cs:338 Monitor.TryEnter({collection})", timeout,
-                () => !_collectionOwner.TryGetValue(collection, out var owner) || owner == t.Id);
+                () => this.Stopping || !_collectionOwner.TryGetValue(collection, out var owner) || owner == t.Id);
             if (t.TimedOut)
             {
                 t.Fault = Faults.WriteTimeout; // LockService.cs:87
                 yield break;
             }
+            if (this.Stopping) { t.Fault = Faults.EngineDisposed; yield break; }
             _collectionOwner[collection] = t.Id;
             _collectionDepth[collection] = _collectionDepth.TryGetValue(collection, out var depth) ? depth + 1 : 1;
         }
