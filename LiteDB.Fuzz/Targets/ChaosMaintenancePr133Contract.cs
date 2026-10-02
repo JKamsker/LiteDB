@@ -14,6 +14,8 @@ namespace LiteDB.Fuzz.Targets;
 /// <item>S3 "Using a disposed <c>LiteDatabase</c> now throws <c>ObjectDisposedException</c> naming <c>LiteDatabase</c>,
 /// instead of <c>LiteException</c> with <c>ENGINE_DISPOSED</c>. [...] This is an intentional exception-contract change;
 /// it does not make concurrent use of a closing facade valid."</item>
+/// <item>S4 "Already-open ordinary readers retain their existing independent lifetime; bound readers belong to their
+/// handle/session."</item>
 /// </list>
 /// S2 does not name the timeout's type; it is the PR's own <c>TimeoutException</c> at 39f6c6b0
 /// (<c>SessionLifetime.Close</c>, "Session close is still draining active work"). Only the close maintenance is
@@ -32,7 +34,8 @@ internal static class ChaosMaintenancePr133Contract
     internal static string[] SecondDispose => Applies
         ? new[] { ChaosMaintenanceDeclarations.Ok, CloseTimedOut } : null;
 
-    /// <summary>The PR's declared set for a close scenario call, or null (not a close scenario, or not a PR revision).</summary>
+    /// <summary>The PR's declared set for a close scenario call, or null (dev's set applies: not a close scenario, not a
+    /// PR revision, or a contract the PR keeps).</summary>
     internal static string[] Permitted(MaintenancePlan plan, string role, string op, bool beforePoint)
     {
         if (!Applies || plan.Maintenance != MaintenanceKind.Close) return null;
@@ -44,6 +47,8 @@ internal static class ChaosMaintenancePr133Contract
         if (beforePoint && plan.Order == MaintenanceOrder.ActiveFirst) return ok;
         // Maintenance first: the close started before the call arrived (S1 "rejects new work", S3).
         if (plan.Order == MaintenanceOrder.MaintenanceFirst) return refused;
+        // Active first, an ordinary reader paused between rows: its existing lifetime is kept (S4), so dev's declaration applies.
+        if (op == "Reader") return null;
         // Active first: the call paused at its forced point is executing work, which the close drains (S1); it
         // completes. An explicit transaction paused between its calls is idle: the close settles it (S1), and its
         // later calls, Rollback included, use a disposed facade (S3). A commit paused in its WAL write is executing.
