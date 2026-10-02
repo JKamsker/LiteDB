@@ -13,11 +13,16 @@ internal static class Program
         new SnapshotFuzzer(), new ThreadedSnapshotFuzzer(), new ConcurrentFuzzer(),
         new PowerLossFuzzer(), new BoundaryFuzzer(), new ReadOnlyFuzzer(), new SqlDmlFuzzer(),
         new CompatibilityFuzzer(), new RecoveryFuzzer(), new ChaosFuzzer(), new ApiBoundaryFuzzer(),
+        new ChaosMaintenanceFuzzer(),
         new StorageFailureFuzzer(), new OracleSelfTestFuzzer(), new PressureFuzzer(), new MalformedFileFuzzer(),
         new RebuildTransitionFuzzer(), new ConflictFuzzer(), new TransactionGateFuzzer(), new CursorHandoffFuzzer(),
         new ChecksumPageFuzzer(), new ChecksumWalFuzzer(), new ChecksumMigrationFuzzer(), new ChecksumCrashFuzzer(),
-        new CompactCodecFuzzer(), new CompactStorageFuzzer(), new CompactCrashFuzzer(), new CompactPowerLossFuzzer(), new MvccRetirementFuzzer(), new MvccCheckpointFuzzer()
+        new CompactCodecFuzzer(), new CompactStorageFuzzer(), new CompactCrashFuzzer(), new CompactPowerLossFuzzer(), new MvccRetirementFuzzer(), new MvccCheckpointFuzzer(),
+        new TeardownFaultsFuzzer(), new SharedContentionFuzzer(), new TransactionInterleavingsFuzzer(), new LifetimeChaosFuzzer()
     };
+
+    // Oracle self-tests that fail by design: selectable by exact name, never by "all".
+    private static readonly IFuzzTarget[] SelfTestTargets = { new SelfTests.DeadlineSelfTestFuzzer() };
 
     internal static async Task<int> Main(string[] args)
     {
@@ -28,6 +33,9 @@ internal static class Program
 
         if (options.Child == "verify-checkpointed") return CheckpointedFileVerifier.Run(options);
         if (options.Child == "shared") return SharedProcessFuzzer.RunChild(options);
+        if (options.Child == "shared-contention") return SharedContentionChild.Run(options);
+        if (options.Child == LiteDB.ConcurrencyTesting.ExplorerWriterChild.Mode)
+            return LiteDB.ConcurrencyTesting.ExplorerWriterChild.Run(options.Database, Console.In, Console.Out);
         if (options.Child == "snapshot-writer") return SnapshotWriterProcess.RunChild(options);
         if (options.Child == "snapshot-reader") return SnapshotFuzzer.RunChild(options);
         if (options.List)
@@ -61,8 +69,15 @@ internal static class Program
         {
             using var trial = new FuzzContext(selected[0].Name, options.Seed, options.Count, null,
                 options.RunDirectory, options.DurationReplay, options.InputFile, options.HeartbeatFile);
+            trial.HangTimeout = options.HangTimeout;
+            // An overdue operation never returns: report its identity for minimization, then exit.
+            trial.DeadlineFailureHandler = error => File.WriteAllTextAsync(options.Ledger, error.FailureId);
             string identity = null;
-            try { await selected[0].RunAsync(trial); }
+            try
+            {
+                await selected[0].RunAsync(trial);
+                ReportWaitGraph(options.RunDirectory, verdict: true);
+            }
             catch (Exception error) { identity = FailureIdentity.Get(error); }
             await File.WriteAllTextAsync(options.Ledger, identity ?? string.Empty);
             return identity == null ? 0 : 1;
@@ -117,10 +132,23 @@ internal static class Program
         Exception failure = null;
         using var context = new FuzzContext(target.Name, seed, options.Count, options.Duration, directory,
             options.DurationReplay, options.InputFile, options.HeartbeatFile);
+        context.HangTimeout = options.HangTimeout;
+        // The deadline watchdog fails a run whose operation never returns: same artifacts, then exit.
+        context.DeadlineFailureHandler = async error =>
+        {
+            // The overdue operation never returns, so the graph's findings so far are its evidence.
+            ReportWaitGraph(directory, verdict: false);
+            await RecordFailureAsync(target, options, context, started, error);
+            FuzzMarkers.Write(context);
+            await FuzzArtifacts.WriteResultAsync(context, started, error);
+        };
         Console.WriteLine($"START {target.Name} seed={seed} count={options.Count} worker={worker}");
+        FuzzMarkers.Reset();
         try
         {
             await Task.Run(() => target.RunAsync(context));
+            // Ownership violations latched at mutex releases after the last oracle call.
+            context.ThrowLatchedOracleFailures();
             if (options.ExpectedInputHash != null &&
                 !string.Equals(options.ExpectedInputHash, context.Input.Hash(), StringComparison.OrdinalIgnoreCase))
             {
@@ -133,33 +161,67 @@ internal static class Program
                 throw new FuzzFailureException("CORPUS_TRACE_CONTRACT_DRIFT",
                     $"Corpus trace changed: expected {options.ExpectedTraceHash}, actual {context.TraceHash()}.");
             }
+            ReportWaitGraph(directory, verdict: true);
         }
         catch (Exception error)
         {
+            ReportWaitGraph(directory, verdict: false);
             failure = error;
-            var failureText = error.ToString();
-            Console.Error.WriteLine($"FUZZ FAILURE {target.Name} seed={seed} step={context.Steps}\n{failureText}");
-            await File.WriteAllTextAsync(Path.Combine(directory, "failure-before-minimization.txt"), failureText);
-            // Persist the original failure and flush recorded input before minimization replays it.
-            await FuzzArtifacts.WriteResultAsync(context, started, failure);
-            try
-            {
-                var failureId = FailureIdentity.Get(error);
-                var finding = FuzzFindingRegistry.Resolve(target.Name, failureId);
-                if (FuzzFindingRegistry.ShouldMinimize(options.Duration.HasValue, finding))
-                {
-                    context.MinimizedCount = await MinimizeAsync(target, context, failureId,
-                        options.MinimizationTimeout, options.HeartbeatFile);
-                }
-            }
-            catch (Exception minimizationError)
-            {
-                await File.WriteAllTextAsync(Path.Combine(directory, "minimization-error.txt"),
-                    minimizationError.ToString());
-            }
+            await RecordFailureAsync(target, options, context, started, error);
         }
+        FuzzMarkers.Write(context);
         await FuzzArtifacts.WriteResultAsync(context, started, failure);
         return new RunResult(target.Name, seed, directory, failure == null);
+    }
+
+    /// <summary>Persist a failure, its markers and recorded input, then minimize it when the run calls for it.</summary>
+    private static async Task RecordFailureAsync(IFuzzTarget target, FuzzOptions options, FuzzContext context,
+        DateTimeOffset started, Exception error)
+    {
+        var directory = context.DirectoryPath;
+        var seed = context.Seed;
+        var failureText = error.ToString();
+        Console.Error.WriteLine($"FUZZ FAILURE {target.Name} seed={seed} step={context.Steps}\n{failureText}");
+        await File.WriteAllTextAsync(Path.Combine(directory, "failure-before-minimization.txt"), failureText);
+        FuzzMarkers.Write(context);
+        // Persist the original failure and flush recorded input before minimization replays it.
+        await FuzzArtifacts.WriteResultAsync(context, started, error);
+        try
+        {
+            var failureId = FailureIdentity.Get(error);
+            var finding = FuzzFindingRegistry.Resolve(target.Name, failureId);
+            if (FuzzFindingRegistry.ShouldMinimize(options.Duration.HasValue, finding))
+            {
+                // A trial that reproduces an overdue operation runs past its deadline first.
+                var trialTimeout = failureId.StartsWith("DEADLINE_", StringComparison.Ordinal) &&
+                    context.Oracles.LongestDeadline + TimeSpan.FromSeconds(30) > options.MinimizationTimeout
+                    ? context.Oracles.LongestDeadline + TimeSpan.FromSeconds(30) : options.MinimizationTimeout;
+                context.MinimizedCount = await MinimizeAsync(target, context, failureId,
+                    trialTimeout, options.HeartbeatFile);
+            }
+        }
+        catch (Exception minimizationError)
+        {
+            await File.WriteAllTextAsync(Path.Combine(directory, "minimization-error.txt"),
+                minimizationError.ToString());
+        }
+    }
+
+    /// <summary>
+    /// Write what the wait-for graph latched during the run to waitgraph.txt in the run directory (not
+    /// part of the hashed trace). With <paramref name="verdict"/>, a finding of a rule configured to fail
+    /// (LITEDB_WAITGRAPH_FAIL; by default the proven rules, WaitGraph.DefaultFailing) fails the run as
+    /// WAIT_FOR_CYCLE. See docs/wait-for-graph.md.
+    /// </summary>
+    private static void ReportWaitGraph(string directory, bool verdict)
+    {
+        var findings = LiteDB.Utils.WaitGraph.TakeFindings();
+        if (findings.Count == 0) return;
+        if (directory != null)
+            File.AppendAllLines(Path.Combine(directory, "waitgraph.txt"), findings.Select(x => x.ToString() + Environment.NewLine));
+        if (!verdict) return;
+        try { LiteDB.Utils.WaitGraph.ThrowIfFailing(findings); }
+        catch (Exception error) { throw new FuzzFailureException("WAIT_FOR_CYCLE", error.Message); }
     }
 
     private static async Task<int?> MinimizeAsync(IFuzzTarget target, FuzzContext failed, string failureId,
@@ -191,7 +253,7 @@ internal static class Program
     {
         var requested = names.ToArray();
         if (requested.Any(name => name.Equals("all", StringComparison.OrdinalIgnoreCase))) return Targets;
-        return requested.Select(name => Targets.FirstOrDefault(target => target.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+        return requested.Select(name => Targets.Concat(SelfTestTargets).FirstOrDefault(target => target.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
             ?? throw new ArgumentException($"Unknown target '{name}'. Use --list to see target names.")).Distinct().ToArray();
     }
 
@@ -212,6 +274,7 @@ internal static class Program
         Console.WriteLine("  --coverage-guided           retain seeds that add new LiteDB IL-range coverage");
         Console.WriteLine("  --determinism-check         rerun and compare input/trace hashes");
         Console.WriteLine("  --child verify-checkpointed --database <file>  read-only structural check of a quiescent fixture");
+        Console.WriteLine("  --child explorer-writer --database <file>      the concurrency explorer's external Shared writer (line protocol)");
         Console.WriteLine("  --list                      list targets");
     }
 

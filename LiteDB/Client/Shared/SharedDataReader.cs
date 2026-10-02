@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using LiteDB.Client.Shared;
+using LiteDB.Utils;
 
 namespace LiteDB
 {
@@ -46,10 +47,27 @@ namespace LiteDB
 
         public bool HasValues => _reader.HasValues;
 
+#if DEBUG || TESTING
+        /// <summary>
+        /// Wait-for graph: the owner whose hold this reader retains (its connection, or the pin it
+        /// streams under). Its reads and disposal execute that owner's work on the calling thread.
+        /// </summary>
+        internal object GraphOwner { get; set; }
+#endif
+
         public bool Read()
         {
+#if DEBUG || TESTING
+            LiteDB.Utils.WaitGraph.Enter(this.GraphOwner);
+            try
+            {
+#endif
             if (_retains == null) return _reader.Read();
             using (SharedCallFrames.Enter(_namespace, _connection, _retains)) return _reader.Read();
+#if DEBUG || TESTING
+            }
+            finally { LiteDB.Utils.WaitGraph.Exit(this.GraphOwner); }
+#endif
         }
 
         public void Dispose()
@@ -63,6 +81,9 @@ namespace LiteDB
             this.Dispose(false);
         }
 
+        [TeardownPath("SharedDataReader.Dispose", TeardownDisposition.Propagated | TeardownDisposition.Discarded,
+            "The inner reader's and the release callback's failures propagate (try/finally runs the callback either way); " +
+            "the core closes the release triggers (pin end, last-reader checkpoint) drop their failure lists.")]
         protected virtual void Dispose(bool disposing)
         {
             // Atomic admission: the callback ends one mutex recursion and one engine user.
@@ -72,9 +93,18 @@ namespace LiteDB
 
             if (disposing)
             {
+#if DEBUG || TESTING
+                LiteDB.Utils.WaitGraph.Enter(this.GraphOwner);
+                try
+                {
+#endif
                 if (_retains == null) this.Close();
                 // Ending the ownership can close its engine, which writes through caller streams.
                 else using (SharedCallFrames.Enter(_namespace, _connection, _retains)) this.Close();
+#if DEBUG || TESTING
+                }
+                finally { LiteDB.Utils.WaitGraph.Exit(this.GraphOwner); }
+#endif
             }
         }
 

@@ -52,7 +52,9 @@ contracts. Each entry links to the normative documents, the paths that
 implicate it, and evidence items. Each evidence item is a test, fuzz target or
 compatibility script, with the failure model and the observed event it `proves`
 (a hit list, two live snapshots, an index plan, a real handoff), plus the known
-gaps. Every reference must resolve. Fuzz targets must run in `fuzz.yml`, and
+gaps. A contract's `claims` map normative documentation sentences to the
+evidence that establishes them, or to an explicit gap (the
+[semantic review](#semantic-review) record). Every reference must resolve. Fuzz targets must run in `fuzz.yml`, and
 scripts must run in a workflow, so a rename or an unscheduled target cannot leave
 a stale claim. The report's model matrix shows unclaimed models; a `-` is a gap,
 not a pass.
@@ -70,6 +72,22 @@ evidence states its gap. Registered-hook coverage is not proof that the fault
 model is complete. New persistent I/O (`FlushToDisk`, `SetLength`, renames and
 deletes) is flagged for review, and `unhookedTransitions` records known
 boundaries that have no hook, such as #3011.
+
+Changes to the safety machinery itself (oracles, markers, registries, corpus
+expectations, test settings, scripts and workflows) implicate the
+`safety-machinery` contract, so the PR section must name its evidence like any
+other risky change.
+
+[`markers.json`](../../.github/safety/markers.json) registers every reachability
+marker (TESTING-only `Reachability.Sometimes`): maintenance interleavings,
+documented refusals, situations of fuzz targets and `api:` markers. Fault-point
+markers are derived from `fault-points.json`, so every hook site also counts its
+marker. The Safety policy job runs `check_reachability.py`: an unregistered,
+non-literal or stale marker fails, and so does a public member added or changed
+on the `ILite*` interfaces (or a new public type) without a registered `api:`
+marker. The Fuzz workflow's Reachability gate then fails a PR whose smoke campaign
+never hit a marker its diff declares, unless the entry is `advisory` with a reason.
+A marker hit count is reachability evidence, not proof that an assertion ran there.
 
 ## Coverage accounting
 
@@ -105,6 +123,195 @@ reason, a review date and the gap it leaves. A quarantined test is a visible
 coverage gap, never passing evidence. A passed review date is reported on every
 run.
 
+## Diff nets
+
+These nets judge the change against its base. Each one answers a question a diff
+reviewer cannot answer reliably. None of them proves the code correct.
+
+| Net | Catches | Runs |
+| --- | --- | --- |
+| [Diff lints](#diff-lints) | new polling loops, deleted invariant comments, unanchored doc claims | every PR (Safety policy, Safety section) |
+| [Differential run](#differential-run) | normalized behavior changes nobody declared, and declared changes that did not happen | PRs touching `LiteDB/` |
+| [Mutation on the diff](#mutation-on-the-diff) | changed cleanup and lock lines that no test pins down | PRs labelled `critical`, manual |
+| [Contended acquire](performance.md#contended-acquire) | acquire-latency tails, overtaking and waiter progress | the writer-contention step of the shared-slot performance workflow |
+
+**Pilot: nothing blocks yet.** [`net-modes.json`](../../.github/safety/net-modes.json)
+is the single switch for all of them. While its `blocking` is `false`, each net
+reports its findings in the job summary and annotations and exits 0. One
+reviewed change to `true` makes every listed net fail its job on findings, once
+the pilot numbers are reviewed. The scripts take `--advisory` or `--blocking` to
+override the switch locally. Jobs do not use `continue-on-error`, which would
+also hide a crashing script.
+
+### Diff lints
+
+The Safety policy job runs three lints on the lines a PR adds or removes:
+
+- `lint_polling.py`: a timed wait (`WaitOne(n)`, `Monitor.Wait(x, n)`,
+  `SemaphoreSlim`/`ManualResetEventSlim.Wait(n)`, `WaitAny(.., n)`), a sleep,
+  `Task.Delay` or a spin added inside a loop in `LiteDB/` needs
+  `// polling: <reason>` on its line or within the two lines above. A waiter that
+  times out and retries loses its place in the queue, so later arrivals can win
+  the handoff and tail latency grows with the interval.
+- `lint_invariant_comments.py`: a deleted comment in `LiteDB/` stating an
+  ordering or prohibition (`must not`, `never`, `invariant`, `do not`,
+  `must ... before/after`, `cannot`, `without`) must be listed in the PR
+  description, with where the invariant is enforced now:
+
+  ```markdown
+  ### Moved invariants
+
+  - LiteDB/Client/Shared/X.cs:120 → LiteDB.Tests/Shared/X_Tests.cs#Waiters_Keep_Their_Turn
+  - "readers must not outlive the pin" → [marker: refusal:pin-closed]
+  ```
+
+  Name the base location or quote three or more words of the comment; the
+  reference after the arrow must resolve at head. A comment moved or reflowed
+  unchanged is no deletion. The Safety section workflow checks the description;
+  the Safety policy job only lists the deletions.
+- `lint_doc_claims.py`: a new or changed sentence under `docs/` containing
+  `propagate`, `never`, `always`, `rejects`, `refuses` or `guaranteed` needs
+  either an inline anchor that resolves, `[test: <path-or-Class>#<Method>]` or
+  `[marker: <name>]`, or a claim in
+  [`contracts.json`](../../.github/safety/contracts.json) (see
+  [Contracts and fault points](#contracts-and-fault-points)). Unchanged
+  sentences are not judged; `--all` lists the backlog.
+
+An anchor proves that a reference exists, not that the test establishes the
+sentence. That judgment is the [semantic review](#semantic-review).
+
+### Semantic review
+
+For a [critical](validation.md#scale-evidence-with-complexity-and-persistence-risk)
+change, a reviewer who did not write the change reads every normative sentence
+the change adds or edits, together with the evidence named for it, and records
+the result as a `contracts.json` claim:
+
+```json
+{"doc": "docs/x.md", "sentence": "cleanup failures now propagate from Dispose",
+ "evidence": [{"test": "LiteDB.Tests/X_Tests.cs#Method", "proves": "the observed event that establishes it"}]}
+```
+
+`proves` states what the test observes, and must cover every mode and caller
+the sentence covers. A sentence whose evidence covers only part of it is
+narrowed, or recorded with `"gap": "<what is not covered>"`. `check_contracts.py`
+fails when a claimed sentence is no longer in its document, so an edited
+promise is reviewed again. A behavioral promise also gets an
+[`intended-changes.json`](#differential-run) entry, so the differential run
+checks that the code actually changed.
+
+### Differential run
+
+`differential_run.py` builds the merge-base and the head in separate worktrees
+(`TestingEnabled=true`) and runs the same fuzz targets, seeds and counts on each
+tree's own harness. Seeds are fixed per PR number. It compares **normalized
+outcomes** per operation class and dimension (`op`, `dimension` in
+`outcomes.jsonl`):
+
+- the set of outcome kinds observed. An outcome outside a record's declared
+  `permitted` set (`ok`, `threw`, `threw:Type#code`, ...) fails on its own. A
+  racing operation declares the outcomes it may legally end in; when both trees
+  declare the same set, which of them a run hit is a permitted variation, not a
+  difference;
+- the exception contract: the types (and error codes) that escape, and whether
+  the primary failure survives when cleanup also fails (`primaryExceptionType`);
+- payloads and acknowledged effects (`payloadDigest`, `effectsDigest`), compared
+  as multisets;
+- cleanup obligations: a `ConnectionClean` or `Quiescent` evaluation that is
+  unclean, or shows a violation kind, where the base was clean; a `FaultDisposed`
+  declared-to-observed disposition the base did not show;
+- markers and fault points the base reached that the head no longer reaches.
+
+Timings, raw traces, metric values and the order of legal concurrent winners
+are not compared. Performance is separate evidence. Concurrent targets are
+native-thread evidence: with `--repeat N` (the workflow uses 2), an operation
+whose outcome set varies between runs of one tree is reported as
+schedule-dependent instead of failing. Repeats cannot classify a rare race that
+one tree happens not to hit, so declaring `permitted` is the real remedy. A field the harness does
+not record on both sides is listed as *not compared*. Operation classes and
+markers seen only on the head are listed as capabilities, not diffed.
+
+Every remaining difference must be claimed by an entry this PR adds to
+[`intended-changes.json`](../../.github/safety/intended-changes.json). An entry
+whose change is not observed fails as well, so a promised contract change that
+the code does not make is caught. Only entries added by the change count, as
+with the coverage ledger. An entry names the operation class, an optional
+dimension pattern, the change, the old and new behavior, the doc sentence that
+promises it and the reason:
+
+```json
+{"call": "Dispose", "dimension": "mode=shared", "change": "new-exception",
+ "before": "none", "after": "System.IO.IOException",
+ "doc": "docs/x.md#cleanup failures now propagate", "reason": "..."}
+```
+
+`change` is one of `new-exception`, `exception-removed`, `primary-changed`,
+`outcome-change`, `payload-change`, `effect-change`, `cleanup-change` or `marker`.
+The `doc` fragment quotes the promising sentence, or names a heading whose
+section mentions the call; `check_intended_changes.py` validates both in the
+Safety policy job.
+
+When a PR changes behavior on purpose:
+
+1. Write the doc sentence and its contracts.json claim.
+2. Add the manifest entry.
+3. Run the differential run locally and put its markdown report in the PR
+   description:
+
+```bash
+python .github/scripts/differential_run.py --base "$(git merge-base HEAD origin/dev)" \
+  --targets chaos,concurrent --seeds 2947,102947 --count 30
+```
+
+Both trees need the outcome-emitting fuzz harness. The workflow skips with a
+visible warning while the base lacks it. For an older tree, check it out as a
+worktree, apply the harness commits on top and pass `--base-tree` (or
+`--head-tree`). `--base-runs`/`--head-runs` compare existing run directories.
+
+### Mutation on the diff
+
+Mutation on the diff is a pilot. PRs labelled `critical`, and manual runs,
+execute `mutation.yml`, which calls `.github/scripts/run_mutation.py`. The helper:
+
+- runs the pinned `dotnet-stryker` (`.config/dotnet-tools.json`) with the
+  committed `LiteDB.Tests/stryker-config.json` (passed with `--config-file`),
+  `--since` the full merge-base SHA;
+- sets `TestingEnabled=true` and `TargetFramework=net8.0` in the environment,
+  because the tests call TESTING hooks and the projects are multi-target;
+- mutates changed files in `LiteDB/Client`, `LiteDB/Engine/Services` and
+  `LiteDB/Engine/Engine`;
+- from a linked `git worktree`, runs in a temporary clone of the worktree's
+  HEAD. Stryker resolves a worktree to the main checkout, and uncommitted
+  changes are not mutated.
+
+`mutation_gate.py` lists the surviving mutants (Survived, NoCoverage) whose span
+touches a changed line. They are lines to write behavior tests for, not a score;
+no score threshold applies. A survivor in cleanup or lock code is classed
+*blocking*, and the class fails the job only once the switch is on. Cleanup or
+lock code means:
+
+- the body of `Dispose`, `DisposeAsync`, `Close`, `CloseAsync`, `Release*` or
+  `*Finally`, or a finalizer;
+- a `finally` block;
+- a type or file whose name contains the word lock, gate, monitor, mutex, pin,
+  turnstile or lifetime.
+
+Survivors elsewhere are advisory. Timeout counts as detected. CompileError,
+RuntimeError and Pending mutants in that code are reported as not evaluated:
+Stryker discards every mutant of a method when one does not compile. A report
+that does not match the head revision fails in either mode.
+
+Changed test files broaden the mutant set. Stryker treats a changed test as
+invalidating every mutant its tests cover, so a test-only change re-tests all
+of them; the survivor list still covers changed lines only. The run is not per
+PR because every mutant of a changed file is tested, and the cost is not yet
+measured on the full suite. Survivor outcomes are measured per run, not predicted.
+
+```bash
+python .github/scripts/run_mutation.py --base "$(git merge-base HEAD origin/dev)" --output /tmp/mutation \
+  [--test-case-filter 'FullyQualifiedName~X']
+```
+
 ## Regression proofs
 
 A fix proves its regression test against a **real** state in which the bug
@@ -114,7 +321,10 @@ test detects the bug that actually occurred. Pin the strongest state available:
 1. a published NuGet package containing the bug (`package`);
 2. a commit that existed on `dev` (`dev-commit`);
 3. only when the defect was introduced and fixed before reaching `dev`, a commit
-   of the originating PR (`pr-commit`).
+   of the originating PR (`pr-commit`). A PR of another repository (a fork) also
+   names it: `"repository": "owner/name"`. Without that field the PR number
+   means this repository's PR, so a fork commit fails provenance with a message
+   that names the field.
 
 Record the proof in
 [`regression-proofs.json`](../../.github/safety/regression-proofs.json). It
@@ -129,7 +339,9 @@ the fix adds hooks the old code lacks.
 The **Regression proof** workflow runs this lifecycle:
 
 - **Pull request.** For each proof the PR adds or changes, it verifies that the
-  package exists on nuget.org or that the commit is on `dev` or in the PR. Commit
+  package exists on nuget.org or that the commit is on `dev` or in the PR (its
+  `refs/pull/<pr>/head`, fetched fresh from `origin` or from the public
+  `repository`; a failed fetch is an error, never a stale local ref). Commit
   states are packed into a local feed. Then the known-bad state **must fail** and
   the candidate **must pass**. The repro's own configuration output proves which
   LiteDB each run loaded.
@@ -155,7 +367,8 @@ python .github/scripts/regression_proof.py new --id Issue_1234_ShortName --issue
 ```
 
 It pins the newest published package by default (`--known-bad` accepts
-`package:<version>`, `dev-commit:<sha>` or `pr-commit:<sha>@<pr>`), and its
+`package:<version>`, `dev-commit:<sha>`, `pr-commit:<sha>@<pr>` or, for a fork's
+PR, `pr-commit:<sha>@<owner>/<name>#<pr>`), and its
 `Program.cs` throws until the reproduction is written, so an unfinished repro
 fails the proof. Do not add new repros to `LiteDB.sln`: a repro pinned to a
 packed commit cannot restore in the ordinary build.
@@ -177,8 +390,50 @@ check's name changes with the counts; never make it a required check.
 
 To reproduce a commit state locally, run
 `python .github/scripts/regression_proof.py pack-known-bad --commit <sha> --feed
-<dir>`, set `RestoreAdditionalProjectSources=<dir>`, then run the repro with
+<dir>` (add `--pr <n> [--repository owner/name]` to fetch a PR commit the clone
+lacks), set `RestoreAdditionalProjectSources=<dir>`, then run the repro with
 ReproRunner.
+
+## Net proofs
+
+A regression proof shows that a *fix* is covered by a black-box repro. A **net
+proof** shows that a general *safety net* (an oracle, the wait-for graph, a fuzz
+target, a lint) detects a defect it was not written for: the net fires with its
+expected assertion at the known-bad commit and stays quiet at the fix. Entries
+live in [`net-proofs.json`](../../.github/safety/net-proofs.json) and use the
+same `knownBad` provenance (`dev-commit`, or `pr-commit` with `repository`;
+packages cannot be overlaid). `level` says whether a net not written for the bug
+fired (`generic`) or a bug-specific test was turned into an attributable yell
+(`reproduction`); never present one as the other. `independence` records
+`tuned-after-fix: <why>` when the net was changed after reading the fix.
+
+`net_proof.py run --id <id>` checks out both commits as worktrees, applies the
+net's overlay (cherry-picked commits, patches, and adapter directories from
+[`tools/net-proofs/adapters/`](../../tools/net-proofs/README.md) that compile only
+against the historical trees), builds, and runs the command under a hard
+wall-clock limit. Its result is `proven` or one of `not-fired`, `fired-at-fix`,
+`fired-differently`, `not-reproduced`, `harness-error`, `not-applicable`; only
+`proven` passes.
+
+**Capabilities.** The ledger's capability table declares a probe (a file, or a
+regular expression over files) per capability, such as `handle-api`, which only
+the PR #133 fork has. Each tree is probed before and after its overlay. When a
+capability the net `requires` is missing, the proof is **not applicable** with
+the missing names: it is reported and fails the run, and it never counts as
+passing. `net_proof.py capabilities --rev <rev>` lists what a revision has.
+
+**Evidence classes** set the re-run rule:
+
+| Class | Nets | Rule |
+| --- | --- | --- |
+| 1 | Controlled schedules, abstract models | The firing must replay with the same assertion (`replays`, default 1), else `not-reproduced` |
+| 2 | Native threads, multiple processes | `runs` (default 3) per side; one matching firing proves, the fire rate is recorded, and any firing at the fix is kept as a finding |
+| 3 | Performance | `runs` (default 5) alternating between the sides; a side fires when its share of failing runs reaches `tolerance.fireFraction` (the command applies the measured tolerance); `tolerance.metric` records the values |
+
+A non-reproduction is classified (schedule-dependent, environment-dependent, or
+harness nondeterminism) before any conclusion. CI validates the ledger offline
+in the Safety policy job. Proofs run only from the manual **Net proofs**
+workflow, never on every PR.
 
 ## CI evidence
 
@@ -220,11 +475,16 @@ fresh green Safety evidence run on that merge ref, then merge. The scheduled ful
 CI run is the post-merge backstop.
 
 Repository settings are unchanged for now: no check is required and there is no
-merge queue, so a check that fails to start cannot block every merge. When the
-checks have run reliably for a while, require **build-and-test / Safety
-evidence** first; it runs on every PR. Never require path-filtered workflows
-(Regression proof, Fuzz, index migration): a required check that does not run
-stays pending and blocks the PR.
+merge queue, so a check that fails to start cannot block every merge. The merge
+gate is **build-and-test / Safety evidence**: it runs on every PR (and accepts
+`merge_group`), and it requires every declared job, including the always-run
+**Oracle smoke** job (oracle self-tests and the oracle-wired fuzz targets at a
+small count), so the candidate tree carries oracle evidence even when the
+path-filtered Fuzz workflow does not run. A maintainer enables it in the
+repository settings: branch protection (or a ruleset) for `dev`, "Require status
+checks to pass", add `build-and-test / Safety evidence`. Never require
+path-filtered workflows (Regression proof, Fuzz, index migration): a required check
+that does not run stays pending and blocks the PR.
 
 ## Findings, gates and audits
 
