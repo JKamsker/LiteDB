@@ -308,6 +308,7 @@ namespace LiteDB.Engine
             }
 
             this.ReleaseCommitSnapshots();
+            if (_transPages.CommitTicket != 0) _disk.CommitGroup?.EnsureDurable(_transPages.CommitTicket);
             _state = TransactionState.Committed;
         }
 
@@ -317,7 +318,6 @@ namespace LiteDB.Engine
             _snapshots.Clear();
             _cursorSnapshots.Clear();
         }
-
         internal void PersistAndConfirm()
         {
             // persist all dirty page as commit mode (mark last page as IsConfirm)

@@ -17,12 +17,13 @@ namespace LiteDB.Engine
         internal int BackfillVersion => _backfillVersion;
 #endif
 
-        internal int PinSnapshot(bool write = false)
+        internal int PinSnapshot(TransactionPages write = null)
         {
             _indexLock.EnterWriteLock();
             try
             {
-                var version = write ? _currentReadVersion : Math.Min(_currentReadVersion, _disk.CommitReadVersionLimit);
+                var version = write != null ? _currentReadVersion : Math.Min(_currentReadVersion, _disk.CommitReadVersionLimit);
+                if (write != null) _disk.CommitGroup?.CaptureDependency(write);
 #if DEBUG || TESTING
                 SnapshotCaptured?.Invoke();
 #endif

@@ -19,6 +19,8 @@ namespace LiteDB.Engine
         /// </summary>
         public uint TransactionID { get; set; }
         internal bool DeferCommitSync { get; set; }
+        // Covers both observed write snapshots and this transaction's confirmation.
+        // Zero is valid only before any grouped append has been observed.
         internal long CommitTicket { get; set; }
 
         /// <summary>

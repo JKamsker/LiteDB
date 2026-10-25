@@ -41,6 +41,17 @@ namespace LiteDB.Engine
             return ++_appended;
         }
 
+        // Snapshot capture owns the index lock. Taking the writer monitor follows
+        // checkpoint's lock order and includes every appended version it can see.
+        // A later, not yet published append may be included conservatively.
+        internal void CaptureDependency(TransactionPages pages)
+        {
+            lock (_disk.WalWriterLock)
+            {
+                pages.CommitTicket = Math.Max(pages.CommitTicket, _appended);
+            }
+        }
+
         internal bool TryCommit(TransactionService transaction, HeaderPage header)
         {
             if (transaction.Pages.HasCommitCallbacks || transaction.OpenCursors.Count != 0) return false;
@@ -52,7 +63,6 @@ namespace LiteDB.Engine
                 // at ReadVersionLimit until a successful sync covers that version.
                 transaction.ReleaseCommitSnapshots();
             }
-            EnsureDurable(transaction.Pages.CommitTicket);
             return true;
         }
 

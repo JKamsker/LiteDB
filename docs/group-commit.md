@@ -14,6 +14,15 @@ entries does not expose them to readers. Collection-map callbacks retain their
 existing publication lock through sync and confirmation.
 
 Each appended confirmation receives an increasing in-memory ticket. A committer
+also captures a dependency ticket when pinning a write snapshot. Capture holds
+the index lock and then the WAL writer monitor, so the ticket covers every
+pending version that snapshot can observe (and may conservatively include a
+later append). Transaction completion waits for this ticket even when it writes
+no confirmation frame. A new confirmation advances the same ticket. Zero is
+safe only when snapshot capture established that no grouped append existed;
+absence of dirty pages alone says nothing about durability.
+
+A committer
 enters the sync monitor and immediately takes the writer monitor, flushes managed
 buffers and compatibility padding, and captures the latest ticket and version.
 It releases the writer monitor and syncs the file descriptor. Appends can proceed
@@ -21,6 +30,17 @@ while that device operation runs. A successful sync releases exactly the capture
 prefix; later appends wait for the next sync even if the device also persisted
 them. Waiters whose tickets are already covered return without another sync.
 A lone writer starts its sync immediately; there is no timer or collection delay.
+
+Automatic write results, including no-op counts and already-existing indexes,
+return only after their dependency is covered. Recoverable write errors also
+cover it before rollback returns the original error: a duplicate-key error can
+otherwise disclose an insert that is still pending. A failed dependency barrier
+instead returns the I/O failure and stops the engine. Standalone `FOR UPDATE`
+queries cover their dependency before yielding, because they release rather than
+commit their query transaction. Ordinary read snapshots, including read-only
+explicit transactions, select the durable prefix. Results inside an explicit
+write transaction remain provisional until its `Commit`; promotion from a read
+snapshot captures the write dependency, including for a subsequent no-op.
 
 The sync uses the existing native error-reporting `fsync` / `F_FULLFSYNC` policy
 (Windows: descriptor-based `FlushFileBuffers` through `RandomAccess`). It never
@@ -56,6 +76,14 @@ survive, all recovered documents must remain complete and indexed, read-only
 recovery must preserve both sources, and writable recovery must repeat. Existing
 WAL/checkpoint tests cover further torn/reordered/lost-write combinations. None
 is a physical-device power-loss test.
+
+`GroupCommitReview_Tests` retains the reviewer's failed-barrier reproductions for
+EnsureIndex and automatic/explicit no-op deletes. `GroupCommitDependency_Tests`
+adds successful and failed dependency barriers for Update/UpdateMany/DeleteMany,
+DropIndex/EnsureIndex, Upsert returning false, unique/index errors, standalone
+FOR UPDATE, and explicit read-to-write promotion. Saved successful barrier images
+and the pre-append durable image model loss of unsynced writes, with exact
+primary/secondary results across recovery, checkpoint and a second reopen.
 
 Checkpoint preflight on an ordinary FileStream hashes the same bytes whose WAL
 proofs and complete transaction set it validates. That checksum is consumed by
