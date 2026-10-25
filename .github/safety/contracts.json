@@ -31,7 +31,7 @@
       ],
       "evidence": [
         {"test": "LiteDB.Tests/Internals/GroupCommit_Tests.cs#Concurrent_commits_share_barriers_and_preserve_durable_visibility", "model": "modeled-power-loss", "proves": "Retains each successful descriptor barrier image, then tears, loses and truncates every unsynced follower frame through GroupCommitRecovery; acknowledged rows and exact indexed contents survive read-only recovery and repeated checkpoint/reopen."},
-        {"test": "LiteDB.Tests/Internals/GroupCommit_Tests.cs#Concurrent_commits_share_barriers_and_preserve_durable_visibility", "model": "interleaving", "proves": "Held descriptor barriers with same/different-collection writers, partial checkpoint, exact reader prefixes and acknowledgement sets; either failed barrier stops all pending waiters before another sync."},
+        {"test": "LiteDB.Tests/Internals/GroupCommit_Tests.cs#Concurrent_commits_share_barriers_and_preserve_durable_visibility", "model": "exception", "proves": "Held descriptor barriers with same/different-collection writers, partial checkpoint, exact reader prefixes and acknowledgement sets; either failed barrier stops all pending waiters before another sync."},
         {"fuzz": "power-loss", "model": "modeled-power-loss", "proves": "Each operation's acknowledgment is recorded outside the engine; after a cut only the in-flight operation may resolve to old or new, and complete documents and FileStorage bytes are compared."},
         {"test": "LiteDB.Tests/Internals/WalPowerLoss_Tests.cs#SectorTearsOfNewAppends_PreserveAcknowledgedPrefix", "model": "modeled-power-loss", "proves": "Sector tears of new WAL appends keep every acknowledged commit before them."},
         {"test": "LiteDB.Tests/Internals/MvccRootedCheckpoint_Tests.cs#RootedFullCheckpoint_PowerLossPreservesPayloadsAndIndexes", "model": "modeled-power-loss", "proves": "A rooted full checkpoint cut at each phase keeps complete payloads, secondary-index results and untouched data."},
@@ -96,7 +96,7 @@
         "LiteDB/Document/DataReader/**"
       ],
       "evidence": [
-        {"test": "LiteDB.Tests/Internals/GroupCommit_Tests.cs#Concurrent_commits_share_barriers_and_preserve_durable_visibility", "model": "interleaving", "proves": "Held descriptor barriers with same/different-collection writers, partial checkpoint, exact reader prefixes and acknowledgement sets; either failed barrier stops all pending waiters before another sync."},
+        {"test": "LiteDB.Tests/Internals/GroupCommit_Tests.cs#Concurrent_commits_share_barriers_and_preserve_durable_visibility", "model": "exception", "proves": "Held descriptor barriers with same/different-collection writers, partial checkpoint, exact reader prefixes and acknowledgement sets; either failed barrier stops all pending waiters before another sync."},
         {"test": "LiteDB.Tests/Internals/MvccReclamationRace_Tests.cs#AResolvedButUnreadWalOffsetCannotBeReclaimed", "model": "exception", "proves": "A WAL offset a reader resolved but has not read yet is never reclaimed under a concurrent checkpoint."},
         {"test": "LiteDB.Tests/Internals/MvccCursorModel_Tests.cs#LongLivedCursorsAcrossCheckpoints_MatchModel", "proves": "Long-lived cursors across partial checkpoints return exactly what an independent model predicts."},
         {"test": "LiteDB.Tests/Engine/SharedReaderModel_Tests.cs#InterleavedSharedInstances_ReadersMatchModel", "proves": "Held readers of interleaved Shared instances match an independent model."},
