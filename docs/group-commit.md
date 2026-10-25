@@ -21,6 +21,9 @@ later append). Transaction completion waits for this ticket even when it writes
 no confirmation frame. A new confirmation advances the same ticket. Zero is
 safe only when snapshot capture established that no grouped append existed;
 absence of dirty pages alone says nothing about durability.
+Capture consults only an existing group; it never opens the lazy WAL writer
+before registering the snapshot pin. Every published grouped version already
+has its group, created before append and WAL-index confirmation.
 
 A committer
 enters the sync monitor and immediately takes the writer monitor, flushes managed

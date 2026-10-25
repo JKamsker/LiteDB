@@ -10,6 +10,12 @@ namespace LiteDB.Engine
         internal int CommitReadVersionLimit => Volatile.Read(ref _commitGroup)?.ReadVersionLimit ?? int.MaxValue;
         internal IEnumerable<int> PendingCommitVersions => Volatile.Read(ref _commitGroup)?.PendingVersions ?? System.Linq.Enumerable.Empty<int>();
 
+        // Snapshot capture must not initialize the lazy writer: an open failure
+        // would occur before its pin was registered. Any published grouped version
+        // already has a group, initialized before append and index confirmation.
+        internal void CaptureCommitDependency(TransactionPages pages) =>
+            Volatile.Read(ref _commitGroup)?.CaptureDependency(pages);
+
         internal WalCommitGroup CommitGroup
         {
             get

@@ -23,7 +23,7 @@ namespace LiteDB.Engine
             try
             {
                 var version = write != null ? _currentReadVersion : Math.Min(_currentReadVersion, _disk.CommitReadVersionLimit);
-                if (write != null) _disk.CommitGroup?.CaptureDependency(write);
+                if (write != null) _disk.CaptureCommitDependency(write);
 #if DEBUG || TESTING
                 SnapshotCaptured?.Invoke();
 #endif
