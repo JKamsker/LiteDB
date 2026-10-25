@@ -37,6 +37,7 @@ namespace LiteDB.Engine
             try
             {
                 NativeFileSync.FlushDevice((FileStream)((ChecksummedWalStream)_writer.Value).RawStream);
+                _logSyncProven = true;
             }
             catch (System.Exception error) when (IsDurableFlushUnsupported(error))
             {

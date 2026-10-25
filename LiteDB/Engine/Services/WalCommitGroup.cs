@@ -50,7 +50,7 @@ namespace LiteDB.Engine
                 transaction.PersistAndConfirm();
                 // Writers may build on the appended version. Readers are pinned
                 // at ReadVersionLimit until a successful sync covers that version.
-                foreach (var snapshot in transaction.Snapshots) snapshot.Dispose();
+                transaction.ReleaseCommitSnapshots();
             }
             EnsureDurable(transaction.Pages.CommitTicket);
             return true;

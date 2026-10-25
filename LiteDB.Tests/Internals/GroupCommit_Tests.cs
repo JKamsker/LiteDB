@@ -144,6 +144,61 @@ namespace LiteDB.Tests.Internals
             }
         }
 
+        [Theory]
+        [InlineData(CompactStorageMode.Auto)]
+        [InlineData(CompactStorageMode.Legacy)]
+        public async Task Grouped_multi_collection_transactions_preserve_rollback_indexes_and_pinned_readers(
+            CompactStorageMode storage)
+        {
+            using var file = new TempFile();
+            using (var engine = new LiteEngine(new EngineSettings { Filename = file.Filename, CompactStorage = storage }))
+            using (var db = new LiteDatabase(engine, disposeOnClose: false))
+            {
+                db.CheckpointSize = 0;
+                var rows = db.GetCollection("rows");
+                var audit = db.GetCollection("audit");
+                rows.EnsureIndex("value");
+                audit.EnsureIndex("value");
+                for (var worker = 1; worker <= 4; worker++)
+                    rows.Insert(new BsonDocument { ["_id"] = worker, ["value"] = -1 });
+                db.Checkpoint();
+                db.CheckpointSize = 32;
+                using (var pinned = rows.FindAll().GetEnumerator())
+                {
+                    pinned.MoveNext().Should().BeTrue();
+                    var first = pinned.Current;
+                    var tasks = Enumerable.Range(1, 4).Select(worker => Task.Factory.StartNew(() =>
+                    {
+                        for (var step = 0; step < 16; step++)
+                        {
+                            db.BeginTrans();
+                            rows.Update(new BsonDocument { ["_id"] = worker, ["value"] = step });
+                            audit.Insert(new BsonDocument { ["_id"] = worker * 100 + step, ["value"] = step });
+                            if (step % 3 == 0) db.Rollback();
+                            else db.Commit();
+                        }
+                    }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
+                    await Completes(Task.WhenAll(tasks));
+                    first["value"].AsInt32.Should().Be(-1);
+                    while (pinned.MoveNext()) pinned.Current["value"].AsInt32.Should().Be(-1);
+                    engine.Checkpoint();
+                }
+            }
+            for (var open = 0; open < 2; open++)
+            {
+                using var db = new LiteDatabase(file.Filename);
+                db.GetCollection("rows").FindAll().Should().HaveCount(4)
+                    .And.OnlyContain(row => row["value"].AsInt32 == 14);
+                db.GetCollection("rows").Find(Query.EQ("value", 14)).Should().HaveCount(4);
+                var expected = Enumerable.Range(1, 4).SelectMany(worker => Enumerable.Range(0, 16)
+                    .Where(step => step % 3 != 0).Select(step => worker * 100 + step));
+                db.GetCollection("audit").FindAll().Select(row => row["_id"].AsInt32)
+                    .Should().BeEquivalentTo(expected);
+                db.GetCollection("audit").Find(Query.EQ("value", 15)).Should().BeEmpty("that transaction rolled back");
+                db.Checkpoint();
+            }
+        }
+
         private static async Task Completes(Task task)
         {
             (await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(25)))).Should().BeSameAs(task);

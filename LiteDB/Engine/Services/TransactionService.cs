@@ -307,13 +307,15 @@ namespace LiteDB.Engine
                 }
             }
 
-            // dispose all snapshots
-            foreach (var snapshot in this.Snapshots)
-            {
-                snapshot.Dispose();
-            }
-
+            this.ReleaseCommitSnapshots();
             _state = TransactionState.Committed;
+        }
+
+        internal void ReleaseCommitSnapshots()
+        {
+            foreach (var snapshot in this.Snapshots) snapshot.Dispose();
+            _snapshots.Clear();
+            _cursorSnapshots.Clear();
         }
 
         internal void PersistAndConfirm()
