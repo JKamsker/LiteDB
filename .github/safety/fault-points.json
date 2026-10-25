@@ -1064,6 +1064,11 @@
       "protocol": "WAL commit publication",
       "evidence": [
         {
+          "test": "LiteDB.Tests/Internals/GroupCommit_Tests.cs#Concurrent_commits_share_barriers_and_preserve_durable_visibility",
+          "model": "interleaving",
+          "proves": "All followers reach pending index insertion while the leader's sync is held; no premature acknowledgement or reader visibility, including checkpoint and failed-sync interleavings."
+        },
+        {
           "test": "LiteDB.Fuzz.Tests/SharedCheckpointCrashScope_Tests.cs#Only_checkpoint_crash_workers_retain_the_native_mutex_after_commit",
           "model": "process-death",
           "proves": "A worker crashing after index confirmation releases the native mutex."

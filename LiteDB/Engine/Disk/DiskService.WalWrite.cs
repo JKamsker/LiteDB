@@ -34,6 +34,8 @@ namespace LiteDB.Engine
             var hasConfirmation = false;
             var reusePublished = false;
             var stream = _writer.Value;
+            var group = CommitGroup;
+            long commitTicket = 0;
             Exception flushFailure = null;
             var ownsFailure = false;
 
@@ -41,6 +43,7 @@ namespace LiteDB.Engine
             lock (stream)
             {
                 _state.Validate();
+                var previousVersion = checked((int)(_checksums.LastConfirmedPosition / PAGE_SIZE + 1));
                 using (var iterator = pages.GetEnumerator())
                 {
                     if (!iterator.MoveNext()) return 0;
@@ -118,9 +121,16 @@ namespace LiteDB.Engine
                     }
                 }
 
-                // A confirmation makes this WAL batch recoverable. Make all preceding
-                // pages durable before WAL-index confirmation or acknowledging commit.
-                if (hasConfirmation)
+                // A confirmation makes this WAL batch recoverable. Grouped writers
+                // can use the pending index; reader visibility and acknowledgements
+                // wait for a barrier covering every preceding frame.
+                if (hasConfirmation && group != null)
+                {
+                    commitTicket = group.Append(previousVersion,
+                        checked((int)(_checksums.LastConfirmedPosition / PAGE_SIZE + 1)));
+                    if (transactionState != null) transactionState.CommitTicket = commitTicket;
+                }
+                else if (hasConfirmation)
                 {
                     try
                     {
@@ -141,6 +151,9 @@ namespace LiteDB.Engine
                 }
                 else stream.Flush();
             }
+
+            if (commitTicket != 0 && !(transactionState?.DeferCommitSync ?? false))
+                group.EnsureDurable(commitTicket);
 
             if (flushFailure != null)
             {
