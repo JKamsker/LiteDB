@@ -56,3 +56,15 @@ retirement records have been appended, and materializing padding changes no byte
 Encrypted, caller-stream, unaligned and nonzero-padding cases retain the original
 verification path. `CheckpointVerification_Tests` covers plain-file preflight,
 padding fallback, corruption refusal without source mutation, indexes and reopen.
+
+On 64-bit Linux, ordinary file WAL streams also reserve extents in 4 MiB chunks
+with `fallocate(KEEP_SIZE)`. This is an optional allocation hint: it never changes
+EOF, frame addresses, padding or existing bytes. Unsupported/failed reservations
+disable the hint; subsequent ordinary writes retain their normal error handling.
+Truncation resets the capacity hint. Journal retirement may release unused
+reserved extents; correctness never depends on the hint remaining accurate.
+The reservation can retain up to a chunk of unused disk allocation. Compatibility
+padding still extends the logical file at flush boundaries: replacing that with
+whole zero frames would change recovery semantics and is deliberately avoided.
+`WalFileAllocation_Tests` checks unchanged EOF/payload, truncate/reserve/rewrite,
+reopen and caller-stream behavior; existing WAL fault tests cover actual writes.
