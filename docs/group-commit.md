@@ -45,9 +45,13 @@ transactions, two held barriers, a partial checkpoint, and failure of either
 barrier. It checks exact reader views and acknowledgements at each boundary,
 two commit syncs for the whole group, no subsequent sync after a failure, and
 file-image recovery with indexed results followed by a checkpoint and second open.
-Its power-loss model retains complete images from successful barriers; existing
-WAL/checkpoint tests separately cover torn/reordered/lost writes. Neither is a
-physical-device power-loss test.
+Its power-loss model retains complete images from successful barriers.
+`GroupCommitRecovery` additionally tears, loses and truncates each later frame,
+including images where later confirmations persist. The acknowledged prefix must
+survive, all recovered documents must remain complete and indexed, read-only
+recovery must preserve both sources, and writable recovery must repeat. Existing
+WAL/checkpoint tests cover further torn/reordered/lost-write combinations. None
+is a physical-device power-loss test.
 
 Checkpoint preflight on an ordinary FileStream hashes the same bytes whose WAL
 proofs and complete transaction set it validates. That checksum is consumed by

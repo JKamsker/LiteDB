@@ -107,6 +107,8 @@ namespace LiteDB.Tests.Internals
                     for (var id = 1; id <= writers; id++)
                         db.GetCollection(Name(id)).Count().Should().Be(collections && id != 1 ? 1 : 2);
                     VerifyImage(secondData, secondWal, writers, collections, writers);
+                    if (failingSync == 0 && !collections && writers == 4)
+                        GroupCommitRecovery.CheckUnsyncedTails(durableData, firstWal, secondWal, writers);
                     releaseSecond.Set();
                 }
                 var all = Task.WhenAll(tasks);
