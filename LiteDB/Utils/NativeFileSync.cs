@@ -75,19 +75,19 @@ namespace LiteDB
         // Only exact FileStreams use this path. Their managed buffers have already
         // been flushed under the WAL writer monitor; this touches the descriptor
         // only, allowing another writer to append while the device sync runs.
-        internal static void FlushDevice(FileStream stream)
+        internal static void FlushDevice(Microsoft.Win32.SafeHandles.SafeFileHandle handle, string path)
         {
 #if NET8_0_OR_GREATER
-            if (_windows) RandomAccess.FlushToDisk(stream.SafeFileHandle);
+            if (_windows) RandomAccess.FlushToDisk(handle);
             else if (NativeLibc.TryGet(out var fsync, out var fcntl))
             {
-                var errno = Sync(stream.SafeFileHandle, fsync, fcntl);
-                if (errno != 0) throw new FileSyncException(stream.Name, errno, _bsd);
+                var errno = Sync(handle, fsync, fcntl);
+                if (errno != 0) throw new FileSyncException(path, errno, _bsd);
             }
-            else throw FileSyncException.Unavailable(stream.Name);
+            else throw FileSyncException.Unavailable(path);
 #if DEBUG || TESTING
-            var injected = SimulateErrno?.Invoke(stream.Name) ?? 0;
-            if (injected != 0) throw new FileSyncException(stream.Name, injected, _bsd);
+            var injected = SimulateErrno?.Invoke(path) ?? 0;
+            if (injected != 0) throw new FileSyncException(path, injected, _bsd);
 #endif
 #else
             throw new NotSupportedException();

@@ -24,7 +24,11 @@ A lone writer starts its sync immediately; there is no timer or collection delay
 
 The sync uses the existing native error-reporting `fsync` / `F_FULLFSYNC` policy
 (Windows: descriptor-based `FlushFileBuffers` through `RandomAccess`). It never
-uses a buffered FileStream method concurrently with appends. The WAL directory
+uses a buffered FileStream method concurrently with appends. Even the
+`SafeFileHandle` getter flushes managed buffers, so the leader captures that
+handle under the writer monitor before allowing appends. The descriptor-only
+sync test verifies that later buffered bytes remain owned by their writer.
+The WAL directory
 barrier still precedes acknowledgement. Unsupported-sync handling retains the
 existing documented degraded mode. Any actual failure publishes the engine's
 fatal state before releasing the sync monitor, fails all pending waiters, and

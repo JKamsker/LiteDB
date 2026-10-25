@@ -68,17 +68,22 @@ namespace LiteDB.Engine
                     if (_durable >= ticket) return;
                     long target;
                     int version;
+                    Microsoft.Win32.SafeHandles.SafeFileHandle handle;
+                    string path;
                     lock (_disk.WalWriterLock)
                     {
                         _state.Validate();
                         target = _appended;
                         version = _appendedVersion;
                         ((Stream)_disk.WalWriterLock).Flush();
+                        // The SafeFileHandle getter itself flushes FileStream buffers.
+                        // Capture it while writes are excluded, never during the sync.
+                        handle = _disk.CaptureCommitHandle(out path);
                     }
 #if DEBUG || TESTING
                     _disk.TestCrashPoint("wal-before-durable-flush");
 #endif
-                    _disk.FlushCommitGroup();
+                    _disk.FlushCommitGroup(handle, path);
 #if DEBUG || TESTING
                     _disk.TestCrashPoint("wal-after-durable-flush");
 #endif

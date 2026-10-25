@@ -32,11 +32,19 @@ namespace LiteDB.Engine
             }
         }
 
-        internal void FlushCommitGroup()
+        // Caller owns the writer monitor: exposing SafeFileHandle flushes buffers.
+        internal Microsoft.Win32.SafeHandles.SafeFileHandle CaptureCommitHandle(out string path)
+        {
+            var file = (FileStream)((ChecksummedWalStream)_writer.Value).RawStream;
+            path = file.Name;
+            return file.SafeFileHandle;
+        }
+
+        internal void FlushCommitGroup(Microsoft.Win32.SafeHandles.SafeFileHandle handle, string path)
         {
             try
             {
-                NativeFileSync.FlushDevice((FileStream)((ChecksummedWalStream)_writer.Value).RawStream);
+                NativeFileSync.FlushDevice(handle, path);
                 _logSyncProven = true;
             }
             catch (System.Exception error) when (IsDurableFlushUnsupported(error))

@@ -15,6 +15,26 @@ namespace LiteDB.Tests.Internals
     [Collection(NativeFileSyncCollection.Name)]
     public class GroupCommit_Tests
     {
+        [Fact]
+        public void Descriptor_sync_does_not_flush_a_later_writers_managed_buffer()
+        {
+            using var file = new TempFile();
+            using (var stream = new FileStream(file.Filename, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, 8192))
+            {
+                stream.WriteByte(42);
+                stream.Flush();
+                var handle = stream.SafeFileHandle;
+                // A subsequent appender owns this buffer while the leader syncs
+                // its captured prefix. Touching SafeFileHandle again flushes it.
+                stream.WriteByte(99);
+                new FileInfo(file.Filename).Length.Should().Be(1);
+                NativeFileSync.FlushDevice(handle, stream.Name);
+                File.ReadAllBytes(file.Filename).Should().Equal(42);
+                stream.Flush();
+            }
+            File.ReadAllBytes(file.Filename).Should().Equal(42, 99);
+        }
+
         [Theory]
         [InlineData(4, false, false, 0)]
         [InlineData(8, false, true, 0)]
