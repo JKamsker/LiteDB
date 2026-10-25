@@ -127,7 +127,7 @@ namespace LiteDB.Engine
                 // starts with a full WAL validation.
                 if (reclaim) _backoff.Reset();
                 else if (!wait) return 0;
-                this.ValidateCheckpoint();
+                var verifiedBody = this.ValidateCheckpoint();
 
                 var pages = new List<PagePosition>();
                 foreach (var entry in _index)
@@ -145,7 +145,8 @@ namespace LiteDB.Engine
                 // WAL must be durable before its pages can reach the data file.
                 // The data flush completes before truncation can become durable.
                 var retirement = _disk.PrepareRetirement(obsolete);
-                _disk.SyncLogBeforeCheckpoint();
+                // Retirement appends witness records, invalidating the earlier byte hash.
+                _disk.SyncLogBeforeCheckpoint(retirement == null ? verifiedBody : null);
                 _disk.WriteDataDisk(_disk.ReadCheckpointPages(pages));
                 _backfillVersion = target;
 
