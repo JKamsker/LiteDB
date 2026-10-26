@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using LiteDB;
-using LiteDB.Engine;
 
 namespace Ab5021Benchmarks;
 
@@ -83,9 +82,6 @@ internal sealed class Workload
                 Require(db.Commit(), "commit delete");
             });
             Verify(col, _count / 10);
-            Measure("rebuild_90k", _count - _count / 10, path, () =>
-                db.Rebuild(new RebuildOptions { Collation = db.Collation }));
-            Verify(db.GetCollection<Document>("documents"), _count / 10);
             db.Checkpoint();
         }
         Measure("open_close_20x", 20, path, () =>

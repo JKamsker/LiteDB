@@ -28,8 +28,12 @@ Point lookups retrieve 10k full documents by indexed Key using fixed random ids;
 full scan materializes 3x100k documents through an unindexed `Value >= 0` query.
 These are warm-cache measurements, after an untimed full contents check.
 Update and delete each affect the first 10k docs in one explicit transaction.
-Rebuild operates on the remaining 90k docs with the same primary/secondary indexes,
-passing the existing collation explicitly (v5 otherwise defaults the replacement).
+Rebuild is excluded: the third hosted attempt showed v5 throwing
+`Detected loop in FindAll({0})` while recreating the secondary index of the
+90k-document replacement (all six OS/runtime jobs). Its IndexService traversal
+bound is captured from DiskService.MAX_ITEMS_COUNT before the new file's
+in-memory bulk data reaches disk. This is consistent with a false loop bound,
+not proof of an actual pointer cycle. No library workaround is applied.
 Open/close measures 20 sequential writable opens of that checkpointed database,
 including collection-name enumeration and disposal; OS file cache is not cleared.
 Explicit checkpoint starts with 100k docs in uncheckpointed WAL (CHECKPOINT=0
