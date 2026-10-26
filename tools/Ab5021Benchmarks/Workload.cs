@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using LiteDB;
+using LiteDB.Engine;
 
 namespace Ab5021Benchmarks;
 
