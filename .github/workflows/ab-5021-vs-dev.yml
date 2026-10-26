@@ -1,0 +1,54 @@
+name: A-B LiteDB 5.0.21 vs dev
+
+on:
+  push:
+    branches: ['perf/ab-5021-vs-dev']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    if: github.repository == 'JKamsker/LiteDB' && github.ref == 'refs/heads/perf/ab-5021-vs-dev'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        framework: [net8.0, net10.0]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Verify candidate and build identical production harnesses
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git diff --exit-code b3c4406231908c6ca29f6d4b2769aa08351d6fc2 -- LiteDB Directory.Build.props Directory.Build.targets
+          if ($LASTEXITCODE) { throw 'Candidate library differs from pinned dev' }
+          foreach ($version in @('V5', 'V6')) {
+            dotnet build "tools/Ab5021Benchmarks/$version/$version.csproj" -c Release -f '${{ matrix.framework }}' '-p:TargetFrameworks=${{ matrix.framework }}' -p:TestingEnabled=false -p:GitVersionEnabled=false --nologo
+            if ($LASTEXITCODE) { throw "Build failed: $version" }
+          }
+      - name: Interleaved six-round A-B comparison
+        shell: pwsh
+        run: python tools/Ab5021Benchmarks/run.py '${{ matrix.framework }}' 'artifacts_temp/ab-5021'
+      - name: Preserve measurements and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ab-5021-${{ matrix.os }}-${{ matrix.framework }}
+          path: artifacts_temp/ab-5021/
+          if-no-files-found: warn
+          retention-days: 30
