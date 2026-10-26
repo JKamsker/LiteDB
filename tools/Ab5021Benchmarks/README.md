@@ -28,7 +28,8 @@ Point lookups retrieve 10k full documents by indexed Key using fixed random ids;
 full scan materializes 3x100k documents through an unindexed `Value >= 0` query.
 These are warm-cache measurements, after an untimed full contents check.
 Update and delete each affect the first 10k docs in one explicit transaction.
-Rebuild operates on the remaining 90k docs with the same primary/secondary indexes.
+Rebuild operates on the remaining 90k docs with the same primary/secondary indexes,
+passing the existing collation explicitly (v5 otherwise defaults the replacement).
 Open/close measures 20 sequential writable opens of that checkpointed database,
 including collection-name enumeration and disposal; OS file cache is not cleared.
 Explicit checkpoint starts with 100k docs in uncheckpointed WAL (CHECKPOINT=0
