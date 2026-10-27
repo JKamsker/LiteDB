@@ -157,7 +157,7 @@ internal sealed partial class Workload
         using (var db = Open(path)) Verify(db.GetCollection<Document>("documents"), 0);
     }
 
-    private LiteDatabase Open(string path)
+    private LiteDatabase Open(string path, bool cacheOnly = false)
     {
         if (!_record) Console.WriteLine($"{_config} warmup opening {Path.GetFileName(path)}");
         var connection = new ConnectionString
@@ -166,7 +166,7 @@ internal sealed partial class Workload
             Collation = new Collation(127, System.Globalization.CompareOptions.Ordinal)
         };
 #if DEV
-        connection.DurableCommits = _config != "dev-os-cache";
+        connection.DurableCommits = !cacheOnly && _config != "dev-os-cache";
 #endif
         return new LiteDatabase(connection);
     }

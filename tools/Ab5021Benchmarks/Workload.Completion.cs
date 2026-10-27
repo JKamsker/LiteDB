@@ -15,7 +15,7 @@ internal sealed partial class Workload
     private void SmallCompletion(string name, int count, bool checkpointZero, bool sustained)
     {
         var path = Path.Combine(_root, name + ".db");
-        var db = Open(path);
+        var db = Open(path, cacheOnly: checkpointZero || sustained);
         var tails = new long[count];
         if (checkpointZero) db.CheckpointSize = 0;
         var col = db.GetCollection<Document>("documents");
@@ -49,8 +49,8 @@ internal sealed partial class Workload
             var directoryBytes = Directory.GetFiles(_root).Sum(file => new FileInfo(file).Length);
             if (!checkpointZero && !sustained)
                 Samples.Add(new Sample("single_insert_5k_tx", foreground, count, dataBytes, directoryBytes, completion));
-            var scenario = checkpointZero ? "single_insert_5k_cp0_with_drain_close" :
-                sustained ? "sustained_insert_20k_with_close" : "single_insert_5k_tx_with_close";
+            var scenario = checkpointZero ? "single_insert_5k_cp0_os_cache_with_drain_close" :
+                sustained ? "sustained_insert_20k_os_cache_with_close" : "single_insert_5k_tx_with_close";
             Samples.Add(new Sample(scenario, elapsed, count, dataBytes, directoryBytes, completion));
             Console.WriteLine($"{_config} {scenario}: {elapsed:F3} ms; foreground={foreground:F3}, drain={elapsed - foreground:F3}, peak={completion.peakPhysicalWalBytes}, p99={completion.commitP99Milliseconds:F3}");
         }

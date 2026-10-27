@@ -236,3 +236,12 @@ unpinned harness; the deterministic safety tests are separate evidence.
 MacOS uses twelve rounds; no slow rounds are discarded. The expanded same-job
 measurement budget is 38 minutes within a 44-minute job limit. All original
 thresholds, data shapes, OS/runtime jobs and identity checks remain intact.
+
+The added CP0 residual and sustained 20k companions are explicitly OS-cache
+controls on all variants, including children labelled dev-default. Their scenario
+names include os_cache. The original single_insert_5k_tx and its contiguous-close
+companion retain each child's original durability setting; original durable writer
+scaling also remains unchanged. First qualification attempt 40567110611 exceeded
+Windows's child budget in the before binary because these EXTRA controls had
+needlessly performed another 25k durable commits. No gate limit, original workload,
+original durable setting, child timeout or round count was reduced to address it.

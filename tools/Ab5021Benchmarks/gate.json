@@ -69,11 +69,11 @@
       "operations": 5000,
       "maxRatio": 1.1
     },
-    "single_insert_5k_cp0_with_drain_close": {
+    "single_insert_5k_cp0_os_cache_with_drain_close": {
       "operations": 5000,
       "maxRatio": null
     },
-    "sustained_insert_20k_with_close": {
+    "sustained_insert_20k_os_cache_with_close": {
       "operations": 20000,
       "maxRatio": null
     }
