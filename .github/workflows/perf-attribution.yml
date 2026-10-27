@@ -1,0 +1,60 @@
+name: P1-K CP0 commit residual research
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  residual:
+    if: github.repository == 'JKamsker/LiteDB' && github.ref == 'refs/heads/v6/p1k-commit-residual'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        framework: [net8.0, net10.0]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate offline analysis tooling
+        shell: bash
+        run: python -m unittest discover -s tools/CommitResidualBenchmarks -p 'test_commit*.py' -v
+      - name: Install Linux diagnostic tools
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          dotnet tool install --tool-path "$RUNNER_TEMP/p1k-diagnostics" dotnet-trace
+          echo "$RUNNER_TEMP/p1k-diagnostics" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y strace
+      - name: Collect CP0 timings and separate diagnostics
+        shell: pwsh
+        run: |
+          python tools/CommitResidualBenchmarks/commit_residual.py '${{ matrix.framework }}' 'artifacts_temp/p1k'
+          if ($LASTEXITCODE) { throw 'P1-K evidence incomplete; inspect preserved logs' }
+      - name: Preserve evidence without build outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1k-${{ matrix.os }}-${{ matrix.framework }}
+          path: |
+            artifacts_temp/p1k/*.json
+            artifacts_temp/p1k/*.md
+            artifacts_temp/p1k/*.log
+            artifacts_temp/p1k/*.txt
+            artifacts_temp/p1k/*.nettrace
+          retention-days: 30
+          if-no-files-found: warn

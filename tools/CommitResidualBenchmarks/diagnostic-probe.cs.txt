@@ -1,0 +1,76 @@
+// Generated into CI-only disposable source worktrees; never compiled into a shipped library.
+using System;
+using System.Diagnostics;
+using System.Globalization;
+using System.Text;
+
+namespace LiteDB
+{
+    public static class P1KProbe
+    {
+        private static readonly string[] Names = { "other-insert-mapping-index",
+            "transaction-begin-commit", "monitor-safepoint", "wal-frame-checksum-copy",
+            "wal-padding-setlength", "stream-flush", "cache-wal-index", "owner-host-check",
+            "compact-prepare-encode", "group-ineligible-check", "wal-bookkeeping",
+            "raw-stream-write", "extent-reservation", "DEVICE-SYNC", "CHECKPOINT", "GROUP-ACTIVE" };
+        [ThreadStatic] private static bool Active;
+        [ThreadStatic] private static int Current;
+        [ThreadStatic] private static int Depth;
+        [ThreadStatic] private static long Last;
+        [ThreadStatic] private static long Started;
+        [ThreadStatic] private static long[] Ticks;
+        [ThreadStatic] private static long[] Counts;
+
+        public static void Begin()
+        {
+            if (Active) throw new InvalidOperationException("Nested diagnostic window");
+            Ticks = new long[Names.Length]; Counts = new long[Names.Length];
+            Current = 0; Depth = 0; Active = true;
+            Started = Last = Stopwatch.GetTimestamp();
+        }
+
+        public static Scope Enter(int id)
+        {
+            if (!Active) return default(Scope);
+            var now = Stopwatch.GetTimestamp();
+            Ticks[Current] += now - Last;
+            var parent = Current;
+            Current = id; Counts[id]++; Depth++; Last = now;
+            return new Scope(parent, true);
+        }
+
+        public static string End()
+        {
+            var now = Stopwatch.GetTimestamp();
+            Ticks[Current] += now - Last;
+            Active = false;
+            if (Depth != 0) throw new InvalidOperationException("Unbalanced diagnostic scopes");
+            var text = new StringBuilder("{\"totalMs\":");
+            text.Append(Ms(now - Started)).Append(",\"rows\":[");
+            for (var i = 0; i < Names.Length; i++)
+            {
+                if (i != 0) text.Append(',');
+                text.Append("{\"component\":\"").Append(Names[i]).Append("\",\"milliseconds\":")
+                    .Append(Ms(Ticks[i])).Append(",\"calls\":").Append(Counts[i]).Append('}');
+            }
+            return text.Append("]}").ToString();
+        }
+
+        private static string Ms(long ticks) =>
+            (ticks * 1000.0 / Stopwatch.Frequency).ToString("R", CultureInfo.InvariantCulture);
+
+        public readonly struct Scope : IDisposable
+        {
+            private readonly int Parent;
+            private readonly bool Enabled;
+            public Scope(int parent, bool enabled) { Parent = parent; Enabled = enabled; }
+            public void Dispose()
+            {
+                if (!Enabled) return;
+                var now = Stopwatch.GetTimestamp();
+                Ticks[Current] += now - Last;
+                Current = Parent; Depth--; Last = now;
+            }
+        }
+    }
+}
