@@ -33,7 +33,7 @@
       ],
       "disposition": "strengthened",
       "invariant": "Retain every OS/runtime benchmark job and all original performance thresholds; reject incomplete measurement evidence.",
-      "reason": "Fork-only scratch increases same-job time budget for additional contiguous close/drain, CP0, twenty-thousand insert, and twelve-round macOS measurements. No existing gate is loosened."
+      "reason": "Fork-only scratch increases same-job time budget for additional contiguous close/drain, CP0, twenty-thousand insert, and twelve-round macOS measurements. No existing gate is loosened. Final Windows continuation increases only its outer budget to 90 minutes (96-minute job), preserving six rounds, all original scenarios/configurations/scaling, child timeout and thresholds; optional Windows matrix avoids rerunning completed OS jobs, while the default remains all OSes."
     },
     {
       "id": "p1-bg7-additive-worker-compatibility",

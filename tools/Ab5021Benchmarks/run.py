@@ -132,7 +132,10 @@ def main():
         handle.write(environment_summary)
     start = time.monotonic()
     rounds = rounds_for_os(os.environ["RUNNER_OS"])
-    budget = 38 * 60 if comparison else 24 * 60 if os.environ["RUNNER_OS"] == "macOS" else 35 * 60
+    # Same six Windows rounds include original durable scaling in both variants/configs.
+    # Thirty-eight minutes truncated a progressing fourth/fifth round; retain all
+    # scenarios and the 360-second child cap, and allow the full matrix to finish.
+    budget = (90 if os.environ["RUNNER_OS"] == "Windows" else 38) * 60 if comparison else 24 * 60 if os.environ["RUNNER_OS"] == "macOS" else 35 * 60
     for round_number in range(1, rounds + 1):
         # Filtered to either A/B pair, this gives A,B,B,A,A,B,B,A,...
         order = comparison_order(round_number) if comparison else [("after", c) for c in execution_order(round_number)]
