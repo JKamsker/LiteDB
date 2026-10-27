@@ -11,6 +11,8 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
+        if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") != "true")
+            throw new InvalidOperationException("P1-D workloads may run only on GitHub Actions.");
         var config = args[0];
         var round = int.Parse(args[1]);
         var output = Path.GetFullPath(args[2]);
@@ -22,7 +24,14 @@ internal static class Program
             // Tiered compilation is disabled by the orchestrator for optimized first JITs.
             new Workload(config, Path.Combine(root, "warmup"), 2000, 100, false).Run();
             var workload = new Workload(config, Path.Combine(root, "measured"), 100000, 5000, true);
+            var repetitions = int.Parse(Environment.GetEnvironmentVariable("P1D_REPETITIONS") ?? "1");
             workload.Run();
+            for (var i = 1; i < repetitions; i++)
+            {
+                var repeat = new Workload(config, Path.Combine(root, "repeat-" + i), 100000, 5000, true);
+                repeat.Run();
+                workload.Samples.AddRange(repeat.Samples);
+            }
             var assembly = typeof(LiteDatabase).Assembly;
             var result = new
             {
@@ -36,9 +45,11 @@ internal static class Program
                 assembly = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
                 assemblySha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assembly.Location))),
                 sourceCommit = Environment.GetEnvironmentVariable("GITHUB_SHA"),
-                devCommit = "b3c4406231908c6ca29f6d4b2769aa08351d6fc2",
+                libraryRef = Environment.GetEnvironmentVariable("P1D_LIBRARY_REF"),
                 seed = 5021,
                 checkpointPages = 1000,
+                repetitions,
+                settings = Settings.Describe(config),
                 samples = workload.Samples
             };
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
@@ -65,4 +76,5 @@ public sealed class Document
     public string Payload { get; set; } = "";
 }
 
-internal sealed record Sample(string scenario, double milliseconds, int operations, long dataBytes, long directoryBytes);
+internal sealed record Sample(string scenario, double milliseconds, int operations, long dataBytes,
+    long directoryBytes, double cpuMs, long allocatedBytes, int gen0, int gen1, int gen2);

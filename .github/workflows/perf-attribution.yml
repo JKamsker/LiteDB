@@ -1,0 +1,73 @@
+name: P1-D runner perf attribution
+
+on:
+  push:
+    branches: ['v6/perf-attribution']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  attribute:
+    if: github.repository == 'JKamsker/LiteDB' && github.ref == 'refs/heads/v6/perf-attribution'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        framework: [net8.0, net10.0]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install Linux diagnostic tools
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          dotnet tool install --tool-path "$RUNNER_TEMP/p1d-diagnostics" dotnet-trace
+          dotnet tool install --tool-path "$RUNNER_TEMP/p1d-diagnostics" dotnet-counters
+          echo "$RUNNER_TEMP/p1d-diagnostics" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y strace linux-tools-common linux-tools-generic
+          sudo sysctl -w kernel.perf_event_paranoid=-1
+          sudo sysctl -w kernel.kptr_restrict=0
+          # Hosted images can run a newer kernel than the generic tools package.
+          # Use the installed real perf binary instead of the kernel-version wrapper.
+          perf_binary=$(find /usr/lib -maxdepth 4 -type f -name perf | sort -V | tail -n 1)
+          test -n "$perf_binary"
+          mkdir -p "$RUNNER_TEMP/p1d-tools"
+          ln -s "$perf_binary" "$RUNNER_TEMP/p1d-tools/perf"
+          echo "$RUNNER_TEMP/p1d-tools" >> "$GITHUB_PATH"
+      - name: Run interleaved controls and Linux diagnostics
+        shell: pwsh
+        run: |
+          python tools/Ab5021Benchmarks/attribution.py '${{ matrix.framework }}' 'artifacts_temp/p1d'
+          if ($LASTEXITCODE) { throw 'P1-D evidence incomplete; inspect preserved output' }
+      - name: Preserve measurements and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1d-${{ matrix.os }}-${{ matrix.framework }}
+          path: |
+            artifacts_temp/p1d/*.json
+            artifacts_temp/p1d/*.csv
+            artifacts_temp/p1d/*.md
+            artifacts_temp/p1d/*.log
+            artifacts_temp/p1d/*.txt
+            artifacts_temp/p1d/*.nettrace
+            artifacts_temp/p1d/*.data
+            artifacts_temp/p1d/*.stacks
+            artifacts_temp/p1d/*.map
+          if-no-files-found: warn
+          retention-days: 30

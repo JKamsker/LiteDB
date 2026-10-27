@@ -34,7 +34,7 @@ internal sealed class Workload
         var path = Path.Combine(_root, "main.db");
         using (var db = Open(path))
         {
-            Require(db.CheckpointSize == 1000, "default checkpoint threshold changed");
+            Require(db.CheckpointSize == (_config.EndsWith("no-checkpoint") ? 0 : 1000), "checkpoint threshold changed");
             var col = db.GetCollection<Document>("documents");
             col.EnsureIndex(x => x.Key, true);
             Measure("bulk_insert_100k", _count, path, () =>
@@ -145,9 +145,11 @@ internal sealed class Workload
             Collation = new Collation(127, System.Globalization.CompareOptions.Ordinal)
         };
 #if DEV
-        connection.DurableCommits = _config != "dev-os-cache";
+        Settings.Configure(connection, _config);
 #endif
-        return new LiteDatabase(connection);
+        var database = new LiteDatabase(connection);
+        if (_config.EndsWith("no-checkpoint")) database.CheckpointSize = 0;
+        return database;
     }
 
     private void Verify(ILiteCollection<Document> col, int deleted)
@@ -164,12 +166,26 @@ internal sealed class Workload
 
     private void Measure(string scenario, int operations, string path, Action action)
     {
+        if (!_record) { action(); return; }
+        Console.Error.WriteLine($"P1D_BEGIN {scenario}");
+        using var process = Process.GetCurrentProcess();
+        var cpu = process.TotalProcessorTime;
+        var allocated = GC.GetTotalAllocatedBytes(true);
+        var gen0 = GC.CollectionCount(0);
+        var gen1 = GC.CollectionCount(1);
+        var gen2 = GC.CollectionCount(2);
         var watch = Stopwatch.StartNew();
-        action();
+        Measurement.Run(scenario, action);
         watch.Stop();
-        if (!_record) return;
+        var cpuMs = (process.TotalProcessorTime - cpu).TotalMilliseconds;
+        var allocatedBytes = GC.GetTotalAllocatedBytes(true) - allocated;
+        gen0 = GC.CollectionCount(0) - gen0;
+        gen1 = GC.CollectionCount(1) - gen1;
+        gen2 = GC.CollectionCount(2) - gen2;
+        Console.Error.WriteLine($"P1D_END {scenario}");
         var totalBytes = Directory.GetFiles(_root).Sum(file => new FileInfo(file).Length);
-        Samples.Add(new Sample(scenario, watch.Elapsed.TotalMilliseconds, operations, new FileInfo(path).Length, totalBytes));
+        Samples.Add(new Sample(scenario, watch.Elapsed.TotalMilliseconds, operations, new FileInfo(path).Length,
+            totalBytes, cpuMs, allocatedBytes, gen0, gen1, gen2));
         Console.WriteLine($"{_config} {scenario}: {watch.Elapsed.TotalMilliseconds:F3} ms");
     }
 
