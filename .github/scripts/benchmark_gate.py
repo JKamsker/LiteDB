@@ -36,6 +36,35 @@ def rounds_for_os(config, operating_system):
     return config.get("roundsByOS", {}).get(operating_system, config["rounds"])
 
 
+def validate_completion(sample, background_required=False):
+    completion = sample.get("completion")
+    if not isinstance(completion, dict):
+        raise ValueError("Missing completion measurements")
+    def nonnegative(value):
+        return type(value) in (int, float) and math.isfinite(value) and value >= 0
+    foreground, close = completion.get("foregroundMilliseconds"), completion.get("closeMilliseconds")
+    if not positive(foreground) or not nonnegative(close):
+        raise ValueError("Invalid completion time")
+    expected = foreground if sample["scenario"] == "single_insert_5k_tx" else foreground + close
+    if not math.isclose(sample["milliseconds"], expected, rel_tol=1e-9, abs_tol=1e-6):
+        raise ValueError("Completion timer excludes drain/close")
+    if completion.get("finalWalBytes") != 0 or completion.get("workerExited") is False:
+        raise ValueError("Completion retained WAL or a live worker")
+    tails = [completion.get("commit" + name + "Milliseconds") for name in ("P50", "P95", "P99", "Max")]
+    if any(not nonnegative(value) for value in tails) or tails != sorted(tails):
+        raise ValueError("Invalid commit tail latencies")
+    for field in ("peakPhysicalWalBytes", "peakLogicalPages", "admissionWaitCount", "requestCount", "passCount"):
+        value = completion.get(field)
+        if value is not None and (type(value) is not int or value < 0):
+            raise ValueError("Invalid completion peak/counter")
+    if background_required and (completion.get("workerExited") is not True or
+                                not positive(completion.get("peakPhysicalWalBytes")) or
+                                not positive(completion.get("peakLogicalPages"))):
+        raise ValueError("Missing production worker peak/exit evidence")
+    if not completion.get("peakAccounting"):
+        raise ValueError("Missing peak accounting provenance")
+
+
 def read_samples(directory, config, operating_system, framework, expected_commit=None):
     """Reject incomplete/duplicate rounds and workload changes before judging speed."""
     validate_config(config)
@@ -70,6 +99,8 @@ def read_samples(directory, config, operating_system, framework, expected_commit
             if (not positive(elapsed) or type(sample["operations"]) is not int
                     or sample["operations"] != expected[scenario]["operations"]):
                 raise ValueError(f"Invalid time or workload size: {path.name}/{scenario}")
+            if result.get("completionSchemaVersion") == 1 and (scenario.startswith("single_insert_") or scenario.startswith("sustained_insert_")):
+                validate_completion(sample, result.get("backgroundRequired", False))
             samples.setdefault((name, scenario), []).append(elapsed)
     if len(seen) != len(configs) * rounds_for_os(config, operating_system):
         raise ValueError("Incomplete round set; do not judge partial measurements")

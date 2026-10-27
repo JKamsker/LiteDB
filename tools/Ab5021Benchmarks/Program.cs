@@ -32,6 +32,8 @@ internal static class Program
             var result = new
             {
                 config, round,
+                completionSchemaVersion = 1,
+                backgroundRequired = Environment.GetEnvironmentVariable("BENCHMARK_REQUIRE_BACKGROUND") == "true",
                 os = RuntimeInformation.OSDescription,
                 runnerOS = Environment.GetEnvironmentVariable("RUNNER_OS"),
                 architecture = RuntimeInformation.ProcessArchitecture.ToString(),
@@ -72,4 +74,4 @@ public sealed class Document
     public string Payload { get; set; } = "";
 }
 
-internal sealed record Sample(string scenario, double milliseconds, int operations, long dataBytes, long directoryBytes);
+internal sealed record Sample(string scenario, double milliseconds, int operations, long dataBytes, long directoryBytes, CompletionMeasurements? completion = null);

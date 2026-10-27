@@ -132,7 +132,7 @@ def main():
         handle.write(environment_summary)
     start = time.monotonic()
     rounds = rounds_for_os(os.environ["RUNNER_OS"])
-    budget = 23 * 60 if comparison else 24 * 60 if os.environ["RUNNER_OS"] == "macOS" else 35 * 60
+    budget = 38 * 60 if comparison else 24 * 60 if os.environ["RUNNER_OS"] == "macOS" else 35 * 60
     for round_number in range(1, rounds + 1):
         # Filtered to either A/B pair, this gives A,B,B,A,A,B,B,A,...
         order = comparison_order(round_number) if comparison else [("after", c) for c in execution_order(round_number)]
@@ -145,6 +145,7 @@ def main():
             if variant == "before":
                 dll = ROOT / "V6Before" / f"{project}.dll"
             child_env = dict(env)
+            child_env["BENCHMARK_REQUIRE_BACKGROUND"] = "true" if variant == "after" and config != "v5" else "false"
             if variant == "before":
                 child_env["BENCHMARK_CANDIDATE_SHA"] = env["BENCHMARK_BASELINE_SHA"]
             child_output = output / "before" if variant == "before" else output

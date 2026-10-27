@@ -26,6 +26,16 @@
   ],
   "dispositions": [
     {
+      "id": "p1-bg7-scratch-completion-controls",
+      "kind": "ci-test-config-changed",
+      "subjects": [
+        ".github/workflows/benchmark-gate.yml"
+      ],
+      "disposition": "strengthened",
+      "invariant": "Retain every OS/runtime benchmark job and all original performance thresholds; reject incomplete measurement evidence.",
+      "reason": "Fork-only scratch increases same-job time budget for additional contiguous close/drain, CP0, twenty-thousand insert, and twelve-round macOS measurements. No existing gate is loosened."
+    },
+    {
       "id": "p1-bg7-additive-worker-compatibility",
       "kind": "harness-changed",
       "subjects": [

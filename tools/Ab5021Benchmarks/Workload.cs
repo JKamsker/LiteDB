@@ -3,7 +3,7 @@ using LiteDB;
 
 namespace Ab5021Benchmarks;
 
-internal sealed class Workload
+internal sealed partial class Workload
 {
     private readonly string _config;
     private readonly string _root;
@@ -136,27 +136,6 @@ internal sealed class Workload
             }
         });
         Require(total == 3 * _documents.Sum(d => (long)d.Value), "aggregate checksum");
-    }
-
-    private void SmallTransactions()
-    {
-        var path = Path.Combine(_root, "small.db");
-        using (var db = Open(path))
-        {
-            var col = db.GetCollection<Document>("documents");
-            col.EnsureIndex(x => x.Key, true);
-            Measure("single_insert_5k_tx", _small, path, () =>
-            {
-                foreach (var doc in _documents.Take(_small)) col.Insert(doc);
-            });
-            Require(col.Count() == _small, "small transaction count");
-        }
-        using (var db = Open(path))
-        {
-            var docs = db.GetCollection<Document>("documents").FindAll().ToArray();
-            Require(docs.Length == _small && docs.Sum(d => (long)d.Id) == (long)_small * (_small + 1) / 2,
-                "small transaction reopen");
-        }
     }
 
     private void Checkpoint()

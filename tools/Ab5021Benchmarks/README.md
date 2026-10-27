@@ -214,3 +214,25 @@ regression rejection, median calculations, both sides of noise, report-only
 scenarios, incomplete/malformed evidence, identity checks, process ordering,
 summaries, and machine-readable CLI output. Run the repository C# size check on
 the staged diff as well.
+
+### P1-BG7 fork-only Candidate C qualification
+
+This scratch branch enables the internal worker default solely for hosted A/B.
+It must never be pushed upstream. The production parent remains default OFF.
+The unchanged foreground gate is accompanied by a separate <=1.10x 5k
+insert-through-immediate-Dispose gate. No correctness query, file stat or metric
+read occurs between the final insert and close. CP0 explicitly drains before
+closing and is labelled separately; a 20k insert companion spans several pressure
+cycles. All companions check reopened payloads and persisted index results.
+Per-commit p50/p95/p99/max include insert time; close/drain and total are separate.
+The candidate's exact physical/logical peak counters include setup and close,
+footer/padding/preamble, and exclude KEEP_SIZE reservations. v5 and before lack
+those counters and explicitly report null peaks rather than polling estimates.
+Candidate admission waits, requests, completed passes and active time are retained.
+The production metrics stay enabled in CP0, so that control includes their cost;
+this comparison does not isolate per-counter overhead from all worker changes.
+No slow-device or pinned-reader throughput qualification is inferred from this
+unpinned harness; the deterministic safety tests are separate evidence.
+MacOS uses twelve rounds; no slow rounds are discarded. The expanded same-job
+measurement budget is 38 minutes within a 44-minute job limit. All original
+thresholds, data shapes, OS/runtime jobs and identity checks remain intact.

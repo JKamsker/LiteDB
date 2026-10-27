@@ -237,7 +237,8 @@ class BenchmarkGateTests(unittest.TestCase):
     def test_checked_in_limits_match_owner_brief(self):
         expected = {"single_insert_5k_tx": 1.10, "bulk_insert_100k": 1.10,
                     "full_scan_3x100k": 1.10, "update_10k_one_tx": 1.10,
-                    "delete_10k_one_tx": 1.10, "indexed_point_10k": 1.05}
+                    "delete_10k_one_tx": 1.10, "indexed_point_10k": 1.05,
+                    "single_insert_5k_tx_with_close": 1.10}
         actual = {name: rule["maxRatio"] for name, rule in CONFIG["scenarios"].items() if rule["maxRatio"] is not None}
         self.assertEqual(expected, actual)
         self.assertEqual("dev-os-cache", CONFIG["candidate"])
@@ -297,28 +298,28 @@ class BenchmarkGateTests(unittest.TestCase):
                 self.assertFalse(self.evaluate()["rerunRequired"])
 
     def test_macos_high_spread_pass_fail_and_ambiguous(self):
-        # Ten rounds, including large outliers: bounds alone decide clear cases.
+        # Twelve rounds, including large outliers: bounds alone decide clear cases.
         for path in self.output.glob("round-*.json"):
             result = json.loads(path.read_text())
             result["runnerOS"] = "macOS"
             path.write_text(json.dumps(result))
         for name in RUNNER.CONFIGS:
-            for number in range(7, 11):
+            for number in range(7, 13):
                 result = json.loads(self.path(name, 1).read_text())
                 result["round"] = number
                 self.path(name, number).write_text(json.dumps(result))
-        for values, expected in (([50] * 9 + [110], "pass"),
-                                 ([111] * 9 + [200], "fail"),
-                                 ([100] * 9 + [200], "noisy"),
-                                 ([110] * 9 + [200], "noisy")):
+        for values, expected in (([50] * 11 + [110], "pass"),
+                                 ([111] * 11 + [200], "fail"),
+                                 ([100] * 11 + [200], "noisy"),
+                                 ([110] * 11 + [200], "noisy")):
             self.times("dev-os-cache", "single_insert_5k_tx", values)
             report = gate.evaluate(self.output, CONFIG, "macOS", "net8.0")
             self.assertEqual(expected, self.row(report)["verdict"])
-            self.assertEqual(10, report["rounds"])
+            self.assertEqual(12, report["rounds"])
         with patch.dict(os.environ, {"RUNNER_OS": "macOS"}), \
                 patch.object(sys, "argv", ["run.py", "net8.0"]), redirect_stdout(io.StringIO()):
             RUNNER.summarize(self.output)
-        self.assertIn("10 rounds per configuration", (self.output / "synthetic-summary.md").read_text())
+        self.assertIn("12 rounds per configuration", (self.output / "synthetic-summary.md").read_text())
         self.path("v5", 10).unlink()
         with self.assertRaisesRegex(ValueError, "Incomplete"):
             gate.evaluate(self.output, CONFIG, "macOS", "net8.0")
@@ -330,7 +331,7 @@ class BenchmarkGateTests(unittest.TestCase):
         self.assertEqual("noisy", row["verdict"])
 
     def test_round_config_and_ten_round_alternation(self):
-        for operating_system, count in (("Linux", 6), ("Windows", 6), ("macOS", 10)):
+        for operating_system, count in (("Linux", 6), ("Windows", 6), ("macOS", 12)):
             self.assertEqual(count, gate.rounds_for_os(CONFIG, operating_system))
             self.assertEqual(count, RUNNER.rounds_for_os(operating_system))
             for candidate in ("dev-default", "dev-os-cache"):
@@ -455,11 +456,49 @@ class BenchmarkGateTests(unittest.TestCase):
                 patch.object(sys, "argv", ["run.py", "net8.0"]), redirect_stdout(io.StringIO()):
             RUNNER.summarize(self.output)
         summary = json.loads((self.output / "summary.json").read_text())
-        self.assertEqual(36, len(summary))
+        self.assertEqual(3 * len(CONFIG["scenarios"]) + len(CONFIG["scalingScenarios"]), len(summary))
         for row in summary:
             self.assertEqual(100, row["medianMs"])
             self.assertEqual(100, row["minMs"])
         self.assertIn("v6 scaling only", summary_path.read_text())
+
+class CompletionMeasurementsTests(unittest.TestCase):
+    def sample(self):
+        return dict(scenario="single_insert_5k_tx_with_close", milliseconds=120,
+                    completion=dict(foregroundMilliseconds=100, closeMilliseconds=20, finalWalBytes=0,
+                                    peakPhysicalWalBytes=32768, peakLogicalPages=3, admissionWaitCount=0,
+                                    requestCount=2, passCount=1, workerExited=True,
+                                    commitP50Milliseconds=.1, commitP95Milliseconds=.2,
+                                    commitP99Milliseconds=.3, commitMaxMilliseconds=1,
+                                    peakAccounting="exact successful extents"))
+
+    def test_completion_includes_drain_and_requires_worker_peak(self):
+        gate.validate_completion(self.sample(), True)
+        for field, value in (("closeMilliseconds", -1), ("foregroundMilliseconds", 0),
+                             ("finalWalBytes", 8192), ("workerExited", False),
+                             ("peakPhysicalWalBytes", None), ("peakPhysicalWalBytes", -1),
+                             ("peakLogicalPages", 1.5), ("commitP99Milliseconds", .01),
+                             ("peakAccounting", "")):
+            with self.subTest(field=field, value=value):
+                sample = self.sample()
+                sample["completion"][field] = value
+                with self.assertRaises(ValueError):
+                    gate.validate_completion(sample, True)
+        sample = self.sample()
+        sample["milliseconds"] = 100
+        with self.assertRaisesRegex(ValueError, "excludes drain"):
+            gate.validate_completion(sample, True)
+        sample.pop("completion")
+        with self.assertRaisesRegex(ValueError, "Missing completion"):
+            gate.validate_completion(sample)
+
+    def test_before_and_v5_disclose_unavailable_peaks(self):
+        sample = self.sample()
+        sample["completion"].update(peakPhysicalWalBytes=None, peakLogicalPages=None, workerExited=None,
+                                    peakAccounting="unavailable in released/before binary")
+        gate.validate_completion(sample)
+        with self.assertRaisesRegex(ValueError, "worker peak"):
+            gate.validate_completion(sample, True)
 
 
 if __name__ == "__main__":
