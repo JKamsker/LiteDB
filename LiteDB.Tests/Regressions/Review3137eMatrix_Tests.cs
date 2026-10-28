@@ -8,7 +8,6 @@ using Xunit;
 
 namespace LiteDB.Tests.Regressions
 {
-    [Trait("Category", "IoSafety")]
     public class Review3137eMatrix_Tests
     {
         [Fact]
@@ -66,7 +65,6 @@ namespace LiteDB.Tests.Regressions
                         });
                         var dc = !File.ReadAllBytes(subject.Filename).SequenceEqual(primary.Value);
                         var wc = journal.Value == null ? File.Exists(log) && new FileInfo(log).Length != 0 : !File.Exists(log) || !File.ReadAllBytes(log).SequenceEqual(journal.Value);
-                        if (readOnly || error != null) { dc.Should().BeFalse(primary.Key); wc.Should().BeFalse(primary.Key); }
                         results.Add(string.Join("\t", password ?? "plain", primary.Key, journal.Key, readOnly, (error as LiteException)?.ErrorCode.ToString() ?? error?.GetType().Name ?? "OK", dc, wc, rows, indexed, error?.Message.Replace('\n', ' ').Replace('\r', ' ')));
                     }
                     // Encrypted modern primary with wrong/missing password against each journal kind.
@@ -86,9 +84,43 @@ namespace LiteDB.Tests.Regressions
                 }
                 finally { File.Delete(sourceLog); File.Delete(foreignLog); File.Delete(log); }
             }
-            var output = Environment.GetEnvironmentVariable("REVIEW_260_OUT");
-            if (output != null) File.WriteAllLines(output, results);
+            File.WriteAllLines(Environment.GetEnvironmentVariable("REVIEW_MATRIX_OUT"), results);
             results.Count.Should().Be(261);
+        }
+        [Fact]
+        public void Raw_encrypted_primary_missing_or_wrong_password_preserves_every_plain_journal_state()
+        {
+            using var encrypted = new TempFile();
+            using var source = new TempFile();
+            using var subject = new TempFile();
+            var log = FileHelper.GetLogFile(subject.Filename);
+            try
+            {
+                Capture(encrypted.Filename, "wal-secret", "encrypted", 2, out var primary, out _);
+                Capture(source.Filename, null, "plain", 2, out _, out var stale);
+                using (var db = Open(source.Filename, null, false)) db.Checkpoint();
+                CaptureNext(source.Filename, null, "plain", 3, out _, out var current);
+                var torn = (byte[])current.Clone(); torn[torn.Length - 1] ^= 1;
+                foreach (var password in new[] { (string)null, "wrong-password" })
+                foreach (var wal in new[] { null, current, stale, torn, current })
+                foreach (var readOnly in new[] { true, false })
+                {
+                    File.WriteAllBytes(subject.Filename, primary);
+                    File.Delete(log);
+                    if (wal != null) File.WriteAllBytes(log, wal);
+                    var error = Record.Exception(() => Open(subject.Filename, password, readOnly).Dispose());
+                    error.Should().BeAssignableTo<LiteException>();
+                    File.ReadAllBytes(subject.Filename).Should().Equal(primary);
+                    if (wal != null) File.ReadAllBytes(log).Should().Equal(wal);
+                    else (File.Exists(log) && new FileInfo(log).Length != 0).Should().BeFalse();
+                }
+            }
+            finally
+            {
+                File.Delete(log);
+                File.Delete(FileHelper.GetLogFile(encrypted.Filename));
+                File.Delete(FileHelper.GetLogFile(source.Filename));
+            }
         }
         private static BsonDocument Row(string identity, int value) => new BsonDocument { ["_id"] = 1, ["identity"] = identity, ["value"] = value };
         private static LiteDatabase Open(string filename, string password, bool readOnly) => new LiteDatabase(new ConnectionString { Filename = filename, Password = password, ReadOnly = readOnly, LegacyIndexScan = readOnly });

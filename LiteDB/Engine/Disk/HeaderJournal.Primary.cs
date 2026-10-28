@@ -36,15 +36,10 @@ namespace LiteDB.Engine
                     version >= HeaderPage.CHECKSUM_FILE_VERSION && version <= HeaderPage.CURRENT_FILE_VERSION)
                     return;
             }
-            // No field of a checksum-invalid header can establish a foreign
-            // database. Data/index pages have no database identity; WAL salts
-            // bind frames to the journal, not to the primary. Validate journal
-            // authority even when modern format or a matching salt survives.
-            // This preserves torn-header recovery, but cannot authenticate a
-            // substituted file whose header identity was also damaged.
-            var nonzero = false;
-            for (var i = 0; i < 16; i++) nonzero |= Header[WalChecksum.SaltPosition + i] != 0;
-            if (nonzero && BodyChecksum == ComputeVerifiedBody(stream, Position, Header, null)) return;
+            // DESIGN PROBE: recovery requires positive primary-file identity.
+            // Modern data pages carry no database identity outside page zero.
+            // WAL trailers verify the substitutable WAL, not the primary file.
+            // No non-header same-database witness exists in this format.
             RefusePrimary();
         }
 
